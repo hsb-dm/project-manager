@@ -1,0 +1,46 @@
+<body>
+<div class="app-shell" id="appShell">
+<header class="topbar">
+<div class="topbar-inner">
+  <button class="iconbtn flat menu-btn" onclick="document.getElementById('nav').classList.toggle('open')" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div class="brand" role="button" tabindex="0" aria-label="Home" onclick="go('home')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" title="Home"><div class="ws-logo" id="wsLogo">AC</div><div style="min-width:0"><div class="ws-name" id="wsName">ZenCrevia</div><div class="ws-mode" id="wsMode">Brand Mode</div></div></div>
+  <nav class="nav" id="nav"></nav>
+  <button class="nav-messages" id="navMessages" data-tour="nav-messages" aria-label="Messages" title="Messages" onclick="go('messages')"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><span>Messages</span><span class="cnt" id="navMessagesBadge" style="display:none">0</span></button>
+  <div class="topbar-right">
+    <button class="iconbtn" id="searchBtn" aria-label="Search" onclick="toggleSearchBar()" title="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><div class="search"><svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="searchInput" placeholder="Search…" aria-label="Search everything" oninput="scheduleSearch(this.value)"><kbd id="searchShortcut">Ctrl K</kbd></div>
+    <button class="iconbtn" id="notifBtn" aria-label="Notifications" onclick="openPop('notifPop',this)" title="Notifications"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span class="dot" id="notifDot"></span></button>
+    <button class="iconbtn" id="exportBtn" aria-label="Export" onclick="openMenu('exportMenu',this)" title="Export"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg></button>
+    <button class="iconbtn" id="themeBtn" aria-label="Theme" onclick="openPop('themePop',this)" title="Theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
+    <div class="me" id="meBtn" role="button" tabindex="0" aria-label="Account menu" aria-haspopup="menu" onclick="openMenu('userMenu',this,userMenuHtml())" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"></div>
+  </div>
+</div>
+</header>
+<main class="app-scroll" id="appScroll"><div class="content" id="content"></div></main>
+</div>
+<button class="msgfab" id="msgFab" aria-label="Messages" title="Messages" onclick="go('messages')"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><span class="cnt" id="msgFabBadge" style="display:none">0</span></button>
+<button class="aifab" id="aiFab" data-tour="ai-intelligence" aria-label="AI Intelligence" title="AI Intelligence" onclick="aiChatToggle()"><svg viewBox="0 0 220.54 220.54"><path d="M0,110.27h0c60.9,0,110.27-49.37,110.27-110.27h0c0,60.9,49.37,110.27,110.27,110.27h0c-60.9,0-110.27,49.37-110.27,110.27h0c0-60.9-49.37-110.27-110.27-110.27Z"/></svg></button>
+<aside class="aichat" id="aiChat" role="complementary" aria-label="AI Intelligence"></aside>
+<nav class="tabbar" id="tabbar"></nav><div class="sheet" id="sheet"></div>
+<div class="conn off" id="conn"><i></i><span id="connTxt">Connecting…</span></div>
+
+<div class="pop" id="themePop" style="min-width:300px"><div class="pop-head">Quick theme<span class="spacer"></span><button class="btn ghost sm" onclick="closePops();go('settings','theme')">All settings</button></div><div style="padding:12px 14px;display:flex;flex-direction:column;gap:12px" id="quickTheme"></div></div>
+<div class="pop" id="notifPop"><div class="pop-head">Notifications<span class="spacer"></span><button class="btn ghost sm" onclick="markAllRead()">Mark all read</button></div><div class="pop-body" id="notifList"></div></div>
+<div class="menu" id="exportMenu">
+  <div class="mh">Export report</div>
+  <button onclick="closePops();exportModal('ppt')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>PowerPoint deck (.pptx)</button>
+  <button onclick="closePops();exportModal('xlsx')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>Excel workbook (.xlsx)</button>
+  <button onclick="closePops();exportModal('csv')"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/></svg>Tasks as CSV</button>
+  <div class="mh">Workspace</div>
+  <button onclick="closePops();exportJSON()"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg>Backup (.json)</button>
+  <button onclick="closePops();window.print()"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>Print / PDF</button>
+</div>
+<div class="menu" id="userMenu"></div>
+<div class="menu create-menu" id="createMenu"></div>
+<div class="menu" id="ctxMenu"></div>
+<div class="overlay" id="overlay" onclick="closeDrawer();toggleSheet(false)"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"><div class="dr-head" id="drHead"></div><div class="dr-body" id="drBody"></div><div class="dr-foot" id="drFoot"></div></aside>
+<div class="modal-wrap" id="modalWrap" onmousedown="this._md=(event.target===this)" onclick="if(event.target===this&&this._md)closeModal()"><div class="modal" id="modal"></div></div>
+<!-- Workspace Quest is rendered here so its spotlight is independent of drawers and modals. -->
+<div id="workspaceQuestRoot" class="workspace-quest-root" aria-live="polite"></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="fileInput" style="display:none">

@@ -1,0 +1,17 @@
+# ZenCrevia behind Caddy (automatic HTTPS). Replace the hostname, then:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# .env must then have: APP_URL=https://zen.example.co.id, COS_ALLOWED_ORIGINS=https://zen.example.co.id,
+# COS_TRUST_PROXY=1, PORT=3000
+zen.example.co.id {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000 {
+		# chat and the live board use a long-lived event stream
+		flush_interval -1
+		transport http {
+			read_timeout 0
+		}
+	}
+	request_body {
+		max_size 13MB
+	}
+}

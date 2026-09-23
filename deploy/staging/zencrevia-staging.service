@@ -1,0 +1,33 @@
+# Staging (v38.1): the release candidate runs here, on the same VPS, against a fresh copy of the
+# live database, before it is installed for everyone. It can never send email (COS_MAIL_FORCE_LOG).
+#   code   /opt/zencrevia-staging      data /var/lib/zencrevia-staging      port 3001
+#   config /etc/zencrevia/staging.env  (copy of zencrevia.env with PORT=3001, APP_URL/COS_ALLOWED_ORIGINS
+#          = https://staging.pm.automationhsb.pro, a DIFFERENT COS_SECRET_KEY is fine — stored AI/SMTP
+#          keys then simply do not decrypt on staging, which is what you want)
+# Install: sudo cp deploy/staging/zencrevia-staging.service /etc/systemd/system/ && sudo systemctl daemon-reload
+[Unit]
+Description=ZenCrevia (staging)
+After=network-online.target
+
+[Service]
+User=zencrevia
+WorkingDirectory=/opt/zencrevia-staging
+Environment=TZ=Asia/Jakarta
+StateDirectory=zencrevia-staging
+StateDirectoryMode=0700
+Environment=COS_DATA_DIR=/var/lib/zencrevia-staging
+Environment=COS_BACKUP_DIR=/var/lib/zencrevia-staging/backups
+Environment=COS_MAIL_FORCE_LOG=1
+Environment=COS_BACKUP_INTERVAL_HOURS=0
+ExecStart=/usr/bin/node --env-file=/etc/zencrevia/staging.env --no-warnings server/server.js
+Restart=on-failure
+RestartPreventExitStatus=78
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/zencrevia-staging
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

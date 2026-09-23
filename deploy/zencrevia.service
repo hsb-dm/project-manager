@@ -1,0 +1,44 @@
+# systemd unit (v38). Code, data and configuration live in three separate places, so replacing the
+# code on update can never delete the database, uploads, backups or secrets:
+#   /opt/zencrevia            application code only — replaced on every update
+#   /var/lib/zencrevia        COS_DATA_DIR: creative-os.db (+ -wal/-shm), backups/, outbox/, security.log
+#   /etc/zencrevia/zencrevia.env   configuration and secrets (.env)
+# Install:
+#   sudo useradd --system --home /var/lib/zencrevia --shell /usr/sbin/nologin zencrevia
+#   sudo mkdir -p /opt/zencrevia /etc/zencrevia && sudo cp -r . /opt/zencrevia
+#   sudo cp .env.example /etc/zencrevia/zencrevia.env   # then edit every value
+#   sudo chown -R root:root /opt/zencrevia && sudo chown root:zencrevia /etc/zencrevia/zencrevia.env && sudo chmod 640 /etc/zencrevia/zencrevia.env
+#   sudo cp deploy/zencrevia.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now zencrevia
+# Existing install with data in /opt/zencrevia/data? Run deploy/migrate-data-dir.sh once.
+# Updates: deploy/update.sh <new-release.zip>
+# Logs: journalctl -u zencrevia -f      Health: curl -s localhost:3000/api/health
+[Unit]
+Description=ZenCrevia
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=zencrevia
+WorkingDirectory=/opt/zencrevia
+Environment=TZ=Asia/Jakarta
+# systemd creates /var/lib/zencrevia (0700, owned by the service user) on start
+StateDirectory=zencrevia
+StateDirectoryMode=0700
+Environment=COS_DATA_DIR=/var/lib/zencrevia
+Environment=COS_BACKUP_DIR=/var/lib/zencrevia/backups
+ExecStart=/usr/bin/node --env-file=/etc/zencrevia/zencrevia.env --no-warnings server/server.js
+Restart=on-failure
+RestartSec=3
+# preflight refused the configuration: do not restart in a loop, fix the env file first
+RestartPreventExitStatus=78
+TimeoutStopSec=15
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/zencrevia
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

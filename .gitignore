@@ -1,0 +1,17 @@
+# secrets and live data — never commit
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db.enc
+srv.log
+docs/.print.html
+node_modules/
+.DS_Store
+e2e/.data/
+e2e/results/
+e2e/report/
+node_modules/

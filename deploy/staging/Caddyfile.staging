@@ -1,0 +1,14 @@
+# Add to /etc/caddy/Caddyfile. Basic auth keeps staging away from search engines and strangers;
+# create the hash with: caddy hash-password
+staging.pm.automationhsb.pro {
+	basic_auth {
+		hsb REPLACE_WITH_caddy_hash-password_OUTPUT
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3001 {
+		flush_interval -1
+		transport http {
+			read_timeout 0
+		}
+	}
+}

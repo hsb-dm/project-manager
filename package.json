@@ -1,0 +1,26 @@
+{
+  "name": "zencrevia",
+  "version": "1.17.0",
+  "description": "ZenCrevia creative operations dashboard with a Node.js and SQLite server and standalone demo.",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --no-warnings server/server.js",
+    "dev": "node build.js && node --env-file-if-exists=.env --no-warnings server/server.js",
+    "build": "node build.js",
+    "seed": "node --env-file-if-exists=.env --no-warnings server/seed.js",
+    "reset": "node --env-file-if-exists=.env --no-warnings server/seed.js",
+    "backup": "node --env-file-if-exists=.env --no-warnings server/backup.js backup",
+    "restore": "node --env-file-if-exists=.env --no-warnings server/backup.js restore",
+    "test": "node --no-warnings --test tests/*.test.js",
+    "docs": "python3 docs/build-docs.py",
+    "purge-demo": "node --env-file-if-exists=.env --no-warnings server/purge-demo-cli.js",
+    "e2e": "node build.js && playwright test"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
+  }
+}
