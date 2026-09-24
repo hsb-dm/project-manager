@@ -26,6 +26,16 @@ Ekstrak ZIP ke folder baru. Gunakan Node.js 22.13 atau lebih baru, jalankan npm 
 
 Database dibuat di `data/creative-os.db` pada penggunaan pertama. Nama file lama dipertahankan agar pembaruan tidak memutus data yang sudah ada. Untuk memperbarui instalasi lama, buat backup terenkripsi dan salin folder `data` serta pengaturan environment sebelum mengganti berkas aplikasi.
 
+### Docker
+
+Salin `.env.example` menjadi `.env` dan isi secret produksi, lalu jalankan:
+
+```bash
+docker compose up -d --build
+```
+
+Aplikasi tersedia di http://localhost:6969. Data SQLite, unggahan, dan backup disimpan di volume Docker `zencrevia-data`; volume ini tidak dihapus oleh `docker compose down` biasa.
+
 Salin `.env.example` menjadi `.env`, lalu atur `COS_ADMIN_EMAIL`, `COS_ADMIN_NAME`, `COS_ADMIN_PASSWORD`, `COS_SECRET_KEY`, dan `COS_BACKUP_KEY` sebelum produksi.
 
 **Instalasi bersih (v29).** Pada `NODE_ENV=production`, database kosong dibuat sebagai workspace bersih: satu akun admin sesuai `COS_ADMIN_EMAIL`, role bawaan, tahapan workflow, template brief, dan folder Knowledge `General`. Tidak ada akun, proyek, atau tugas contoh. Untuk demo atau pelatihan, jalankan dengan `COS_SEED_DEMO=1` (admin demo: `admin@zencrevia.demo`). Di mode development demo tetap default; `COS_SEED_DEMO=0` mematikannya. `npm start` membaca `.env` jika file itu tersedia. Jika password admin belum diatur saat database baru dibuat, server menghasilkan password acak dan menampilkannya satu kali di console. Pendaftaran tertutup secara default dan akun anggota demo belum memiliki password. Ikuti [SECURITY-SETUP.md](SECURITY-SETUP.md).

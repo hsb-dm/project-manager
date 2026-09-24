@@ -1,0 +1,18 @@
+services:
+  zencrevia:
+    build:
+      context: .
+    ports:
+      - "6969:6969"
+    environment:
+      PORT: "6969"
+      NODE_ENV: production
+      COS_DATA_DIR: /app/data
+    env_file:
+      - .env
+    volumes:
+      - zencrevia-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  zencrevia-data:
