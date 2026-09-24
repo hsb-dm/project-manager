@@ -34,7 +34,12 @@ Salin `.env.example` menjadi `.env` dan isi secret produksi, lalu jalankan:
 docker compose up -d --build
 ```
 
-Aplikasi tersedia di http://localhost:6969. Data SQLite, unggahan, dan backup disimpan di volume Docker `zencrevia-data`; volume ini tidak dihapus oleh `docker compose down` biasa.
+Aplikasi tersedia di http://localhost:6969. Data SQLite, unggahan, dan backup disimpan di folder host `./data` (atau path pada `COS_DATA_HOST_PATH`). Sebelum start pertama di VPS, pastikan pemilik folder sama dengan `LOCAL_UID`/`LOCAL_GID` pada `.env`:
+
+```bash
+mkdir -p data/backups
+sudo chown -R "$(id -u):$(id -g)" data
+```
 
 Salin `.env.example` menjadi `.env`, lalu atur `COS_ADMIN_EMAIL`, `COS_ADMIN_NAME`, `COS_ADMIN_PASSWORD`, `COS_SECRET_KEY`, dan `COS_BACKUP_KEY` sebelum produksi.
 

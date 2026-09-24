@@ -14,6 +14,9 @@ services:
       COS_DATA_DIR: /app/data
       COS_BACKUP_DIR: /app/data/backups
       TZ: ${TZ:-Asia/Jakarta}
+    # Match the host owner of ./data. This prevents SQLite permission errors
+    # when the application runs as the unprivileged Node.js user.
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     volumes:
       - type: bind
         source: ${COS_DATA_HOST_PATH:-./data}
