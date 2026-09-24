@@ -216,7 +216,7 @@ halaman Knowledge dan aset siapa pun) — putuskan dengan tim apakah ini diingin
 | `COS_TRUST_PROXY=1` | di belakang proxy | IP klien dari `X-Forwarded-For` (rate limit per IP) |
 | `COS_SECRET_KEY` | ya | ≥ 32 karakter; enkripsi kunci SMTP/AI di DB |
 | `COS_BACKUP_KEY` | ya | ≥ 32, berbeda dari secret; **tanpa ini backup tidak bisa dibuka** |
-| `COS_ADMIN_EMAIL/NAME/PASSWORD` | start pertama | admin awal (password ≥ 12) |
+| `COS_ADMIN_EMAIL/NAME/PASSWORD` | start pertama | admin awal (password ≥ 8) |
 | `TZ=Asia/Jakarta` | disarankan | batas hari untuk arsip otomatis dan jadwal |
 | `COS_MAIL_TRANSPORT`, `SMTP_*`, `MAIL_FROM` | untuk email | atau atur SMTP dari Settings |
 | `COS_SEED_DEMO` | tidak | `1` = isi data demo pada DB kosong |

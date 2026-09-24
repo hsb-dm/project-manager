@@ -806,7 +806,7 @@ Catatan bentuk data yang mudah salah:
 `crypto.scryptSync(pw, salt, 64, { N: 16384 })`, hex. Salt = `randomBytes(16).toString("hex")`.
 Verifikasi memakai `crypto.timingSafeEqual`.
 
-Policy: ≥ 12 karakter, ≤ 256, dan minimal **tiga** dari empat kelas
+Policy: ≥ 8 karakter, ≤ 256, dan minimal **tiga** dari empat kelas
 `[a-z]`, `[A-Z]`, `\d`, `[^A-Za-z0-9]`.
 
 ### Session

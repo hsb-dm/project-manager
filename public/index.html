@@ -89,7 +89,14 @@ svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .seg button{padding:5px 11px;border-radius:var(--pill);font-size:12px;font-weight:600;color:var(--color-text-secondary);display:inline-flex;align-items:center;gap:5px}
 .seg button.on{background:var(--color-ink);color:var(--color-ink-text)}.seg button svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
 .pillsel{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--color-border);border-radius:var(--pill);padding:5px 8px 5px 12px;background:var(--color-surface);font-size:12px;font-weight:600;color:var(--color-text-secondary)}
-.pillsel select{border:0;background:transparent;outline:none;font-weight:600;color:var(--color-text-primary);cursor:pointer;max-width:170px}
+.pillsel select{appearance:none;-webkit-appearance:none;border:0;background:transparent!important;box-shadow:none;outline:none;font-weight:600;color:var(--color-text-primary);cursor:pointer;max-width:170px;padding:0 16px 0 0;color-scheme:light dark}.pillsel select option{background:var(--color-surface);color:var(--color-text-primary)}
+.pillsel:has(select)::after{content:"";width:6px;height:6px;margin-left:-12px;margin-right:2px;margin-top:-3px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);pointer-events:none}
+.pillsel-custom{position:relative;z-index:3}.pillsel-custom.open{z-index:20}.pillsel-trigger{display:inline-flex;align-items:center;gap:8px;min-width:74px;padding:0;border:0;background:transparent;color:var(--color-text-primary);font:inherit;font-weight:600;text-align:left;white-space:nowrap}.pillsel-custom .pillsel-chevron{width:6px;height:6px;margin:-3px 2px 0 auto;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}.pillsel-native{display:none!important}.pillsel-menu{display:none;position:absolute;top:calc(100% + 7px);left:-1px;min-width:190px;max-height:280px;overflow:auto;padding:5px;background:var(--color-surface);border:1px solid var(--color-border-strong);border-radius:12px;box-shadow:var(--shadow-lg,0 14px 30px rgba(0,0,0,.2));z-index:30}.pillsel-custom.open .pillsel-menu{display:flex;flex-direction:column;gap:2px}.pillsel-menu button{width:100%;padding:8px 10px;border:0;border-radius:7px;background:transparent;color:var(--color-text-primary);font:inherit;font-size:12px;text-align:left;white-space:nowrap}.pillsel-menu button:hover,.pillsel-menu button[aria-selected=true]{background:var(--color-primary-soft);color:var(--color-primary)}
+.pillsel-custom:has(select)::after{display:none}
+select{appearance:none;-webkit-appearance:none;box-sizing:border-box;color:var(--color-text-primary);color-scheme:light dark;background-color:var(--color-surface)!important;background-image:linear-gradient(45deg,transparent 50%,var(--color-text-secondary) 50%),linear-gradient(135deg,var(--color-text-secondary) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:32px!important}
+select option{background:var(--color-surface);color:var(--color-text-primary)}
+select:focus{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+.pillsel select{background-image:none!important;padding-right:16px!important;box-shadow:none!important}
 .pillsel.on{border-color:var(--color-primary);background:var(--color-primary-soft)}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .toolbar input[type=text]{border:1px solid var(--color-border);border-radius:var(--pill);padding:6px 12px;background:var(--color-surface);font-size:var(--fs-sm);outline:none}.toolbar input:focus{border-color:var(--color-primary)}
@@ -4206,9 +4213,15 @@ body.bulk-on .bulk-selectable {
 .md-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .md-toolbar{display:flex;flex-wrap:wrap;gap:2px;padding:4px;border:1px solid var(--color-border);border-bottom:0;border-radius:var(--radius-sm,10px) var(--radius-sm,10px) 0 0;background:var(--color-surface-sunken)}
 .md-btn{min-width:30px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--color-text-secondary);cursor:pointer;font-size:13px;display:inline-grid;place-items:center;padding:0 6px}
-.md-btn:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}.md-btn svg{width:15px;height:15px}
+.md-btn:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}.md-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .md-sep{width:1px;background:var(--color-border);margin:4px 3px}
-.md-editor .md-src{border-top-left-radius:0!important;border-top-right-radius:0!important;min-height:140px;font-family:var(--font-mono);font-size:13px;line-height:1.55}
+.md-editor .md-src{border:1px solid var(--color-border);border-top:0;border-radius:0 0 var(--radius-sm,10px) var(--radius-sm,10px);background:var(--color-surface);box-sizing:border-box;min-height:160px;padding:14px 16px;font-size:14px;line-height:1.55}
+.md-editor .md-src:focus{border-color:var(--color-primary);box-shadow:inset 0 0 0 1px var(--color-primary)}
+.md-wysiwyg{outline:none;white-space:pre-wrap;word-break:break-word;cursor:text}
+.md-wysiwyg a{color:var(--color-primary);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:2px}
+.md-wysiwyg:empty:before{content:attr(data-placeholder);color:var(--color-text-tertiary);pointer-events:none}
+.md-wysiwyg h3,.md-wysiwyg h4,.md-wysiwyg h5{margin:.7em 0 .3em;line-height:1.3}.md-wysiwyg h3{font-size:17px}.md-wysiwyg h4{font-size:15px}.md-wysiwyg h5{font-size:14px}
+.md-wysiwyg ul,.md-wysiwyg ol{margin:.35em 0;padding-left:1.4em}.md-wysiwyg blockquote{margin:.5em 0;padding:4px 10px;border-left:3px solid var(--color-primary);color:var(--color-text-secondary);background:var(--color-surface-sunken);border-radius:0 8px 8px 0}.md-wysiwyg pre{margin:.5em 0;background:var(--color-surface-sunken);padding:10px;border-radius:8px;overflow:auto}
 .md-view{line-height:1.6;word-break:break-word}.md-preview{border:1px solid var(--color-border);border-radius:var(--radius-sm,10px);padding:10px 12px;min-height:80px}
 .md-view h3,.md-view h4,.md-view h5{margin:.7em 0 .3em;line-height:1.3}.md-view h3{font-size:17px}.md-view h4{font-size:15px}.md-view h5{font-size:14px}
 .md-view p{margin:.35em 0}.md-view ul,.md-view ol{margin:.35em 0;padding-left:1.4em}
@@ -4876,7 +4889,7 @@ document.addEventListener("click",function(e){ if (e.target&&e.target.isConnecte
 document.addEventListener("keydown",function(e){ if (e.key==="Escape"){ if (document.getElementById("modalWrap").classList.contains("open")){ closePops(); closeModal(); } else if (typeof AI_CHAT!=="undefined"&&AI_CHAT.open){ closePops(); aiChatToggle(false); } else { closePops(); closeDrawer(); } } if ((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); if(window.innerWidth<=980)toggleSearchBar(true); else document.getElementById("searchInput").focus(); } });
 function openModal(title,body,foot,lg){ var m=document.getElementById("modal"); m.className="modal"+(lg?" lg":""); m.innerHTML='<div class="modal-head"><h3>'+tr(title)+'</h3><span class="spacer"></span><button class="iconbtn" onclick="closeModal()" aria-label="'+attr(tr("Close"))+'">'+I.x+'</button></div><div class="modal-body">'+body+'</div>'+(foot?'<div class="modal-foot">'+foot+'</div>':''); localizeVisibleText(m); document.getElementById("modalWrap").classList.add("open"); var f=m.querySelector("input,textarea,select"); if (f) setTimeout(function(){ f.focus(); },50); }
 function closeModal(){ document.getElementById("modalWrap").classList.remove("open"); }
-function confirmModal(title,text,onok,danger){ window._confirmCb=onok; openModal(title,'<p>'+text+'</p>','<button class="btn" onclick="closeModal()">Cancel</button><button class="btn '+(danger?"danger":"primary")+'" onclick="closeModal();window._confirmCb()">'+(danger?"Delete":"Confirm")+'</button>'); }
+function confirmModal(title,text,onok,danger){ window._confirmCb=onok; openModal(title,'<p>'+text+'</p>','<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn '+(danger?"danger":"primary")+'" onclick="closeModal();window._confirmCb()">'+tr(danger?"Delete":"Confirm")+'</button>'); }
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }
 function require(ids){ var ok=true; ids.forEach(function(id){ var el=document.getElementById(id); if (!el) return; var f=el.closest(".field"); var bad=!el.value.trim(); if (f) f.classList.toggle("invalid",bad); if (bad) ok=false; }); return ok; }
 function fieldHtml(id,label,inner,err){ return '<div class="field" id="f_'+id+'"><label for="'+id+'">'+tr(label)+'</label>'+inner+'<div class="err">'+tr(err||"Required")+'</div></div>'; }
@@ -5516,7 +5529,7 @@ function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); clo
   var demoUsers=Object.keys(PEOPLE).map(function(id){ var p=PEOPLE[id]; var r=byId(ROLES,p.perm); return '<button class="demo-user-card" onclick="demoLogin(\''+id+'\')">'+av(id,"lg")+'<span class="demo-user-info"><span class="demo-user-name">'+esc(p.name)+'</span><span class="demo-user-meta">'+esc(p.role)+' · '+esc(r?r.name:p.perm)+'</span></span><span class="btn xs demo-user-continue">Continue</span></button>'; }).join("");
   var form=AUTH.tab==="login"?'<div class="field"><label>Email</label><input id="au_email" type="email" placeholder="you@company.com" autocomplete="username" onkeydown="if(event.key===\'Enter\')doLogin()"></div><div class="field"><label>Password</label><input id="au_pw" type="password" placeholder="••••••••••••" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin()"></div><div class="err" id="au_err"></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Sign in</button><p class="hint" style="margin-top:12px;text-align:center"><button type="button" class="linkbtn auth-forgot" onclick="AUTH.tab=\'forgot\';showLogin()">Forgot password?</button></p><p class="hint" style="margin-top:6px;text-align:center">Contact your workspace administrator if you do not have an account.</p>':
     AUTH.tab==="forgot"?authForgotForm():AUTH.tab==="reset"?authResetForm():
-    '<div class="field-row"><div class="field"><label>Full name</label><input id="au_name" placeholder="Dian Sastro" autocomplete="name"></div><div class="field"><label>Job title</label><input id="au_title" placeholder="Designer"></div></div><div class="field"><label>Email</label><input id="au_email" type="email" placeholder="you@company.com" autocomplete="username"></div><div class="field-row"><div class="field"><label>Password (min 12)</label><input id="au_pw" type="password" autocomplete="new-password"></div><div class="field"><label>Team</label>'+selectHtml("au_team",[["","Choose later"]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),"")+'</div></div>'+(ws.joinCodeRequired!==false?'<div class="field"><label>Workspace join code</label><input id="au_code" placeholder="Ask your admin" onkeydown="if(event.key===\'Enter\')doRegister()"><div class="hint" style="margin-top:4px">An admin can change your role after registration.</div></div>':'')+'<div class="err" id="au_err"></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doRegister()">Create account</button>';
+    '<div class="field-row"><div class="field"><label>Full name</label><input id="au_name" placeholder="Dian Sastro" autocomplete="name"></div><div class="field"><label>Job title</label><input id="au_title" placeholder="Designer"></div></div><div class="field"><label>Email</label><input id="au_email" type="email" placeholder="you@company.com" autocomplete="username"></div><div class="field-row"><div class="field"><label>Password (min 8)</label><input id="au_pw" type="password" autocomplete="new-password"></div><div class="field"><label>Team</label>'+selectHtml("au_team",[["","Choose later"]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),"")+'</div></div>'+(ws.joinCodeRequired!==false?'<div class="field"><label>Workspace join code</label><input id="au_code" placeholder="Ask your admin" onkeydown="if(event.key===\'Enter\')doRegister()"><div class="hint" style="margin-top:4px">An admin can change your role after registration.</div></div>':'')+'<div class="err" id="au_err"></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doRegister()">Create account</button>';
   document.getElementById("content").innerHTML='<div class="authwrap"><div class="authcard"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="ws-logo" style="width:44px;height:44px;border-radius:14px;font-size:16px">'+(ws.logoImg?'<img src="'+ws.logoImg+'">':esc(ws.logo||"ZC"))+'</div><div><div style="font-weight:800;font-size:18px;letter-spacing:-.02em">'+esc(ws.name||"ZenCrevia")+'</div><div class="hint">ZenCrevia · '+tr("Brand Mode")+'</div></div></div><div class="auth-language"><span>'+tr("Language")+'</span>'+lang+'</div>'+
     (API.on?(SESSION.canRegister&&(AUTH.tab==="login"||AUTH.tab==="register")?'<div class="seg" style="margin-bottom:18px;width:100%"><button style="flex:1" class="'+(AUTH.tab==="login"?"on":"")+'" onclick="AUTH.tab=\'login\';showLogin()">Log in</button><button style="flex:1" class="'+(AUTH.tab==="register"?"on":"")+'" onclick="AUTH.tab=\'register\';showLogin()">Register</button></div>':'')+(msg&&msg!=="Please sign in"?'<div class="errbox" style="margin-bottom:14px">'+esc(msg)+'</div>':'')+'<div class="authform">'+form+'</div>':
     '<div class="errbox" style="margin-bottom:14px;background:var(--color-warning-soft);color:var(--color-warning)">Demo mode. Choose a user to try the dashboard. Changes are not saved.</div><div class="demo-user-list">'+demoUsers+'</div>')+
@@ -5524,8 +5537,9 @@ function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); clo
 function demoLogin(id){ ME=id; SESSION.user={id:id,perm:person(id).perm,name:person(id).name}; restoreLanguagePreference(); document.body.classList.remove("auth"); setConn(); applyShell(); S.screen="home"; renderScreen(false); setTimeout(showOnboardingIfNeeded,180); }
 function authErr(m){ var e=document.getElementById("au_err"); if (e){ e.textContent=m; e.style.display="block"; } }
 function doLogin(){ var email=val("au_email"), pw=document.getElementById("au_pw").value; if (!email||!pw) return authErr("Enter your email and password"); apiFetch("POST","/api/auth/login",{email:email,password:pw}).then(function(r){ SESSION.user=r.user; ME=r.user.id; try { localStorage.removeItem("cos.actAs"); } catch(e){} return afterLogin(); }).then(function(){ toast("Welcome back, "+first(ME)); }).catch(function(e){ authErr(e.message); }); }
-function doRegister(){ var name=val("au_name"), email=val("au_email"), pw=document.getElementById("au_pw").value; if (!name||!email||!pw) return authErr("Name, email and password are required"); if (pw.length<12) return authErr("Password must be at least 12 characters"); apiFetch("POST","/api/auth/register",{name:name,email:email,password:pw,jobTitle:val("au_title"),teamId:val("au_team"),joinCode:val("au_code")}).then(function(r){ SESSION.user=r.user; ME=r.user.id; return afterLogin(); }).then(function(){ toast("Account created — welcome, "+first(ME)); }).catch(function(e){ authErr(e.message); }); }
-function changePasswordModal(){ openModal("Change password",fieldHtml("cp_cur","Current password",'<input id="cp_cur" type="password" autocomplete="current-password">')+fieldHtml("cp_new","New password (min 12)",'<input id="cp_new" type="password" autocomplete="new-password">')+fieldHtml("cp_new2","Repeat new password",'<input id="cp_new2" type="password" autocomplete="new-password">'),'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="var a=document.getElementById(\'cp_new\').value,b=document.getElementById(\'cp_new2\').value;if(a!==b)return toast(\'Passwords do not match\',\'bad\');apiFetch(\'POST\',\'/api/auth/password\',{current:document.getElementById(\'cp_cur\').value,password:a}).then(function(){closeModal();toast(\'Password changed\')}).catch(function(e){toast(e.message,\'bad\')})">Change password</button>'); }
+function passwordClientProblem(pw){ if(typeof pw!=="string"||pw.length<8) return "Password must be at least 8 characters"; var groups=[/[a-z]/,/[A-Z]/,/\d/,/[^A-Za-z0-9]/].filter(function(r){ return r.test(pw); }).length; return groups<3?"Password must combine at least three of: lowercase, uppercase, numbers, and symbols":""; }
+function doRegister(){ var name=val("au_name"), email=val("au_email"), pw=document.getElementById("au_pw").value; if (!name||!email||!pw) return authErr("Name, email and password are required"); var problem=passwordClientProblem(pw); if(problem) return authErr(tr(problem)); apiFetch("POST","/api/auth/register",{name:name,email:email,password:pw,jobTitle:val("au_title"),teamId:val("au_team"),joinCode:val("au_code")}).then(function(r){ SESSION.user=r.user; ME=r.user.id; return afterLogin(); }).then(function(){ toast("Account created — welcome, "+first(ME)); }).catch(function(e){ authErr(e.message); }); }
+function changePasswordModal(){ openModal("Change password",fieldHtml("cp_cur","Current password",'<input id="cp_cur" type="password" autocomplete="current-password">')+fieldHtml("cp_new","New password (min 8)",'<input id="cp_new" type="password" autocomplete="new-password">')+fieldHtml("cp_new2","Repeat new password",'<input id="cp_new2" type="password" autocomplete="new-password">'),'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="var a=document.getElementById(\'cp_new\').value,b=document.getElementById(\'cp_new2\').value;if(a!==b)return toast(\'Passwords do not match\',\'bad\');apiFetch(\'POST\',\'/api/auth/password\',{current:document.getElementById(\'cp_cur\').value,password:a}).then(function(){closeModal();toast(\'Password changed\')}).catch(function(e){toast(e.message,\'bad\')})">Change password</button>'); }
 </script>
 <script>
 /* ============================================================
@@ -5792,7 +5806,10 @@ function taskCardColor(t,view){ var mode=((WS.taskCardColors||{})[view])||"team"
 function taskIdFrom(el){ var host=el&&el.closest?el.closest("[data-id]"):null; return host?host.getAttribute("data-id"):""; }
 
 /* ---------- toolbar ---------- */
-function pillSel(name,cur,opts,cb){ return '<label class="pillsel'+(cur?" on":"")+'"><span>'+name+'</span><select onchange="'+cb+'">'+opts.map(function(o){ return '<option value="'+attr(o[0])+'"'+(o[0]===cur?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select></label>'; }
+function pillSel(name,cur,opts,cb){ var selected=opts.filter(function(o){return o[0]===cur;})[0]||opts[0]||["",""]; return '<label class="pillsel pillsel-custom'+(cur?" on":"")+'"><span>'+name+'</span><button type="button" class="pillsel-trigger" onclick="event.preventDefault();event.stopPropagation();pillSelToggle(this.parentNode)"><span class="pillsel-value">'+esc(selected[1])+'</span><span class="pillsel-chevron"></span></button><select class="pillsel-native" onchange="'+cb+'">'+opts.map(function(o){ return '<option value="'+attr(o[0])+'"'+(o[0]===cur?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select><span class="pillsel-menu" role="listbox">'+opts.map(function(o){ return '<button type="button" role="option" data-value="'+attr(o[0])+'"'+(o[0]===cur?' aria-selected="true"':'')+' onclick="pillSelChoose(this)">'+esc(o[1])+'</button>'; }).join("")+'</span></label>'; }
+function pillSelToggle(root){ document.querySelectorAll(".pillsel-custom.open").forEach(function(x){if(x!==root)x.classList.remove("open");}); root.classList.toggle("open"); }
+function pillSelChoose(option){ var root=option.closest(".pillsel-custom"), select=root&&root.querySelector(".pillsel-native"); if(!root||!select)return; select.value=option.getAttribute("data-value"); root.querySelector(".pillsel-value").textContent=option.textContent; root.classList.toggle("on",!!select.value); root.classList.remove("open"); root.querySelectorAll("[role=option]").forEach(function(x){x.setAttribute("aria-selected",x===option?"true":"false");}); select.dispatchEvent(new Event("change",{bubbles:true})); }
+document.addEventListener("click",function(e){if(!e.target.closest(".pillsel-custom"))document.querySelectorAll(".pillsel-custom.open").forEach(function(x){x.classList.remove("open");});});
 function viewSwitch(views){ var all={kanban:["Kanban",I.kanban],list:["List",I.list],grid:["Grid",I.grid],calendar:["Calendar",I.calendar.replace('class="i"','')],timeline:["Timeline",I.timeline]}; return '<div class="seg" data-tour="task-views">'+(views||["kanban","list","grid","calendar","timeline"]).map(function(k){ return '<button data-view="'+k+'" class="'+(S.taskView===k?"on":"")+'" onclick="S.taskView=\''+k+'\';renderScreen(false)">'+all[k][1]+all[k][0]+'</button>'; }).join("")+'</div>'; }
 var FILTER_DEFS=function(opts){ var tags=WS.tags.slice(); TASKS.forEach(function(x){ x.tags.forEach(function(g){ if (tags.indexOf(g)<0) tags.push(g); }); }); var defs=[
   ["status","Status",[["","Any"]].concat(WS.workflow.map(function(s){ return [s.id,s.name]; }))],["team","Team",[["","Any"]].concat(activeTeams().map(function(x){ return [x.id,x.name]; }))],["assignee","Assignee",[["","Any"]].concat(peopleOpts())],["reviewer","Reviewer",[["","Any"]].concat(peopleOpts())],
@@ -5958,7 +5975,7 @@ function createDraft(){ var tk=task("T-new"); if (!tk) return; var title=(docume
   log(t,"created"); if (t.brief) log(t,"brief"); if (t.assignee&&t.assignee!==ME) log(t,"assigned",{to:first(t.assignee)}); closeDrawer();
   createTask(t).then(function(saved){ if(saved===false)return false; toast(isReq&&!t.assignee?"Request "+t.id+" submitted — it is in the inbox for triage":"Task "+t.id+" created"); if (t.assignee) notify("assigned",assigneesOf(t),t.id); if (isReq&&!t.assignee) notify("request",Object.keys(PEOPLE).filter(function(id){ var r=byId(ROLES,PEOPLE[id].perm); return PEOPLE[id].perm==="admin"||(r&&(r.permissions||[]).indexOf("decide_request")>=0); }),t.id); if (onCreated) onCreated(t); openTask(t.id); }).catch(function(){}); }
 function submitNewTask(){ createDraft(); }
-function deleteTask(id){ var linked=TASKS.filter(function(t){return (t.dependencies||[]).some(function(d){return d.taskId===id;});}); var msg="This removes the task, its versions, files and comments. Workspace activity is kept."+(linked.length?" It is currently blocking "+linked.length+" task"+(linked.length===1?"":"s")+": "+linked.map(function(t){return t.title;}).join(", ")+". Their dependency links will be removed.":""); confirmModal("Delete task "+id+"?",msg,function(){ closeDrawer(); deleteTaskById(id).then(function(saved){ if(saved===false)return false; toast("Task deleted","bad"); }); },true); }
+function deleteTask(id){ var linked=TASKS.filter(function(t){return (t.dependencies||[]).some(function(d){return d.taskId===id;});}); var msg=tr("This removes the task, its versions, files and comments. Workspace activity is kept.")+(linked.length?" "+tr("It is currently blocking")+" "+linked.length+" "+tr(linked.length===1?"task":"tasks")+": "+linked.map(function(t){return t.title;}).join(", ")+". "+tr("Their dependency links will be removed."):""); confirmModal(tr("Delete task")+" "+id+"?",msg,function(){ closeDrawer(); deleteTaskById(id).then(function(saved){ if(saved===false)return false; toast(tr("Task deleted"),"bad"); }); },true); }
 </script>
 <script>
 /* ============================================================
@@ -6227,7 +6244,7 @@ function taskGearSetPosition(pos){
   /* §20.6 the quest step completes on an actual selection */
   if(typeof WorkspaceQuest!=="undefined"&&WorkspaceQuest.emit) WorkspaceQuest.emit("task-panel-position");
 }
-function taskMenu(a){ var id=S.drawerTask; ctxMenu(a,(canI.createTask()?'<button onclick="closePops();duplicateTask(\''+id+'\')">'+I.plus+'Duplicate task</button>':'')+'<button onclick="closePops();exportTaskCSV(\''+id+'\')">'+I.download+'Export task (.csv)</button>'+(canI.editTask(task(id))?'<button onclick="closePops();toggleHidden(\''+id+'\')">'+I.eye+(task(id).hidden?'Unhide task':'Hide task')+'</button>':'')+(canI.deleteTask()?'<button onclick="closePops();deleteTask(\''+id+'\')" style="color:var(--color-danger)">'+I.trash+'Delete task</button>':'')); }
+function taskMenu(a){ var id=S.drawerTask; ctxMenu(a,(canI.createTask()?'<button onclick="closePops();duplicateTask(\''+id+'\')">'+I.plus+tr("Duplicate task")+'</button>':'')+'<button onclick="closePops();exportTaskCSV(\''+id+'\')">'+I.download+tr("Export task (.csv)")+'</button>'+(canI.editTask(task(id))?'<button onclick="closePops();toggleHidden(\''+id+'\')">'+I.eye+tr(task(id).hidden?"Unhide task":"Hide task")+'</button>':'')+(canI.deleteTask()?'<button class="danger" onclick="closePops();deleteTask(\''+id+'\')">'+I.trash+tr("Delete task")+'</button>':'')); }
 function duplicateTask(id){ var src=task(id); var nid=nextId("T-",TASKS); var c=clone(src); c.id=nid; c.title=src.title+" (copy)"; c.status=WS.workflow[0].id; c.versions=[]; c.comments=[]; c.activity=[]; c.files=[]; c.ago=0; c.createdAt=null; c.completedAt=null; c.sort=(src.sort||0)+1; log(c,"created"); createTask(c).then(function(saved){ if(saved===false)return false; toast("Duplicated as "+c.id); openTask(c.id); }).catch(function(){}); }
 function descView(tk){ if(typeof descEditorHtml==="function") return descEditorHtml(tk); var ed=canI.editTask(tk); return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">Description</div>'+(ed?'<textarea class="desc" placeholder="'+attr(tr("Add context not covered by the brief…"))+'" onchange="editTask(\'description\',this.value)">'+esc(tk.description||"")+'</textarea><div class="hint" style="margin-top:5px">'+tr("Use this for additional context, constraints, or notes.")+'</div>':'<div style="white-space:pre-line">'+(tk.description?esc(tk.description):'<span class="hint">No description.</span>')+'</div>')+'</div>'; }
 
@@ -6584,13 +6601,16 @@ function cloudSettingsModal(){
     +'<div class="drive-steps">'
     +step(1,'Create a Google Cloud project','Open Google Cloud Console. Create a project owned by the organization, name it for this workspace, and select it.')
     +step(2,'Enable Google Drive API','Open APIs & Services, then Library. Find Google Drive API and enable it. The connection cannot upload or read Drive files without this API.')
-    +step(3,'Set up the consent screen','Open OAuth consent screen. Choose the correct audience and enter the app name, support email, and developer email. While testing, add every account that will connect as a test user.')
-    +step(4,'Create the Web OAuth Client ID','Open Credentials, create an OAuth client ID, and choose Web application. Add the exact dashboard origin under Authorized JavaScript origins, including the protocol and port but no page path.')
-    +step(5,'Choose and share the Drive folder','Create a dedicated team folder and copy the Folder ID from its URL. Share the folder with each teammate or a managed Google Group. Give uploaders Editor access and viewers Viewer access.')
-    +step(6,'Connect from ZenCrevia','Open Configure Google Drive. Paste the Client ID and Folder ID, enter an account label, then choose Save & sign in. Use a Google account that can access the team folder.')
-    +step(7,'Upload a test file','Upload a harmless file from a task. Confirm that it appears in the selected Drive folder and that its preview opens from ZenCrevia.')
-    +step(8,'Verify another person can open it','Ask one teammate to open the same task and file. If the task opens but the file does not, add their Google account or group to the Drive folder.')
-    +step(9,'Keep public access exceptional','Leave Anyone with the link off for normal work. Add external reviewers explicitly in Drive. Only publish an approved, non-sensitive file that must open without Google sign-in.')
+    +step(3,'Enable Google Picker API','In the same API Library, find Google Picker API and enable it. Picker is required for the Choose folder in Google Drive button.')
+    +step(4,'Set up the consent screen','Open OAuth consent screen. Choose the correct audience and enter the app name, support email, and developer email. While testing, add every account that will connect as a test user.')
+    +step(5,'Create the Web OAuth Client ID','Open Credentials, create an OAuth client ID, and choose Web application. Add the exact dashboard origin under Authorized JavaScript origins, including the protocol and port but no page path.')
+    +step(6,'Create and restrict the Picker API key','Open Credentials, choose Create credentials > API key, then restrict it to Google Picker API. For application restrictions, use HTTP referrers and add the dashboard origin, such as http://localhost:3000/* during local testing.')
+    +step(7,'Find the Google Cloud project number','Open Project settings or IAM & Admin > Settings and copy the numeric Project number. Do not use the project ID or project name.')
+    +step(8,'Choose and share the Drive folder','Create a dedicated team folder and copy the Folder ID from its URL. Share the folder with each teammate or a managed Google Group. Give uploaders Editor access and viewers Viewer access.')
+    +step(9,'Connect from ZenCrevia','Open Configure Google Drive. Paste the OAuth Client ID, Picker API key, and numeric Project number. Click Choose folder in Google Drive, select the team folder, then enter an account label and choose Save & sign in.')
+    +step(10,'Upload a test file','Upload a harmless file from a task. Confirm that it appears in the selected Drive folder and that its preview opens from ZenCrevia.')
+    +step(11,'Verify another person can open it','Ask one teammate to open the same task and file. If the task opens but the file does not, add their Google account or group to the Drive folder.')
+    +step(12,'Keep public access exceptional','Leave Anyone with the link off for normal work. Add external reviewers explicitly in Drive. Only publish an approved, non-sensitive file that must open without Google sign-in.')
     +'</div>'
     +'<div class="drive-preview-note"><b>What happens after connection?</b><span>Assets, task Files, and Versions can upload to the selected Drive folder. A ZenCrevia member without Google Drive permission can still see task details, but the file preview or Drive link will not open for them.</span></div>'
     +'<div class="drive-troubleshoot"><b>Quick troubleshooting</b><span><strong>Login fails:</strong> Client ID or authorized origin is not exact. <strong>Upload does not enter the folder:</strong> enable Drive API, check the Folder ID, and make sure the account is an Editor. <strong>Preview is blank:</strong> share the file with the signed-in account or change the file’s Drive sharing setting.</span></div>'
@@ -11288,6 +11308,8 @@ Object.assign(UI_ID,{
   "Use one project owned by the organization, then record who is responsible for it.":"Gunakan satu proyek milik organisasi dan catat siapa penanggung jawabnya.",
   "Enable Google Drive API":"Aktifkan Google Drive API",
   "In APIs & Services, open Library, find Google Drive API, and enable it.":"Di APIs & Services, buka Library, cari Google Drive API, lalu aktifkan.",
+  "Enable Google Picker API":"Aktifkan Google Picker API",
+  "In the same API Library, find Google Picker API and enable it. Picker is required for the Choose folder in Google Drive button.":"Di API Library yang sama, cari Google Picker API dan aktifkan. Picker diperlukan untuk tombol Pilih folder di Google Drive.",
   "Configure the OAuth consent screen":"Konfigurasikan layar persetujuan OAuth",
   "Enter the app and support details. While the app is in testing, add every account that needs to connect.":"Isi informasi aplikasi dan dukungan. Selama aplikasi masih dalam tahap pengujian, tambahkan semua akun yang perlu terhubung.",
   "Create a Web OAuth Client ID":"Buat Client ID OAuth Web",
@@ -11321,10 +11343,15 @@ Object.assign(UI_ID,{
   "Set up the consent screen":"Siapkan layar persetujuan",
   "Open OAuth consent screen. Choose the correct audience and enter the app name, support email, and developer email. While testing, add every account that will connect as a test user.":"Buka OAuth consent screen. Pilih audiens yang sesuai, lalu isi nama aplikasi, email dukungan, dan email pengembang. Selama pengujian, tambahkan setiap akun yang akan terhubung sebagai pengguna uji.",
   "Open Credentials, create an OAuth client ID, and choose Web application. Add the exact dashboard origin under Authorized JavaScript origins, including the protocol and port but no page path.":"Buka Credentials, buat OAuth client ID, lalu pilih Web application. Tambahkan alamat asal dashboard yang tepat pada Authorized JavaScript origins, termasuk protokol dan port tanpa jalur halaman.",
+  "Create and restrict the Picker API key":"Buat dan batasi API key Picker",
+  "Open Credentials, choose Create credentials > API key, then restrict it to Google Picker API. For application restrictions, use HTTP referrers and add the dashboard origin, such as http://localhost:3000/* during local testing.":"Buka Credentials, pilih Create credentials > API key, lalu batasi ke Google Picker API. Untuk pembatasan aplikasi, gunakan HTTP referrers dan tambahkan alamat dashboard, misalnya http://localhost:3000/* saat pengujian lokal.",
+  "Find the Google Cloud project number":"Temukan nomor project Google Cloud",
+  "Open Project settings or IAM & Admin > Settings and copy the numeric Project number. Do not use the project ID or project name.":"Buka Project settings atau IAM & Admin > Settings dan salin Project number yang berupa angka. Jangan gunakan project ID atau nama project.",
   "Choose and share the Drive folder":"Pilih dan bagikan folder Drive",
   "Create a dedicated team folder and copy the Folder ID from its URL. Share the folder with each teammate or a managed Google Group. Give uploaders Editor access and viewers Viewer access.":"Buat folder tim khusus dan salin ID Folder dari URL. Bagikan folder kepada setiap anggota atau Google Group yang dikelola. Berikan akses Editor kepada pengunggah dan Viewer kepada orang yang hanya melihat.",
   "Connect from ZenCrevia":"Hubungkan dari ZenCrevia",
   "Open Configure Google Drive. Paste the Client ID and Folder ID, enter an account label, then choose Save & sign in. Use a Google account that can access the team folder.":"Buka Konfigurasi Google Drive. Tempel Client ID dan ID Folder, isi label akun, lalu pilih Simpan & masuk. Gunakan akun Google yang dapat mengakses folder tim.",
+  "Open Configure Google Drive. Paste the OAuth Client ID, Picker API key, and numeric Project number. Click Choose folder in Google Drive, select the team folder, then enter an account label and choose Save & sign in.":"Buka Konfigurasi Google Drive. Tempel OAuth Client ID, API key Picker, dan Project number numerik. Klik Pilih folder di Google Drive, pilih folder tim, isi label akun, lalu pilih Simpan & masuk.",
   "Upload a test file":"Unggah berkas uji",
   "Upload a harmless file from a task. Confirm that it appears in the selected Drive folder and that its preview opens from ZenCrevia.":"Unggah berkas uji dari sebuah tugas. Pastikan berkas muncul di folder Drive yang dipilih dan pratinjaunya dapat dibuka dari ZenCrevia.",
   "Verify another person can open it":"Pastikan orang lain dapat membukanya",
@@ -12946,8 +12973,8 @@ function authResetForm(inModal){
   if(AUTH.resetDone) return '<div class="auth-note" role="status"><b>'+tr("Password updated")+'</b><p>'+tr("Sign in with your new password. You have been signed out on every other device.")+'</p></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="AUTH.resetDone=false;AUTH.tab=\'login\';showLogin()">'+tr("Sign in")+'</button>';
   if(AUTH.resetInvalid) return '<div class="errbox" role="alert" style="margin-bottom:14px">'+tr("This reset link is invalid, already used or expired. Request a new one.")+'</div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="AUTH.resetInvalid=false;AUTH.tab=\'forgot\';showLogin()">'+tr("Request a new link")+'</button>';
   if(AUTH.resetToken&&AUTH.resetChecked!==AUTH.resetToken){ AUTH.resetChecked=AUTH.resetToken; apiFetch("POST","/api/auth/reset/check",{token:AUTH.resetToken}).then(function(r){ if(!r.valid){ AUTH.resetInvalid=true; showLogin(); } }).catch(function(){}); }
-  return (inModal?'':'<h2 class="auth-title">'+tr("Choose a new password")+'</h2>')+'<p class="hint" style="margin:-4px 0 14px">'+tr("At least 12 characters. A short sentence is easier to remember than random symbols.")+'</p>'
-    +'<div class="field"><label for="rs_pw">'+tr("New password")+'</label><input id="rs_pw" type="password" autocomplete="new-password" minlength="12"></div>'
+  return (inModal?'':'<h2 class="auth-title">'+tr("Choose a new password")+'</h2>')+'<p class="hint" style="margin:-4px 0 14px">'+tr("At least 8 characters. A short sentence is easier to remember than random symbols.")+'</p>'
+    +'<div class="field"><label for="rs_pw">'+tr("New password")+'</label><input id="rs_pw" type="password" autocomplete="new-password" minlength="8"></div>'
     +'<div class="field"><label for="rs_pw2">'+tr("Repeat new password")+'</label><input id="rs_pw2" type="password" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')doReset()"></div>'
     +'<div class="err" id="au_err" role="alert"></div><button class="btn primary" id="au_submit" style="width:100%;justify-content:center;padding:11px" onclick="doReset()">'+tr("Save new password")+'</button>';
 }
@@ -12960,7 +12987,7 @@ function doForgot(){
 }
 function doReset(){
   var a=document.getElementById("rs_pw").value, b=document.getElementById("rs_pw2").value;
-  if(a.length<12) return authErr(tr("Password must contain at least 12 characters"));
+  var problem=passwordClientProblem(a); if(problem) return authErr(tr(problem));
   if(a!==b) return authErr(tr("Passwords do not match"));
   authBusy(true);
   apiFetch("POST","/api/auth/reset",{token:AUTH.resetToken,password:a}).then(function(){
@@ -12980,12 +13007,12 @@ Object.assign(UI_ID,{
   "Send reset link":"Kirim tautan reset","Back to sign in":"Kembali ke halaman masuk","Check your email":"Cek email kamu",
   "If that address belongs to an active account, a reset link is on its way. Check your inbox and spam folder.":"Jika alamat itu terdaftar di akun aktif, tautan reset sedang dikirim. Cek kotak masuk dan folder spam.",
   "The link works once and expires in":"Tautan hanya bisa dipakai sekali dan berlaku","minutes.":"menit.",
-  "Choose a new password":"Buat password baru","At least 12 characters. A short sentence is easier to remember than random symbols.":"Minimal 12 karakter. Kalimat pendek lebih mudah diingat daripada simbol acak.",
+  "Choose a new password":"Buat password baru","At least 8 characters. A short sentence is easier to remember than random symbols.":"Minimal 8 karakter. Kalimat pendek lebih mudah diingat daripada simbol acak.",
   "New password":"Password baru","Repeat new password":"Ulangi password baru","Save new password":"Simpan password baru",
   "Password updated":"Password diperbarui","Sign in with your new password. You have been signed out on every other device.":"Masuk dengan password baru. Semua sesi di perangkat lain sudah diakhiri.",
   "This reset link is invalid, already used or expired. Request a new one.":"Tautan reset ini tidak valid, sudah dipakai, atau kedaluwarsa. Minta tautan baru.",
   "Request a new link":"Minta tautan baru","Enter a valid email address":"Masukkan alamat email yang valid",
-  "Password must contain at least 12 characters":"Password minimal 12 karakter","Passwords do not match":"Password tidak sama",
+  "Password must contain at least 8 characters":"Password minimal 8 karakter","Password must be at least 8 characters":"Password minimal 8 karakter","Password must combine at least three of: lowercase, uppercase, numbers, and symbols":"Password harus menggabungkan minimal tiga dari: huruf kecil, huruf besar, angka, dan simbol","Passwords do not match":"Password tidak sama",
   "Too many reset requests. Try again later.":"Terlalu banyak permintaan reset. Coba lagi nanti."
 });
 </script>
@@ -13324,7 +13351,8 @@ Object.assign(UI_ID,{
   "That upload is too large.":"Unggahan terlalu besar.","Unexpected server response (HTTP ":"Respons server tidak terduga (HTTP ",
   "Show password":"Tampilkan password","Hide password":"Sembunyikan password","That item is not available to you":"Item itu tidak tersedia untukmu",
   "Project not found — it may have been deleted or you no longer have access.":"Project tidak ditemukan — mungkin sudah dihapus atau kamu tidak punya akses lagi.",
-  "Write":"Tulis","Preview":"Pratinjau","Bold":"Tebal","Italic":"Miring","Strikethrough":"Coret","Heading":"Judul","Bullet list":"Daftar poin","Numbered list":"Daftar bernomor","Quote":"Kutipan","Link":"Tautan","Code":"Kode",
+  "Write":"Tulis","Preview":"Pratinjau","Done":"Selesai","Edit":"Edit","Bold":"Tebal","Italic":"Miring","Strikethrough":"Coret","Heading":"Judul","Bullet list":"Daftar poin","Numbered list":"Daftar bernomor","Quote":"Kutipan","Link":"Tautan","Code":"Kode",
+  "Confirm":"Konfirmasi","This removes the task, its versions, files and comments. Workspace activity is kept.":"Task, versi, file, dan komentarnya akan dihapus. Aktivitas workspace tetap disimpan.","It is currently blocking":"Saat ini task ini memblokir","task":"task","tasks":"task","Their dependency links will be removed.":"Tautan dependensinya akan dihapus.","Add link":"Tambah link","Link text":"Teks link","Link URL":"URL link","Enter a valid https:// link":"Masukkan link https:// yang valid","Enter a valid web link":"Masukkan link web yang valid","Google Drive":"Google Drive","Google Drive Folder":"Folder Google Drive",
   "Formatting uses Markdown: **bold**, *italic*, # heading, - list. Pasted text keeps its styling.":"Format memakai Markdown: **tebal**, *miring*, # judul, - daftar. Teks yang ditempel tetap mempertahankan gayanya.",
   "Nothing to preview yet.":"Belum ada yang bisa dipratinjau.","No description.":"Tidak ada deskripsi.","Description":"Deskripsi","Link URL (https://…)":"URL tautan (https://…)",
   "Appearance is personal: only your account changes.":"Tampilan bersifat pribadi: hanya akunmu yang berubah.",
@@ -13494,13 +13522,16 @@ function versionFilesChosen(files){ if(!document.getElementById("uv_file")) retu
 (function(){ var base=uploadVersion; uploadVersion=function(silent){ window._verUps=null; var r=base.apply(this,arguments); if(!silent){ var b=document.querySelector('#modal button[onclick="pickVersionFile()"]'); if(b) b.innerHTML=I.up+tr("Choose files"); } return r; }; })();
 
 /* ---------- #17 description: formatting toolbar, Markdown source, preview ---------- */
+function descDriveLabel(u){ try{ var p=typeof detectProvider==="function"?detectProvider(u):null; if(p&&/^GOOGLE_/.test(p.provider)) return p.resourceType==="folder"?tr("Google Drive Folder"):tr("Google Drive"); }catch(e){} return /^https?:\/\/(?:drive|docs)\.google\.com\//i.test(u)?tr("Google Drive"):""; }
+function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return ""; if(/^(?:www\.)/i.test(u)||/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(u)) u="https://"+u; try{ var x=new URL(u); return /^(https?|ftp):$/i.test(x.protocol)?x.href:""; }catch(e){ return ""; } }
 function descMdInline(s){ /* s is already escaped */
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  s=s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,function(_,t,u){ return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+t+'</a>'; });
+  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ var drive=descDriveLabel(u); return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(drive&&(t===u||/^(?:https?|ftp):/i.test(t))?drive:t)+'</a>'; });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
   s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>').replace(/(^|[\s(])_([^_\n]+)_/g,'$1<em>$2</em>');
   s=s.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
-  s=s.replace(/(^|[\s(>])(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+'<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+u+'</a>'; });
+  s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+'<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(u)||u)+'</a>'; });
+  s=s.replace(/(^|[\s(>])((?:www\.)[^ -\s<]+[^\s<.,;:!?)])/gi,function(_,p,u){ var url=descNormalizeUrl(u); return url?p+'<a href="'+url+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(url)||u)+'</a>':p+u; });
   return s; }
 function descMdHtml(src){ var lines=esc(String(src||"")).split(/\r?\n/), out=[], list=null, code=null;
   var close=function(){ if(list){ out.push("</"+list+">"); list=null; } };
@@ -13526,7 +13557,7 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="i"||t==="em"||ital&&t==="span") inner=inner.trim()?"*"+inner.trim()+"*":inner;
     if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
     if(t==="code") return "`"+inner+"`";
-    if(t==="a"){ var h=n.getAttribute("href")||""; return /^https?:/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
+    if(t==="a"){ var h=n.getAttribute("href")||""; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
     if(/^h[1-3]$/.test(t)) return "\n"+"#".repeat(+t[1])+" "+inner.trim()+"\n";
     if(/^h[4-6]$/.test(t)) return "\n### "+inner.trim()+"\n";
     if(t==="li") return "\n"+(ctx==="ol"?"1. ":"- ")+inner.trim();
@@ -13536,24 +13567,23 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="p"||t==="div"||t==="tr") return "\n"+inner.trim()+"\n";
     return inner; };
   return walk(d,"").replace(/\*\*\s*\*\*/g,"").replace(/\n{3,}/g,"\n\n").trim(); }
-function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), mode=S.descMode||"write", txt=tk.description||"";
+function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.description||"", mode=S.descMode||(txt?"viewer":"editor");
   if(!ed) return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">'+tr("Description")+'</div><div class="md-view">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("No description.")+'</span>')+'</div></div>';
+  if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("Nothing to preview yet.")+'</span>')+'</div></div>';
   var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="descFormat(\''+act+'\')">'+html+'</button>'; };
-  return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><div class="seg sm"><button class="'+(mode==="write"?"on":"")+'" onclick="descSaveNow();S.descMode=\'write\';renderDrawer()">'+tr("Write")+'</button><button class="'+(mode==="preview"?"on":"")+'" onclick="descSaveNow();S.descMode=\'preview\';renderDrawer()">'+tr("Preview")+'</button></div></div>'
-    +(mode==="preview"?'<div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("Nothing to preview yet.")+'</span>')+'</div>'
-    :'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")+'</div>'
-      +'<textarea class="desc md-src" id="descSrc" placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descSaveSoon()" onchange="descSaveNow()" onpaste="descPaste(event)">'+esc(txt)+'</textarea><div class="hint" style="margin-top:5px">'+tr("Formatting uses Markdown: **bold**, *italic*, # heading, - list. Pasted text keeps its styling.")+'</div>')+'</div>'; }
+  return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
+    +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")+'</div>'
+    +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
 var _descT=null;
-function descSaveSoon(){ clearTimeout(_descT); _descT=setTimeout(descSaveNow,1200); }
-function descSaveNow(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; if((tk.description||"")===el.value) return; var pos=[el.selectionStart,el.selectionEnd], had=document.activeElement===el; editTask("description",el.value); if(had){ var n=document.getElementById("descSrc"); if(n){ n.focus(); try{ n.setSelectionRange(pos[0],pos[1]); }catch(e){} } } }
-function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"); if(!html||!/<(b|strong|i|em|h[1-6]|li|a)\b|font-weight|font-style/i.test(html)) return; var md=descHtmlToMd(html); if(!md) return; e.preventDefault(); var el=e.target, s=el.selectionStart, en=el.selectionEnd; el.value=el.value.slice(0,s)+md+el.value.slice(en); el.selectionStart=el.selectionEnd=s+md.length; descSaveSoon(); }
-function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; var s=el.selectionStart, e=el.selectionEnd, v=el.value, sel=v.slice(s,e);
-  var wrap=function(a,b,ph){ var t=sel||tr(ph); el.value=v.slice(0,s)+a+t+b+v.slice(e); el.selectionStart=s+a.length; el.selectionEnd=s+a.length+t.length; };
-  var lines=function(prefix){ var ls=v.lastIndexOf("\n",s-1)+1, le=v.indexOf("\n",e); if(le<0) le=v.length; var block=v.slice(ls,le).split("\n").map(function(l,i){ var p=typeof prefix==="function"?prefix(i):prefix; return l.indexOf(p)===0?l.slice(p.length):p+l; }).join("\n"); el.value=v.slice(0,ls)+block+v.slice(le); el.selectionStart=ls; el.selectionEnd=ls+block.length; };
-  if(act==="bold") wrap("**","**","bold text"); else if(act==="italic") wrap("*","*","italic text"); else if(act==="strike") wrap("~~","~~","text"); else if(act==="code") wrap(sel.indexOf("\n")>=0?"```\n":"`",sel.indexOf("\n")>=0?"\n```":"`","code");
-  else if(act==="h") lines("## "); else if(act==="ul") lines("- "); else if(act==="ol") lines(function(i){ return (i+1)+". "; }); else if(act==="quote") lines("> ");
-  else if(act==="link"){ var u=prompt(tr("Link URL (https://…)"),"https://"); if(!u||!/^https?:\/\/\S+$/i.test(u)) return; wrap("[","]("+u+")","link text"); }
-  el.focus(); descSaveSoon(); }
+function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
+function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
+function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
+function descSaveSoon(){ descWysiwygInput(); }
+function descSaveNow(){ descWysiwygSave(); }
+function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
+function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
+function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
+function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; if(act==="link") return descLinkModal(); el.focus(); var command={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock",code:"formatBlock"}[act]; if(!command) return; if(act==="h"||act==="quote"||act==="code") document.execCommand(command,false,act==="h"?"<h3>":act==="quote"?"<blockquote>":"<pre>"); else document.execCommand(command,false,null); descWysiwygInput(); }
 
 /* ---------- #18 live updates for everything that is not a task ---------- */
 (function(){
@@ -13594,7 +13624,7 @@ function aiStatusBadge(which){ var st=aiCheckState(which), lc=(aiCfg()[which]||{
     return h; };
   if(typeof setAIOverview==="function"){ var baseOv=setAIOverview; setAIOverview=function(){ var keep=aiConfigured; aiConfigured=function(w){ return aiCheckState(w)==="ok"; }; try{ return baseOv.apply(this,arguments); } finally { aiConfigured=keep; } }; }
 })();
-function aiImageProviderPreset(p){ var ep=document.getElementById("ai_i_ep"); if(!ep) return; ep.value={openai:"https://api.openai.com/v1/images/generations",gemini:"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",magnific:"https://api.freepik.com/v1/ai/mystic"}[p]||ep.value; }
+function aiImageProviderPreset(p){ var ep=document.getElementById("ai_i_ep"); if(!ep) return; ep.value={openai:"https://api.openai.com/v1/images/generations",gemini:"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",magnific:"https://api.magnific.com/v1/ai/mystic"}[p]||ep.value; }
 saveAI=function(opts){ opts=opts||{}; var c=aiCfg(), el=function(id){ return document.getElementById(id); };
   var ik=el("ai_i_key")?val("ai_i_key"):"", ck=el("ai_c_key")?val("ai_c_key"):"";
   /* v37 read the permission switches even when they were not on screen (they live on another
@@ -13625,7 +13655,7 @@ function gdCheck(){ var c=cloudOf("gdrive"); if(!c||!gdReady()) return toast(tr(
   var cfg=gdCfg();
   return gdToken().then(function(token){ var h={Authorization:"Bearer "+token};
       return fetch("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress,displayName)",{headers:h}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j.error&&j.error.message)||("Drive "+r.status)); return j.user||{}; }); })
-      .then(function(user){ if(!cfg.folderId) return {user:user,folder:null}; return fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(cfg.folderId)+"?supportsAllDrives=true&fields=id,name,capabilities(canAddChildren)",{headers:h}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(tr("Team folder")+": "+((j.error&&j.error.message)||r.status)); if(j.capabilities&&j.capabilities.canAddChildren===false) throw new Error(tr("This account can open the team folder but cannot upload to it.")); return {user:user,folder:j}; }); }); }); })
+      .then(function(user){ if(!cfg.folderId) return {user:user,folder:null}; return fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(cfg.folderId)+"?supportsAllDrives=true&fields=id,name,capabilities(canAddChildren)",{headers:h}).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(tr("Team folder")+": "+((j.error&&j.error.message)||r.status)+(r.status===404?" — "+tr("choose the folder with \\\"Choose folder in Google Drive\\\" (Google only lets the app see folders picked there).") : "")); if(j.capabilities&&j.capabilities.canAddChildren===false) throw new Error(tr("This account can open the team folder but cannot upload to it.")); return {user:user,folder:j}; }); }); }); })
     .then(function(r){ c.connected=true; c.account=r.user.emailAddress||c.account; if(r.folder) c.folder=r.folder.name; c.lastCheck={ok:true,at:new Date().toISOString(),by:ME,account:r.user.emailAddress||""}; if(canI.manageWorkspace()) persistWS(); toast(tr("Drive works")+" · "+(r.user.emailAddress||"")+(r.folder?" · "+r.folder.name:"")); if(S.screen==="settings") renderScreen(false); })
     .catch(function(e){ c.lastCheck={ok:false,at:new Date().toISOString(),by:ME,error:e.message}; if(canI.manageWorkspace()) persistWS(); toast(tr("Drive check failed")+": "+e.message,"bad"); if(S.screen==="settings") renderScreen(false); }); }
 (function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations; setIntegrations=function(){ var h=base.apply(this,arguments); if(typeof h!=="string") return h; var c=cloudOf("gdrive")||{}, lc=c.lastCheck, verified=c.connected&&lc&&lc.ok;
@@ -13654,6 +13684,141 @@ function demoPurgeRun(content){ confirmModal(tr("Remove demo data"),tr("Demo acc
   if(/^\/files\/[a-f0-9]{64}\./.test(src)&&!o.driveId){ toast(tr("Downloading…")); return fetch(src,{credentials:"same-origin"}).then(function(r){ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(function(b){ triggerDownload(b,saveFileName(o.name||"image",b.type)); }).catch(function(){ toast(tr("Nothing to save"),"bad"); }); }
   return base.apply(this,arguments); }; })();
 </script>
+<script>
+/* ============================================================
+   GOOGLE PICKER — attachments go straight from the browser to your Drive (OAuth via Google Identity Services).
+   The server never stores binaries: only the Drive file id, the web link and a thumbnail link. Configure in Settings -> Cloud storage -> Google Drive.
+   ============================================================ */
+Object.assign(UI_ID,{
+  "Choose the team folder":"Pilih folder tim",
+  "Choose folder in Google Drive":"Pilih folder di Google Drive",
+  "Picker API key":"API key Picker",
+  "Project number":"Nomor project",
+  "Required: a pasted folder ID is not visible to the app until you choose it here.":"Wajib: ID folder yang ditempel belum terlihat oleh aplikasi sampai dipilih di sini.",
+  "Fill in Client ID, Picker API key and project number first":"Isi Client ID, API key Picker, dan nomor project terlebih dahulu.",
+  "Selected":"Dipilih",
+  "press Save":"tekan Simpan",
+  "Team folder access granted":"Akses folder tim diberikan",
+  "Select the team folder to give ZenCrevia access":"Pilih folder tim untuk memberikan akses ke ZenCrevia",
+  "That is a different folder. Choose the team folder set by your admin.":"Itu folder yang berbeda. Pilih folder tim yang ditentukan admin.",
+  "Choose the team folder once to allow uploads from your account":"Pilih folder tim sekali agar akunmu dapat mengunggah.",
+  "Folder access was not granted":"Akses folder belum diberikan.",
+  "Could not load Google Picker":"Google Picker gagal dimuat",
+  "Could not load Google Picker (blocked or offline?)":"Google Picker gagal dimuat (diblokir atau offline?)",
+  "Google Picker needs an API key and the project number. Add them in Settings -> Google Drive.":"Google Picker memerlukan API key dan nomor project. Tambahkan di Settings -> Google Drive."
+});
+var GDP={loading:null,pending:null};
+function gdpCfgReady(){ var c=gdCfg(); return !!(c.clientId&&c.pickerKey&&c.appId); }
+function gdpLoad(){
+  if (window.google&&google.picker) return Promise.resolve();
+  if (GDP.loading) return GDP.loading;
+  GDP.loading=new Promise(function(res,rej){
+    function go(){ gapi.load("picker",{callback:function(){ res(); },onerror:function(){ rej(new Error(tr("Could not load Google Picker"))); }}); }
+    if (window.gapi&&gapi.load) return go();
+    var s=document.createElement("script"); s.src="https://apis.google.com/js/api.js"; s.async=true;
+    s.onload=go; s.onerror=function(){ GDP.loading=null; rej(new Error(tr("Could not load Google Picker (blocked or offline?)"))); };
+    document.head.appendChild(s);
+  });
+  return GDP.loading;
+}
+/* Opens the Picker on folders. Resolves with {id,name} or null when cancelled. */
+function gdPickFolder(opts){
+  opts=opts||{}; var c=gdCfg(), key=opts.pickerKey||c.pickerKey, appId=opts.appId||c.appId;
+  if (!key||!appId) return Promise.reject(new Error(tr("Google Picker needs an API key and the project number. Add them in Settings -> Google Drive.")));
+  return Promise.all([gdToken(),gdpLoad()]).then(function(r){
+    var token=r[0];
+    return new Promise(function(res){
+      var mine=new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder").setMode(google.picker.DocsViewMode.LIST);
+      var shared=new google.picker.DocsView(google.picker.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes("application/vnd.google-apps.folder").setEnableDrives(true).setMode(google.picker.DocsViewMode.LIST);
+      var p=new google.picker.PickerBuilder()
+        .setTitle(opts.title||"Choose the team folder")
+        .addView(mine).addView(shared)
+        .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
+        .setOAuthToken(token).setDeveloperKey(key).setAppId(String(appId).trim())
+        .setOrigin(window.location.protocol+"//"+window.location.host)
+        .setCallback(function(d){
+          var A=google.picker.Action;
+          if (d.action===A.PICKED){ var doc=(d.docs||[])[0]; res(doc?{id:doc.id,name:doc.name}:null); }
+          else if (d.action===A.CANCEL) res(null);
+        }).build();
+      p.setVisible(true);
+    });
+  });
+}
+/* Teammates: grant this browser's Google account access to the configured team folder. */
+function gdGrantFolder(){
+  var c=gdCfg(); if (!c.folderId) return Promise.resolve(true);
+  return gdPickFolder({title:tr("Select the team folder to give ZenCrevia access")}).then(function(f){
+    if (!f) throw new Error(tr("Folder access was not granted"));
+    if (f.id!==c.folderId) throw new Error(tr("That is a different folder. Choose the team folder set by your admin."));
+    toast(tr("Team folder access granted")); return true;
+  });
+}
+
+/* ---- Settings modal: add Picker fields + "Choose folder" button ---- */
+(function(){
+  var baseEdit=window.editGDrive, baseSave=window.saveGDrive, baseApply=window.saveGDriveApply, baseUpload=window.gdUpload;
+  if (!baseEdit||!baseApply) return;
+  window.editGDrive=function(){
+    baseEdit.apply(this,arguments);
+    var folder=document.getElementById("gd_folder"); if (!folder) return;
+    var cfg=gdCfg(), host=folder.closest(".field-row")||folder.parentNode;
+    var box=document.createElement("div");
+    box.innerHTML='<div class="gdrive-picker-fields">'
+      +fieldHtml("gd_pkey",tr("Picker API key"),'<input id="gd_pkey" value="'+attr(cfg.pickerKey||"")+'" placeholder="AIza..." style="font-family:var(--font-mono);font-size:12px">')
+      +fieldHtml("gd_appid",tr("Project number"),'<input id="gd_appid" value="'+attr(cfg.appId||"")+'" placeholder="123456789012" inputmode="numeric" style="font-family:var(--font-mono);font-size:12px">')
+      +'</div><div class="gdrive-picker-actions"><button type="button" class="btn" id="gd_pickbtn">'+(I.cloud||"")+esc(tr("Choose folder in Google Drive"))+'</button><span class="hint" id="gd_pickhint">'+esc(tr("Required: a pasted folder ID is not visible to the app until you choose it here."))+'</span></div>';
+    host.parentNode.insertBefore(box,host.nextSibling);
+    document.getElementById("gd_pickbtn").onclick=function(){
+      var cid=val("gd_client"), key=val("gd_pkey"), app=val("gd_appid");
+      if (!cid||!key||!app) return toast(tr("Fill in Client ID, Picker API key and project number first"),"bad");
+      if (cid!==(gdCfg().clientId||"")){ var cc=cloudOf("gdrive"); cc.config=Object.assign({},cc.config||{},{clientId:cid}); GD.token=null; GD.exp=0; }
+      gdPickFolder({pickerKey:key,appId:app}).then(function(f){
+        if (!f) return;
+        document.getElementById("gd_folder").value=f.id;
+        document.getElementById("gd_pickhint").textContent=tr("Selected")+": "+f.name+" - "+tr("press Save");
+      }).catch(function(e){ toast(e.message,"bad"); });
+    };
+  };
+  window.saveGDrive=function(){
+    GDP.pending={pickerKey:(document.getElementById("gd_pkey")?val("gd_pkey"):undefined),appId:(document.getElementById("gd_appid")?val("gd_appid"):undefined)};
+    return baseSave.apply(this,arguments);
+  };
+  window.saveGDriveApply=function(signIn,draft){
+    var p=GDP.pending; GDP.pending=null;
+    baseApply.apply(this,arguments);
+    var c=cloudOf("gdrive"); if (!c) return;
+    var prev=c.config||{};
+    c.config=Object.assign({},prev,{
+      pickerKey:p&&p.pickerKey!==undefined?String(p.pickerKey).trim():(prev.pickerKey||""),
+      appId:p&&p.appId!==undefined?String(p.appId).replace(/\D/g,""):(prev.appId||"")
+    });
+    persistWS();
+  };
+  /* Upload into the team folder fails with "File not found" until this user has
+     granted folder access once. Offer the Picker, then retry once. */
+  if (baseUpload) window.gdUpload=function(file,name){
+    var self=this, args=arguments;
+    return baseUpload.apply(self,args).catch(function(e){
+      var c=gdCfg();
+      if (!c.folderId||!gdpCfgReady()||!/not found/i.test(String(e&&e.message))) throw e;
+      toast(tr("Choose the team folder once to allow uploads from your account"));
+      return gdGrantFolder().then(function(){ return baseUpload.apply(self,args); });
+    });
+  };
+})();
+</script>
+<style>
+.gdrive-picker-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:14px;align-items:start}
+.gdrive-picker-fields .field{min-width:0}
+.gdrive-picker-fields .field label{display:block;font-size:12px;line-height:1.4;margin-bottom:7px}
+.gdrive-picker-fields .field input{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;line-height:1.45}
+.gdrive-picker-actions{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:2px}
+.gdrive-picker-actions .hint{flex:1 1 240px;min-width:0;margin:4px 0 0;line-height:1.45}
+.picker-dialog-bg{z-index:100000!important}
+.picker-dialog{z-index:100001!important}
+@media(max-width:640px){.gdrive-picker-fields{grid-template-columns:1fr;gap:12px}.gdrive-picker-actions{gap:8px}}
+</style>
 <script>
 Object.assign(UI_ID,{
  "Connected":"Terhubung","Demo · changes are not saved":"Demo · perubahan tidak disimpan","Switch user":"Ganti pengguna",

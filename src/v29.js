@@ -129,8 +129,8 @@ function authResetForm(inModal){
   if(AUTH.resetDone) return '<div class="auth-note" role="status"><b>'+tr("Password updated")+'</b><p>'+tr("Sign in with your new password. You have been signed out on every other device.")+'</p></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="AUTH.resetDone=false;AUTH.tab=\'login\';showLogin()">'+tr("Sign in")+'</button>';
   if(AUTH.resetInvalid) return '<div class="errbox" role="alert" style="margin-bottom:14px">'+tr("This reset link is invalid, already used or expired. Request a new one.")+'</div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="AUTH.resetInvalid=false;AUTH.tab=\'forgot\';showLogin()">'+tr("Request a new link")+'</button>';
   if(AUTH.resetToken&&AUTH.resetChecked!==AUTH.resetToken){ AUTH.resetChecked=AUTH.resetToken; apiFetch("POST","/api/auth/reset/check",{token:AUTH.resetToken}).then(function(r){ if(!r.valid){ AUTH.resetInvalid=true; showLogin(); } }).catch(function(){}); }
-  return (inModal?'':'<h2 class="auth-title">'+tr("Choose a new password")+'</h2>')+'<p class="hint" style="margin:-4px 0 14px">'+tr("At least 12 characters. A short sentence is easier to remember than random symbols.")+'</p>'
-    +'<div class="field"><label for="rs_pw">'+tr("New password")+'</label><input id="rs_pw" type="password" autocomplete="new-password" minlength="12"></div>'
+  return (inModal?'':'<h2 class="auth-title">'+tr("Choose a new password")+'</h2>')+'<p class="hint" style="margin:-4px 0 14px">'+tr("At least 8 characters. A short sentence is easier to remember than random symbols.")+'</p>'
+    +'<div class="field"><label for="rs_pw">'+tr("New password")+'</label><input id="rs_pw" type="password" autocomplete="new-password" minlength="8"></div>'
     +'<div class="field"><label for="rs_pw2">'+tr("Repeat new password")+'</label><input id="rs_pw2" type="password" autocomplete="new-password" onkeydown="if(event.key===\'Enter\')doReset()"></div>'
     +'<div class="err" id="au_err" role="alert"></div><button class="btn primary" id="au_submit" style="width:100%;justify-content:center;padding:11px" onclick="doReset()">'+tr("Save new password")+'</button>';
 }
@@ -143,7 +143,7 @@ function doForgot(){
 }
 function doReset(){
   var a=document.getElementById("rs_pw").value, b=document.getElementById("rs_pw2").value;
-  if(a.length<12) return authErr(tr("Password must contain at least 12 characters"));
+  var problem=passwordClientProblem(a); if(problem) return authErr(tr(problem));
   if(a!==b) return authErr(tr("Passwords do not match"));
   authBusy(true);
   apiFetch("POST","/api/auth/reset",{token:AUTH.resetToken,password:a}).then(function(){
@@ -163,12 +163,12 @@ Object.assign(UI_ID,{
   "Send reset link":"Kirim tautan reset","Back to sign in":"Kembali ke halaman masuk","Check your email":"Cek email kamu",
   "If that address belongs to an active account, a reset link is on its way. Check your inbox and spam folder.":"Jika alamat itu terdaftar di akun aktif, tautan reset sedang dikirim. Cek kotak masuk dan folder spam.",
   "The link works once and expires in":"Tautan hanya bisa dipakai sekali dan berlaku","minutes.":"menit.",
-  "Choose a new password":"Buat password baru","At least 12 characters. A short sentence is easier to remember than random symbols.":"Minimal 12 karakter. Kalimat pendek lebih mudah diingat daripada simbol acak.",
+  "Choose a new password":"Buat password baru","At least 8 characters. A short sentence is easier to remember than random symbols.":"Minimal 8 karakter. Kalimat pendek lebih mudah diingat daripada simbol acak.",
   "New password":"Password baru","Repeat new password":"Ulangi password baru","Save new password":"Simpan password baru",
   "Password updated":"Password diperbarui","Sign in with your new password. You have been signed out on every other device.":"Masuk dengan password baru. Semua sesi di perangkat lain sudah diakhiri.",
   "This reset link is invalid, already used or expired. Request a new one.":"Tautan reset ini tidak valid, sudah dipakai, atau kedaluwarsa. Minta tautan baru.",
   "Request a new link":"Minta tautan baru","Enter a valid email address":"Masukkan alamat email yang valid",
-  "Password must contain at least 12 characters":"Password minimal 12 karakter","Passwords do not match":"Password tidak sama",
+  "Password must contain at least 8 characters":"Password minimal 8 karakter","Password must be at least 8 characters":"Password minimal 8 karakter","Password must combine at least three of: lowercase, uppercase, numbers, and symbols":"Password harus menggabungkan minimal tiga dari: huruf kecil, huruf besar, angka, dan simbol","Passwords do not match":"Password tidak sama",
   "Too many reset requests. Try again later.":"Terlalu banyak permintaan reset. Coba lagi nanti."
 });
 </script>

@@ -15,7 +15,7 @@ function destroySession(db, token) { if (token) db.prepare("DELETE FROM sessions
 function cookies(req) { const out = {}; (req.headers.cookie || "").split(";").forEach(p => { const i = p.indexOf("="); if (i > 0) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); }); return out; }
 function cookieHeader(token, expires) { const secure = process.env.COS_SECURE_COOKIE === "1" || process.env.NODE_ENV === "production"; return "cos_session=" + (token || "") + "; Path=/; HttpOnly; SameSite=Lax" + (secure ? "; Secure" : "") + "; Expires=" + new Date(token ? expires : 0).toUTCString() + (token ? "; Max-Age=" + Math.max(0, Math.floor((new Date(expires).getTime() - Date.now()) / 1000)) : "; Max-Age=0"); }
 function passwordProblem(pw) {
-  if (typeof pw !== "string" || pw.length < 12) return "Password must contain at least 12 characters";
+  if (typeof pw !== "string" || pw.length < 8) return "Password must contain at least 8 characters";
   if (pw.length > 256) return "Password is too long";
   const groups = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(r => r.test(pw)).length;
   if (groups < 3) return "Password must combine at least three of: lowercase, uppercase, numbers, and symbols";

@@ -239,7 +239,7 @@ Viewer selalu `0`.
 
 ### Reset password
 
-Baris anggota → reset. Password baru minimal 12 karakter.
+Baris anggota → reset. Password baru minimal 8 karakter.
 **Seluruh sesi orang itu langsung dihapus.**
 
 ### Menghapus anggota
@@ -754,7 +754,7 @@ Sebelum server dijalankan pertama kali:
 - [ ] Konfigurasi SMTP, jalankan **Test connection** **dan** **Send test email**
 - [ ] Bagikan folder Google Drive ke Google Group, pastikan **Anyone with the link** mati
 
-Yang sudah aktif secara bawaan: password minimal 12 karakter dari tiga kelas karakter;
+Yang sudah aktif secara bawaan: password minimal 8 karakter dari tiga kelas karakter;
 sesi 12 jam dengan token yang di-hash, `HttpOnly`, `SameSite=Lax`, `Secure` di production;
 rate limit login dan registrasi; registrasi publik tertutup dengan join code acak;
 request yang mengubah data harus datang dari origin aplikasi; security header dan security log;

@@ -25,7 +25,7 @@ function check(env, opts) {
   if (opts.firstStart && env.COS_ADMIN_PASSWORD != null && v("COS_ADMIN_PASSWORD") !== "") {
     const pw = v("COS_ADMIN_PASSWORD");
     if (PLACEHOLDER.test(pw)) errors.push("COS_ADMIN_PASSWORD still has the placeholder value from .env.example. Anyone who has read that file could sign in as admin.");
-    else if (pw.length < 12) errors.push("COS_ADMIN_PASSWORD must be at least 12 characters.");
+    else if (pw.length < 8) errors.push("COS_ADMIN_PASSWORD must be at least 8 characters.");
   }
   if (opts.firstStart && PLACEHOLDER.test(v("COS_ADMIN_EMAIL"))) errors.push("COS_ADMIN_EMAIL still has the placeholder value. Use the real admin's email so password reset works.");
 
