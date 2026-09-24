@@ -405,7 +405,7 @@ const aiConf = (kind) => {
   if (!c.key) throw new HttpError(400, "No " + kind + " API key configured. Add one in Settings \u2192 AI.");
   c.key = secrets.decrypt(c.key);
   let endpoint; try { endpoint = new URL(String(c.endpoint || "")); } catch { throw new HttpError(400, "The AI provider endpoint is invalid"); }
-  const allowed = new Set(["api.anthropic.com", "generativelanguage.googleapis.com", "api.openai.com", "api.magnific.ai", "api.freepik.com"].concat(String(process.env.COS_AI_ALLOWED_HOSTS || "").split(",").map(s => s.trim()).filter(Boolean)));
+  const allowed = new Set(["api.anthropic.com", "generativelanguage.googleapis.com", "api.openai.com", "api.magnific.ai", "api.magnific.com", "api.freepik.com", "ai.sumopod.com"].concat(String(process.env.COS_AI_ALLOWED_HOSTS || "").split(",").map(s => s.trim()).filter(Boolean)));
   if (endpoint.protocol !== "https:" || !allowed.has(endpoint.hostname)) throw new HttpError(400, "The AI provider endpoint is not on the server allowlist");
   return c;
 };
@@ -444,18 +444,20 @@ const aiFetch = async (url, init, label, ms) => {
 function aiImageProvider(c, chosen, model) {
   const p = (chosen && chosen.provider) || c.provider || "";
   const m = String(model || "");
-  if (/^(gpt-image|dall-e)/i.test(m)) return "openai";
-  if (/^(gemini|imagen)/i.test(m)) return "gemini";
-  if (p && p !== "magnific") return p;
   const host = (() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })();
+  if (/^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test(host)) return "magnific";
   if (host === "api.openai.com") return "openai";
   if (host === "generativelanguage.googleapis.com") return "gemini";
+  if (/^(gpt-image|dall-e)/i.test(m)) return "openai";
+  if (/^(gemini|imagen)/i.test(m)) return "gemini";
+  if (p) return p;
   return p || "magnific";
 }
 function aiPickFirstImage(j) {
   const d0 = Array.isArray(j.data) && j.data[0];
   const out = j.imageUrl || j.image_url || j.url || (typeof j.output === "string" ? j.output : null)
     || (Array.isArray(j.images) && j.images[0] && (j.images[0].url || (typeof j.images[0] === "string" ? j.images[0] : null)))
+    || (j.data && Array.isArray(j.data.images) && j.data.images[0] && (j.data.images[0].url || (typeof j.data.images[0] === "string" ? j.data.images[0] : null)))
     || (d0 && (d0.url || (d0.b64_json && "data:image/png;base64," + d0.b64_json) || (Array.isArray(d0.generated) && d0.generated[0])))
     || (j.data && !Array.isArray(j.data) && (j.data.url || (Array.isArray(j.data.generated) && j.data.generated[0])))
     || (Array.isArray(j.output) && (typeof j.output[0] === "string" ? j.output[0] : j.output[0] && j.output[0].url));
@@ -490,8 +492,33 @@ async function aiImageCall(c, provider, body) {
     const said = parts.map(p => p.text || "").join(" ").trim();
     throw new HttpError(424, "Gemini returned no image" + (said ? ": " + said.slice(0, 200) : ". Use an image model such as gemini-2.5-flash-image or imagen-4.0-generate-001."));
   }
-  const j = await aiFetch(c.endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + c.key, "x-magnific-api-key": c.key, "x-freepik-api-key": c.key }, body: JSON.stringify(body) }, "Image", 90000);
-  const url = aiPickFirstImage(j);
+  /* Magnific / Freepik Mystic: async API. POST returns { data: { task_id, status } },
+     then GET <endpoint>/<task_id> until COMPLETED. Custom endpoints keep the old body. */
+  const mhost = (() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })();
+  const isMystic = /(^|\.)(magnific\.com|magnific\.ai|freepik\.com)$/.test(mhost);
+  const mheaders = { "Content-Type": "application/json", "Authorization": "Bearer " + c.key, "x-magnific-api-key": c.key, "x-freepik-api-key": c.key };
+  let reqBody = body;
+  if (isMystic) {
+    const aspect = ratio > 1.9 ? "widescreen_16_9" : ratio > 1.6 ? "widescreen_16_9" : ratio > 1.4 ? "standard_3_2" : ratio > 1.2 ? "classic_4_3" : ratio < 0.53 ? "social_story_9_16" : ratio < 0.62 ? "social_story_9_16" : ratio < 0.72 ? "portrait_2_3" : ratio < 0.83 ? "traditional_3_4" : "square_1_1";
+    const MYSTIC_MODELS = ["realism", "fluid", "zen", "flexible", "super_real", "editorial_portraits"];
+    const m = String(body.model || "").toLowerCase();
+    reqBody = { prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), aspect_ratio: aspect, resolution: process.env.COS_MYSTIC_RESOLUTION || "2k", model: MYSTIC_MODELS.includes(m) ? m : "realism", filter_nsfw: true };
+  }
+  const j = await aiFetch(c.endpoint, { method: "POST", headers: mheaders, body: JSON.stringify(reqBody) }, "Image", 90000);
+  let url = aiPickFirstImage(j);
+  const taskId = j && ((j.data && (j.data.task_id || j.data.taskId || j.data.id || j.data.uuid)) || j.task_id || j.taskId || j.id || j.uuid);
+  if (!url && taskId && isMystic) {
+    const pollUrl = c.endpoint.replace(/\/+$/, "") + "/" + encodeURIComponent(taskId);
+    const deadline = Date.now() + 180000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 3000));
+      const t = await aiFetch(pollUrl, { method: "GET", headers: mheaders }, "Image", 30000);
+      const st = String((t.data && t.data.status) || "").toUpperCase();
+      if (st === "COMPLETED") { url = aiPickFirstImage(t); if (!url) throw new HttpError(424, "Magnific finished but returned no image URL."); return url; }
+      if (st === "FAILED" || st === "ERROR") throw new HttpError(424, "Magnific generation failed (task " + taskId + ").");
+    }
+    throw new HttpError(424, "Magnific is still processing after 3 minutes (task " + taskId + "). Try again or lower the resolution.");
+  }
   if (!url) throw new HttpError(424, "The provider returned no image URL" + (j.data && j.data.status ? " (task status: " + j.data.status + " \u2014 this endpoint works asynchronously and is not supported)" : "") + ". Keys seen: " + Object.keys(j).join(", "));
   return url;
 }
@@ -532,9 +559,10 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
   const languageRule = replyInIndonesian
     ? "Reply in Indonesian because the latest user question is in Indonesian. Keep task IDs, proper names, file names, and campaign names exactly as written."
     : "Reply in English because the latest user question is in English. Keep task IDs, proper names, file names, and campaign names exactly as written.";
+  const workspaceContext = String(b.context || "").slice(0, 12000);
   const system = "You are AI Intelligence inside ZenCrevia for " + (db.prepare("SELECT name FROM workspaces WHERE id=?").get(WS_ID) || {}).name +
     ". Answer only from the workspace snapshot below. Be concise, cite task IDs. Never invent data. " + languageRule + "\n\n" +
-    (c.systemExtra ? c.systemExtra + "\n\n" : "") + String(b.context || "").slice(0, 40000);
+    (c.systemExtra ? c.systemExtra + "\n\n" : "") + workspaceContext;
   const anthropic = c.provider === "anthropic" || /anthropic/i.test(c.endpoint || "");
   const gemini = c.provider === "gemini" || /generativelanguage\.googleapis\.com/.test(c.endpoint || "");
   const headers = { "Content-Type": "application/json" };
@@ -548,13 +576,15 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
     body = { systemInstruction: { parts: [{ text: system }] }, contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })) };
   } else {
     headers["Authorization"] = "Bearer " + c.key;
-    body = { model: c.model, max_tokens: 1500, messages: [{ role: "system", content: system }].concat(msgs) };
+    body = { model: c.model, max_tokens: 500, messages: [{ role: "system", content: system }].concat(msgs) };
   }
   security.log("ai_chat_requested", { userId: u.id, provider: c.provider || "chat", model: c.model, workspaceContext: !!b.context });
   const j = await aiFetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) }, "Chat", 60000);
+  const directContent = typeof j.content === "string" ? j.content
+    : Array.isArray(j.content) ? j.content.filter(x => x && x.type === "text").map(x => x.text || "").join("\n") : "";
+  const choiceContent = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
   const text = gemini ? (j.candidates && j.candidates[0] && j.candidates[0].content && (j.candidates[0].content.parts || []).map(p => p.text || "").join(""))
-    : ((j.content && j.content.filter(x => x.type === "text").map(x => x.text).join("\n"))
-    || (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "");
+    : (directContent || (typeof choiceContent === "string" ? choiceContent : Array.isArray(choiceContent) ? choiceContent.map(x => x && (x.text || x.content || "")).join("") : ""));
   if (!text) throw new HttpError(502, "The model returned no text.");
   return { text };
 });

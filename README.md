@@ -79,3 +79,14 @@ server automatically. A manual restart is no longer required.
 
 ## v18
 Messages (team chat), AI Gallery role quotas & filters, Task-as-AI-brief. See `CHANGELOG-v18.md`. The only notification sound is `src/sounds/zen-chime.mp3` (v29: 6.9 KB audio-only MP3, mono 64 kbps), inlined by `node build.js`.
+
+
+## after change
+
+git add .
+git commit -m "message"
+git push origin master
+
+## kalo ada code dari orang
+
+git pull --ff origin master
