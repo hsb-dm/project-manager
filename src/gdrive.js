@@ -3,7 +3,7 @@
    GOOGLE DRIVE — attachments go straight from the browser to your Drive (OAuth via Google Identity Services).
    The server never stores binaries: only the Drive file id, the web link and a thumbnail link. Configure in Settings → Cloud storage → Google Drive.
    ============================================================ */
-var GD={token:null,exp:0,loading:null,request:null};
+var GD={token:null,exp:0,loading:null,request:null,cooldown:0};
 function gdCfg(){ var c=cloudOf("gdrive"); return (c&&c.config)||{}; }
 function gdReady(){ return !!gdCfg().clientId; }
 function gdAuto(){ var c=gdCfg(); return gdReady()&&c.autoUpload!==false; }
@@ -28,8 +28,12 @@ function gdWarmOnPick(){
   inp.dataset.gdWarm="1";
   inp.addEventListener("click",function(ev){
     if(!gdNeedsToken()) return;
+    /* One sign-in window per attempt. Without this a sign-in that never returns a token reopens
+       its window on every single click, which buries the page in popups. */
+    if(Date.now()<GD.cooldown) return;   /* let the chooser open; the upload reports the failure */
+    GD.cooldown=Date.now()+60000;
     ev.preventDefault();   /* keep the chooser shut so the sign-in window may open */
-    gdToken().then(function(){ toast(tr("Google Drive is ready — choose your file again.")); },
+    gdToken().then(function(){ GD.cooldown=0; toast(tr("Google Drive is ready — choose your file again.")); },
                    function(e){ toast(tr("Google Drive: ")+e.message,"bad"); });
   });
 }
