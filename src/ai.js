@@ -145,7 +145,7 @@ function aiSettingsLabel(s){ s=s||AIF; var z=s.size==="custom"?Math.max(64,+s.cu
 /* History stores design settings without duplicating large image data. Restore
    the corresponding generated layer from the run URL before drawing it. */
 function aiRestoreRunImage(r){ if(!r||!r.url)return false; var layers=AIF.extraLayers||(AIF.extraLayers=[]), image=layers.filter(function(x){return x.type==="image"&&x.generated;})[0]; if(!image){ aiAddGeneratedLayer(r.url,{w:r.w||aiActiveSize().w,h:r.h||aiActiveSize().h}); return true; } image.src=r.url; image.name=image.name||"Generated image"; image.generated=true; AIF.hideGenerated=false; return true; }
-function aiLoadRunSettings(i){ var r=AI_RUNS[i]; if(!r||!r.fields)return toast("Settings were not saved with this older generation","bad"); AG_EDIT=null; AI_PREVIOUS_SETTINGS=clone(AIF); AIF=clone(r.fields); AIF.editMode=true; aiRestoreRunImage(r); AI_LAST={imgUrl:r.url,w:r.w,h:r.h,prompt:r.prompt,model:r.model,at:r.at,fields:clone(r.fields)}; renderScreen(false); toast("Loaded the generation settings and visual"); }
+function aiLoadRunSettings(i){ var r=AI_RUNS[i]; if(!r||!r.fields)return toast(tr("Settings were not saved with this older generation"),"bad"); AG_EDIT=null; AI_PREVIOUS_SETTINGS=clone(AIF); AIF=clone(r.fields); AIF.editMode=true; aiRestoreRunImage(r); AI_LAST={imgUrl:r.url,w:r.w,h:r.h,prompt:r.prompt,model:r.model,at:r.at,fields:clone(r.fields)}; renderScreen(false); toast(tr("Loaded the generation settings and visual")); }
 function aiRestoreRecentSettings(){ if(!AI_PREVIOUS_SETTINGS)return toast("You are already using the recent settings","bad"); AIF=clone(AI_PREVIOUS_SETTINGS); AI_PREVIOUS_SETTINGS=null; renderScreen(false); toast("Returned to your recent settings"); }
 
 /* ---------- prompt assembly ---------- */
@@ -663,10 +663,10 @@ function aiClearForm(){
 function aiStartNew(){aiClearForm();AI_HISTORY=[];AI_REDO=[];AI_PROJECT_BASE=null;renderScreen(false);setTimeout(aiProjectMarkSaved,0);toast(tr('New design ready'));}
 function aiNewDesign(){if(aiProjectDirty())return confirmModal(tr('Start a new design?'),tr('Your current work has not been saved to AI Gallery. Starting a new design will discard it.'),aiStartNew);aiStartNew();}
 function aiReuse(i){
-  var r = AI_RUNS[i]; if (!r||!r.url) return toast("This saved generation no longer has an image","bad");
+  var r = AI_RUNS[i]; if (!r||!r.url) return toast(tr("This saved generation no longer has an image"),"bad");
   aiRestoreRunImage(r); AIF.editMode=true;
   AI_LAST = { imgUrl:r.url, w:r.w, h:r.h, prompt:r.prompt, model:r.model, at:r.at };
-  renderScreen(false); toast("Loaded that generation into the canvas");
+  renderScreen(false); toast(tr("Loaded that generation into the canvas"));
 }
 
 /* ============================================================
