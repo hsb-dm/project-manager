@@ -2,8 +2,18 @@
 /* One selection model drives the layer list, canvas, alignment and keyboard. */
 function aiSelectedIds(){var ids=(AIF.selectedLayers||[]).filter(function(id,i,a){return aiLayerIds().includes(id)&&a.indexOf(id)===i;});if(!ids.includes(AIF.selectedLayer))ids=AIF.selectedLayer&&AIF.selectedLayer!=='canvas'?[AIF.selectedLayer]:[];AIF.selectedLayers=ids;return ids;}
 function aiSetSelection(ids){AIF.selectedLayers=ids;AIF.selectedLayer=ids[ids.length-1]||'canvas';}
-function aiChooseLayer(id,ev,toggle){if(id==='canvas')aiSetSelection([]);else{var ids=aiSelectedIds().slice();if(toggle||ev&&(ev.shiftKey||ev.ctrlKey||ev.metaKey)){var i=ids.indexOf(id);if(i<0)ids.push(id);else ids.splice(i,1);aiSetSelection(ids);}else aiSetSelection([id]);}aiRenderKeepScroll();}
-function aiSelectAllLayers(){aiSetSelection(AI_LAYER_HITS.filter(function(h){return !aiLayerMeta(h.id).locked&&aiLayerMeta(h.id).visible!==false;}).map(function(h){return h.id;}));aiRenderKeepScroll();}
+/* Picking a layer changes no pixels, so only the inspector and the outline need repainting.
+   Rebuilding the whole screen here tore the canvas down and recomposited it — every layer
+   image had to decode again, which is what made the canvas blink on each click. */
+function aiSelectionChanged(){
+  var v=typeof aiViewElements==='function'?aiViewElements():null;
+  if(!v)return aiRenderKeepScroll();   /* canvas not mounted yet: fall back to a full render */
+  if(typeof aiRefreshProperties==='function')aiRefreshProperties();
+  aiShowSelectionHandle(v.wrap,v.cv);
+  if(typeof aiDrawGuides==='function')requestAnimationFrame(function(){try{aiDrawGuides();}catch(e){}});
+}
+function aiChooseLayer(id,ev,toggle){if(id==='canvas')aiSetSelection([]);else{var ids=aiSelectedIds().slice();if(toggle||ev&&(ev.shiftKey||ev.ctrlKey||ev.metaKey)){var i=ids.indexOf(id);if(i<0)ids.push(id);else ids.splice(i,1);aiSetSelection(ids);}else aiSetSelection([id]);}aiSelectionChanged();}
+function aiSelectAllLayers(){aiSetSelection(AI_LAYER_HITS.filter(function(h){return !aiLayerMeta(h.id).locked&&aiLayerMeta(h.id).visible!==false;}).map(function(h){return h.id;}));aiSelectionChanged();}
 function aiSelectionBounds(hits){if(!hits.length)return null;var x=Math.min.apply(null,hits.map(function(h){return h.x;})),y=Math.min.apply(null,hits.map(function(h){return h.y;}));return {x:x,y:y,w:Math.max.apply(null,hits.map(function(h){return h.x+h.w;}))-x,h:Math.max.apply(null,hits.map(function(h){return h.y+h.h;}))-y};}
 function aiShiftLayer(id,dx,dy){if(aiLayerMeta(id).locked)return;var p=id.indexOf('extra_')===0?aiExtra(id.slice(6)):aiLayerPosition(id),sz=aiActiveSize();if(!p||aiLayerMeta(id).locked)return;p.x=(Number(p.x)||0)+dx*(AIF.offsetUnit==='px'?1:100/sz.w);p.y=(Number(p.y)||0)+dy*(AIF.offsetUnit==='px'?1:100/sz.h);}
 function aiAlignSelected(axis){var ids=aiSelectedIds(),hits=AI_LAYER_HITS.filter(function(h){return ids.includes(h.id);}),sz=aiActiveSize(),bounds=ids.length>1&&AIF.alignTarget!=='canvas'?aiSelectionBounds(hits):{x:0,y:0,w:sz.w,h:sz.h};if(!bounds||!hits.length)return;aiHistoryBefore();hits.forEach(function(h){var dx=axis==='left'?bounds.x-h.x:axis==='center'?bounds.x+bounds.w/2-h.x-h.w/2:axis==='right'?bounds.x+bounds.w-h.x-h.w:0,dy=axis==='top'?bounds.y-h.y:axis==='middle'?bounds.y+bounds.h/2-h.y-h.h/2:axis==='bottom'?bounds.y+bounds.h-h.y-h.h:0;aiShiftLayer(h.id,dx,dy);});aiRenderKeepScroll();}
