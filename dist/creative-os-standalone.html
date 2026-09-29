@@ -14261,7 +14261,24 @@ function gdCheck(){ var c=cloudOf("gdrive"); if(!c||!gdReady()) return toast(tr(
 (function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations; setIntegrations=function(){ var h=base.apply(this,arguments); if(typeof h!=="string") return h; var c=cloudOf("gdrive")||{}, lc=c.lastCheck, verified=c.connected&&lc&&lc.ok;
     if(c.connected&&!verified) h=h.replace('<span class="drive-status">'+esc(tr("Connected"))+'</span>','<span class="badge warn">'+esc(tr(lc&&!lc.ok?"Test failed":"Not verified"))+'</span>');
     var panel=sp("Google Drive connection",'<p class="hint" style="margin-bottom:10px">'+tr("Checks sign-in and access to the team folder from this browser.")+'</p>'+(lc?'<div class="pref"><div class="pl"><b>'+(lc.ok?'<span class="badge approved">'+tr("Verified")+'</span>':'<span class="badge bad">'+tr("Test failed")+'</span>')+'</b><span>'+tr("Last check")+' '+esc(new Date(lc.at).toLocaleString())+(lc.account?' · '+esc(lc.account):'')+(lc.error?' · '+esc(lc.error):'')+'</span></div></div>':''),gdReady()?'<button class="btn primary" onclick="gdCheck()">'+I.sync+tr("Test Google Drive")+'</button>':'',I.cloud);
-    return panel+h; }; })();
+    return panel+gdDiagPanel()+h; }; })();
+/* Google sign-in opens a popup. When a CDN or proxy in front of the app rewrites
+   Cross-Origin-Opener-Policy, that popup can never hand its token back and the connection
+   silently never completes — which reads as Drive resetting on every refresh. The app cannot
+   fix a header it does not get the last word on, so it reports what the browser actually
+   received, along with the origin Google must have on its allow-list. */
+function gdDiagPanel(){ setTimeout(gdDiagnose,0); return sp("Google sign-in environment",'<div class="pref"><div class="pl"><b>'+tr("This dashboard address")+'</b><span class="mono" id="gdDiagOrigin">'+esc(location.origin)+'</span></div></div>'+'<p class="hint">'+tr("Paste this exact value into Authorized JavaScript origins on your Google OAuth client. A different protocol, port or trailing path will block sign-in.")+'</p>'+'<div id="gdDiagCoop"></div>',null,I.lock); }
+function gdDiagnose(){ var el=document.getElementById("gdDiagCoop"); if(!el) return;
+  el.innerHTML='<p class="hint">'+tr("Checking the sign-in popup policy…")+'</p>';
+  fetch("/api/health",{cache:"no-store"}).then(function(r){ return r.headers.get("cross-origin-opener-policy")||""; }).then(function(coop){
+    var el2=document.getElementById("gdDiagCoop"); if(!el2) return;
+    var ok=coop==="same-origin-allow-popups";
+    el2.innerHTML=ok
+      ? '<div class="pref"><div class="pl"><b><span class="badge approved">'+tr("Popups allowed")+'</span></b><span>'+tr("Cross-Origin-Opener-Policy reaches the browser as")+' '+esc(coop)+'.</span></div></div>'
+      : '<div class="banner warn">'+I.lock+'<div><b>'+tr("Google sign-in will not finish here.")+'</b><br><span class="tiny">'+tr("The browser receives Cross-Origin-Opener-Policy")+' '+esc(coop||tr("(none)"))+' '+tr("instead of same-origin-allow-popups. Something in front of the app — usually a CDN or reverse proxy — is rewriting it. Restore that header to same-origin-allow-popups.")+'</span></div></div>';
+  }).catch(function(){ var el3=document.getElementById("gdDiagCoop"); if(el3) el3.innerHTML='<p class="hint">'+tr("Could not read the sign-in popup policy from this browser.")+'</p>'; });
+}
+
 
 /* ---------- #4 Settings → Backup & data → Remove demo data ---------- */
 var DEMO_PURGE={data:null,loading:false};
