@@ -5567,19 +5567,21 @@ function gdSavedAuth(){ try{ var x=JSON.parse(localStorage.getItem(gdAuthKey())|
 function gdRememberAuth(){ try{ var c=gdCfg(), proof={clientId:c.clientId,folderId:c.folderId||"",at:Date.now()}; localStorage.setItem(gdAuthKey(),JSON.stringify(proof)); /* An admin's successful connection is also a workspace marker. It lets every
   member start with a silent token request; their Google identity/token stays private. */ if(canI.manageWorkspace()&&(!gdWorkspaceAuth()||gdWorkspaceAuth().clientId!==proof.clientId||gdWorkspaceAuth().folderId!==proof.folderId)){ c.verified=proof; persistWS(); } }catch(e){} }
 function gdClearAuth(){ try{ localStorage.removeItem(gdAuthKey()); }catch(e){} }
-/* A browser only lets a site open a window while it still has the user's gesture. Uploads
-   asked Google for a token after the file chooser had come and gone, which is outside that
-   window, so the sign-in popup was blocked and the upload failed with nothing to click.
-   The token is fetched on the click that opens the chooser instead, while the gesture is
-   live; by the time a file is picked it is already cached and no window is needed. */
+/* Two things fight here. A popup needs the user's gesture, and Chrome refuses one outright
+   while a file chooser is open ("window.open blocked due to active file chooser"). Asking
+   for the token after the chooser closed missed the gesture; asking on the same click
+   collided with the chooser. So when a token is needed the chooser is held back: the click
+   spends itself on Google, and the next click — now cheap — opens the chooser. */
+function gdNeedsToken(){ return typeof gdAuto==="function" && gdAuto() && !(GD.token&&Date.now()<GD.exp); }
 function gdWarmOnPick(){
   var inp=document.getElementById("fileInput");
   if(!inp||inp.dataset.gdWarm) return;
   inp.dataset.gdWarm="1";
-  inp.addEventListener("click",function(){
-    if(typeof gdAuto!=="function"||!gdAuto()) return;
-    if(GD.token&&Date.now()<GD.exp) return;
-    gdToken().catch(function(){});   /* the upload itself reports any failure */
+  inp.addEventListener("click",function(ev){
+    if(!gdNeedsToken()) return;
+    ev.preventDefault();   /* keep the chooser shut so the sign-in window may open */
+    gdToken().then(function(){ toast(tr("Google Drive is ready — choose your file again.")); },
+                   function(e){ toast(tr("Google Drive: ")+e.message,"bad"); });
   });
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",gdWarmOnPick); else gdWarmOnPick();
@@ -5601,7 +5603,13 @@ function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(to
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 /* uploadAny(file) → {source,url,driveId,preview,size,type}: Drive when configured, else a downscaled local preview (images) / metadata only. */
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
-  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return gdUpload(file,opts.name).then(function(r){ return {source:"gdrive",url:r.url,driveId:r.driveId,preview:(type==="image"||type==="video")?r.thumb:null,previewUrl:r.preview,size:size,type:type,name:file.name}; }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
+  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return gdUpload(file,opts.name).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.preview,size:size,type:type,name:file.name};
+    /* The thumbnail used to point at Drive, but the server stores previews itself and refuses
+       a remote link ("no hot-linking arbitrary paths into the database"), so the attach was
+       rejected. Make the thumbnail here from the file we already hold. */
+    if(type!=="image") return out;
+    return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
+  }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
   return localUpload(file,type,size); }
 function localUpload(file,type,size){ return new Promise(function(res,rej){ if(type==="video")return res({source:"local",url:"",driveId:null,preview:URL.createObjectURL(file),size:size,type:type,name:file.name,temporary:true}); if (type!=="image") return rej(new Error("Connect Google Drive to upload this file, or paste its Drive link.")); shrinkImage(file,1600,1600,function(u){ res({source:"local",url:"",driveId:null,preview:u,size:size,type:type,name:file.name}); },rej); }); }
 /* full-size preview modal (images from Drive or local, or the Drive viewer for anything else) */
