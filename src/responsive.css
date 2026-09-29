@@ -505,11 +505,10 @@
     flex: 0 0 auto;
     margin-left: 0 !important;
   }
+  /* The grouped toolbar (primary / sort / tail) has no use for a spacer, and letting it claim
+     flex space is what pushed the last control onto a row of its own. */
   .toolbar[data-tour="task-filters"]>.spacer {
-    display: block !important;
-    flex: 1 1 0;
-    min-width: 4px;
-    order: 1;
+    display: none;
   }
   .toolbar[data-tour="task-filters"] .fchips {
     display: none !important;
@@ -690,40 +689,14 @@
   .project-pagehead .actions {
     margin-top: 10px;
   }
+  /* Wrapping and overflow are decided by the grouped-toolbar layer, which keeps the controls
+     on one row and lets it scroll if a narrow phone cannot fit them. */
   .toolbar[data-tour="task-filters"] {
     align-items: center;
     scrollbar-width: none;
     margin: 0 !important;
-    flex-wrap: wrap !important;
-    overflow: visible !important;
     row-gap: 0;
     column-gap: 6px;
-  }
-  .toolbar[data-tour="task-filters"]:has(>.pillsel~.pillsel)::after {
-    content: "";
-    order: 6;
-    flex: 0 0 100%;
-    height: 0;
-  }
-  .toolbar[data-tour="task-filters"]:has(>.pillsel~.pillsel)>.pillsel {
-    order: 7;
-    flex: 1 1 0;
-    min-width: 0;
-    margin-top: 8px;
-    justify-content: space-between;
-  }
-  .toolbar[data-tour="task-filters"]:has(>.pillsel~.pillsel)>.pillsel select {
-    max-width: none;
-    width: 100%;
-  }
-  .toolbar[data-tour="task-filters"]:has(>.pillsel~.pillsel)>.iconbtn {
-    order: 8;
-    margin-top: 8px;
-  }
-  .toolbar[data-tour="task-filters"]:has(>.pillsel~.pillsel)>.pillsel>span {
-    display: inline;
-    font-size: 9.5px;
-    flex: none;
   }
   .row.task-row:not(:has(>.meta-grid)) {
     display: flex;
