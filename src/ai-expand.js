@@ -32,6 +32,10 @@ function aiExpandDisabledReason(){
   if (model && !aiModelCan(model,"reference")) return aiExpandModel()
     ? tr("The model pinned for Expand cannot accept an input image. An admin can change it in Settings → AI → Models.")
     : tr("This model does not support Generative Expand. Pick another model, or ask an admin to pin one for Expand in Settings → AI → Models.");
+  /* Magnific outpaints through its own image-expand models; its generation models cannot,
+     whatever they are called. Say so here rather than after a failed round trip. */
+  if (aiExpandProvider()==="magnific" && AI_EXPAND_MAGNIFIC_MODELS.indexOf(String((model&&model.modelId)||""))<0)
+    return tr("This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.");
   return "";
 }
 function aiExpandOpen(){
@@ -180,12 +184,24 @@ function aiExpandSetBusy(on){
   if (on){ btn.disabled = true; btn.innerHTML = '<i class="ai-button-spinner" aria-hidden="true"></i>'+tr("Expanding…"); return; }
   aiExpandLabel();
 }
+/* Mirrors aiImageProvider() on the server, where the configured endpoint host outranks the
+   registry entry's provider — one workspace has one image credential, so the host is what the
+   request will actually reach. The two must agree or the payload arrives in the wrong shape. */
+var AI_EXPAND_MAGNIFIC_MODELS = ["flux-pro", "seedream-v4-5"];
+function aiExpandProvider(){
+  var m = aiExpandEffectiveModel(), c = aiCfg().image, host = "";
+  try { host = new URL(c.endpoint||"").hostname; } catch(e){}
+  if (/^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test(host)) return "magnific";
+  if (host === "api.openai.com") return "openai";
+  if (host === "generativelanguage.googleapis.com") return "gemini";
+  var id = String((m&&m.modelId)||"");
+  if (/^(gpt-image|dall-e)/i.test(id)) return "openai";
+  if (/^(gemini|imagen)/i.test(id)) return "gemini";
+  return (m&&m.provider) || c.provider || "magnific";
+}
 /* Magnific expands from the untouched picture plus per-side pixels; every other provider
    fills whatever is transparent, so it gets the enlarged canvas with the border cleared. */
-function aiExpandPadded(){
-  var m = aiExpandEffectiveModel();
-  return !(m && m.provider === "magnific");
-}
+function aiExpandPadded(){ return aiExpandProvider() !== "magnific"; }
 function aiExpandBuildComposite(cb,plainCrop){
   var e = AI_EXPAND, t = aiExpandTotals(), padded = !plainCrop && aiExpandPadded();
   var cv = document.createElement("canvas");

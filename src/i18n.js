@@ -738,6 +738,7 @@ Object.assign(UI_ID,{
   "AI Hub starting point":"Titik awal AI Hub","Members start from":"Anggota memulai dari","Blank canvas":"Kanvas kosong",
   "New members open AI Hub on this preset, so canvas size, layout, brand colours and safe zones already match the brand. It only seeds an untouched canvas — nobody’s work is overwritten, and everyone can still change anything afterwards.":"Anggota membuka AI Hub dengan preset ini, sehingga ukuran kanvas, tata letak, warna brand, dan safe zone sudah sesuai brand. Ini hanya mengisi kanvas yang masih kosong — pekerjaan siapa pun tidak akan tertimpa, dan semua orang tetap bisa mengubahnya.",
   "Build the look in AI Hub, save it with “Save preset”, then choose it here.":"Susun tampilannya di AI Hub, simpan dengan “Simpan preset”, lalu pilih di sini.",
-  "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong"
+  "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
+  "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
 </script>

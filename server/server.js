@@ -680,7 +680,8 @@ route("POST", "/api/ai/expand", async (u, p, q, b) => {
      The browser picks one from the model it resolved; if that disagrees with what the server
      resolved, say so instead of quietly expanding an already-padded image. */
   const wantsPadded = provider !== "magnific";
-  if (wantsPadded !== (b.padded !== false)) throw new HttpError(409, "The Expand model changed while you were working. Reopen Expand and try again.");
+  if (wantsPadded !== (b.padded !== false)) throw new HttpError(409, "This page prepared the picture for a different provider than the one this workspace expands through ("
+    + provider + "). Reload the page and open Expand again.");
   security.log("ai_image_expand_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null });
   const url = await aiImageExpandCall(c, provider, body);
   return { imageUrl: url };
