@@ -5566,13 +5566,24 @@ function gdWorkspaceAuth(){ var c=gdCfg(), x=c.verified; return x&&x.clientId===
 function gdSavedAuth(){ try{ var x=JSON.parse(localStorage.getItem(gdAuthKey())||"null"), c=gdCfg(); return x&&x.clientId===c.clientId&&x.folderId===(c.folderId||"")?x:gdWorkspaceAuth(); }catch(e){ return gdWorkspaceAuth(); } }
 function gdRememberAuth(){ try{ var c=gdCfg(), proof={clientId:c.clientId,folderId:c.folderId||"",at:Date.now()}; localStorage.setItem(gdAuthKey(),JSON.stringify(proof)); /* An admin's successful connection is also a workspace marker. It lets every
   member start with a silent token request; their Google identity/token stays private. */ if(canI.manageWorkspace()&&(!gdWorkspaceAuth()||gdWorkspaceAuth().clientId!==proof.clientId||gdWorkspaceAuth().folderId!==proof.folderId)){ c.verified=proof; persistWS(); } }catch(e){} }
-function gdClearAuth(){ try{ localStorage.removeItem(gdAuthKey()); }catch(e){} }
+function gdClearAuth(){ try{ localStorage.removeItem(gdAuthKey()); gdForgetToken(); }catch(e){} }
+/* A reload used to cost a sign-in: the token lived only in GD, and GIS has no hidden-iframe
+   renewal for access tokens, so the next upload had to open a window. Keep it in sessionStorage
+   instead — that survives a refresh but dies with the tab, and it never reaches the server. */
+function gdTokenKey(){ return "cos.gdrive.token."+encodeURIComponent((WS&&WS.id)||"workspace")+"."+encodeURIComponent((SESSION&&SESSION.user&&SESSION.user.id)||ME||"browser"); }
+function gdSaveToken(){ try{ sessionStorage.setItem(gdTokenKey(),JSON.stringify({t:GD.token,exp:GD.exp,clientId:gdCfg().clientId})); }catch(e){} }
+function gdForgetToken(){ GD.token=null; GD.exp=0; try{ sessionStorage.removeItem(gdTokenKey()); }catch(e){} }
+function gdLiveToken(){ if(GD.token&&Date.now()<GD.exp) return GD.token;
+  try{ var x=JSON.parse(sessionStorage.getItem(gdTokenKey())||"null");
+    /* a token minted for another OAuth client is useless here */
+    if(x&&x.t&&x.clientId===gdCfg().clientId&&Date.now()<x.exp){ GD.token=x.t; GD.exp=x.exp; return GD.token; } }catch(e){}
+  return null; }
 /* Two things fight here. A popup needs the user's gesture, and Chrome refuses one outright
    while a file chooser is open ("window.open blocked due to active file chooser"). Asking
    for the token after the chooser closed missed the gesture; asking on the same click
    collided with the chooser. So when a token is needed the chooser is held back: the click
    spends itself on Google, and the next click — now cheap — opens the chooser. */
-function gdNeedsToken(){ return typeof gdAuto==="function" && gdAuto() && !(GD.token&&Date.now()<GD.exp); }
+function gdNeedsToken(){ return typeof gdAuto==="function" && gdAuto() && !gdLiveToken(); }
 function gdWarmOnPick(){
   var inp=document.getElementById("fileInput");
   if(!inp||inp.dataset.gdWarm) return;
@@ -5590,7 +5601,7 @@ function gdWarmOnPick(){
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",gdWarmOnPick); else gdWarmOnPick();
 function gdLoad(){ if(window.google&&google.accounts&&google.accounts.oauth2)return Promise.resolve(); if(GD.loading)return GD.loading; GD.loading=new Promise(function(res,rej){ var s=document.createElement("script"); s.src="https://accounts.google.com/gsi/client"; s.async=true; s.onload=function(){ GD.loading=null;res(); }; s.onerror=function(){ GD.loading=null;rej(new Error(tr("Could not load Google sign-in (offline?)"))); }; document.head.appendChild(s); }); return GD.loading; }
-function gdToken(opts){ opts=opts||{}; if (GD.token&&Date.now()<GD.exp) return Promise.resolve(GD.token); if(GD.request)return GD.request; GD.request=gdLoad().then(function(){ return new Promise(function(res,rej){ var silent=!!gdSavedAuth()&&!opts.interactive, retried=false, tc;
+function gdToken(opts){ opts=opts||{}; var live=gdLiveToken(); if (live) return Promise.resolve(live); if(GD.request)return GD.request; GD.request=gdLoad().then(function(){ return new Promise(function(res,rej){ var silent=!!gdSavedAuth()&&!opts.interactive, retried=false, tc;
   var request=function(prompt){ tc.requestAccessToken({prompt:prompt}); };
   /* Google does not always call back: if the popup cannot reach its opener the callbacks
      never fire, this promise never settles, and because GD.request is kept every later
@@ -5598,11 +5609,11 @@ function gdToken(opts){ opts=opts||{}; if (GD.token&&Date.now()<GD.exp) return P
      Settle once, on a timer, so the failure is reportable instead of invisible. */
   var done=false, timer=null, settle=function(fn,v){ if(done)return; done=true; clearTimeout(timer); fn(v); };
   timer=setTimeout(function(){ settle(rej,new Error(tr("Google never answered the sign-in request. Check that this exact address is an Authorized JavaScript origin on your Google OAuth client, that the popup is not blocked, and that Settings → Integrations reports popups as allowed."))); }, GD.timeoutMs!=null?GD.timeoutMs:(silent?25000:180000));
-  tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?tr("Google sign-in cancelled"):tr("Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.")));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
+  tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?tr("Google sign-in cancelled"):tr("Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.")));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdSaveToken(); gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
   request(silent?"":"consent");
  }); }).then(function(token){GD.request=null;return token;},function(e){GD.request=null;throw e;}); return GD.request; }
 function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
-  return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd}).then(function(r){ return r.json().then(function(j){ if (!r.ok) throw new Error((j.error&&j.error.message)||"Drive upload failed"); return j; }); })
+  return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
   .then(function(j){ var done=function(){ return {driveId:j.id,url:j.webViewLink||("https://drive.google.com/file/d/"+j.id+"/view"),thumb:"https://drive.google.com/thumbnail?id="+j.id+"&sz=w1600",preview:"https://drive.google.com/file/d/"+j.id+"/preview",mime:j.mimeType,size:j.size?(j.size/1048576).toFixed(1)+" MB":"—"}; };
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 /* uploadAny(file) → {source,url,driveId,preview,size,type}: Drive when configured, else a downscaled local preview (images) / metadata only. */
