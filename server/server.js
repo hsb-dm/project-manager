@@ -588,6 +588,103 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
   if (!text) throw new HttpError(502, "The model returned no text.");
   return { text };
 });
+/* v39 Generative Expand — grow the canvas around an existing generated image and let the
+   model fill the new border. The client composites the source image onto a larger
+   transparent canvas (positioned per the user's drag) and sends that as `image`; the
+   provider paints only the transparent area back in. Needs an image-capable model
+   ("reference" capability), same as attaching a reference image. */
+const MAGNIFIC_EXPAND_MODELS = ["flux-pro", "seedream-v4-5"];
+async function aiImageExpandCall(c, provider, body) {
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(body.image || "");
+  if (!m) throw new HttpError(400, "A source image is required.");
+  const mime = m[1], b64 = m[2];
+  const ratio = body.width / body.height;
+  if (provider === "openai") {
+    const model = /^gpt-image/i.test(body.model || "") ? body.model : "gpt-image-1";
+    const size = ratio > 1.2 ? "1536x1024" : ratio < 0.83 ? "1024x1536" : "1024x1024";
+    const form = new FormData();
+    form.append("model", model);
+    form.append("prompt", body.prompt.slice(0, 4000));
+    form.append("size", size);
+    form.append("image", new Blob([Buffer.from(b64, "base64")], { type: mime }), "image.png");
+    const j = await aiFetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { "Authorization": "Bearer " + c.key }, body: form }, "Expand", 90000);
+    const url = aiPickFirstImage(j); if (!url) throw new HttpError(424, "OpenAI returned no image."); return url;
+  }
+  if (provider === "gemini") {
+    const model = body.model || "gemini-2.5-flash-image";
+    if (/^imagen/i.test(model)) throw new HttpError(400, "This model does not support Generative Expand. Choose a Gemini image model such as Nano Banana instead of Imagen.");
+    const base = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model);
+    const headers = { "Content-Type": "application/json", "x-goog-api-key": c.key };
+    const aspect = ratio > 1.6 ? "16:9" : ratio > 1.2 ? "4:3" : ratio < 0.62 ? "9:16" : ratio < 0.83 ? "3:4" : "1:1";
+    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: body.prompt }, { inlineData: { mimeType: mime, data: b64 } }] }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Expand", 90000);
+    const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
+    const img = parts.find(p => p.inlineData || p.inline_data); const d = img && (img.inlineData || img.inline_data);
+    if (d && d.data) return "data:" + (d.mimeType || d.mime_type || "image/png") + ";base64," + d.data;
+    const said = parts.map(p => p.text || "").join(" ").trim();
+    throw new HttpError(424, "Gemini returned no image" + (said ? ": " + said.slice(0, 200) : "."));
+  }
+  if (provider === "magnific") {
+    /* Magnific/Freepik has a dedicated outpainting API that takes the untouched picture plus
+       per-side pixel amounts, so this branch never sends the padded composite.
+       https://docs.magnific.com/api-reference/image-expand/post-flux-pro */
+    const model = MAGNIFIC_EXPAND_MODELS.includes(String(body.model || "")) ? body.model : null;
+    if (!model) throw new HttpError(400, "\"" + (body.model || "This model") + "\" is a Magnific generation model, not an expand model. Register one of: "
+      + MAGNIFIC_EXPAND_MODELS.join(", ") + " — then pick it under Settings → AI → Models → Generative Expand.");
+    const side = (v) => Math.max(0, Math.min(2048, Math.round(+v || 0)));
+    const endpoint = "https://api.magnific.com/v1/ai/image-expand/" + model;
+    const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + c.key, "x-magnific-api-key": c.key, "x-freepik-api-key": c.key };
+    const req = { image: b64, left: side(body.left), right: side(body.right), top: side(body.top), bottom: side(body.bottom) };
+    if (body.userPrompt) req.prompt = String(body.userPrompt).slice(0, 1000);
+    const j = await aiFetch(endpoint, { method: "POST", headers, body: JSON.stringify(req) }, "Expand", 90000);
+    let url = aiPickFirstImage(j);
+    const taskId = j && ((j.data && (j.data.task_id || j.data.taskId || j.data.id)) || j.task_id || j.id);
+    if (url) return url;
+    if (!taskId) throw new HttpError(424, "Magnific returned no image and no task id. Keys seen: " + Object.keys(j).join(", "));
+    const deadline = Date.now() + 180000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 3000));
+      const t = await aiFetch(endpoint + "/" + encodeURIComponent(taskId), { method: "GET", headers }, "Expand", 30000);
+      const st = String((t.data && t.data.status) || "").toUpperCase();
+      if (st === "COMPLETED") { url = aiPickFirstImage(t); if (!url) throw new HttpError(424, "Magnific finished the expand but returned no image URL."); return url; }
+      if (st === "FAILED" || st === "ERROR") throw new HttpError(424, "Magnific could not expand this image (task " + taskId + ").");
+    }
+    throw new HttpError(424, "Magnific is still expanding after 3 minutes (task " + taskId + "). Try a smaller expansion.");
+  }
+  throw new HttpError(400, "Generative Expand isn't available for this provider yet. Use an OpenAI GPT Image, Gemini image, or Magnific expand model.");
+}
+route("POST", "/api/ai/expand", async (u, p, q, b) => {
+  forbid(can.useAIHub(u), "use AI Hub");
+  const c = aiConf("image");
+  /* Expand runs on its own model when an admin has picked one, so members can keep a
+     text-to-image model selected in AI Hub and still expand. Same provider credentials. */
+  const pinned = String((sz.readAIRaw(db, WS_ID) || {}).expandModelId || "");
+  const chosen = aiResolveRegistryModel(pinned || b.modelRegistryId);
+  if (chosen && (chosen.capabilities || []).indexOf("reference") < 0) throw new HttpError(400, pinned
+    ? "The model chosen for Generative Expand cannot accept an input image. Pick one with reference-image support in Settings → AI → Models."
+    : "This model does not support Generative Expand. Choose a model with reference-image support in Settings → AI → Models.");
+  const body = {
+    prompt: "Extend this image so the new, currently transparent border becomes one seamless continuation of the existing picture. Keep every existing pixel unchanged and match its lighting, color, texture, grain, and perspective exactly. Do not add text, watermarks, or logos."
+      + (b.prompt ? " Additional guidance: " + String(b.prompt).slice(0, 600) : "")
+      + (c.defaultStyle ? "\n\nWorkspace brand requirements: " + String(c.defaultStyle).slice(0, 2000) : ""),
+    negative_prompt: String(b.negativePrompt || "").slice(0, 1000),
+    width: Math.max(64, Math.min(4096, +b.width || 1024)),
+    height: Math.max(64, Math.min(4096, +b.height || 1024)),
+    model: (chosen ? chosen.modelId : (b.model || c.model)) || undefined,
+    image: String(b.image || "").slice(0, 16_000_000),
+    userPrompt: String(b.prompt || "").slice(0, 1000),
+    left: b.left, right: b.right, top: b.top, bottom: b.bottom
+  };
+  const provider = aiImageProvider(c, chosen, body.model);
+  /* Two different shapes reach this endpoint: Magnific wants the untouched picture plus
+     per-side pixels, everyone else wants a canvas with the new border already transparent.
+     The browser picks one from the model it resolved; if that disagrees with what the server
+     resolved, say so instead of quietly expanding an already-padded image. */
+  const wantsPadded = provider !== "magnific";
+  if (wantsPadded !== (b.padded !== false)) throw new HttpError(409, "The Expand model changed while you were working. Reopen Expand and try again.");
+  security.log("ai_image_expand_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null });
+  const url = await aiImageExpandCall(c, provider, body);
+  return { imageUrl: url };
+});
 
 route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server

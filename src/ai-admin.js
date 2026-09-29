@@ -184,7 +184,7 @@ function setAI(){
   var cur=aiSection();
   var nav='<div class="subnav" role="tablist">'+AI_SETTINGS_SECTIONS.map(function(x){
     return '<button role="tab" aria-selected="'+(cur===x[0]?"true":"false")+'" class="'+(cur===x[0]?"on":"")+'" onclick="S.aiSettingsSection=\''+x[0]+'\';renderScreen(false)">'+tr(x[1])+'</button>'; }).join("")+'</div>';
-  var body={overview:setAIOverview,models:setAIModels,limits:setAILimits,prompts:setAIPromptRules,providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
+  var body={overview:setAIOverview,models:function(){return setAIModels()+setAIExpand();},limits:setAILimits,prompts:function(){return setAIPromptRules()+setAIDefaults();},providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
   return nav+body;
 }
 /* §P1-3 the overview answers "is this working?" before any technical field. */
@@ -240,6 +240,74 @@ function setAIModels(){
   return sp("Models",
     '<p class="hint" style="margin-bottom:10px">'+tr("Members choose from this list by display name. They cannot enter a model ID, and the server rejects any ID that is not registered here.")+'</p>'+rows,
     ed?'<button class="btn" onclick="aiModelModal()">'+I.plus+tr("Add model")+'</button>':'', I.sparkle);
+}
+/* §43 What every member starts from. Presets already capture the whole AI Hub document
+   (size, layout, copy, colours, safe zones), so the workspace default is just one of them
+   rather than a second, parallel set of fields. It seeds a pristine canvas only — the moment
+   someone types, generates or loads a design, their work is never overwritten. */
+var AI_DEFAULTS_SEEDED = false;
+function aiDefaultPresetId(){ return (WS&&WS.ai&&WS.ai.defaultPresetId)||""; }
+function aiSetDefaultPreset(id){
+  if(typeof WS==="undefined") return;
+  WS.ai=WS.ai||{}; WS.ai.defaultPresetId=id||"";
+  AI_DEFAULTS_SEEDED=true;   /* an admin changing this should not have it re-seed under them */
+  if(typeof renderScreen==="function") renderScreen(false);
+  if(typeof saveWS==="function") saveWS(id?"AI Hub starting point saved":"AI Hub starts from a blank canvas");
+}
+function aiCanvasPristine(){
+  if(typeof AIF==="undefined") return false;
+  if(typeof aiHasGeneratedLayer==="function"&&aiHasGeneratedLayer()) return false;
+  if(typeof AG_EDIT!=="undefined"&&AG_EDIT) return false;
+  if(typeof AI_HISTORY!=="undefined"&&AI_HISTORY.length) return false;
+  if(typeof AI_LAST!=="undefined"&&AI_LAST) return false;
+  if((AIF.extraLayers||[]).length||AIF.template) return false;
+  return !["brief","prompt","headline","sub","cta","badge"].some(function(k){ return String(AIF[k]||"").trim(); });
+}
+function aiApplyWorkspaceDefaults(){
+  if(AI_DEFAULTS_SEEDED) return false;
+  AI_DEFAULTS_SEEDED=true;
+  var id=aiDefaultPresetId(); if(!id||!aiCanvasPristine()) return false;
+  var preset=byId(aiPromptTemplates(),id); if(!preset) return false;
+  if(preset.editorFields) AIF=Object.assign(AIF,clone(preset.editorFields));
+  ["brief","style","negative","headline","sub","cta","badge","size","customW","customH","layout","background","accentColor","badgeColor","ctaColor","logoPosition","safeUnit","safeLocked","safeTop","safeRight","safeBottom","safeLeft"].forEach(function(k){
+    if(preset[k]!==undefined&&preset[k]!=="") AIF[k]=preset[k];
+  });
+  AIF.template=id; AIF.selectedLayer="canvas"; AIF.editMode=true;
+  return true;
+}
+function setAIDefaults(){
+  var ed=canI.manageWorkspace(), list=aiPromptTemplates(), cur=aiDefaultPresetId();
+  var opts='<option value=""'+(cur?"":" selected")+'>'+tr("Blank canvas")+'</option>'
+    + list.map(function(t){ return '<option value="'+attr(t.id)+'"'+(cur===t.id?" selected":"")+'>'+esc(t.name)+'</option>'; }).join("");
+  return sp("AI Hub starting point",
+    '<p class="hint" style="margin-bottom:10px">'+tr("New members open AI Hub on this preset, so canvas size, layout, brand colours and safe zones already match the brand. It only seeds an untouched canvas — nobody’s work is overwritten, and everyone can still change anything afterwards.")+'</p>'
+    + '<div class="field"><label for="ai_default_preset">'+tr("Members start from")+'</label>'
+    + '<select id="ai_default_preset"'+(ed?"":" disabled")+' onchange="aiSetDefaultPreset(this.value)">'+opts+'</select></div>'
+    + '<p class="hint">'+tr("Build the look in AI Hub, save it with “Save preset”, then choose it here.")+'</p>', null, I.star);
+}
+/* §43 Generative Expand may run on its own model. Members keep whatever they picked in
+   AI Hub for generating; expanding is pinned here, on the same provider credentials. */
+function aiExpandModelId(){ return (WS&&WS.ai&&WS.ai.expandModelId)||""; }
+function aiExpandModel(){ var m=aiExpandModelId()?aiModelById(aiExpandModelId()):null; return (m&&m.active)?m:null; }
+/* the model Expand will actually run on: the pinned one, else whatever AI Hub selected */
+function aiExpandEffectiveModel(){ return aiExpandModel()||aiResolveModel(AIF&&AIF.modelRegistryId); }
+function aiSetExpandModel(id){
+  if(typeof WS==="undefined") return;
+  WS.ai=WS.ai||{}; WS.ai.expandModelId=id||"";
+  if(typeof renderScreen==="function") renderScreen(false);
+  if(typeof saveWS==="function") saveWS(id?"Expand model saved":"Expand now follows the AI Hub model");
+}
+function setAIExpand(){
+  var ed=canI.manageWorkspace(), list=aiActiveModels(), cur=aiExpandModelId();
+  var able=list.filter(function(m){ return aiModelCan(m,"reference"); });
+  var opts='<option value=""'+(cur?"":" selected")+'>'+tr("Use the model selected in AI Hub")+'</option>'
+    + able.map(function(m){ return '<option value="'+attr(m.id)+'"'+(cur===m.id?" selected":"")+'>'+esc(m.name)+' — '+esc(m.modelId)+'</option>'; }).join("");
+  var body='<p class="hint" style="margin-bottom:10px">'+tr("Expanding a canvas sends the existing picture back to the model, so it only works on a model that accepts an input image. Pinning one here lets members keep any model selected in AI Hub and still expand.")+'</p>'
+    + '<div class="field"><label for="ai_expand_model">'+tr("Model used for Generative Expand")+'</label>'
+    + '<select id="ai_expand_model"'+(ed?"":" disabled")+' onchange="aiSetExpandModel(this.value)">'+opts+'</select></div>';
+  if(!able.length) body+='<div class="banner warn">'+I.lock+'<div>'+tr("No active model accepts an input image yet. Edit a model and tick “Accepts a reference image” to use it for Expand.")+'</div></div>';
+  else if(cur&&!aiExpandModel()) body+='<div class="banner warn">'+I.lock+'<div>'+tr("The pinned Expand model is no longer active. Expand falls back to the AI Hub selection until you pick another.")+'</div></div>';
+  return sp("Generative Expand", body, null, I.expand);
 }
 /* §P0-6 / §P0-7 / §P0-8 every AI limit, in one place, in plain language */
 function setAILimits(){

@@ -119,7 +119,23 @@ function aiAddHit(id,x,y,w,h){ AI_LAYER_HITS.push({id:id,x:x,y:y,w:Math.max(1,w)
 function aiOffset(v,axis){ return (AIF.offsetUnit||"percent")==="px"?(+v||0):axis*(+v||0)/100; }
 function aiOffsetStep(axis){ return (AIF.offsetUnit||"percent")==="px"?1:100/axis; }
 /* §P1-1 selection is stored as a registry id, never as a raw model string. */
-function aiSetModel(id){ AIF.modelRegistryId=id; AIF.model=""; renderScreen(false); }
+function aiSetModel(id){ AIF.modelRegistryId=id; AIF.model=""; aiRememberModel(id); renderScreen(false); }
+/* The canvas document is session state by design (members save to AI Gallery), but the model
+   picker is a personal preference, so it is remembered per member the way history already is. */
+var AI_MODEL_RESTORED=false;
+function aiModelMemoryKey(){ return "cos.ai.model."+((typeof WS!=="undefined"&&WS.id)||"ws")+"."+((typeof ME!=="undefined"&&ME)||"me"); }
+function aiRememberModel(id){ try{ if(id) localStorage.setItem(aiModelMemoryKey(),id); else localStorage.removeItem(aiModelMemoryKey()); }catch(e){} }
+function aiRestoreModelChoice(){
+  if(AI_MODEL_RESTORED) return false;
+  AI_MODEL_RESTORED=true;
+  var saved=""; try{ saved=localStorage.getItem(aiModelMemoryKey())||""; }catch(e){ return false; }
+  if(!saved) return false;
+  /* never resurrect a model the admin has since disabled or deleted */
+  var m=typeof aiModelById==="function"?aiModelById(saved):null;
+  if(!m||!m.active){ aiRememberModel(""); return false; }
+  AIF.modelRegistryId=saved; AIF.model="";
+  return true;
+}
 function aiSetOffsetUnit(unit){ if(unit===AIF.offsetUnit)return; aiHistoryBefore(); var sz=aiActiveSize(), cv=function(v,axis){var px=aiOffset(v,axis);return unit==="px"?Math.round(px):+(px/axis*100).toFixed(1);}; Object.keys(AIF.layerPositions||{}).forEach(function(id){var p=AIF.layerPositions[id];p.x=cv(p.x,sz.w);p.y=cv(p.y,sz.h);});(AIF.extraLayers||[]).forEach(function(x){x.x=cv(x.x,sz.w);x.y=cv(x.y,sz.h);});AIF.offsetUnit=unit;aiRenderKeepScroll(); }
 function aiLayerScale(id){ if(id==="headline")return +AIF.headlineScale||100;if(id==="sub")return +AIF.subScale||100;var all=AIF.layerScales||(AIF.layerScales={});return all[id]===undefined?100:+all[id]; }
 function aiSetLayerScale(id,value){ var v=Math.max(20,Math.min(400,+value||100)); if(id==="headline"){AIF.headlineScale=v;return;}if(id==="sub"){AIF.subScale=v;return;} AIF.layerScales=AIF.layerScales||{}; AIF.layerScales[id]=v; }
@@ -175,7 +191,10 @@ function aiBuildPrompt(){
 }
 function aiNegative(){
   var base = "text, words, letters, typography, watermark, logo, signature, distorted hands, extra fingers, lowres, jpeg artifacts";
-  return AIF.negative.trim() ? base + ", " + AIF.negative.trim() : base;
+  /* AIF.negative is only set once a template or Blank has been applied, so a fresh
+     canvas would otherwise throw here before any generation could start. */
+  var extra = String(AIF.negative||"").trim();
+  return extra ? base + ", " + extra : base;
 }
 function aiRatio(sz){
   function g(a,b){ return b?g(b,a%b):a; }
@@ -619,6 +638,8 @@ function aiGenerationHistoryPanel(){
 }
 function renderAIHub(){
   if(!AI_RUNS_LOADED) aiLoadRuns();
+  if(typeof aiApplyWorkspaceDefaults==="function") aiApplyWorkspaceDefaults();
+  aiRestoreModelChoice();   /* after the preset: a personal pick outranks the preset's model */
   var sz=aiActiveSize(), cfg=aiCfg(), tpls=aiPromptTemplates(), active=(byId(tpls,AIF.template)||{}).name||"Blank canvas", styleOpts=[["","Choose a style"],["Editorial photography","Editorial photography"],["Product photography","Product photography"],["Cinematic","Cinematic"],["Minimal","Minimal"],["3D","3D"],["Illustration","Illustration"],["Flat illustration","Flat illustration"],["Collage","Collage"],["custom","Custom"]], isCustom=AIF.styleMode==="custom"||(AIF.style&&!styleOpts.some(function(x){return x[0]===AIF.style;}));
   /* §44 resolve the Generate state once, so the button, its tooltip and the
      inline reason can never disagree with each other. */
@@ -649,7 +670,8 @@ function renderAIHub(){
   /* §P1-1 the string-patching of a hardcoded <optgroup> is gone: the model
      list is the Admin registry, so there is nothing left to patch. */
   var saveToDrive=typeof gdAuto==="function"&&gdAuto(), saveLabel=saveToDrive?tr("Save to Google Drive"):tr("Save to assets"), saveIcon=saveToDrive&&typeof driveIcon==="function"?driveIcon():I.assets;
-  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
+  var expandReason=typeof aiExpandDisabledReason==="function"?aiExpandDisabledReason():"";
+  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
   var canvasColumn='<div class="ai-canvas-column">'+center+aiGenerationHistoryPanel()+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);

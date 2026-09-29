@@ -2221,6 +2221,30 @@ body.auth .nav-messages{display:none!important}
 .msg-shared-tabs button{flex:1 0 auto}
 @media(max-width:1280px){.msg-media-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.msg-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.msg-derived-controls{top:-14px}.msg-tabs{overflow-x:auto}.msg-tabs button{flex:none}}
+/* AI Hub — Generative Expand */
+/* clickable on purpose: clicking says what is missing instead of dead-ending */
+.ai-canvas-toolbar .btn.is-blocked{opacity:.55}
+.ai-expand-tool{display:flex;flex-direction:column;gap:14px}
+.ai-expand-ratios{width:100%;overflow-x:auto}
+.ai-expand-ratios button{flex:1 0 auto;white-space:nowrap}
+.ai-expand-stage-wrap{display:flex;justify-content:center;align-items:center;padding:28px 18px;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--radius);max-height:60vh;overflow:auto}
+/* outline, not border: the frame box must map 1:1 onto real canvas pixels */
+.ai-expand-frame{position:relative;flex:none;outline:1.5px dashed var(--color-primary);background:repeating-conic-gradient(rgba(127,127,127,.28) 0% 25%,transparent 0% 50%) 0 0/16px 16px}
+.ai-expand-clip{position:absolute;inset:0;overflow:hidden}
+.ai-expand-img{position:absolute;display:block;object-fit:fill}
+.ai-expand-handle{position:absolute;width:14px;height:14px;background:var(--color-primary);border:2px solid #fff;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.35);touch-action:none}
+.ai-expand-handle.n{top:-8px;left:50%;margin-left:-7px;cursor:ns-resize}
+.ai-expand-handle.s{bottom:-8px;left:50%;margin-left:-7px;cursor:ns-resize}
+.ai-expand-handle.e{right:-8px;top:50%;margin-top:-7px;cursor:ew-resize}
+.ai-expand-handle.w{left:-8px;top:50%;margin-top:-7px;cursor:ew-resize}
+.ai-expand-handle.ne{top:-8px;right:-8px;cursor:nesw-resize}
+.ai-expand-handle.nw{top:-8px;left:-8px;cursor:nwse-resize}
+.ai-expand-handle.se{bottom:-8px;right:-8px;cursor:nwse-resize}
+.ai-expand-handle.sw{bottom:-8px;left:-8px;cursor:nesw-resize}
+.ai-expand-dims{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--color-text-secondary)}
+.ai-expand-dims b{color:var(--color-text-primary)}
+.ai-expand-sides{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0}
+@media(max-width:700px){.ai-expand-sides{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* ================================================================
    responsive.css — ZenCrevia layout layer for phones, tablets and
@@ -4595,7 +4619,8 @@ var I={
   star:'<svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.8 6.2.9-4.5 4.4 1.1 6.3L12 17.5 6.4 20.4l1.1-6.3L3 9.7l6.2-.9z"/></svg>', pin:'<svg viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3v2H7v-2l3-3zM12 15v6"/></svg>', drag:'<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>',
   arrowup:'<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', arrowdn:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>', user:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', filter:'<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>',
   sparkle:'<svg class="i" viewBox="0 0 220.54 220.54" style="fill:currentColor;stroke:none"><path d="M0,110.27h0c60.9,0,110.27-49.37,110.27-110.27h0c0,60.9,49.37,110.27,110.27,110.27h0c-60.9,0-110.27,49.37-110.27,110.27h0c0-60.9-49.37-110.27-110.27-110.27Z"/></svg>',
-  image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>'
+  image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
+  expand:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'
 };
 var TICONS={ palette:'<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1a2 2 0 0 0 1.5-3.3 2 2 0 0 1 1.5-3.2H18a3 3 0 0 0 3-3c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg>', pen:'<svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M13 8l3 3"/></svg>', camera:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>', video:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>', type:'<svg viewBox="0 0 24 24"><path d="M5 5h14M12 5v15M8 20h8"/></svg>', megaphone:'<svg viewBox="0 0 24 24"><path d="M3 10v4h3l8 5V5L6 10z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>', code:'<svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>', image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>' };
 
@@ -6846,7 +6871,23 @@ function aiAddHit(id,x,y,w,h){ AI_LAYER_HITS.push({id:id,x:x,y:y,w:Math.max(1,w)
 function aiOffset(v,axis){ return (AIF.offsetUnit||"percent")==="px"?(+v||0):axis*(+v||0)/100; }
 function aiOffsetStep(axis){ return (AIF.offsetUnit||"percent")==="px"?1:100/axis; }
 /* §P1-1 selection is stored as a registry id, never as a raw model string. */
-function aiSetModel(id){ AIF.modelRegistryId=id; AIF.model=""; renderScreen(false); }
+function aiSetModel(id){ AIF.modelRegistryId=id; AIF.model=""; aiRememberModel(id); renderScreen(false); }
+/* The canvas document is session state by design (members save to AI Gallery), but the model
+   picker is a personal preference, so it is remembered per member the way history already is. */
+var AI_MODEL_RESTORED=false;
+function aiModelMemoryKey(){ return "cos.ai.model."+((typeof WS!=="undefined"&&WS.id)||"ws")+"."+((typeof ME!=="undefined"&&ME)||"me"); }
+function aiRememberModel(id){ try{ if(id) localStorage.setItem(aiModelMemoryKey(),id); else localStorage.removeItem(aiModelMemoryKey()); }catch(e){} }
+function aiRestoreModelChoice(){
+  if(AI_MODEL_RESTORED) return false;
+  AI_MODEL_RESTORED=true;
+  var saved=""; try{ saved=localStorage.getItem(aiModelMemoryKey())||""; }catch(e){ return false; }
+  if(!saved) return false;
+  /* never resurrect a model the admin has since disabled or deleted */
+  var m=typeof aiModelById==="function"?aiModelById(saved):null;
+  if(!m||!m.active){ aiRememberModel(""); return false; }
+  AIF.modelRegistryId=saved; AIF.model="";
+  return true;
+}
 function aiSetOffsetUnit(unit){ if(unit===AIF.offsetUnit)return; aiHistoryBefore(); var sz=aiActiveSize(), cv=function(v,axis){var px=aiOffset(v,axis);return unit==="px"?Math.round(px):+(px/axis*100).toFixed(1);}; Object.keys(AIF.layerPositions||{}).forEach(function(id){var p=AIF.layerPositions[id];p.x=cv(p.x,sz.w);p.y=cv(p.y,sz.h);});(AIF.extraLayers||[]).forEach(function(x){x.x=cv(x.x,sz.w);x.y=cv(x.y,sz.h);});AIF.offsetUnit=unit;aiRenderKeepScroll(); }
 function aiLayerScale(id){ if(id==="headline")return +AIF.headlineScale||100;if(id==="sub")return +AIF.subScale||100;var all=AIF.layerScales||(AIF.layerScales={});return all[id]===undefined?100:+all[id]; }
 function aiSetLayerScale(id,value){ var v=Math.max(20,Math.min(400,+value||100)); if(id==="headline"){AIF.headlineScale=v;return;}if(id==="sub"){AIF.subScale=v;return;} AIF.layerScales=AIF.layerScales||{}; AIF.layerScales[id]=v; }
@@ -6902,7 +6943,10 @@ function aiBuildPrompt(){
 }
 function aiNegative(){
   var base = "text, words, letters, typography, watermark, logo, signature, distorted hands, extra fingers, lowres, jpeg artifacts";
-  return AIF.negative.trim() ? base + ", " + AIF.negative.trim() : base;
+  /* AIF.negative is only set once a template or Blank has been applied, so a fresh
+     canvas would otherwise throw here before any generation could start. */
+  var extra = String(AIF.negative||"").trim();
+  return extra ? base + ", " + extra : base;
 }
 function aiRatio(sz){
   function g(a,b){ return b?g(b,a%b):a; }
@@ -7346,6 +7390,8 @@ function aiGenerationHistoryPanel(){
 }
 function renderAIHub(){
   if(!AI_RUNS_LOADED) aiLoadRuns();
+  if(typeof aiApplyWorkspaceDefaults==="function") aiApplyWorkspaceDefaults();
+  aiRestoreModelChoice();   /* after the preset: a personal pick outranks the preset's model */
   var sz=aiActiveSize(), cfg=aiCfg(), tpls=aiPromptTemplates(), active=(byId(tpls,AIF.template)||{}).name||"Blank canvas", styleOpts=[["","Choose a style"],["Editorial photography","Editorial photography"],["Product photography","Product photography"],["Cinematic","Cinematic"],["Minimal","Minimal"],["3D","3D"],["Illustration","Illustration"],["Flat illustration","Flat illustration"],["Collage","Collage"],["custom","Custom"]], isCustom=AIF.styleMode==="custom"||(AIF.style&&!styleOpts.some(function(x){return x[0]===AIF.style;}));
   /* §44 resolve the Generate state once, so the button, its tooltip and the
      inline reason can never disagree with each other. */
@@ -7376,7 +7422,8 @@ function renderAIHub(){
   /* §P1-1 the string-patching of a hardcoded <optgroup> is gone: the model
      list is the Admin registry, so there is nothing left to patch. */
   var saveToDrive=typeof gdAuto==="function"&&gdAuto(), saveLabel=saveToDrive?tr("Save to Google Drive"):tr("Save to assets"), saveIcon=saveToDrive&&typeof driveIcon==="function"?driveIcon():I.assets;
-  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
+  var expandReason=typeof aiExpandDisabledReason==="function"?aiExpandDisabledReason():"";
+  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
   var canvasColumn='<div class="ai-canvas-column">'+center+aiGenerationHistoryPanel()+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
@@ -7751,6 +7798,256 @@ function aiLocalAnswer(q){
   if(soon.length) parts.push("\n**"+L("Due within 7 days","Jatuh tempo dalam 7 hari")+"**\n"+list(soon,5));
   if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terhambat, atau jatuh tempo minggu ini."):L("Nothing is assigned to you right now.","Belum ada tugas yang ditugaskan kepada Anda."));
   return parts.join("\n")+foot();
+}
+</script>
+<script>
+/* ============================================================
+   AI HUB — GENERATIVE EXPAND
+   Adobe-style "canvas size" control: drag the frame around the current
+   generated image outward (or type exact numbers) to grow the canvas,
+   then the model paints only the new, transparent border. Reuses the
+   "reference" model capability — a model that can accept an image is
+   the same model that can expand one.
+   ============================================================ */
+var AI_EXPAND = null;
+var AI_EXPAND_STAGE = 520; /* px — the box the image itself is scaled to fit; expansion grows past it */
+var AI_EXPAND_RATIOS = [["orig","Original"],["1:1","1:1"],["4:5","4:5"],["16:9","16:9"],["9:16","9:16"],["free","Freeform"]];
+
+/* What to expand. AI_LAST only survives a generation in this tab — a design
+   reopened from AI Gallery or a reloaded page keeps the picture in an image
+   layer with AI_LAST empty, so the layer is the real source of truth. The
+   selected layer wins, so expanding follows whatever the member is working on. */
+function aiExpandSource(){
+  var layers = (AIF.extraLayers||[]).filter(function(x){ return x.type==="image" && x.src; });
+  var selected = String(AIF.selectedLayer||"").indexOf("extra_")===0 ? AIF.selectedLayer.slice(6) : "";
+  var hit = layers.filter(function(x){ return x.id===selected; })[0]
+         || layers.filter(function(x){ return x.generated; })[0]
+         || layers[0];
+  if (hit) return { url: hit.src, layerId: hit.id };
+  if (AI_LAST && AI_LAST.imgUrl) return { url: AI_LAST.imgUrl, layerId: "" };
+  return null;
+}
+function aiExpandDisabledReason(){
+  if (typeof API==="undefined" || !API.on) return tr("Generative Expand needs the connected server — not available in the standalone demo.");
+  if (!aiExpandSource()) return tr("Generate a visual first, then expand it.");
+  var model = aiExpandEffectiveModel();
+  if (model && !aiModelCan(model,"reference")) return aiExpandModel()
+    ? tr("The model pinned for Expand cannot accept an input image. An admin can change it in Settings → AI → Models.")
+    : tr("This model does not support Generative Expand. Pick another model, or ask an admin to pin one for Expand in Settings → AI → Models.");
+  return "";
+}
+function aiExpandOpen(){
+  var reason = aiExpandDisabledReason();
+  if (reason) return toast(reason, "bad");
+  var src = aiExpandSource();
+  var im = new Image(); im.crossOrigin = "anonymous";
+  im.onload = function(){
+    AI_EXPAND = { srcUrl: src.url, layerId: src.layerId, baseW: im.naturalWidth, baseH: im.naturalHeight, top:0, right:0, bottom:0, left:0, ratio:"free", busy:false };
+    aiExpandModal();
+  };
+  im.onerror = function(){ toast(tr("Could not load the current visual to expand."), "bad"); };
+  im.src = src.url;
+}
+function aiExpandScale(){
+  var e = AI_EXPAND; if (!e) return 1;
+  return Math.min(1, AI_EXPAND_STAGE / Math.max(e.baseW, e.baseH));
+}
+/* A side is pixels added (positive) or trimmed (negative), like dragging a crop frame in or
+   out. `crop` is the surviving piece of the source; `dx/dy` is where it lands on the new canvas. */
+function aiExpandTotals(){
+  var e = AI_EXPAND, cut = function(v){ return Math.max(0, -Math.round(v)); }, add = function(v){ return Math.max(0, Math.round(v)); };
+  var cropW = Math.round(e.baseW) - cut(e.left) - cut(e.right), cropH = Math.round(e.baseH) - cut(e.top) - cut(e.bottom);
+  return { w: Math.round(e.baseW + e.left + e.right), h: Math.round(e.baseH + e.top + e.bottom),
+           cropX: cut(e.left), cropY: cut(e.top), cropW: cropW, cropH: cropH,
+           dx: add(e.left), dy: add(e.top),
+           grows: add(e.left)+add(e.right)+add(e.top)+add(e.bottom) > 0,
+           trims: cut(e.left)+cut(e.right)+cut(e.top)+cut(e.bottom) > 0 };
+}
+function aiExpandModal(){
+  var e = AI_EXPAND, t = aiExpandTotals();
+  var model = aiExpandEffectiveModel(), modelName = model ? model.name : "";
+  var ratios = '<div class="seg ai-expand-ratios">' + AI_EXPAND_RATIOS.map(function(r){ return '<button class="'+(e.ratio===r[0]?"on":"")+'" onclick="aiExpandApplyRatio(\''+r[0]+'\')">'+tr(r[1])+'</button>'; }).join("") + '</div>';
+  var sides = [["top","Top"],["right","Right"],["bottom","Bottom"],["left","Left"]].map(function(s){
+    return '<div><label for="aiExpandN_'+s[0]+'">'+tr(s[1])+'</label><input type="number" id="aiExpandN_'+s[0]+'" value="'+Math.round(e[s[0]])+'" oninput="aiExpandSetSide(\''+s[0]+'\',this.value)"><span>px</span></div>';
+  }).join("");
+  var body = '<div class="ai-expand-tool">'
+    + '<div class="field"><label>'+tr("Aspect ratio")+'</label>'+ratios+'</div>'
+    + '<div class="ai-expand-stage-wrap"><div class="ai-expand-frame" id="aiExpandFrame">'
+    +   '<div class="ai-expand-clip"><img class="ai-expand-img" id="aiExpandImg" src="'+attr(e.srcUrl)+'" alt=""></div>'
+    +   ["n","s","e","w","ne","nw","se","sw"].map(function(d){ return '<span class="ai-expand-handle '+d+'" data-dir="'+d+'"></span>'; }).join("")
+    + '</div></div>'
+    + '<div class="ai-expand-dims">'+tr("New size")+': <b id="aiExpandDims">'+t.w+' × '+t.h+'</b><button class="btn xs ghost" onclick="aiExpandResetSides()">'+I.sync+tr("Reset")+'</button></div>'
+    + '<div class="safe-zone-grid ai-expand-sides">'+sides+'</div>'
+    + '<div class="field"><label>'+tr("Describe the new area (optional)")+'</label><textarea id="aiExpandPrompt" rows="2" placeholder="'+attr(tr("e.g. continue the sky, extend the background smoothly"))+'"></textarea></div>'
+    + '<p class="hint" id="aiExpandHint">'+tr("Drag the edges or corners: inward to crop, outward to expand. Cropping is applied instantly; only a new, empty area is generated by AI.")+(modelName?' · '+tr("Model")+': '+esc(modelName):'')+'</p>'
+    + '</div>';
+  var foot = '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" id="aiExpandGo" onclick="aiExpandGenerate()">'+I.sparkle+tr("Generate expand")+'</button>';
+  openModal(tr("Crop & expand canvas"), body, foot, true);
+  setTimeout(function(){ aiExpandLayout(); aiExpandBindHandles(); }, 0);
+}
+function aiExpandLayout(keepFields){
+  var e = AI_EXPAND; if (!e) return;
+  var scale = aiExpandScale(), t = aiExpandTotals();
+  var frame = document.getElementById("aiExpandFrame"), img = document.getElementById("aiExpandImg");
+  if (!frame || !img) return;
+  frame.style.width = Math.round(t.w*scale)+"px"; frame.style.height = Math.round(t.h*scale)+"px";
+  img.style.left = Math.round(e.left*scale)+"px"; img.style.top = Math.round(e.top*scale)+"px";
+  img.style.width = Math.round(e.baseW*scale)+"px"; img.style.height = Math.round(e.baseH*scale)+"px";
+  aiExpandLabel();
+  var dims = document.getElementById("aiExpandDims"); if (dims) dims.textContent = t.w+" × "+t.h;
+  var chips = document.querySelectorAll(".ai-expand-ratios button");
+  for (var i=0;i<chips.length;i++) chips[i].classList.toggle("on", !!AI_EXPAND_RATIOS[i] && AI_EXPAND_RATIOS[i][0]===e.ratio);
+  if (!keepFields) ["top","right","bottom","left"].forEach(function(s){ var n=document.getElementById("aiExpandN_"+s); if (n) n.value = Math.round(e[s]); });
+}
+var AI_EXPAND_MIN = 64;   /* never let a crop eat the picture entirely */
+function aiExpandClamp(){
+  var e = AI_EXPAND;
+  ["top","right","bottom","left"].forEach(function(s){ e[s] = Math.round(+e[s]||0); });
+  /* per axis: the two cuts together may not take the picture below the minimum */
+  function limitCrop(a,b,base){
+    var room = Math.max(0, Math.round(base) - AI_EXPAND_MIN);
+    var cutA = Math.max(0,-e[a]), cutB = Math.max(0,-e[b]), total = cutA + cutB;
+    if (total <= room) return;
+    if (!room){ if (e[a]<0) e[a]=0; if (e[b]<0) e[b]=0; return; }
+    var keep = room / total;
+    if (e[a] < 0) e[a] = -Math.floor(cutA * keep);
+    if (e[b] < 0) e[b] = -Math.floor(cutB * keep);
+  }
+  /* per axis: the two additions together may not push the canvas past the pixel ceiling */
+  function limitGrow(a,b,base){
+    var room = Math.max(0, 4096 - (Math.round(base) - Math.max(0,-e[a]) - Math.max(0,-e[b])));
+    var addA = Math.max(0,e[a]), addB = Math.max(0,e[b]), total = addA + addB;
+    if (total <= room) return;
+    var keep = room / total;
+    if (e[a] > 0) e[a] = Math.floor(addA * keep);
+    if (e[b] > 0) e[b] = Math.floor(addB * keep);
+  }
+  limitCrop("left","right",e.baseW); limitCrop("top","bottom",e.baseH);
+  limitGrow("left","right",e.baseW); limitGrow("top","bottom",e.baseH);
+}
+function aiExpandSetSide(side,value){
+  if (!AI_EXPAND) return;
+  AI_EXPAND[side] = Math.round(+value||0); AI_EXPAND.ratio = "free";
+  aiExpandClamp(); aiExpandLayout(true);
+}
+function aiExpandResetSides(){
+  if (!AI_EXPAND) return;
+  AI_EXPAND.top = AI_EXPAND.right = AI_EXPAND.bottom = AI_EXPAND.left = 0; AI_EXPAND.ratio = "free";
+  aiExpandLayout();
+}
+function aiExpandApplyRatio(key){
+  var e = AI_EXPAND; if (!e) return;
+  e.ratio = key;
+  if (key === "free") { aiExpandLayout(); return; }
+  if (key === "orig") { e.top=e.right=e.bottom=e.left=0; aiExpandLayout(); return; }
+  var map = {"1:1":1, "4:5":4/5, "16:9":16/9, "9:16":9/16}, target = map[key];
+  var targetW = e.baseW, targetH = e.baseH;
+  if (e.baseW/e.baseH < target) targetW = Math.round(e.baseH*target); else targetH = Math.round(e.baseW/target);
+  var addW = Math.max(0,targetW-e.baseW), addH = Math.max(0,targetH-e.baseH);
+  e.left = Math.round(addW/2); e.right = addW-e.left;
+  e.top = Math.round(addH/2); e.bottom = addH-e.top;
+  aiExpandClamp(); aiExpandLayout();
+}
+function aiExpandBindHandles(){
+  var frame = document.getElementById("aiExpandFrame"); if (!frame || frame.dataset.bound) return; frame.dataset.bound = "1";
+  frame.querySelectorAll(".ai-expand-handle").forEach(function(h){
+    h.addEventListener("pointerdown", function(ev){ aiExpandDragStart(ev, h.getAttribute("data-dir")); });
+  });
+}
+function aiExpandDragStart(ev,dir){
+  ev.preventDefault(); ev.stopPropagation();
+  var e = AI_EXPAND; if (!e) return;
+  var scale = aiExpandScale();
+  var start = { x:ev.clientX, y:ev.clientY, top:e.top, right:e.right, bottom:e.bottom, left:e.left };
+  function move(mv){
+    var dx = (mv.clientX-start.x)/scale, dy = (mv.clientY-start.y)/scale;
+    if (dir.indexOf("e")>=0) e.right = start.right+dx;
+    if (dir.indexOf("w")>=0) e.left = start.left-dx;
+    if (dir.indexOf("s")>=0) e.bottom = start.bottom+dy;
+    if (dir.indexOf("n")>=0) e.top = start.top-dy;
+    e.ratio = "free"; aiExpandClamp(); aiExpandLayout();
+  }
+  function up(){ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); }
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up,{once:true});
+}
+/* Trimming alone needs no model, so the button says so and the run stays local and free. */
+function aiExpandLabel(){
+  var btn = document.getElementById("aiExpandGo"); if (!btn || !AI_EXPAND || AI_EXPAND.busy) return;
+  var t = aiExpandTotals();
+  btn.disabled = false;
+  btn.innerHTML = t.grows ? I.sparkle+tr("Generate expand") : (t.trims ? I.expand+tr("Apply crop") : I.sparkle+tr("Generate expand"));
+}
+function aiExpandSetBusy(on){
+  var btn = document.getElementById("aiExpandGo"); if (!btn) return;
+  if (on){ btn.disabled = true; btn.innerHTML = '<i class="ai-button-spinner" aria-hidden="true"></i>'+tr("Expanding…"); return; }
+  aiExpandLabel();
+}
+/* Magnific expands from the untouched picture plus per-side pixels; every other provider
+   fills whatever is transparent, so it gets the enlarged canvas with the border cleared. */
+function aiExpandPadded(){
+  var m = aiExpandEffectiveModel();
+  return !(m && m.provider === "magnific");
+}
+function aiExpandBuildComposite(cb,plainCrop){
+  var e = AI_EXPAND, t = aiExpandTotals(), padded = !plainCrop && aiExpandPadded();
+  var cv = document.createElement("canvas");
+  /* padded: the full new canvas with the kept crop placed and the rest left transparent.
+     plain: just the kept crop, which is what Magnific expands from and what a crop-only run is. */
+  cv.width = padded ? t.w : t.cropW; cv.height = padded ? t.h : t.cropH;
+  var g = cv.getContext("2d");
+  var im = new Image(); im.crossOrigin = "anonymous";
+  im.onload = function(){
+    g.clearRect(0,0,cv.width,cv.height);
+    g.drawImage(im, t.cropX, t.cropY, t.cropW, t.cropH, padded ? t.dx : 0, padded ? t.dy : 0, t.cropW, t.cropH);
+    cb(cv,t);
+  };
+  im.onerror = function(){ toast(tr("Could not load the current visual to expand."), "bad"); aiExpandSetBusy(false); AI_EXPAND.busy=false; };
+  im.src = e.srcUrl;
+}
+/* one place that lands a finished picture on the canvas, whether AI made it or a crop did */
+function aiExpandApplyResult(url,w,h,promptText,modelId,recordRun){
+  aiHistoryBefore();
+  AI_LAST = { imgUrl:url, w:w, h:h, prompt:promptText||"", model:modelId||"", at:new Date().toISOString(), fields:clone(AIF) };
+  AIF.size = "custom"; AIF.customW = w; AIF.customH = h;
+  var layer = (AIF.extraLayers||[]).filter(function(x){ return x.id===AI_EXPAND.layerId; })[0];
+  if (layer) layer.src = url; else aiAddGeneratedLayer(url, {w:w,h:h});
+  if (recordRun){ AI_RUNS.unshift({ url:url, prompt:promptText||"", w:w, h:h, model:modelId||"", at:AI_LAST.at, headline:AIF.headline, fields:aiRunSettings() }); aiSaveRuns(); }
+  AI_EXPAND = null; closeModal(); renderScreen(false);
+}
+function aiExpandGenerate(){
+  var e = AI_EXPAND; if (!e || e.busy) return;
+  var totals = aiExpandTotals();
+  if (!totals.grows && !totals.trims) return toast(tr("Drag an edge first — inward to crop, outward to expand."), "bad");
+  /* trimming only: no model, no cost, no waiting */
+  if (!totals.grows) return aiExpandBuildComposite(function(cv,t){
+    aiExpandApplyResult(cv.toDataURL("image/png"), t.cropW, t.cropH, "", "", false);
+    toast(tr("Cropped — new size applied"));
+  }, true);
+  e.busy = true; aiExpandSetBusy(true);
+  aiExpandBuildComposite(function(cv,t){
+    var body;
+    try {
+      var chosen = aiExpandEffectiveModel();
+      body = { image: cv.toDataURL("image/png"), width: t.w, height: t.h, padded: aiExpandPadded(),
+        left: Math.max(0,Math.round(e.left)), right: Math.max(0,Math.round(e.right)),
+        top: Math.max(0,Math.round(e.top)), bottom: Math.max(0,Math.round(e.bottom)),
+        prompt: ((document.getElementById("aiExpandPrompt")||{}).value||"").trim(),
+        negativePrompt: aiNegative(),
+        modelRegistryId: chosen?chosen.id:null, model:(chosen?chosen.modelId:aiCfg().image.model||"").trim() };
+    } catch(err){
+      e.busy = false; aiExpandSetBusy(false);
+      return toast(tr("Expand failed: ")+err.message, "bad");
+    }
+    apiFetch("POST","/api/ai/expand",body).then(function(res){
+      e.busy = false;
+      var url = res.imageUrl; if (!url) throw new Error("The provider returned no image.");
+      aiExpandApplyResult(url, t.w, t.h, body.prompt, body.model, true);
+      toast(tr("Canvas expanded — new size applied"));
+    }).catch(function(err){
+      e.busy = false; aiExpandSetBusy(false);
+      toast(tr("Expand failed: ")+err.message, "bad");
+    });
+  });
 }
 </script>
 <script>
@@ -9785,7 +10082,7 @@ function setAI(){
   var cur=aiSection();
   var nav='<div class="subnav" role="tablist">'+AI_SETTINGS_SECTIONS.map(function(x){
     return '<button role="tab" aria-selected="'+(cur===x[0]?"true":"false")+'" class="'+(cur===x[0]?"on":"")+'" onclick="S.aiSettingsSection=\''+x[0]+'\';renderScreen(false)">'+tr(x[1])+'</button>'; }).join("")+'</div>';
-  var body={overview:setAIOverview,models:setAIModels,limits:setAILimits,prompts:setAIPromptRules,providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
+  var body={overview:setAIOverview,models:function(){return setAIModels()+setAIExpand();},limits:setAILimits,prompts:function(){return setAIPromptRules()+setAIDefaults();},providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
   return nav+body;
 }
 /* §P1-3 the overview answers "is this working?" before any technical field. */
@@ -9841,6 +10138,74 @@ function setAIModels(){
   return sp("Models",
     '<p class="hint" style="margin-bottom:10px">'+tr("Members choose from this list by display name. They cannot enter a model ID, and the server rejects any ID that is not registered here.")+'</p>'+rows,
     ed?'<button class="btn" onclick="aiModelModal()">'+I.plus+tr("Add model")+'</button>':'', I.sparkle);
+}
+/* §43 What every member starts from. Presets already capture the whole AI Hub document
+   (size, layout, copy, colours, safe zones), so the workspace default is just one of them
+   rather than a second, parallel set of fields. It seeds a pristine canvas only — the moment
+   someone types, generates or loads a design, their work is never overwritten. */
+var AI_DEFAULTS_SEEDED = false;
+function aiDefaultPresetId(){ return (WS&&WS.ai&&WS.ai.defaultPresetId)||""; }
+function aiSetDefaultPreset(id){
+  if(typeof WS==="undefined") return;
+  WS.ai=WS.ai||{}; WS.ai.defaultPresetId=id||"";
+  AI_DEFAULTS_SEEDED=true;   /* an admin changing this should not have it re-seed under them */
+  if(typeof renderScreen==="function") renderScreen(false);
+  if(typeof saveWS==="function") saveWS(id?"AI Hub starting point saved":"AI Hub starts from a blank canvas");
+}
+function aiCanvasPristine(){
+  if(typeof AIF==="undefined") return false;
+  if(typeof aiHasGeneratedLayer==="function"&&aiHasGeneratedLayer()) return false;
+  if(typeof AG_EDIT!=="undefined"&&AG_EDIT) return false;
+  if(typeof AI_HISTORY!=="undefined"&&AI_HISTORY.length) return false;
+  if(typeof AI_LAST!=="undefined"&&AI_LAST) return false;
+  if((AIF.extraLayers||[]).length||AIF.template) return false;
+  return !["brief","prompt","headline","sub","cta","badge"].some(function(k){ return String(AIF[k]||"").trim(); });
+}
+function aiApplyWorkspaceDefaults(){
+  if(AI_DEFAULTS_SEEDED) return false;
+  AI_DEFAULTS_SEEDED=true;
+  var id=aiDefaultPresetId(); if(!id||!aiCanvasPristine()) return false;
+  var preset=byId(aiPromptTemplates(),id); if(!preset) return false;
+  if(preset.editorFields) AIF=Object.assign(AIF,clone(preset.editorFields));
+  ["brief","style","negative","headline","sub","cta","badge","size","customW","customH","layout","background","accentColor","badgeColor","ctaColor","logoPosition","safeUnit","safeLocked","safeTop","safeRight","safeBottom","safeLeft"].forEach(function(k){
+    if(preset[k]!==undefined&&preset[k]!=="") AIF[k]=preset[k];
+  });
+  AIF.template=id; AIF.selectedLayer="canvas"; AIF.editMode=true;
+  return true;
+}
+function setAIDefaults(){
+  var ed=canI.manageWorkspace(), list=aiPromptTemplates(), cur=aiDefaultPresetId();
+  var opts='<option value=""'+(cur?"":" selected")+'>'+tr("Blank canvas")+'</option>'
+    + list.map(function(t){ return '<option value="'+attr(t.id)+'"'+(cur===t.id?" selected":"")+'>'+esc(t.name)+'</option>'; }).join("");
+  return sp("AI Hub starting point",
+    '<p class="hint" style="margin-bottom:10px">'+tr("New members open AI Hub on this preset, so canvas size, layout, brand colours and safe zones already match the brand. It only seeds an untouched canvas — nobody’s work is overwritten, and everyone can still change anything afterwards.")+'</p>'
+    + '<div class="field"><label for="ai_default_preset">'+tr("Members start from")+'</label>'
+    + '<select id="ai_default_preset"'+(ed?"":" disabled")+' onchange="aiSetDefaultPreset(this.value)">'+opts+'</select></div>'
+    + '<p class="hint">'+tr("Build the look in AI Hub, save it with “Save preset”, then choose it here.")+'</p>', null, I.star);
+}
+/* §43 Generative Expand may run on its own model. Members keep whatever they picked in
+   AI Hub for generating; expanding is pinned here, on the same provider credentials. */
+function aiExpandModelId(){ return (WS&&WS.ai&&WS.ai.expandModelId)||""; }
+function aiExpandModel(){ var m=aiExpandModelId()?aiModelById(aiExpandModelId()):null; return (m&&m.active)?m:null; }
+/* the model Expand will actually run on: the pinned one, else whatever AI Hub selected */
+function aiExpandEffectiveModel(){ return aiExpandModel()||aiResolveModel(AIF&&AIF.modelRegistryId); }
+function aiSetExpandModel(id){
+  if(typeof WS==="undefined") return;
+  WS.ai=WS.ai||{}; WS.ai.expandModelId=id||"";
+  if(typeof renderScreen==="function") renderScreen(false);
+  if(typeof saveWS==="function") saveWS(id?"Expand model saved":"Expand now follows the AI Hub model");
+}
+function setAIExpand(){
+  var ed=canI.manageWorkspace(), list=aiActiveModels(), cur=aiExpandModelId();
+  var able=list.filter(function(m){ return aiModelCan(m,"reference"); });
+  var opts='<option value=""'+(cur?"":" selected")+'>'+tr("Use the model selected in AI Hub")+'</option>'
+    + able.map(function(m){ return '<option value="'+attr(m.id)+'"'+(cur===m.id?" selected":"")+'>'+esc(m.name)+' — '+esc(m.modelId)+'</option>'; }).join("");
+  var body='<p class="hint" style="margin-bottom:10px">'+tr("Expanding a canvas sends the existing picture back to the model, so it only works on a model that accepts an input image. Pinning one here lets members keep any model selected in AI Hub and still expand.")+'</p>'
+    + '<div class="field"><label for="ai_expand_model">'+tr("Model used for Generative Expand")+'</label>'
+    + '<select id="ai_expand_model"'+(ed?"":" disabled")+' onchange="aiSetExpandModel(this.value)">'+opts+'</select></div>';
+  if(!able.length) body+='<div class="banner warn">'+I.lock+'<div>'+tr("No active model accepts an input image yet. Edit a model and tick “Accepts a reference image” to use it for Expand.")+'</div></div>';
+  else if(cur&&!aiExpandModel()) body+='<div class="banner warn">'+I.lock+'<div>'+tr("The pinned Expand model is no longer active. Expand falls back to the AI Hub selection until you pick another.")+'</div></div>';
+  return sp("Generative Expand", body, null, I.expand);
 }
 /* §P0-6 / §P0-7 / §P0-8 every AI limit, in one place, in plain language */
 function setAILimits(){
@@ -11657,6 +12022,46 @@ Object.assign(UI_ID,{
   "Upload a harmless file from a task, confirm it appears in the folder, and open its preview. Ask one teammate to open it too. If they can see the task but not the file, grant their Google account or group access in Drive.":"Unggah berkas aman dari sebuah task, pastikan muncul di folder, lalu buka pratinjaunya. Minta satu rekan tim membukanya juga. Jika mereka dapat melihat task tetapi bukan berkasnya, berikan akses akun Google atau grup mereka di Drive.",
   "Assets, task Files, and Versions can upload to the selected Drive folder. A ZenCrevia member without Google Drive permission can still see task details, but the file preview or Drive link will not open for them.":"Aset, File task, dan Versi dapat diunggah ke folder Drive yang dipilih. Anggota ZenCrevia tanpa izin Google Drive tetap dapat melihat detail task, tetapi pratinjau berkas atau tautan Drive tidak dapat dibuka.",
   "Password (min 8)":"Kata sandi (min. 8)","Create account":"Buat akun","Sign in":"Masuk","Forgot password?":"Lupa kata sandi?"
+});
+Object.assign(UI_ID,{
+  "Expand":"Perluas","Expand canvas":"Perluas kanvas",
+  "Grow the canvas and let AI fill the new area":"Perbesar kanvas dan biarkan AI mengisi area barunya",
+  "Generative Expand needs the connected server — not available in the standalone demo.":"Perluas Generatif memerlukan server yang terhubung — tidak tersedia pada demo standalone.",
+  "Generate a visual first, then expand it.":"Buat visual terlebih dahulu, baru perluas.",
+  "This model does not support Generative Expand. Choose a different model under Advanced generation.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain di bagian Generasi lanjutan.",
+  "This model does not support Generative Expand. Choose a model with reference-image support in Settings → AI → Models.":"Model ini tidak mendukung Perluas Generatif. Pilih model yang mendukung gambar referensi di Pengaturan → AI → Model.",
+  "Could not load the current visual to expand.":"Tidak dapat memuat visual saat ini untuk diperluas.",
+  "Aspect ratio":"Rasio aspek","Original":"Asli","Freeform":"Bebas",
+  "New size":"Ukuran baru","Reset":"Atur ulang",
+  "Top":"Atas","Right":"Kanan","Bottom":"Bawah","Left":"Kiri",
+  "Describe the new area (optional)":"Jelaskan area baru (opsional)",
+  "e.g. continue the sky, extend the background smoothly":"contoh: lanjutkan langit, perluas latar belakang secara halus",
+  "Drag the edges or corners outward to grow the canvas. The new area is generated by AI — everything inside the frame stays exactly as it is.":"Seret tepi atau sudut ke luar untuk memperbesar kanvas. Area baru akan dibuat oleh AI — semua yang ada di dalam bingkai tetap persis seperti semula.",
+  "Drag an edge outward first to expand the canvas.":"Seret salah satu tepi ke luar terlebih dahulu untuk memperluas kanvas.",
+  "Expanding…":"Memperluas…","Generate expand":"Buat perluasan",
+  "Canvas expanded — new size applied":"Kanvas diperluas — ukuran baru diterapkan",
+  "Expand failed: ":"Perluasan gagal: ",
+  "Model":"Model",
+  "Generative Expand":"Perluas Generatif",
+  "Model used for Generative Expand":"Model yang dipakai untuk Perluas Generatif",
+  "Use the model selected in AI Hub":"Ikuti model yang dipilih di AI Hub",
+  "Expanding a canvas sends the existing picture back to the model, so it only works on a model that accepts an input image. Pinning one here lets members keep any model selected in AI Hub and still expand.":"Memperluas kanvas mengirim gambar yang ada kembali ke model, jadi hanya bisa pada model yang menerima gambar masukan. Mengunci satu model di sini membuat anggota tetap bisa memperluas apa pun model yang mereka pilih di AI Hub.",
+  "No active model accepts an input image yet. Edit a model and tick “Accepts a reference image” to use it for Expand.":"Belum ada model aktif yang menerima gambar masukan. Edit model dan centang “Menerima gambar referensi” agar bisa dipakai untuk Perluas.",
+  "The pinned Expand model is no longer active. Expand falls back to the AI Hub selection until you pick another.":"Model Perluas yang dikunci sudah tidak aktif. Perluas kembali mengikuti pilihan di AI Hub sampai Anda memilih model lain.",
+  "The model pinned for Expand cannot accept an input image. An admin can change it in Settings → AI → Models.":"Model yang dikunci untuk Perluas tidak menerima gambar masukan. Admin dapat mengubahnya di Pengaturan → AI → Model.",
+  "This model does not support Generative Expand. Pick another model, or ask an admin to pin one for Expand in Settings → AI → Models.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain, atau minta admin mengunci satu model untuk Perluas di Pengaturan → AI → Model.",
+  "Expand model saved":"Model Perluas disimpan",
+  "Expand now follows the AI Hub model":"Perluas kini mengikuti model AI Hub",
+  "Crop & expand":"Potong & perluas","Crop & expand canvas":"Potong & perluas kanvas",
+  "Crop the picture, or grow the canvas and let AI fill the new area":"Potong gambar, atau perbesar kanvas dan biarkan AI mengisi area barunya",
+  "Drag the edges or corners: inward to crop, outward to expand. Cropping is applied instantly; only a new, empty area is generated by AI.":"Seret tepi atau sudut: ke dalam untuk memotong, ke luar untuk memperluas. Pemotongan langsung diterapkan; hanya area baru yang kosong yang dibuat oleh AI.",
+  "Drag an edge first — inward to crop, outward to expand.":"Seret salah satu tepi dulu — ke dalam untuk memotong, ke luar untuk memperluas.",
+  "Apply crop":"Terapkan potongan","Cropped — new size applied":"Dipotong — ukuran baru diterapkan",
+  "The Expand model changed while you were working. Reopen Expand and try again.":"Model Perluas berubah saat Anda bekerja. Buka ulang Perluas lalu coba lagi.",
+  "AI Hub starting point":"Titik awal AI Hub","Members start from":"Anggota memulai dari","Blank canvas":"Kanvas kosong",
+  "New members open AI Hub on this preset, so canvas size, layout, brand colours and safe zones already match the brand. It only seeds an untouched canvas — nobody’s work is overwritten, and everyone can still change anything afterwards.":"Anggota membuka AI Hub dengan preset ini, sehingga ukuran kanvas, tata letak, warna brand, dan safe zone sudah sesuai brand. Ini hanya mengisi kanvas yang masih kosong — pekerjaan siapa pun tidak akan tertimpa, dan semua orang tetap bisa mengubahnya.",
+  "Build the look in AI Hub, save it with “Save preset”, then choose it here.":"Susun tampilannya di AI Hub, simpan dengan “Simpan preset”, lalu pilih di sini.",
+  "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong"
 });
 </script>
 <script>

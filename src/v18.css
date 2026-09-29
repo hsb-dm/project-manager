@@ -637,3 +637,27 @@ body.auth .nav-messages{display:none!important}
 .msg-shared-tabs button{flex:1 0 auto}
 @media(max-width:1280px){.msg-media-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.msg-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.msg-derived-controls{top:-14px}.msg-tabs{overflow-x:auto}.msg-tabs button{flex:none}}
+/* AI Hub — Generative Expand */
+/* clickable on purpose: clicking says what is missing instead of dead-ending */
+.ai-canvas-toolbar .btn.is-blocked{opacity:.55}
+.ai-expand-tool{display:flex;flex-direction:column;gap:14px}
+.ai-expand-ratios{width:100%;overflow-x:auto}
+.ai-expand-ratios button{flex:1 0 auto;white-space:nowrap}
+.ai-expand-stage-wrap{display:flex;justify-content:center;align-items:center;padding:28px 18px;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--radius);max-height:60vh;overflow:auto}
+/* outline, not border: the frame box must map 1:1 onto real canvas pixels */
+.ai-expand-frame{position:relative;flex:none;outline:1.5px dashed var(--color-primary);background:repeating-conic-gradient(rgba(127,127,127,.28) 0% 25%,transparent 0% 50%) 0 0/16px 16px}
+.ai-expand-clip{position:absolute;inset:0;overflow:hidden}
+.ai-expand-img{position:absolute;display:block;object-fit:fill}
+.ai-expand-handle{position:absolute;width:14px;height:14px;background:var(--color-primary);border:2px solid #fff;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.35);touch-action:none}
+.ai-expand-handle.n{top:-8px;left:50%;margin-left:-7px;cursor:ns-resize}
+.ai-expand-handle.s{bottom:-8px;left:50%;margin-left:-7px;cursor:ns-resize}
+.ai-expand-handle.e{right:-8px;top:50%;margin-top:-7px;cursor:ew-resize}
+.ai-expand-handle.w{left:-8px;top:50%;margin-top:-7px;cursor:ew-resize}
+.ai-expand-handle.ne{top:-8px;right:-8px;cursor:nesw-resize}
+.ai-expand-handle.nw{top:-8px;left:-8px;cursor:nwse-resize}
+.ai-expand-handle.se{bottom:-8px;right:-8px;cursor:nwse-resize}
+.ai-expand-handle.sw{bottom:-8px;left:-8px;cursor:nesw-resize}
+.ai-expand-dims{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--color-text-secondary)}
+.ai-expand-dims b{color:var(--color-text-primary)}
+.ai-expand-sides{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0}
+@media(max-width:700px){.ai-expand-sides{grid-template-columns:repeat(2,minmax(0,1fr))}}
