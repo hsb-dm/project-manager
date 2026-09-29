@@ -16,6 +16,22 @@ function gdSavedAuth(){ try{ var x=JSON.parse(localStorage.getItem(gdAuthKey())|
 function gdRememberAuth(){ try{ var c=gdCfg(), proof={clientId:c.clientId,folderId:c.folderId||"",at:Date.now()}; localStorage.setItem(gdAuthKey(),JSON.stringify(proof)); /* An admin's successful connection is also a workspace marker. It lets every
   member start with a silent token request; their Google identity/token stays private. */ if(canI.manageWorkspace()&&(!gdWorkspaceAuth()||gdWorkspaceAuth().clientId!==proof.clientId||gdWorkspaceAuth().folderId!==proof.folderId)){ c.verified=proof; persistWS(); } }catch(e){} }
 function gdClearAuth(){ try{ localStorage.removeItem(gdAuthKey()); }catch(e){} }
+/* A browser only lets a site open a window while it still has the user's gesture. Uploads
+   asked Google for a token after the file chooser had come and gone, which is outside that
+   window, so the sign-in popup was blocked and the upload failed with nothing to click.
+   The token is fetched on the click that opens the chooser instead, while the gesture is
+   live; by the time a file is picked it is already cached and no window is needed. */
+function gdWarmOnPick(){
+  var inp=document.getElementById("fileInput");
+  if(!inp||inp.dataset.gdWarm) return;
+  inp.dataset.gdWarm="1";
+  inp.addEventListener("click",function(){
+    if(typeof gdAuto!=="function"||!gdAuto()) return;
+    if(GD.token&&Date.now()<GD.exp) return;
+    gdToken().catch(function(){});   /* the upload itself reports any failure */
+  });
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",gdWarmOnPick); else gdWarmOnPick();
 function gdLoad(){ if(window.google&&google.accounts&&google.accounts.oauth2)return Promise.resolve(); if(GD.loading)return GD.loading; GD.loading=new Promise(function(res,rej){ var s=document.createElement("script"); s.src="https://accounts.google.com/gsi/client"; s.async=true; s.onload=function(){ GD.loading=null;res(); }; s.onerror=function(){ GD.loading=null;rej(new Error(tr("Could not load Google sign-in (offline?)"))); }; document.head.appendChild(s); }); return GD.loading; }
 function gdToken(opts){ opts=opts||{}; if (GD.token&&Date.now()<GD.exp) return Promise.resolve(GD.token); if(GD.request)return GD.request; GD.request=gdLoad().then(function(){ return new Promise(function(res,rej){ var silent=!!gdSavedAuth()&&!opts.interactive, retried=false, tc;
   var request=function(prompt){ tc.requestAccessToken({prompt:prompt}); };
@@ -25,7 +41,7 @@ function gdToken(opts){ opts=opts||{}; if (GD.token&&Date.now()<GD.exp) return P
      Settle once, on a timer, so the failure is reportable instead of invisible. */
   var done=false, timer=null, settle=function(fn,v){ if(done)return; done=true; clearTimeout(timer); fn(v); };
   timer=setTimeout(function(){ settle(rej,new Error(tr("Google never answered the sign-in request. Check that this exact address is an Authorized JavaScript origin on your Google OAuth client, that the popup is not blocked, and that Settings → Integrations reports popups as allowed."))); }, GD.timeoutMs!=null?GD.timeoutMs:(silent?25000:180000));
-  tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?"Google sign-in cancelled":"Google sign-in could not open"));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
+  tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?tr("Google sign-in cancelled"):tr("Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.")));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
   request(silent?"":"consent");
  }); }).then(function(token){GD.request=null;return token;},function(e){GD.request=null;throw e;}); return GD.request; }
 function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
