@@ -79,8 +79,8 @@ function gdGrantFolder(){
     var cfg=gdCfg(), host=folder.closest(".field-row")||folder.parentNode;
     var box=document.createElement("div");
     box.innerHTML='<div class="gdrive-picker-fields">'
-      +fieldHtml("gd_pkey",tr("Picker API key"),'<input id="gd_pkey" value="'+attr(cfg.pickerKey||"")+'" placeholder="AIza..." style="font-family:var(--font-mono);font-size:12px">')
-      +fieldHtml("gd_appid",tr("Project number"),'<input id="gd_appid" value="'+attr(cfg.appId||"")+'" placeholder="123456789012" inputmode="numeric" style="font-family:var(--font-mono);font-size:12px">')
+      +fieldHtml("gd_pkey",tr("Picker API key"),'<input id="gd_pkey" value="'+attr(cfg.pickerKey||"")+'" placeholder="AIza..." style="font-family:var(--font-mono);font-size:12px"><span class="field-help">'+esc(tr("Credentials > API Keys. Starts with AIza; restrict it to this website and Google Picker API."))+'</span>')
+      +fieldHtml("gd_appid",tr("Project number"),'<input id="gd_appid" value="'+attr(cfg.appId||"")+'" placeholder="123456789012" inputmode="numeric" style="font-family:var(--font-mono);font-size:12px"><span class="field-help">'+esc(tr("Digits only. Find it in Welcome > Project info or IAM & Admin > Settings. Do not use the Project ID or project name."))+'</span>')
       +'</div><div class="gdrive-picker-actions"><button type="button" class="btn" id="gd_pickbtn">'+(I.cloud||"")+esc(tr("Choose folder in Google Drive"))+'</button><span class="hint" id="gd_pickhint">'+esc(tr("Required: a pasted folder ID is not visible to the app until you choose it here."))+'</span></div>';
     host.parentNode.insertBefore(box,host.nextSibling);
     document.getElementById("gd_pickbtn").onclick=function(){

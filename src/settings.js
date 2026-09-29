@@ -75,6 +75,12 @@ function pickAvatar(id){ id=id||ME; if (!canEditPhoto(id)) return toast("Only an
 function removeAvatar(id){ id=id||ME; if (!canEditPhoto(id)) return toast("Only an admin can change someone else\u2019s photo","bad"); PEOPLE[id].avatar=""; applyShell(); refresh(); persistPerson(id,false).then(function(saved){ if(saved===false)return false; applyShell(); refresh(); toast("Photo removed"); }); }
 function photoBtns(id,sm){ if (!canEditPhoto(id)) return ""; var c=sm?" xs":" sm"; return '<button class="btn'+c+'" onclick="event.stopPropagation();pickAvatar(\''+id+'\')">'+I.up+(person(id).avatar?"Change photo":"Upload photo")+'</button>'+(person(id).avatar?'<button class="btn'+c+' ghost" onclick="event.stopPropagation();removeAvatar(\''+id+'\')">Remove</button>':''); }
 /* ---------- AI providers ---------- */
+function aiBrandLogoPick(){
+  var input=document.createElement("input");input.type="file";input.accept="image/png,image/jpeg,image/webp,image/svg+xml";
+  input.onchange=function(){var f=input.files&&input.files[0];if(!f)return;if(f.size>4*1048576)return toast(tr("Keep the logo under 4 MB"),"bad");var rd=new FileReader();rd.onload=function(){WS.ai=WS.ai||{};WS.ai.brandLogoImg=rd.result;saveWS(tr("AI Hub logo saved"));renderScreen(false);};rd.readAsDataURL(f);};input.click();
+}
+function aiBrandLogoRemove(){WS.ai=WS.ai||{};WS.ai.brandLogoImg="";saveWS(tr("AI Hub logo removed"));renderScreen(false);}
+function aiBrandLogoBgSet(value){WS.ai=WS.ai||{};WS.ai.brandLogoBg=value||"transparent";saveWS(tr("AI Hub logo background saved"));renderScreen(false);}
 function setAIProviders(){
   var ed=canI.manageWorkspace(), ro=ed?"":" disabled", c=aiCfg();
   var imgOn=aiConfigured("image"), chatOn=aiConfigured("chat");
@@ -98,12 +104,15 @@ function setAIProviders(){
     +'<div class="field"><label>Extra system instructions</label><textarea'+ro+' id="ai_c_sys" rows="3" placeholder="e.g. Always answer in Bahasa Indonesia. Flag anything that needs compliance review.">'+esc(c.chat.systemExtra)+'</textarea></div>',
     ed?'<button class="btn" onclick="aiTest(\'chat\')">'+I.sync+'Test connection</button><span class="spacer"></span><button class="btn primary" onclick="saveAI()">Save</button>':'',I.analytics);
 
+  var aiLogo=(WS.ai&&WS.ai.brandLogoImg)||'',logoBg=(WS.ai&&WS.ai.brandLogoBg)||'transparent';
   var logo=sp("AI Hub brand logo",
-    '<p class="hint" style="margin-bottom:12px">Uses the workspace logo.</p>'
-    +'<div class="ai-logo-settings" style="display:flex;align-items:center;gap:14px"><span class="ws-logo" style="width:56px;height:56px;border-radius:16px">'+(WS.logoImg?'<img src="'+attr(WS.logoImg)+'">':esc(WS.logo||"CO"))+'</span><div class="hint" style="flex:1">Upload a PNG, JPG, WebP, or SVG logo. A short text logo is used until you upload one.</div>'
-    +(ed?'<button class="btn" onclick="pickImage(\'logoImg\')">'+I.up+'Upload company logo</button>'+(WS.logoImg?'<button class="btn ghost" onclick="WS.logoImg=null;applyShell();renderScreen(false);saveWS(\'AI Hub logo removed\')">Remove</button>':''):'')+'</div>',null,I.assets);
+    '<p class="hint" style="margin-bottom:12px">'+tr('This logo is independent from the workspace logo and is used only on AI Hub canvases. PNG transparency is preserved.')+'</p>'
+    +'<div class="ai-logo-settings"><span class="ai-logo-settings-preview '+(logoBg==='transparent'?'is-transparent':'')+'" style="--ai-logo-bg:'+(logoBg==='transparent'?'transparent':attr(logoBg))+'">'+(aiLogo?'<img src="'+attr(aiLogo)+'">':'<b>'+esc(WS.logo||"CO")+'</b>')+'</span><div class="hint">'+tr('Upload PNG, JPG, WebP, or SVG. Choose transparent or any background colour without changing the original file.')+'</div>'
+    +(ed?'<div class="ai-logo-settings-actions"><button class="btn" onclick="aiBrandLogoPick()">'+I.up+tr('Upload AI Hub logo')+'</button>'+(aiLogo?'<button class="btn ghost" onclick="aiBrandLogoRemove()">'+tr('Remove')+'</button>':'')+'</div>':'')+'</div>'
+    +'<div class="field-row ai-logo-bg-controls"><div class="field"><label>'+tr('Logo background')+'</label><select'+ro+' onchange="aiBrandLogoBgSet(this.value)"><option value="transparent"'+(logoBg==='transparent'?' selected':'')+'>'+tr('Transparent')+'</option><option value="#FFFFFF"'+(logoBg==='#FFFFFF'?' selected':'')+'>'+tr('White')+'</option><option value="#000000"'+(logoBg==='#000000'?' selected':'')+'>'+tr('Black')+'</option>'+(!['transparent','#FFFFFF','#000000'].includes(logoBg)?'<option value="'+attr(logoBg)+'" selected>'+tr('Custom colour')+'</option>':'')+'</select></div><div class="field"><label>'+tr('Background colour')+'</label><input'+ro+' type="color" value="'+attr(logoBg==='transparent'?'#FFFFFF':logoBg)+'" onchange="aiBrandLogoBgSet(this.value)"></div></div>',null,I.assets);
   return img+chat+logo+setPromptTemplates()+setChatTemplates();
 }
+Object.assign(UI_ID,{'This logo is independent from the workspace logo and is used only on AI Hub canvases. PNG transparency is preserved.':'Logo ini terpisah dari logo workspace dan hanya digunakan pada kanvas AI Hub. Transparansi PNG tetap dipertahankan.','Upload PNG, JPG, WebP, or SVG. Choose transparent or any background colour without changing the original file.':'Unggah PNG, JPG, WebP, atau SVG. Pilih latar transparan atau warna apa pun tanpa mengubah file asli.','Upload AI Hub logo':'Unggah logo AI Hub','AI Hub logo saved':'Logo AI Hub tersimpan','AI Hub logo removed':'Logo AI Hub dihapus','AI Hub logo background saved':'Latar logo AI Hub tersimpan','Logo background':'Latar logo','Background colour':'Warna latar','Transparent':'Transparan','Custom colour':'Warna khusus','Keep the logo under 4 MB':'Ukuran logo harus di bawah 4 MB'});
 /* §P1-3 Permissions — who may use AI, kept apart from credentials. */
 function setAIPermissions(){
   var ed=canI.manageWorkspace(), c=aiCfg();
@@ -232,11 +241,11 @@ function saveAI(){
   var keepP=(WS.ai&&WS.ai.promptTemplates)||null, keepC=(WS.ai&&WS.ai.chatTemplates)||null;
   /* §15 saveAI rebuilds WS.ai wholesale — the model registry and the resource
      policy must survive that, or saving a key would silently reset both. */
-  var keepModels=(WS.ai&&WS.ai.models)||null, keepPolicy=(WS.ai&&WS.ai.policy)||null;
+  var keepModels=(WS.ai&&WS.ai.models)||null, keepPolicy=(WS.ai&&WS.ai.policy)||null, keepAI=clone(WS.ai||{});
   var external=document.getElementById("ai_external")&&document.getElementById("ai_external").classList.contains("on");
   var context=external&&document.getElementById("ai_context")&&document.getElementById("ai_context").classList.contains("on");
   var reporting=external&&document.getElementById("ai_reporting")&&document.getElementById("ai_reporting").classList.contains("on");
-  WS.ai={
+  WS.ai=Object.assign(keepAI,{
     promptTemplates:keepP, chatTemplates:keepC, models:keepModels, policy:keepPolicy,
     processing:{externalEnabled:!!external,workspaceContextEnabled:!!context,allowReporting:!!reporting,acceptedAt:c.processing.acceptedAt||null,acceptedBy:c.processing.acceptedBy||null},
     /* §6.4 the Default model control holds a registry id; store the provider's
@@ -245,7 +254,7 @@ function saveAI(){
             key: ik==="clear"?null:(ik||undefined), keySet: ik==="clear"?false:(!!ik||c.image.keySet) },
     chat:{ provider:val("ai_c_prov"), endpoint:val("ai_c_ep")||c.chat.endpoint, model:val("ai_c_model"), systemExtra:val("ai_c_sys"),
            key: ck==="clear"?null:(ck||undefined), keySet: ck==="clear"?false:(!!ck||c.chat.keySet) }
-  };
+  });
   if (!API.on){ /* standalone demo keeps provider keys in memory for this tab only */
     window.ZENCREVIA_DEMO_AI_KEYS=window.ZENCREVIA_DEMO_AI_KEYS||{};
     if (ik==="clear") delete window.ZENCREVIA_DEMO_AI_KEYS.image; else if (ik) window.ZENCREVIA_DEMO_AI_KEYS.image=ik;
@@ -647,16 +656,18 @@ function setIntegrations(){
   var access=function(who,result,tone){return '<div class="drive-access-row"><span>'+esc(tr(who))+'</span><b class="'+tone+'">'+esc(tr(result))+'</b></div>';};
   var body='<p class="hint" style="margin-bottom:14px">'+esc(tr("Files stay in Google Drive. ZenCrevia stores their links and displays previews when available."))+'</p>'
     +'<div class="drive-summary"><div class="drive-summary-mark">'+(typeof driveIcon==="function"?driveIcon():"G")+'</div><div class="pl"><b>Google Drive '+(c&&c.connected?'<span class="drive-status">'+esc(tr("Connected"))+'</span>':'<span class="badge">'+esc(tr("Not connected"))+'</span>')+'</b><span>'+(c&&c.connected?esc(c.account||"Google account")+' · '+esc(c.folder||"My Drive"):esc(tr("Connect it once, then new uploads can go directly to a private team folder.")))+'</span></div></div>'
-    +'<div class="drive-setup-head"><div><b>'+esc(tr("Setup checklist"))+'</b><span>'+esc(tr("Complete these steps in order. You only need to repeat them when the domain, Google project, or team folder changes."))+'</span></div><span class="badge">8 '+esc(tr("steps"))+'</span></div>'
+    +'<div class="drive-setup-head"><div><b>'+esc(tr("Setup checklist"))+'</b><span>'+esc(tr("Complete these steps in order. You only need to repeat them when the domain, Google project, or team folder changes."))+'</span></div><span class="badge">10 '+esc(tr("steps"))+'</span></div>'
     +'<div class="drive-steps drive-settings-steps">'
     +step(1,"Create or select a Google Cloud project","Use one project owned by the organization, then record who is responsible for it.")
-    +step(2,"Enable Google Drive API","In APIs & Services, open Library, find Google Drive API, and enable it.")
-    +step(3,"Configure the OAuth consent screen","Enter the app and support details. While the app is in testing, add every account that needs to connect.")
-    +step(4,"Create a Web OAuth Client ID","Add the exact dashboard origin under Authorized JavaScript origins. Include the protocol and port, with no page path.")
-    +step(5,"Prepare the team folder","Create a dedicated Drive folder. Copy the Folder ID from its URL, then give uploaders Editor access and viewers Viewer access.")
-    +step(6,"Connect ZenCrevia","Open Configure Google Drive, paste the Client ID and Folder ID, save, then sign in with an account that can access the folder.")
-    +step(7,"Test an upload and preview","Upload a harmless test file from a task. Confirm it appears in the selected folder and opens from ZenCrevia.")
-    +step(8,"Check access with a teammate","Ask one teammate to open the same file. If the task opens but the file does not, grant that Google account or group access in Drive.")
+    +step(2,"Record the numeric Project number","Find it on Welcome > Project info or IAM & Admin > Settings. Do not use the Project ID or project name.")
+    +step(3,"Enable both required APIs","In APIs & Services > Library, enable Google Drive API and Google Picker API.")
+    +step(4,"Configure consent and drive.file scope","Complete the OAuth consent screen, add test users while testing, and add the drive.file permission scope.")
+    +step(5,"Create a Web OAuth Client ID","Add the exact dashboard origin under Authorized JavaScript origins. Include the protocol and port, with no page path.")
+    +step(6,"Create a restricted Picker API key","Restrict it to the production website referrer and Google Picker API.")
+    +step(7,"Prepare the team folder","Create and share a dedicated folder. Uploaders need Editor or Content manager access.")
+    +step(8,"Choose the folder through Google Picker","In Configure Google Drive, enter all four values and click Choose folder in Google Drive. Pasting the Folder ID alone does not grant access.")
+    +step(9,"Save, sign in, and test","Sign in with the account that can upload, then run Test Google Drive.")
+    +step(10,"Test an upload with a teammate","Confirm a test file reaches the folder and can be opened by another authorized teammate.")
     +'</div>'
     +'<div class="drive-access"><div class="drive-quick-title">'+esc(tr("Who can open a private file?"))+'</div>'
     +access("Workspace member with Drive folder access","Can open","ok")

@@ -316,6 +316,11 @@ function aipTransform(id){
             oninput:"aiLayerMeta('"+id+"').rotation=Number(this.value)||0;aiPreviewSoon()"})
     + aipIconBtn("reset","Reset rotation","aiHistoryBefore();aiLayerMeta('"+id+"').rotation=0;aiRefreshProperties()",{disabled:locked}));
 
+  var imageExtra=aipExtraOf(id);
+  if(imageExtra&&imageExtra.type==="image") body+=aipRow("Flip",
+    aipIconBtn("flipH","Flip horizontally","aiHistoryBefore();aiLayerMeta('"+id+"').flipX=!aiLayerMeta('"+id+"').flipX;aiRefreshProperties();aiPreviewSoon()",{on:!!meta.flipX,pressed:!!meta.flipX,disabled:locked})
+    + aipIconBtn("flipV","Flip vertically","aiHistoryBefore();aiLayerMeta('"+id+"').flipY=!aiLayerMeta('"+id+"').flipY;aiRefreshProperties();aiPreviewSoon()",{on:!!meta.flipY,pressed:!!meta.flipY,disabled:locked}));
+
   /* §33 icon-only alignment toolbar */
   body+=aipRow("Align",
     aipSegment([
@@ -357,6 +362,14 @@ function aipContent(id){
     + '<textarea class="ai-prop-textarea" rows="3"'+dis+' aria-label="'+attr(tr("Disclaimer text"))+'"'
     + ' oninput="AIF.disclaimerText=this.value;aiPreviewSoon()">'+aipEsc(AIF.disclaimerText||"")+'</textarea>');
   return "";
+}
+function aipLogoSource(){
+  var src=AIF.logoImg||aiBrandLogo(), inherited=!AIF.logoImg, bg=AIF.logoBg||aiBrandLogoBg(), preview=src?'<img src="'+attr(src)+'" alt="">':'';
+  return aipSection("content","Logo source",'<div class="ai-logo-source-preview '+(bg==="transparent"?'is-transparent':'')+'" style="--ai-logo-bg:'+(bg==="transparent"?'transparent':attr(bg))+'">'+preview+'</div>'
+    +'<p class="ai-prop-note">'+tr(inherited?'Using the AI Hub logo from Settings.':'Using a custom logo for this design.')+'</p>'
+    +'<div class="ai-layer-tools"><button class="btn xs" onclick="aiPickLogo()">'+I.up+tr('Upload custom logo')+'</button>'+(AIF.logoImg?'<button class="btn xs ghost" onclick="aiClearLogo()">'+tr('Use AI Hub logo')+'</button>':'')+'</div>'
+    +aipRow("Background",aipSelect(bg,[["transparent",tr("Transparent")],["#FFFFFF",tr("White")],["#000000",tr("Black")]].concat(["transparent","#FFFFFF","#000000"].indexOf(bg)<0?[[bg,tr("Custom colour")]]:[]),"AIF.logoBg=this.value;aiPreviewSoon()",{label:"Logo background"}))
+    +(bg!=="transparent"?aipRow("Custom colour",aipColor(bg,"AIF.logoBg=this.value;aiPreviewSoon()",{label:"Logo background colour"})):''));
 }
 
 /* ============================================================
@@ -537,8 +550,8 @@ function aipCanvas(){
           + aipRow("Angle",aipNum({value:+cbg.angle||135,min:0,max:360,unit:"°",label:"Gradient angle",oninput:"AIF.canvasBg.angle=this.value;aiPreviewSoon()"}))
         : "")
     + aipRow("Opacity",aipNum({value:cbg.opacity==null?100:+cbg.opacity,min:0,max:100,unit:"%",label:"Background opacity",oninput:"AIF.canvasBg.opacity=this.value;aiPreviewSoon()"}))
-    + aipRow("Generated image",'<button type="button" class="btn xs ghost" onclick="aiHistoryBefore();AIF.hideGenerated=!AIF.hideGenerated;aiRefreshProperties();aiPreviewSoon()">'
-        + tr(AIF.hideGenerated?"Show generated background":"Hide generated background")+'</button>',{stack:true});
+    + aipRow("Generated images",'<button type="button" class="btn xs ghost" onclick="aiHistoryBefore();AIF.hideGenerated=!AIF.hideGenerated;aiRefreshProperties();aiPreviewSoon()">'
+        + tr(AIF.hideGenerated?"Show generated layers":"Hide generated layers")+'</button>',{stack:true});
 
   /* §79 safe area with its own px/% unit and a link control */
   var su=AIF.safeUnit==="px"?"px":"%", linked=AIF.safeLocked!==false;
@@ -603,7 +616,7 @@ function aipInspector(id){
   if(id==="canvas") return aipHeader(id)+aipCanvas();
   var kind=aipLayerKind(id);
   if(kind==="image")
-    return aipHeader(id)+aipTransform(id)+aipAppearance(id)+aipStroke(id)+aipRadius(id)+aipOpacity(id)+aipEffects(id)+aipAdvanced(id);
+    return aipHeader(id)+aipTransform(id)+(id==="logo"?aipLogoSource():aipAppearance(id))+aipStroke(id)+aipRadius(id)+aipOpacity(id)+aipEffects(id)+aipAdvanced(id);
   if(kind==="shape")
     return aipHeader(id)+aipTransform(id)+aipFill(id)+aipStroke(id)+aipRadius(id)+aipOpacity(id)+aipEffects(id)+aipAdvanced(id);
   /* text — the fullest case */

@@ -971,7 +971,7 @@ const server = http.createServer(async (req, res) => {
       security.requireSameOrigin(req);
       const r = routes.find(x => x.method === req.method && x.re.test(url.pathname));
       if (!r) throw new HttpError(404, "No such endpoint");
-      const token = auth.parseCookies(req.headers.cookie).cos_session; const ctx = { req, res, token, ip, ua: req.headers["user-agent"], sessionUserId: auth.sessionUser(db, token), setCookie: null };
+      const token = auth.parseCookies(req.headers.cookie).cos_session, session = auth.readSession(db, token); const ctx = { req, res, token, ip, ua: req.headers["user-agent"], sessionUserId: session ? session.user_id : null, session, setCookie: null };
       if (!ctx.sessionUserId && DEV_HEADER_AUTH && req.headers["x-user-id"]) ctx.sessionUserId = String(req.headers["x-user-id"]);
       let user = ctx.sessionUserId ? userContext(ctx.sessionUserId) : null;
       if (ALLOW_IMPERSONATION && user && req.headers["x-act-as"] && user.caps.manage_members) { const adminId = user.id, imp = userContext(String(req.headers["x-act-as"])); if (imp) { imp.impersonatedBy = adminId; user = imp; security.log("admin_impersonation", { adminId, targetId: imp.id, ip }); } }
@@ -981,6 +981,10 @@ const server = http.createServer(async (req, res) => {
       checkTextLimits(url.pathname, body);
       const out = await r.handler(user, params, Object.fromEntries(url.searchParams), body, ctx);
       if (out && out.__raw) return; /* v18: streaming handlers (SSE) own the response */
+      /* Renew only an already valid device session, and only once it is within
+         the renewal window. Login/logout/password routes retain their own
+         cookie behaviour. */
+      if (!ctx.setCookie && ctx.session) { const exp = auth.renewSession(db, ctx.token, ctx.session); if (exp) ctx.setCookie = auth.cookie(ctx.token, exp); }
       if (ctx.setCookie) res.setHeader("Set-Cookie", ctx.setCookie);
       /* sign-ins, chat, read receipts, saved views and AI calls never touch tasks */
       if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;

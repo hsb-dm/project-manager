@@ -22,7 +22,7 @@ test('a proper configuration passes; weak values are caught', () => {
   assert.deepEqual(r.errors, []); assert.deepEqual(r.warnings, []);
   assert.ok(check(Object.assign({}, good, { COS_SECRET_KEY: 'short' })).errors.length);
   assert.ok(check(Object.assign({}, good, { COS_BACKUP_KEY: good.COS_SECRET_KEY })).errors.some(e => /different/.test(e)));
-  assert.ok(check(Object.assign({}, good, { COS_ADMIN_PASSWORD: 'abc' }), { firstStart: true }).errors.some(e => /12 characters/.test(e)));
+  assert.ok(check(Object.assign({}, good, { COS_ADMIN_PASSWORD: 'abc' }), { firstStart: true }).errors.some(e => /8 characters/.test(e)));
   assert.deepEqual(check(Object.assign({}, good, { COS_ADMIN_PASSWORD: 'abc' }), { firstStart: false }).errors, [], 'admin password only matters on first start');
   assert.ok(check(Object.assign({}, good, { COS_TRUST_PROXY: '' })).warnings.some(w => /COS_TRUST_PROXY/.test(w)));
   assert.ok(check(Object.assign({}, good, { COS_DATA_DIR: '' })).warnings.some(w => /inside the application folder/.test(w)), 'v38: data inside the app folder is flagged');

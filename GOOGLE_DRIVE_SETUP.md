@@ -17,21 +17,37 @@ Panduan ini untuk pemula. Setelah selesai, file dari Assets, Files pada task, da
 3. Beri nama yang mudah dikenali, misalnya `ZenCrevia Drive`.
 4. Pilih project tersebut setelah selesai dibuat.
 
-## 2. Aktifkan Google Drive API
+Semua konfigurasi berikut harus dibuat di project yang sama. Jangan berpindah project saat membuat OAuth Client ID atau API key.
+
+### Temukan Project number
+
+1. Buka halaman **Welcome** Google Cloud dan cari kartu **Project info**; atau buka **IAM & Admin → Settings**.
+2. Salin **Project number**, yang hanya terdiri dari angka, misalnya `123456789012`.
+3. Jangan menyalin **Project ID** atau nama project. Nilai seperti `serious-dialect-509605-e2` adalah Project ID, bukan Project number.
+
+Jika menu sulit ditemukan, buka Cloud Shell dan jalankan:
+
+```bash
+gcloud projects describe PROJECT_ID --format="value(projectNumber)"
+```
+
+## 2. Aktifkan Google Drive API dan Google Picker API
 
 1. Buka **APIs & Services → Library**.
 2. Cari **Google Drive API**.
 3. Tekan **Enable**.
+4. Kembali ke Library, cari **Google Picker API**, lalu tekan **Enable**.
 
-Tanpa langkah ini, aplikasi dapat meminta login tetapi tidak dapat mengunggah atau membaca file Drive.
+Google Drive API menangani pemeriksaan folder dan unggahan. Google Picker API menampilkan pemilih folder dan memberikan aplikasi akses terbatas ke folder yang dipilih pengguna.
 
 ## 3. Atur layar persetujuan Google
 
 1. Buka **APIs & Services → OAuth consent screen**.
 2. Pilih tipe audience yang sesuai dengan organisasi kamu.
 3. Isi nama aplikasi, email dukungan, dan email developer.
-4. Tambahkan akun tim sebagai **Test users** bila aplikasi masih dalam mode pengujian.
-5. Simpan pengaturan.
+4. Pada **Data Access** atau **Scopes**, tambahkan `https://www.googleapis.com/auth/drive.file`.
+5. Tambahkan semua akun yang akan menghubungkan Drive sebagai **Test users** bila aplikasi masih dalam mode pengujian.
+6. Simpan pengaturan.
 
 Google akan meminta pengguna memberikan izin hanya saat mereka memilih **Save & sign in** di ZenCrevia.
 
@@ -51,7 +67,28 @@ Google akan meminta pengguna memberikan izin hanya saat mereka memilih **Save & 
 
 Jika muncul error `origin_mismatch`, hampir selalu berarti alamat yang dibuka di browser tidak sama persis dengan alamat di daftar ini.
 
-## 5. Siapkan folder tujuan di Drive
+## 5. Buat dan batasi Picker API key
+
+1. Buka **APIs & Services → Credentials**.
+2. Pilih **Create credentials → API key**.
+3. Buka API key yang baru dibuat.
+4. Pada **Application restrictions**, pilih **Websites** atau **HTTP referrers**.
+5. Tambahkan alamat production dengan pola path, misalnya:
+
+   ```text
+   https://creative.example.com/*
+   ```
+
+6. Jika pengujian lokal juga diperlukan, tambahkan secara terpisah:
+
+   ```text
+   http://localhost:3000/*
+   ```
+
+7. Pada **API restrictions**, pilih **Restrict key**, lalu izinkan hanya **Google Picker API**.
+8. Simpan dan salin API key yang biasanya diawali `AIza`.
+
+## 6. Siapkan folder tujuan di Drive
 
 1. Buat folder baru di Google Drive, misalnya `ZenCrevia Uploads`.
 2. Buka folder tersebut dan salin bagian setelah `/folders/` dari URL-nya. Itu adalah **Folder ID**.
@@ -60,25 +97,39 @@ Jika muncul error `origin_mismatch`, hampir selalu berarti alamat yang dibuka di
 
 Shared Drive juga didukung. Pastikan akun yang login sudah menjadi anggota Shared Drive dan memiliki izin untuk menambahkan file.
 
-## 6. Hubungkan dari ZenCrevia
+## 7. Hubungkan dari ZenCrevia
 
 1. Masuk ke **Settings → Cloud storage**.
 2. Tekan **Configure Google Drive**.
-3. Tempelkan Client ID dan, bila ada, Folder ID.
-4. Masukkan label akun agar mudah dikenali tim.
-5. Aktifkan **Upload new files to Drive**.
-6. Tekan **Save & sign in**, lalu pilih akun Google yang memiliki akses ke folder tadi dan tekan **Allow**.
+3. Isi empat nilai berikut:
+
+   | Kolom | Nilai | Lokasi asal |
+   |---|---|---|
+   | OAuth Client ID | Berakhiran `.apps.googleusercontent.com` | Credentials → OAuth 2.0 Client IDs → Web application |
+   | Drive folder ID | Bagian setelah `/folders/` | URL folder Google Drive |
+   | Picker API key | Biasanya diawali `AIza` | Credentials → API Keys |
+   | Project number | Angka saja | Welcome → Project info atau IAM & Admin → Settings |
+
+4. Pastikan OAuth Client ID, Picker API key, dan Project number berasal dari project Google Cloud yang sama.
+5. Klik **Choose folder in Google Drive**.
+6. Masuk dengan akun Google yang memiliki izin mengunggah, pilih folder tim yang tepat, lalu tunggu sampai muncul **Selected: nama folder**.
+7. Masukkan label akun agar mudah dikenali tim. Label ini hanya untuk tampilan.
+8. Aktifkan **Upload new files to Drive**.
+9. Tekan **Save & sign in**, pilih akun Google yang sama, lalu tekan **Allow**.
+
+> Memilih folder melalui Google Picker adalah langkah wajib. Aplikasi menggunakan scope terbatas `drive.file`; menempelkan Folder ID saja tidak memberikan akses kepada aplikasi dan dapat menghasilkan error `404 File not found`.
 
 Status akan berubah menjadi **Connected** setelah izin diberikan.
 
-## 7. Uji unggahan dan preview
+## 8. Uji koneksi, unggahan, dan preview
 
-1. Buka sebuah task uji dan unggah file yang tidak sensitif melalui bagian **Files**.
-2. Pastikan file muncul di folder Drive yang dipilih.
-3. Buka file dari ZenCrevia dan pastikan preview atau halaman Drive dapat dibuka.
-4. Jika file masuk ke **My Drive**, periksa kembali Folder ID pada konfigurasi ZenCrevia.
+1. Dari Settings, jalankan **Test Google Drive**. Hasil yang berhasil menampilkan akun dan nama folder.
+2. Buka sebuah task uji dan unggah file yang tidak sensitif melalui bagian **Files**.
+3. Pastikan file muncul di folder Drive yang dipilih.
+4. Buka file dari ZenCrevia dan pastikan preview atau halaman Drive dapat dibuka.
+5. Jika file masuk ke **My Drive**, periksa kembali Folder ID pada konfigurasi ZenCrevia.
 
-## 8. Uji akses dengan akun anggota lain
+## 9. Uji akses dengan akun anggota lain
 
 1. Minta satu anggota tim masuk ke ZenCrevia dan Google memakai akun mereka sendiri.
 2. Minta mereka membuka task dan file uji yang sama.
@@ -87,7 +138,7 @@ Status akan berubah menjadi **Connected** setelah izin diberikan.
 
 Keanggotaan ZenCrevia dan izin Google Drive adalah dua hal terpisah. Pengguna perlu memiliki keduanya untuk melihat task sekaligus membuka file privat.
 
-## 9. Tentukan aturan akses eksternal
+## 10. Tentukan aturan akses eksternal
 
 Preview di dashboard mengikuti izin file di Google Drive.
 
@@ -109,7 +160,10 @@ Setelah itu kamu dapat memakai **Link from Google Drive** pada Assets, Files tas
 
 | Masalah | Periksa ini |
 |---|---|
-| Login Google gagal | Client ID benar dan alamat dashboard ada di Authorized JavaScript origins. |
-| Upload tidak masuk folder | Google Drive API aktif, akun login memiliki akses Editor, dan Folder ID benar. |
+| `origin_mismatch` atau login gagal | Client ID benar dan origin dashboard production terdaftar persis di Authorized JavaScript origins. |
+| Picker tidak terbuka | Google Picker API aktif; API key benar; Project number berupa angka; HTTP referrer mencakup domain production. |
+| Folder menghasilkan `404 File not found` | Pilih folder melalui Google Picker dengan akun yang memiliki akses. Menempelkan Folder ID saja tidak cukup untuk scope `drive.file`. |
+| Folder bisa dibuka tetapi tidak bisa upload | Akun login memerlukan akses Editor atau Content manager. |
+| Upload tidak masuk folder | Google Drive API aktif, Folder ID benar, dan folder yang sama sudah dipilih melalui Picker. |
 | Preview kosong | File tidak dibagikan ke akun yang sedang login atau file tidak mengizinkan preview/embed. |
 | Pengguna lain tidak bisa preview | Bagikan file/folder kepada mereka, atau gunakan Anyone with the link untuk file yang aman. |

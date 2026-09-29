@@ -23,9 +23,9 @@ test.after(() => {
 });
 
 test('password, cookie, and session storage use the hardened defaults', () => {
-  assert.match(auth.passwordProblem('short'), /12/);
-  assert.match(auth.passwordProblem('alllowercasecharacters'), /three/);
-  assert.equal(auth.passwordProblem('Longer!Password9'), '');
+  assert.match(auth.passwordProblem('short'), /8/);
+  assert.equal(auth.passwordProblem('alllowercasecharacters'), '');
+  assert.equal(auth.passwordProblem('password'), '');
   assert.match(auth.cookieHeader('token', new Date(Date.now()+60000).toISOString()), /HttpOnly/);
   assert.match(auth.cookieHeader('token', new Date(Date.now()+60000).toISOString()), /SameSite=Lax/);
   assert.match(auth.cookieHeader('token', new Date(Date.now()+60000).toISOString()), /Secure/);

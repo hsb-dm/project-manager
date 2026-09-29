@@ -94,13 +94,20 @@ var AI_LAYOUTS = [
 function aiLayout(id){ for (var i=0;i<AI_LAYOUTS.length;i++) if (AI_LAYOUTS[i].id===id) return AI_LAYOUTS[i]; return AI_LAYOUTS[0]; }
 
 /* ---------- form state ---------- */
-var AIF = { brief:"", prompt:"", reference:"", referenceName:"", model:"", modelRegistryId:"", size:"web_hero", layout:"left", headline:"", sub:"", cta:"", badge:"", style:"", disclaimer:true, disclaimerText:"Add your legal or campaign disclaimer here.", customW:0, customH:0, template:"", background:"", textColor:"#FFFFFF", canvasBg:{type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}, accentColor:"", badgeColor:"", ctaColor:"", logoPosition:"top_left", logoImg:"", logoHidden:false, safeUnit:"percent", safeLocked:true, safeTop:8, safeRight:8, safeBottom:8, safeLeft:8, safeExpanded:false, offsetUnit:"percent", headlineFont:"", headlineScale:100, subFont:"", subScale:100, badgeScale:100, ctaScale:100, logoScale:100, disclaimerScale:100, textAlign:"auto", textX:0, textY:0, ctaRadius:28, ctaStroke:false, ctaStrokeWidth:1, ctaStrokeColor:"#FFFFFF", panels:{styling:false,typography:false,advanced:false}, showSafeZones:false, editMode:true, selectedLayer:"canvas", layerStyles:{}, layerPositions:{}, extraLayers:[] };
+var AIF = { brief:"", prompt:"", reference:"", referenceName:"", model:"", modelRegistryId:"", size:"web_hero", layout:"left", headline:"", sub:"", cta:"", badge:"", style:"", disclaimer:true, disclaimerText:"Add your legal or campaign disclaimer here.", customW:0, customH:0, template:"", background:"", textColor:"#FFFFFF", canvasBg:{type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}, accentColor:"", badgeColor:"", ctaColor:"", logoPosition:"top_left", logoImg:"", logoBg:"", logoHidden:false, safeUnit:"percent", safeLocked:true, safeTop:8, safeRight:8, safeBottom:8, safeLeft:8, safeExpanded:false, offsetUnit:"percent", headlineFont:"", headlineScale:100, subFont:"", subScale:100, badgeScale:100, ctaScale:100, logoScale:100, disclaimerScale:100, textAlign:"auto", textX:0, textY:0, ctaRadius:28, ctaStroke:false, ctaStrokeWidth:1, ctaStrokeColor:"#FFFFFF", panels:{styling:false,typography:false,advanced:false}, showSafeZones:false, editMode:true, selectedLayer:"canvas", layerStyles:{}, layerPositions:{}, extraLayers:[] };
 var AI_RUNS = [], AI_RUNS_LOADED=false;
 var AI_BUSY = false;
 var AI_TEXT_SPECS = {};
 var AI_TEXT_HIT = null, AI_LAYER_HITS = [], AI_DRAG = null, AI_CLICK_SKIP=false;
 var AI_LAST = null;   /* {imgUrl, imgData, w, h, prompt, ago} */
 var AI_HISTORY = [], AI_REDO = [], AI_EDIT_BASE = null, AI_PREVIOUS_SETTINGS = null;
+var AI_PROJECT_BASE = null;
+
+function aiBrandLogo(){ return (WS&&WS.ai&&WS.ai.brandLogoImg)||""; }
+function aiBrandLogoBg(){ return (WS&&WS.ai&&WS.ai.brandLogoBg)||"transparent"; }
+function aiProjectSnapshot(){ var fields=clone(AIF);["selectedLayer","selectedLayers","panels","showSafeZones","editMode"].forEach(function(k){delete fields[k];});return JSON.stringify({fields:fields,last:AI_LAST&&AI_LAST.imgUrl||"",edit:AG_EDIT&&AG_EDIT.id||""}); }
+function aiProjectMarkSaved(){ AI_PROJECT_BASE=aiProjectSnapshot(); }
+function aiProjectDirty(){ return AI_PROJECT_BASE!==null&&AI_PROJECT_BASE!==aiProjectSnapshot(); }
 
 function aiStateCopy(){ return clone(AIF); }
 function aiHistoryPush(before){ if(!before) return; AI_HISTORY.push(before); if(AI_HISTORY.length>40) AI_HISTORY.shift(); AI_REDO=[]; }
@@ -135,7 +142,10 @@ function aiRunSettings(){
   return s;
 }
 function aiSettingsLabel(s){ s=s||AIF; var z=s.size==="custom"?Math.max(64,+s.customW||1200)+"×"+Math.max(64,+s.customH||628):(aiSize(s.size||"web_hero").w+"×"+aiSize(s.size||"web_hero").h); return z+" · "+(aiLayout(s.layout||"left").name||"Layout")+" · "+(function(){ var m=s.modelRegistryId?aiModelById(s.modelRegistryId):null; return m?m.name:(s.model||tr("Workspace default")); })(); }
-function aiLoadRunSettings(i){ var r=AI_RUNS[i]; if(!r||!r.fields)return toast("Settings were not saved with this older generation","bad"); AG_EDIT=null; AI_PREVIOUS_SETTINGS=clone(AIF); AIF=clone(r.fields); AI_LAST={imgUrl:r.url,w:r.w,h:r.h,prompt:r.prompt,model:r.model,at:r.at,fields:clone(r.fields)}; renderScreen(false); toast("Loaded the generation settings"); }
+/* History stores design settings without duplicating large image data. Restore
+   the corresponding generated layer from the run URL before drawing it. */
+function aiRestoreRunImage(r){ if(!r||!r.url)return false; var layers=AIF.extraLayers||(AIF.extraLayers=[]), image=layers.filter(function(x){return x.type==="image"&&x.generated;})[0]; if(!image){ aiAddGeneratedLayer(r.url,{w:r.w||aiActiveSize().w,h:r.h||aiActiveSize().h}); return true; } image.src=r.url; image.name=image.name||"Generated image"; image.generated=true; AIF.hideGenerated=false; return true; }
+function aiLoadRunSettings(i){ var r=AI_RUNS[i]; if(!r||!r.fields)return toast("Settings were not saved with this older generation","bad"); AG_EDIT=null; AI_PREVIOUS_SETTINGS=clone(AIF); AIF=clone(r.fields); AIF.editMode=true; aiRestoreRunImage(r); AI_LAST={imgUrl:r.url,w:r.w,h:r.h,prompt:r.prompt,model:r.model,at:r.at,fields:clone(r.fields)}; renderScreen(false); toast("Loaded the generation settings and visual"); }
 function aiRestoreRecentSettings(){ if(!AI_PREVIOUS_SETTINGS)return toast("You are already using the recent settings","bad"); AIF=clone(AI_PREVIOUS_SETTINGS); AI_PREVIOUS_SETTINGS=null; renderScreen(false); toast("Returned to your recent settings"); }
 
 /* ---------- prompt assembly ---------- */
@@ -159,7 +169,8 @@ function aiBuildPrompt(){
   if (AIF.style.trim()) parts.push("Style: " + AIF.style.trim() + ".");
   var house = (aiCfg().image.defaultStyle||"").trim();
   if (house) parts.push("Brand requirements (apply to every generation): " + house);
-  parts.push("No text, no lettering, no logos, no watermarks in the image \u2014 typography is added afterwards. Keep the requested text safe area free of important subjects and high-detail visual elements.");
+  parts.push("No text, no lettering, no logos, no watermarks in the image \u2014 typography is added afterwards.");
+  if(AIF.protectText!==false&&L.box) parts.push("The requested text-safe area must remain one uninterrupted plain background field: no people, objects, scenery, decorative shapes, texture, lighting hotspots, or high-detail elements may appear behind it. Keep all visual subjects clearly outside that area; do not draw a text box or card.");
   return parts.join(" ");
 }
 function aiNegative(){
@@ -209,12 +220,15 @@ function aiPropertyChanged(){
   if(typeof aiDrawGuides==="function") requestAnimationFrame(function(){ try{ aiDrawGuides(); }catch(e){} });
 }
 function aiRenderKeepScroll(){
-  var y=(typeof appScrollTop==="function"?appScrollTop():window.scrollY)||0, panels=[".ai-props",".ai-setup"].map(function(sel){var el=document.querySelector(sel);return {sel:sel,top:el?el.scrollTop:0};});
+  var y=(typeof appScrollTop==="function"?appScrollTop():window.scrollY)||0, panels=[".ai-props",".ai-setup",".ai-layer-list"].map(function(sel){var el=document.querySelector(sel);return {sel:sel,top:el?el.scrollTop:0};});
   renderScreen(false);
   function restore(){ if(typeof appScrollTop==="function") appScrollTop(y); else window.scrollTo(0,y); panels.forEach(function(p){var el=document.querySelector(p.sel);if(el)el.scrollTop=p.top;}); }
   requestAnimationFrame(function(){ restore(); requestAnimationFrame(restore); });
   setTimeout(restore,80);
 }
+/* Selecting a layer is structural (the inspector changes), but must not throw
+   the layer browser back to its first row. */
+function aiSelectLayer(id){ AIF.selectedLayer=id||"canvas"; aiRenderKeepScroll(); }
 function aiTextFont(value,fallback){ return value ? '"'+String(value).replace(/"/g,"")+'", "Helvetica Neue", Arial, sans-serif' : fallback; }
 function aiLayerStyle(id){ var all=AIF.layerStyles||(AIF.layerStyles={}), d={bg:false,fill:"#172342",fill2:"#4F46E5",gradient:false,gradientAngle:135,gradientStop:100,opacity:90,bgStroke:false,bgStrokeColor:"#FFFFFF",bgStrokeWidth:1,radius:14,padX:16,padY:8,textFill:"#FFFFFF",textFill2:"#7C3AED",textFillGradient:false,textFillAngle:90,textFillStop:100,textOpacity:100,textStroke:false,textStrokeColor:"#111214",textStrokeWidth:1,shadow:false,shadowColor:"#000000",shadowOpacity:35,shadowAngle:90,shadowDistance:8,shadowBlur:16}; var s=all[id]||(all[id]=clone(d)); Object.keys(d).forEach(function(k){if(s[k]===undefined)s[k]=d[k];}); return s; }
 function aiApplyQuickStyle(id,kind){ aiHistoryBefore(); var s=aiLayerStyle(id); if(kind==="none") Object.assign(s,{bg:false,bgStroke:false,textStroke:false,shadow:false}); else if(kind==="solid") Object.assign(s,{bg:true,gradient:false,fill:"#172342",opacity:92,bgStroke:false,textStroke:false,radius:14,padX:16,padY:8}); else if(kind==="gradient") Object.assign(s,{bg:true,gradient:true,fill:"#2F5BFF",fill2:"#7C3AED",opacity:92,bgStroke:false,radius:16,padX:18,padY:9}); else if(kind==="outline") Object.assign(s,{bg:false,bgStroke:false,textStroke:true,textStrokeColor:"#0B1220",textStrokeWidth:2}); else if(kind==="pill") Object.assign(s,{bg:true,gradient:false,fill:"#111214",opacity:92,bgStroke:false,radius:999,padX:18,padY:8}); else if(kind==="glass") Object.assign(s,{bg:true,gradient:false,fill:"#FFFFFF",opacity:22,bgStroke:true,bgStrokeColor:"#FFFFFF",bgStrokeWidth:1,radius:16,padX:18,padY:10}); aiRenderKeepScroll(); }
@@ -226,6 +240,15 @@ function aiClearLogo(){ aiHistoryBefore(); AIF.logoImg=""; AIF.logoHidden=false;
 function aiResetAllPositions(){ aiHistoryBefore(); AIF.textX=0; AIF.textY=0; AIF.layerPositions={}; (AIF.extraLayers||[]).forEach(function(x,i){x.x=50;x.y=50+i*8;}); toast("All layer positions reset"); aiPreview(); }
 function aiAddTextLayer(){ if(!aiGuardLayers(1,false)) return; aiHistoryBefore(); var x={id:uid("layer"),type:"text",name:"Text layer",content:"New text",x:AIF.offsetUnit==="px"?aiActiveSize().w/2:50,y:AIF.offsetUnit==="px"?aiActiveSize().h*.58:58,size:36,color:"#FFFFFF"}; AIF.extraLayers.push(x); AIF.selectedLayer="extra_"+x.id; renderScreen(false); }
 function aiAddImageLayer(){ if(!aiGuardLayers(1,true)) return; var input=document.createElement("input"); input.type="file"; input.accept="image/png,image/jpeg,image/webp"; input.onchange=function(){var f=input.files&&input.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){aiHistoryBefore();var x={id:uid("layer"),type:"image",name:f.name,src:rd.result,x:AIF.offsetUnit==="px"?aiActiveSize().w/2:50,y:AIF.offsetUnit==="px"?aiActiveSize().h/2:50,w:22};AIF.extraLayers.push(x);AIF.selectedLayer="extra_"+x.id;renderScreen(false);};rd.readAsDataURL(f);};input.click(); }
+function aiAddGeneratedLayer(url,sz){
+  if(!url||!aiGuardLayers(1,true))return null;
+  var old=typeof aiLayerIds==="function"?aiLayerIds():[], n=(AIF.extraLayers||[]).filter(function(x){return x.generated;}).length+1;
+  var x={id:uid("layer"),type:"image",name:"Generated image "+n,src:url,generated:true,aspectLock:true,x:AIF.offsetUnit==="px"?sz.w/2:50,y:AIF.offsetUnit==="px"?sz.h/2:50,w:100};
+  AIF.extraLayers=AIF.extraLayers||[];AIF.extraLayers.push(x);
+  AIF.layerOrder=["extra_"+x.id].concat(old.filter(function(id){return id!=="extra_"+x.id;}));
+  AIF.selectedLayer="extra_"+x.id; AIF.editMode=true; return x;
+}
+function aiHasGeneratedLayer(){return (AIF.extraLayers||[]).some(function(x){return x.type==="image"&&x.generated;});}
 function aiExtra(id){ return (AIF.extraLayers||[]).filter(function(x){return x.id===id;})[0]; }
 function aiRemoveExtra(id){ aiHistoryBefore(); AIF.extraLayers=(AIF.extraLayers||[]).filter(function(x){return x.id!==id;});AIF.selectedLayer="canvas";renderScreen(false); }
 function aiDeleteLayer(id){
@@ -289,10 +312,12 @@ function aiGenerate(){
     AI_BUSY = false;
     var url = res.imageUrl || res.image || res.url || (res.images && res.images[0]);
     if (!url) throw new Error("The provider returned no image. Response keys: " + Object.keys(res||{}).join(", "));
+    aiHistoryBefore();
     AI_LAST = { imgUrl:url, w:sz.w, h:sz.h, prompt:prompt, model:body.model, at:new Date().toISOString(), fields:clone(AIF) };
+    aiAddGeneratedLayer(url,sz);
     AI_RUNS.unshift({ url:url, prompt:prompt, w:sz.w, h:sz.h, model:body.model, at:AI_LAST.at, headline:AIF.headline, fields:aiRunSettings(), brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null) }); aiSaveRuns();
     renderScreen(false);
-    toast("Visual generated \u2014 it is placed behind your text and layers");
+    toast("Visual generated \u2014 added as an editable image layer");
   }).catch(function(e){
     AI_BUSY = false; renderScreen(false);
     toast("Generation failed: " + e.message, "bad");
@@ -445,19 +470,21 @@ function aiCompose(cb,previewOnly){
       AI_TEXT_SPECS.logo={content:lg,size:ls,weight:800,font:b.headlineFont||"Poppins",lineHeight:1.4,align:"left"};aiAddHit("logo",lp.indexOf("right")>=0?lx-g.measureText(lg).width:lx,ly-ls,g.measureText(lg).width,ls*1.4);
       finish();
     }
-    if (!AIF.logoHidden && (AIF.logoImg||WS.logoImg)){
+    var logoSrc=AIF.logoImg||aiBrandLogo(), logoBg=AIF.logoBg||aiBrandLogoBg();
+    if (!AIF.logoHidden && logoSrc){
       var mark=new Image();
       mark.onload=function(){
         var maxW=Math.max(ls*4,Math.min(sz.w*.18,ls*6)), maxH=ls*1.7;
         var scale=Math.min(maxW/mark.width,maxH/mark.height), dw=mark.width*scale, dh=mark.height*scale;
         var dx=(lp==="top_right"||lp==="bottom_right")?lx-dw:lx;
         var dy=ly-dh*.82;
-        aiShadowOn(g,aiLayerStyle("logo")); g.drawImage(mark,dx,dy,dw,dh); aiShadowOff(g); AI_TEXT_SPECS.logo={type:"image",src:AIF.logoImg||WS.logoImg};aiAddHit("logo",dx,dy,dw,dh); finish();
+        if(logoBg&&logoBg!=="transparent"){g.save();g.fillStyle=logoBg;roundRect(g,dx-ls*.3,dy-ls*.22,dw+ls*.6,dh+ls*.44,ls*.18);g.fill();g.restore();}
+        aiShadowOn(g,aiLayerStyle("logo")); g.drawImage(mark,dx,dy,dw,dh); aiShadowOff(g); AI_TEXT_SPECS.logo={type:"image",src:logoSrc};aiAddHit("logo",dx,dy,dw,dh); finish();
       };
-      mark.onerror=textLogo; mark.src=AIF.logoImg||WS.logoImg;
+      mark.onerror=textLogo; mark.src=logoSrc;
     } else if (!AIF.logoHidden) textLogo(); else finish();
   }
-  if (AI_LAST && AI_LAST.imgUrl && !AIF.hideGenerated){
+  if (AI_LAST && AI_LAST.imgUrl && !AIF.hideGenerated && !aiHasGeneratedLayer()){
     var im = new Image(); im.crossOrigin = "anonymous";
     im.onload = function(){ paint(im); };
     im.onerror = function(){ paint(null); };
@@ -515,6 +542,7 @@ function aiDownload(){
   });
 }
 function aiSaveToAssets(){
+  if(typeof gdAuto==="function"&&gdAuto()) return aiSaveGeneratedToDrive();
   aiCompose(function(cv){
     var data = cv.toDataURL("image/png");
     var sz = aiActiveSize();
@@ -529,13 +557,27 @@ function aiSaveToAssets(){
     if (typeof persistAsset==="function") persistAsset(a,true);
   });
 }
+function aiSaveGeneratedToDrive(){
+  if(typeof gdReady!=="function"||!gdReady()) return aiSaveToAssets();
+  if(AI_BUSY)return toast("Wait for the visual to finish generating","bad");
+  aiCompose(function(cv){ cv.toBlob(function(blob){
+    if(!blob)return toast("Could not prepare this visual for Google Drive","bad");
+    var sz=aiActiveSize(), name=(AIF.headline||"AI banner")+" — "+sz.w+"×"+sz.h+".png", file=new File([blob],slug(AIF.headline||"ai-banner")+"-"+sz.w+"x"+sz.h+".png",{type:"image/png"});
+    toast("Saving generated visual to Google Drive…");
+    uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+      if(!ASSET_FOLDERS.some(function(f){return f.id==="ai";}))ASSET_FOLDERS.push({id:"ai",name:"AI generated",type:"image"});
+      var a={id:uid("as"),name:name,type:"image",folder:"ai",tags:["ai","banner",aiLayout(AIF.layout).id],size:up.size,ver:1,source:"gdrive",url:up.url,driveId:up.driveId||null,ago:0,color:(WS.brand&&WS.brand.primary)||"#0B2A5B",by:ME,brand:false,description:"Generated in AI Hub — "+esc(AIF.brief).slice(0,140),img:up.preview||null};
+      ASSETS.unshift(a); if(typeof persistAsset==="function")persistAsset(a,true); toast("Generated visual saved to Google Drive"); renderScreen(false);
+    }).catch(function(e){toast("Could not save generated visual to Google Drive: "+e.message,"bad");});
+  },"image/png"); });
+}
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "banner"; }
 
 /* ---------- AI Hub screen ---------- */
 function aiSavePresetModal(){ openModal("Save AI Hub preset",fieldHtml("ai_preset_name","Preset name",'<input id="ai_preset_name" placeholder="e.g. LinkedIn product launch">')+'<p class="hint">Saves the current banner size, copy, canvas, safe zones, and styling as a reusable template.</p>','<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="aiSavePreset()">Save preset</button>'); }
 function aiSavePreset(){ if(!require(["ai_preset_name"]))return; var list=clone(aiPromptTemplates()), id="p_"+Math.random().toString(36).slice(2,7); list.push({id:id,name:val("ai_preset_name"),brief:AIF.brief,style:AIF.style,negative:AIF.negative,headline:AIF.headline,sub:AIF.sub,cta:AIF.cta,badge:AIF.badge,size:AIF.size,customW:AIF.customW,customH:AIF.customH,layout:AIF.layout,background:(AIF.canvasBg||{}).color||AIF.background,textColor:aiLayerStyle("headline").textFill,accentColor:AIF.accentColor,badgeColor:AIF.badgeColor,ctaColor:AIF.ctaColor,logoPosition:AIF.logoPosition,safeMargin:+AIF.safeTop||8,safeUnit:AIF.safeUnit,safeLocked:AIF.safeLocked,safeTop:AIF.safeTop,safeRight:AIF.safeRight,safeBottom:AIF.safeBottom,safeLeft:AIF.safeLeft,editorFields:clone(AIF)}); WS.ai=WS.ai||{}; WS.ai.promptTemplates=list; AIF.template=id; closeModal(); saveWS("AI Hub preset saved"); renderScreen(false); }
 /* ---------- Canvas-first AI Hub workspace ---------- */
-function aiStudioLayerButton(id,label,icon){ var on=(AIF.selectedLayer||"canvas")===id; return '<button class="ai-layer'+(on?" on":"")+'" onclick="AIF.selectedLayer=\''+id+'\';renderScreen(false)"><span>'+icon+'</span><b>'+label+'</b><small>'+((id==="headline"||id==="sub"||id==="badge"||id==="cta")?"text":"")+'</small></button>'; }
+function aiStudioLayerButton(id,label,icon){ var on=(AIF.selectedLayer||"canvas")===id; return '<button class="ai-layer'+(on?" on":"")+'" onclick="aiSelectLayer(\''+id+'\')"><span>'+icon+'</span><b>'+label+'</b><small>'+((id==="headline"||id==="sub"||id==="badge"||id==="cta")?"text":"")+'</small></button>'; }
 function aiTextStyleEditor(id,plain){
   var s=aiLayerStyle(id), set="aiLayerStyle('"+id+"')";
   function val(key,value,kind){ return '<input '+(kind||'')+' value="'+attr(value)+'" oninput="'+set+'.'+key+'=this.value;aiPreviewSoon()">'; }
@@ -581,7 +623,9 @@ function renderAIHub(){
   /* §44 resolve the Generate state once, so the button, its tooltip and the
      inline reason can never disagree with each other. */
   var _gs=aiGenerateState();
-  var h='<div class="pagehead ai-studio-head"><div><h1 class="aihub-title"><span class="aiav sm">'+I.sparkle+'</span><span>AI Hub</span></h1><p class="sub">'+esc(active)+' · '+sz.w+'×'+sz.h+'</p>'+(AG_EDIT&&AG_EDIT.ownerId===ME?'<p class="hint">'+tr('Editing gallery design')+': <span data-no-translate>'+esc(AG_EDIT.name)+'</span></p>':'')+'</div><div class="actions"><button class="btn" onclick="go(\'aigallery\')">'+I.gallery+'AI Gallery</button><button class="btn desktop-only" onclick="aiSavePresetModal()">'+I.star+'Save preset</button><button class="btn desktop-only" onclick="go(\'settings\',\'ai\')">'+I.settings+'AI settings</button><button class="btn primary" onclick="aiGenerate()"'+(_gs.disabled?" disabled":"")+(_gs.reason?' title="'+attr(_gs.detail||_gs.reason)+'"':'')+'>'+I.sparkle+tr(_gs.label)+'</button></div></div>';
+  if(AI_PROJECT_BASE===null)setTimeout(function(){if(AI_PROJECT_BASE===null)aiProjectMarkSaved();},0);
+  var generateLabel=AI_BUSY?tr("Generating…"):tr("Create visual"), generateDisabled=AI_BUSY||_gs.disabled;
+  var h='<div class="pagehead ai-studio-head"><div><h1 class="aihub-title"><span class="aiav sm">'+I.sparkle+'</span><span>AI Hub</span></h1><p class="sub">'+esc(active)+' · '+sz.w+'×'+sz.h+'</p>'+(AG_EDIT&&AG_EDIT.ownerId===ME?'<p class="hint">'+tr('Editing gallery design')+': <span data-no-translate>'+esc(AG_EDIT.name)+'</span></p>':'')+'</div><div class="actions ai-head-actions"><div class="ai-head-primary-actions"><button class="btn ai-head-action labeled" title="'+attr(tr('New design'))+'" onclick="aiNewDesign()">'+I.plus+'<span>'+tr('New design')+'</span></button><button class="btn primary ai-head-action labeled generate'+(AI_BUSY?' is-generating':'')+'" onclick="aiGenerate()" aria-label="'+attr(generateLabel)+'"'+(generateDisabled?' disabled':'')+' title="'+attr(AI_BUSY?generateLabel:(_gs.detail||_gs.reason||tr(_gs.label)))+'">'+(AI_BUSY?'<i class="ai-button-spinner" aria-hidden="true"></i>':I.sparkle)+'<span>'+generateLabel+'</span></button></div><div class="ai-head-secondary-actions"><button class="iconbtn ai-head-action" title="AI Gallery" aria-label="AI Gallery" onclick="go(\'aigallery\')">'+I.gallery+'</button><button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('Save preset'))+'" aria-label="'+attr(tr('Save preset'))+'" onclick="aiSavePresetModal()">'+I.star+'</button><button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('AI settings'))+'" aria-label="'+attr(tr('AI settings'))+'" onclick="go(\'settings\',\'ai\')">'+I.settings+'</button></div></div></div>';
   /* §44 one notice, not two. The generate-state reason and the "add an API key"
      prompt were separate banners saying the same thing in different words; this
      is a single card whose headline is the specific reason and whose button
@@ -604,10 +648,8 @@ function renderAIHub(){
   +fieldHtml("","Avoid",'<input value="'+attr(AIF.negative)+'" placeholder="Watermarks, unreadable text…" oninput="AIF.negative=this.value">')+'</div></details></div></section>';
   /* §P1-1 the string-patching of a hardcoded <optgroup> is gone: the model
      list is the Admin registry, so there is nothing left to patch. */
-  /* v34 phones get the simple flow: generate → preview → save/download.
-     Layer editing (drag, resize, rulers, guides, zoom) stays on desktop. */
-  if(innerWidth<=760) AIF.editMode=false;
-  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+I.assets+'Save to assets</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
+  var saveToDrive=typeof gdAuto==="function"&&gdAuto(), saveLabel=saveToDrive?tr("Save to Google Drive"):tr("Save to assets"), saveIcon=saveToDrive&&typeof driveIcon==="function"?driveIcon():I.assets;
+  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
   var canvasColumn='<div class="ai-canvas-column">'+center+aiGenerationHistoryPanel()+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
@@ -615,13 +657,16 @@ function renderAIHub(){
 function aiSetBrief(v){ AIF.brief=v; AIF.template=""; }
 function aiClearForm(){
   AG_EDIT=null; AIF.logoText="";
-  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt="";
+  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoBg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.editMode=true; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt=""; AI_LAST=null;
   renderScreen(false);
 }
+function aiStartNew(){aiClearForm();AI_HISTORY=[];AI_REDO=[];AI_PROJECT_BASE=null;renderScreen(false);setTimeout(aiProjectMarkSaved,0);toast(tr('New design ready'));}
+function aiNewDesign(){if(aiProjectDirty())return confirmModal(tr('Start a new design?'),tr('Your current work has not been saved to AI Gallery. Starting a new design will discard it.'),aiStartNew);aiStartNew();}
 function aiReuse(i){
-  var r = AI_RUNS[i]; if (!r) return;
+  var r = AI_RUNS[i]; if (!r||!r.url) return toast("This saved generation no longer has an image","bad");
+  aiRestoreRunImage(r); AIF.editMode=true;
   AI_LAST = { imgUrl:r.url, w:r.w, h:r.h, prompt:r.prompt, model:r.model, at:r.at };
-  renderScreen(false); toast("Loaded that generation into the preview");
+  renderScreen(false); toast("Loaded that generation into the canvas");
 }
 
 /* ============================================================

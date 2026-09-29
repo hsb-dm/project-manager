@@ -6,7 +6,7 @@ const secrets = require("./secrets");
 /* v18: non-secret AI settings that round-trip as-is. v17 added `policy` and
    `models` on the client but never listed them here, so they silently reset
    on every server reload — fixed by carrying them through explicitly. */
-const AI_PLAIN_KEYS = ["policy", "models", "galleryRoleQuota", "basePrompt", "taskPromptTemplates", "tools"];
+const AI_PLAIN_KEYS = ["policy", "models", "galleryRoleQuota", "basePrompt", "taskPromptTemplates", "tools", "brandLogoImg", "brandLogoBg"];
 function maskAI(ai) {
   const out = { promptTemplates: ai.promptTemplates || null, chatTemplates: ai.chatTemplates || null, processing: Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, ai.processing || {}) };
   AI_PLAIN_KEYS.forEach(k => { if (ai[k] !== undefined) out[k] = ai[k]; });

@@ -555,22 +555,30 @@ di mode server, database adalah sumber kebenaran dan restore JSON diblokir.
 Gambar lokal disimpan sebagai preview berukuran terbatas. File asli, PDF, video, font, dan
 dokumen lain memakai Google Drive.
 
-Sembilan langkah:
+Ringkasan langkah (panduan sangat lengkap beserta contoh nilai ada di `GOOGLE_DRIVE_SETUP.md`):
 
 1. Buat Google Cloud project.
-2. Aktifkan **Google Drive API**. Tanpa ini sign-in berhasil tapi unggah dan baca tidak.
-3. Konfigurasi OAuth consent screen; tambahkan tim sebagai **Test users** selama masih testing.
-4. Buat OAuth client ID tipe **Web application**. Masukkan alamat dashboard **persis**,
+2. Catat **Project number** yang berupa angka dari Welcome → Project info atau IAM & Admin → Settings.
+   Jangan gunakan Project ID atau nama project.
+3. Aktifkan **Google Drive API** dan **Google Picker API**.
+4. Konfigurasi OAuth consent screen, tambahkan scope `drive.file`, dan tambahkan tim sebagai
+   **Test users** selama masih testing.
+5. Buat OAuth client ID tipe **Web application**. Masukkan alamat dashboard **persis**,
    tanpa path, di **Authorized JavaScript origins**.
    Error `origin_mismatch` hampir selalu berarti alamat di browser tidak sama persis dengan daftar ini.
-5. Siapkan folder tujuan. **Folder ID** adalah segmen URL setelah `/folders/`.
+6. Buat Picker API key. Batasi application restriction ke HTTP referrer domain production dan
+   API restriction ke **Google Picker API**.
+7. Siapkan folder tujuan. **Folder ID** adalah segmen URL setelah `/folders/`.
    Bagikan ke akun anggota atau ke Google Group perusahaan — **Editor** untuk yang mengunggah,
    **Viewer** untuk yang mereview.
-6. Di ZenCrevia: **Settings → Cloud storage → Configure Google Drive**, tempel Client ID dan
-   Folder ID, isi label akun, aktifkan unggah ke Drive, lalu **Save & sign in**.
-7. Uji unggah dan preview dari bagian **Files** sebuah task.
-8. Uji akses dengan akun Google anggota lain.
-9. Putuskan aturan akses eksternal.
+8. Di ZenCrevia: **Settings → Cloud storage → Configure Google Drive**, isi OAuth Client ID,
+   Folder ID, Picker API key, dan Project number numerik dari project yang sama.
+9. Klik **Choose folder in Google Drive** dan pilih folder tim. Langkah ini wajib untuk scope
+   `drive.file`; menempelkan Folder ID saja dapat menghasilkan `404 File not found`.
+10. Pilih **Save & sign in** menggunakan akun yang boleh mengunggah, lalu jalankan
+    **Test Google Drive**.
+11. Uji unggah dan preview dari bagian **Files** sebuah task, lalu uji akses dengan akun anggota lain.
+12. Putuskan aturan akses eksternal.
 
 > **Akses ZenCrevia dan akses Google Drive terpisah.** Seseorang bisa membuka task tapi tidak
 > bisa membuka file-nya kalau folder Drive belum dibagikan kepadanya.

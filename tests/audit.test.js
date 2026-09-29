@@ -46,3 +46,9 @@ test('generated server and standalone HTML are identical and parse',()=>{
  const root=path.join(__dirname,'..');const a=fs.readFileSync(path.join(root,'public/index.html'),'utf8'),b=fs.readFileSync(path.join(root,'dist/creative-os-standalone.html'),'utf8');assert.equal(a,b);
  for(const m of a.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
 });
+test('Google Drive setup explains every credential and the mandatory Picker grant',()=>{
+ const root=path.join(__dirname,'..');const assets=fs.readFileSync(path.join(root,'src/assets.js'),'utf8'),picker=fs.readFileSync(path.join(root,'src/gdrive-picker.js'),'utf8'),guide=fs.readFileSync(path.join(root,'GOOGLE_DRIVE_SETUP.md'),'utf8');
+ for(const expected of ['Google Drive API','Google Picker API','OAuth consent screen','OAuth Client ID','Picker API key','Project number','Folder ID','Choose folder in Google Drive','Test Google Drive'])assert.match(assets,new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+ assert.match(assets,/Project ID and must not be used/);assert.match(assets,/Pasting a Folder ID alone does not grant access/);
+ assert.match(picker,/Digits only[\s\S]*Do not use the Project ID/);assert.match(guide,/404 File not found/);
+});

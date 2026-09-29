@@ -10,15 +10,14 @@ function aiMoveLayer(id,delta){var ids=aiLayerIds(),i=ids.indexOf(id),j=i+delta;
 function aiMetaSet(id,key,value){aiHistoryBefore();aiLayerMeta(id)[key]=value;aiRenderKeepScroll();}
 function aiCompositeLayers(g,planes,sz,generated){
  var hits=AI_LAYER_HITS.map(function(h){var scale=(h.id==='headline'||h.id==='sub')?aiLayerScale(h.id)/100:1;return {id:h.id,x:h.x+h.w*(1-scale)/2,y:h.y+h.h*(1-scale)/2,w:h.w*scale,h:h.h*scale};}),ordered=[];AI_LAYER_BASE_HITS=hits;
- if(generated&&AIF.protectText!==false)aiProtectText(g,hits,sz);
  aiLayerIds().forEach(function(id){var cv=planes[id],m=aiLayerMeta(id),hit=hits.find(function(h){return h.id===id;});if(!cv||m.visible===false)return;var cx=hit?hit.x+hit.w/2:sz.w/2,cy=hit?hit.y+hit.h/2:sz.h/2,r=(Number(m.rotation)||0)*Math.PI/180;
-  g.save();g.globalAlpha=Math.max(0,Math.min(100,Number(m.opacity)))/100;g.translate(cx,cy);g.rotate(r);var sc=(id==='headline'||id==='sub')?aiLayerScale(id)/100:1;if(sc!==1)g.scale(sc,sc);if(typeof aiGlowOn==='function')aiGlowOn(g,aiLayerStyle(id));g.drawImage(cv,-cx,-cy);g.restore();
+  g.save();g.globalAlpha=Math.max(0,Math.min(100,Number(m.opacity)))/100;g.translate(cx,cy);g.rotate(r);var sc=(id==='headline'||id==='sub')?aiLayerScale(id)/100:1,sx=(m.flipX?-1:1)*sc,sy=(m.flipY?-1:1)*sc;if(sx!==1||sy!==1)g.scale(sx,sy);if(typeof aiGlowOn==='function')aiGlowOn(g,aiLayerStyle(id));g.drawImage(cv,-cx,-cy);g.restore();
   if(hit){var w=Math.abs(hit.w*Math.cos(r))+Math.abs(hit.h*Math.sin(r)),h=Math.abs(hit.w*Math.sin(r))+Math.abs(hit.h*Math.cos(r));ordered.push({id:id,x:cx-w/2,y:cy-h/2,w:w,h:h});}
   cv.width=1;cv.height=1;
  });AI_LAYER_HITS=ordered;
 }
 /* Sequential loading keeps visual stacking and pointer hit order identical. */
-aiDrawExtras=function(g,sz,done,begin){var xs=(AIF.extraLayers||[]).filter(function(x){return x.visible!==false;}),i=0;
+aiDrawExtras=function(g,sz,done,begin){var xs=(AIF.extraLayers||[]).filter(function(x){return x.visible!==false&&!(x.generated&&AIF.hideGenerated);}),i=0;
  function next(){if(i>=xs.length)return done();var x=xs[i++],id='extra_'+x.id,c=begin?begin(id):g,px=aiOffset(x.x,sz.w),py=aiOffset(x.y,sz.h),scale=aiLayerScale(id)/100,st=aiLayerStyle(id);
   function paint(im){c.save();aiShadowOn(c,st);var w,h;
    if(x.type==='text'){var fs=Math.max(10,(Number(x.size)||36)*scale),font=(x.italic?'italic ':'')+(x.weight||700)+' '+fs+'px '+aiTextFont(x.font,brandFontStack());c.font=font;var lines=[];String(x.content||'').split('\n').forEach(function(line){lines=lines.concat(line?wrapText(c,line,sz.w*(Number(x.w)||50)/100,fs,font):['']);});h=Math.max(1,lines.length)*fs*(Number(x.lineHeight)||1.3);w=1;lines.forEach(function(line){w=Math.max(w,c.measureText(line).width);});aiPaintBox(c,px-w/2-st.padX,py-h/2-st.padY,w+st.padX*2,h+st.padY*2,st);c.font=font;c.fillStyle=aiLayerTextPaint(c,sz,st,x.color||'#fff',{x:px-w/2,y:py-h/2,w:w,h:h});c.globalAlpha=(Number(st.textOpacity)/100);c.textAlign=x.align||'center';c.textBaseline='top';var tx=x.align==='left'?px-w/2:x.align==='right'?px+w/2:px;lines.forEach(function(line,n){var y=py-h/2+n*fs*(Number(x.lineHeight)||1.3);if(st.textStroke){c.strokeStyle=st.textStrokeColor;c.lineWidth=Number(st.textStrokeWidth)||1;c.strokeText(line,tx,y);}c.fillText(line,tx,y);if(x.underline){c.fillRect(x.align==='left'?tx:x.align==='right'?tx-c.measureText(line).width:tx-c.measureText(line).width/2,y+fs,c.measureText(line).width,Math.max(1,fs/18));}});
@@ -47,14 +46,11 @@ aiStudioProperties=function(){var html=aiStudioPropertiesBase(),id=AIF.selectedL
  return html;};
 Object.assign(UI_ID,{'Brand default prompt':'Prompt brand bawaan','Describe your brand voice, visual direction, required colors, and things to avoid.':'Jelaskan gaya bahasa, arahan visual, warna wajib, serta hal yang harus dihindari.','Included with every AI Hub generation, including custom prompts and templates. Only workspace administrators can change it. Review generated visuals before publishing.':'Disertakan pada setiap pembuatan gambar di AI Hub, termasuk prompt khusus dan templat. Hanya admin workspace yang dapat mengubahnya. Tinjau hasil gambar sebelum dipublikasikan.','Layer name':'Nama layer','Shape':'Bentuk','Rectangle':'Persegi panjang','Ellipse':'Elips','Triangle':'Segitiga','Bring forward':'Majukan layer','Send backward':'Mundurkan layer','Lock layer':'Kunci layer','Unlock layer':'Buka kunci layer','Duplicate layer':'Duplikat layer','Rotation (°)':'Rotasi (°)','Font size':'Ukuran font','Font weight':'Ketebalan font','Regular':'Normal','Bold':'Tebal','Italic':'Miring','Underline':'Garis bawah','Line spacing':'Jarak baris','Text box width (%)':'Lebar kotak teks (%)','Fill color':'Warna isi','Brightness (%)':'Kecerahan (%)','Contrast (%)':'Kontras (%)','Saturation (%)':'Saturasi (%)','Middle':'Tengah vertikal','Hide generated background':'Sembunyikan latar AI','Show generated background':'Tampilkan latar AI','copy':'salinan'});
 
+Object.assign(UI_ID,{'Hide generated layers':'Sembunyikan layer hasil AI','Show generated layers':'Tampilkan layer hasil AI','New design':'Desain baru','New design ready':'Desain baru siap','Start a new design?':'Mulai desain baru?','Your current work has not been saved to AI Gallery. Starting a new design will discard it.':'Pekerjaan saat ini belum disimpan ke AI Gallery. Memulai desain baru akan membuang perubahan tersebut.','Flip horizontally':'Balik horizontal','Flip vertically':'Balik vertikal','Using the AI Hub logo from Settings.':'Menggunakan logo AI Hub dari Pengaturan.','Using a custom logo for this design.':'Menggunakan logo khusus untuk desain ini.','Use AI Hub logo':'Gunakan logo AI Hub'});
+
 function aiProtectText(g,hits,sz){
- var pad=Math.max(0,Math.min(200,Number(AIF.textProtectionPadding==null?24:AIF.textProtectionPadding))),bg=AIF.canvasBg||{};
- g.save();g.globalAlpha=1;g.fillStyle=bg.color||AIF.background||(WS.brand||{}).primary||'#0B2A5B';
- hits.forEach(function(h){var m=aiLayerMeta(h.id),x=h.id.indexOf('extra_')===0?aiExtra(h.id.slice(6)):null;
- if(m.visible===false||Number(m.opacity)===0||h.id==='logo'||(x&&x.type!=='text'))return;var text=x?x.content:AIF[h.id==='disclaimer'?'disclaimerText':h.id];if(!String(text||'').trim())return;
- var r=(Number(m.rotation)||0)*Math.PI/180,cx=h.x+h.w/2,cy=h.y+h.h/2;
- g.save();g.translate(cx,cy);g.rotate(r);g.fillRect(-h.w/2-pad,-h.h/2-pad,h.w+pad*2,h.h+pad*2);g.restore();
- });g.restore();
+ /* Text protection belongs to the generation prompt. Painting rectangles here
+    created visible colour blocks behind copy and changed exported artwork. */
 }
 function aiReorderLayer(id,target,before){
  if(id===target||aiLayerMeta(id).locked)return;
