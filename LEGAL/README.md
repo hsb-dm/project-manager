@@ -7,6 +7,20 @@ Folder ini memuat draf:
 3. Ketentuan Layanan untuk penjualan dan layanan hosted.
 4. Penjelasan Pemrosesan Data AI yang mengikuti perilaku ZenCrevia saat ini.
 
+## Dua hal berbeda di folder ini
+
+- Berkas bernomor `01`–`04` adalah **draf** untuk ditinjau penasihat hukum, dan aplikasi tidak
+  pernah membacanya.
+- `public/privacy.html` dan `public/terms.html` adalah **halaman web yang benar-benar disajikan**
+  di `/privacy` dan `/terms` oleh `server/legal.js`. Google mensyaratkan keduanya dapat dibuka
+  tanpa login sebelum aplikasi OAuth boleh keluar dari status "Testing", jadi keduanya tidak
+  memuat placeholder: nama badan usaha, kontak, dan yurisdiksi diambil dari `COS_LEGAL_*`.
+
+Keduanya belum diselaraskan. Setelah placeholder di draf terisi dan ditinjau, isi halaman publik
+harus disesuaikan agar tidak ada dua versi kebijakan yang berbeda. Halaman publik memuat
+pengungkapan khusus Google yang belum ada di draf: scope `drive.file`, penyimpanan refresh token,
+cara mencabut akses, dan pernyataan Limited Use.
+
 ## Wajib diisi sebelum publikasi
 
 - nama dan bentuk badan usaha;

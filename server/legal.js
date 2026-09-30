@@ -9,7 +9,7 @@
    Without them the pages still render, using the app's own hostname for the contact address, so a
    fresh install is never left serving a broken page. */
 const fs = require("fs"), path = require("path");
-const DIR = path.join(__dirname, "..", "legal");
+const DIR = path.join(__dirname, "..", "LEGAL", "public");
 const PAGES = { "/privacy": "privacy.html", "/terms": "terms.html" };
 const cache = new Map();
 

@@ -112,3 +112,23 @@ test("the sign-in screen links to both pages, because Google looks for them ther
   assert.match(src, /href="\/privacy"/);
   assert.match(src, /href="\/terms"/);
 });
+
+/* Windows resolves LEGAL/ and legal/ alike; Linux does not. A lowercase path here worked on the
+   development machine and would have 404ed in production, so pin the real spelling. */
+test("the templates are read from the directory as it is actually spelled", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "server", "legal.js"), "utf8");
+  const open = "const DIR = path.join(__dirname, ", at = src.indexOf(open);
+  assert.ok(at > 0, "the template directory is built with path.join");
+  const args = src.slice(at + open.length, src.indexOf(");", at));
+  const parts = args.split(",").map(x => x.trim().split(String.fromCharCode(34)).join("")).filter(x => x && x !== "..");
+  /* Walk it segment by segment: checking only the last one would miss LEGAL spelled "legal",
+     which Windows resolves happily and Linux does not. */
+  let here = path.join(__dirname, "..");
+  parts.forEach(part => {
+    const real = fs.readdirSync(here).find(n => n.toLowerCase() === part.toLowerCase());
+    assert.ok(real, "no such entry as " + part + " inside " + here);
+    assert.equal(part, real, "the code spells it " + part + " but the disk says " + real);
+    here = path.join(here, real);
+  });
+  ["privacy.html", "terms.html"].forEach(f => assert.ok(fs.readdirSync(here).includes(f), f + " is where the code looks"));
+});
