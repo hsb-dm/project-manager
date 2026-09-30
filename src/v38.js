@@ -99,10 +99,13 @@ function routeWanted(){ var h=location.hash||"";
   window.addEventListener("popstate",function(){ if(document.body.classList.contains("auth")) return authRouteApply(); var r=routeParse(routeHere()); routeApply(r||{screen:"home"}); });
   var baseAfter=afterLogin; afterLogin=function(){ var wanted=routeWanted(), legacy=/^#(task|project|asset|knowledge|decision|conv)=/.test(location.hash)?location.hash:null;
     window.ZC_READY=false;
+    var routed=!!(wanted&&wanted.screen!=="register"&&wanted.screen!=="login"&&wanted.screen!=="reset");
+    BOOT_SKIP_RENDER=routed;   /* this wrapper renders the real screen a moment later */
     return baseAfter.apply(this,arguments).then(function(v){ ROUTER.ready=true; window.ZC_READY=true; /* browser tests wait for this */
       if(wanted&&wanted.screen!=="register"&&wanted.screen!=="login"&&wanted.screen!=="reset"){ if(ROUTER.mode==="path"&&/^#\//.test(location.hash)) routeWrite(routeBuild(wanted.screen,wanted.sub,wanted.task),false); routeApply(wanted); }
       else if(legacy){ go(/^#project=/.test(legacy)?"projects":/^#conv=/.test(legacy)?"messages":"tasks",null,{direct:true}); if(location.hash!==legacy) try{ history.replaceState(null,"",location.pathname+location.search+legacy); }catch(e){} }
       else { if(ROUTER.mode==="path"&&/^\/(register|login)$/.test(location.pathname)) routeWrite("/",false); routeSync(); }
+      if(routed){ var c=document.getElementById("content"); if(c&&!c.innerHTML.trim()) renderScreen(false); }
       return v; }); };
   var baseDemo=typeof demoLogin==="function"?demoLogin:null; if(baseDemo) demoLogin=function(){ var wanted=routeWanted(); var r=baseDemo.apply(this,arguments); ROUTER.ready=true; if(wanted&&wanted.screen!=="register") routeApply(wanted); else routeSync(); return r; };
 })();
