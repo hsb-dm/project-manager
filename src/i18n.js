@@ -741,6 +741,35 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* AI chat attachments and proposals (src/ai-chat-actions.js). */
+Object.assign(UI_ID,{
+ "Attach to this conversation": "Lampirkan ke percakapan ini",
+ "Task": "Task",
+ "Project": "Proyek",
+ "Person": "Orang",
+ "Asset": "Aset",
+ "Search projects…": "Cari proyek…",
+ "Search people…": "Cari orang…",
+ "Search assets…": "Cari aset…",
+ "You can attach up to": "Maksimal lampiran",
+ "items": "item",
+ "Create this task?": "Buat task ini?",
+ "Title": "Judul",
+ "Assignee": "Penanggung jawab",
+ "Due": "Tenggat",
+ "Priority": "Prioritas",
+ "not found": "tidak ditemukan",
+ "not understood": "tidak terbaca",
+ "default": "bawaan",
+ "you": "Anda",
+ "first project": "proyek pertama",
+ "Already here, similar": "Sudah ada yang mirip",
+ "Your role cannot create tasks.": "Peran Anda tidak dapat membuat task.",
+ "Create": "Buat",
+ "Edit first": "Ubah dulu",
+ "Created": "Dibuat",
+ "Could not prepare the task": "Tidak dapat menyiapkan task"
+});
 /* Storage mode labels (src/gdrive.js, drawer.js, ai.js, assets.js). */
 Object.assign(UI_ID,{
  "this server": "server ini",

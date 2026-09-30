@@ -716,18 +716,20 @@ function renderAIChat(){
   if (!el) return;
   if (!AI_CHAT.open){ el.className = "aichat"; el.innerHTML=""; return; }
   el.className = "aichat open";
-  var body = AI_CHAT.msgs.map(function(m){
-    return '<div class="aimsg '+m.role+'">'+(m.role==="assistant"?'<span class="aiav" title="AI Intelligence">'+I.sparkle+'</span>':av(ME,"lg"))+'<div class="bub">'+mdLite(m.text)+'</div></div>';
+  var body = AI_CHAT.msgs.map(function(m,i){
+    return '<div class="aimsg '+m.role+'">'+(m.role==="assistant"?'<span class="aiav" title="AI Intelligence">'+I.sparkle+'</span>':av(ME,"lg"))+'<div class="bub">'+mdLite(m.text)+(m.action?aiActionCard(i,m):"")+(m.attach&&m.attach.length?'<div class="aimsg-att">'+m.attach.map(function(a){ return '<span class="aichip sm">'+esc(aiAttachLabel(a).slice(0,36))+'</span>'; }).join("")+'</div>':"")+'</div></div>';
   }).join("");
   if (AI_CHAT.busy) body += '<div class="aimsg assistant"><span class="aiav">'+I.sparkle+'</span><div class="bub"><span class="hint">'+(UI_LANG==="id"?"Sedang berpikir…":"Thinking…")+'</span></div></div>';
   el.innerHTML = '<div class="aichat-head"><span class="sq blue">'+I.sparkle+'</span><h2>AI Intelligence</h2>'
     + '<span class="badge'+(aiConfigured("chat")?" approved":"")+'">'+(aiConfigured("chat")?tr("Connected"):(UI_LANG==="id"?"mode lokal":"local mode"))+'</span><span class="spacer"></span>'
     + (AI_CHAT.msgs.length>1?'<button class="iconbtn" onclick="aiChatReset()" title="'+(UI_LANG==="id"?"Percakapan baru":"New conversation")+'">'+I.plus+'</button>':'')
+    + '<button class="iconbtn" id="aiAttachBtn" onclick="aiAttachMenu(this)" title="'+attr(tr("Attach to this conversation"))+'">'+I.link+'</button>'
     + '<button class="iconbtn" onclick="aiChatTemplateMenu(this)" title="'+(UI_LANG==="id"?"Template prompt":"Prompt templates")+'">'+I.sparkle+'</button>'
     + '<button class="iconbtn" onclick="aiChatToggle(false);go(\'settings\',\'ai\')" title="'+(UI_LANG==="id"?"Pengaturan AI":"AI settings")+'">'+I.settings+'</button>'
     + '<button class="iconbtn" data-tour="ai-close" onclick="aiChatToggle(false)" title="'+tr("Close")+'">'+I.x+'</button></div>'
     + '<div class="aichat-body" id="aiChatBody">'+body+'</div>'
     + (AI_CHAT.msgs.length<2?'<div class="aichat-sugg">'+aiChatSuggestions().map(function(t){ return '<button title="'+attr(t.prompt)+'" onclick="aiAsk(aiTplPrompt(\''+t.id+'\'))">'+I.sparkle+esc(t.name)+'</button>'; }).join("")+'</div>':'')
+    + aiAttachChips()
     + '<div class="aichat-foot"><textarea id="aiChatInput" rows="1" placeholder="'+(UI_LANG==="id"?"Tanyakan tentang workspace ini…":"Ask about this workspace…")+'" oninput="this.style.height=\'auto\';this.style.height=Math.min(132,this.scrollHeight)+\'px\'" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();aiAsk(this.value);this.value=\'\';this.style.height=\'auto\'}"></textarea>'
     + '<button class="btn primary sm" onclick="var i=document.getElementById(\'aiChatInput\');aiAsk(i.value);i.value=\'\';i.style.height=\'auto\'">'+(UI_LANG==="id"?"Kirim":"Send")+'</button></div>';
   var b = document.getElementById("aiChatBody"); if (b) b.scrollTop = b.scrollHeight;
@@ -750,15 +752,21 @@ function mdLite(t){
 }
 function aiAsk(q){
   q = String(q||"").trim(); if (!q || AI_CHAT.busy) return;
-  AI_CHAT.msgs.push({ role:"user", text:q });
+  AI_CHAT.msgs.push({ role:"user", text:q, attach:aiAttachList().slice() });
   AI_CHAT.busy = true; aiChatSave(); renderAIChat();
   var run = aiConfigured("chat")
-    ? (API.on ? apiFetch("POST","/api/ai/chat",{ messages:AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; }), context:aiContext() })
+    ? (API.on ? apiFetch("POST","/api/ai/chat",{ messages:AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; }), context:aiChatContext(), actions:true })
               : aiDirectChat(q))
     : Promise.resolve({ text: aiLocalAnswer(q) });
   run.then(function(res){
     AI_CHAT.busy=false;
-    AI_CHAT.msgs.push({ role:"assistant", text: res.text || res.reply || (aiQuestionLanguage(q)==="id"?"Belum ada jawaban yang diterima.":"No answer came back.") });
+    var raw = res.text || res.reply || (aiQuestionLanguage(q)==="id"?"Belum ada jawaban yang diterima.":"No answer came back.");
+    /* a well-formed proposal becomes a card; anything malformed stays plain text */
+    var act = typeof aiParseAction==="function" ? aiParseAction(raw) : null;
+    AI_CHAT.msgs.push(act ? { role:"assistant", text: act.text || (aiQuestionLanguage(q)==="id"?"Ini usulannya:":"Here is the proposal:"), action: act.p }
+                          : { role:"assistant", text: raw });
+    /* the attachments did their job with this question; leave the next one clean */
+    if(typeof aiAttachClear==="function") aiAttachClear();
     aiChatSave(); renderAIChat();
   }).catch(function(e){
     AI_CHAT.busy=false;
@@ -836,7 +844,7 @@ function aiSystem(q){
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
 /* a compact, factual snapshot — small enough to send on every turn */
-function aiContext(){
+function aiContext(taskLimit){
   var open = TASKS.filter(function(t){ return !isClosed(t)&&!t.hidden; });
   var over = open.filter(function(t){ return t.due<0; });
   var rev  = open.filter(function(t){ return stageKind(t.status)==="review"; });
@@ -852,8 +860,8 @@ function aiContext(){
     var ts = TASKS.filter(function(t){ return t.proj===p.id; });
     lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+dueTxt(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
   });
-  lines.push("OPEN TASKS ("+open.length+"):");
-  open.slice(0,60).forEach(function(t){
+  lines.push("OPEN TASKS ("+open.length+(open.length>(+taskLimit||60)?", showing "+(+taskLimit||60):"")+"):");
+  open.slice(0,Math.max(1,+taskLimit||60)).forEach(function(t){
     var flags = []; if (isTaskBlocked(t)) flags.push("BLOCKED-by:"+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"));
     if (dependencyRisk(t).length) flags.push("SCHEDULE-RISK");
     lines.push("- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" owner="+person(t.assignee).name+" effort="+t.effort+"h due="+dueTxt(t.due)+" assets="+assetCount(t)+(flags.length?" "+flags.join(" "):""));

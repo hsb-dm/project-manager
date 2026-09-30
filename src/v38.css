@@ -84,3 +84,20 @@
 .imp-row input{margin-top:3px;flex:none}
 .imp-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .imp-radio{display:flex;gap:8px;align-items:center;font-size:var(--fs-base);margin:4px 0;cursor:pointer}
+
+/* AI Intelligence: attachments and proposal cards (src/ai-chat-actions.js) */
+.aichat-attach{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0}
+.aichip{display:inline-flex;align-items:center;gap:6px;max-width:100%;font-size:11.5px;font-weight:500;padding:3px 6px 3px 10px;border-radius:var(--pill);background:var(--color-primary-soft);border:1px solid var(--color-border);color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aichip.sm{padding:2px 8px;font-size:11px;background:var(--color-surface-sunken)}
+.aichip button{border:0;background:none;cursor:pointer;color:var(--color-text-tertiary);font-size:14px;line-height:1;padding:0 2px}
+.aichip button:hover{color:var(--color-danger)}
+.aimsg-att{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.aiact{margin-top:10px;border:1px solid var(--color-border-strong);border-radius:var(--radius);background:var(--color-surface);overflow:hidden}
+.aiact-head{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--color-surface-sunken);border-bottom:1px solid var(--color-border);font-size:12.5px}
+.aiact-head svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.aiact-row{display:flex;gap:10px;justify-content:space-between;align-items:baseline;padding:5px 12px;font-size:12px}
+.aiact-row span{color:var(--color-text-tertiary);flex:none}
+.aiact-row b{text-align:right;min-width:0;overflow-wrap:anywhere}
+.aiact-row b.warn{color:var(--color-warning)}
+.aiact .hint{padding:2px 12px 8px}
+.aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
