@@ -24,6 +24,7 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node server ./server
 COPY --chown=node:node db ./db
 COPY --chown=node:node shared ./shared
+COPY --chown=node:node LEGAL ./LEGAL
 COPY --from=builder --chown=node:node /app/public ./public
 
 RUN mkdir -p /app/data/backups && chown -R node:node /app/data
