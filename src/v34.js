@@ -69,7 +69,7 @@ Object.assign(UI_ID,{"Updated by":"Diperbarui oleh","This task was deleted by":"
     var label=ok+" "+tr(ok===1?"task moved to":"tasks moved to")+" "+st.name+(blocked?" · "+blocked+" "+tr("not moved (reviewer rule)"):"");
     bulkApply(label,function(t){ if(!zcStageBlock(t,sid)) t.status=sid; });
   };
-  bulkStatus=function(a){ ctxMenu(a,'<div class="mh">'+tr("Status")+'</div>'+(WS.workflow||[]).map(function(s){ return '<button onclick="closePops();zcBulkStatus(\''+attr(s.id)+'\')">'+statusBadge(s.id)+'</button>'; }).join(""),"left"); };
+  bulkStatus=function(a){ ctxMenu(a,'<div class="mh">'+tr("Status")+'</div>'+localStages().map(function(s){ return '<button onclick="closePops();zcBulkStatus(\''+attr(s.id)+'\')">'+statusBadge(s.id)+'</button>'; }).join(""),"left"); };
   Object.assign(UI_ID,{"None of the selected tasks can be moved to":"Tidak ada task terpilih yang bisa dipindahkan ke","they need a reviewer, or a reviewer's decision.":"task tersebut butuh reviewer, atau keputusan reviewer.","task moved to":"task dipindahkan ke","tasks moved to":"task dipindahkan ke","not moved (reviewer rule)":"tidak dipindahkan (aturan reviewer)"});
 })();
 </script>

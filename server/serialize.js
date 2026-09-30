@@ -97,6 +97,9 @@ function mergeAI(db, wsId, incoming) {
      including "Delivered". Closed stages after Delivered (e.g. Done, Declined) default to the
      reviewer, requester, team lead or an admin. Workflows without a "delivered" stage start
      fully open. Admins can tighten or loosen any stage. */
+const FIELD_MODES = ["primary", "secondary", "hidden"];
+/* A stage or field name as typed: control characters out, whitespace collapsed, bounded. */
+const localName = v => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 function stageRules(rows) {
   const firstReview = rows.findIndex(s => s.kind === "review");
   const delivered = rows.findIndex(s => s.id === "delivered");
@@ -124,9 +127,9 @@ function readWorkspace(db, wsId) {
     briefFields: J(w.brief_fields, []), notifPrefs: J(w.notif_prefs, {}), autoHide: Object.assign({ tasks: "month", taskDays: 30, projects: "month", projectDays: 30 }, J(w.auto_hide, {}) || {}),
     ai: maskAI(J(w.ai_settings, {}) || {}),
     labels: J(w.labels, []), taskFields: J(w.task_fields, []), allowRegistration: !!w.allow_registration, defaultRole: w.default_role_id || "member", joinCode: w.invite_code || "",
-    workflow: stageRules(db.prepare("SELECT * FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order").all(wsId)).map(s => ({ id: s.id, name: s.name, kind: s.kind, color: s.color, reviewerOnly: s.reviewerOnly, requireReviewer: s.requireReviewer })),
+    workflow: stageRules(db.prepare("SELECT * FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order").all(wsId)).map(s => ({ id: s.id, name: s.name, nameId: s.name_id || "", kind: s.kind, color: s.color, reviewerOnly: s.reviewerOnly, requireReviewer: s.requireReviewer })),
     briefTemplates: db.prepare("SELECT * FROM brief_templates WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(t => ({ id: t.id, name: t.name, description: t.description, fields: J(t.fields, []), required: J(t.required_fields, []) })),
-    customFields: db.prepare("SELECT * FROM custom_fields WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(f => ({ id: f.id, name: f.name, type: f.type, options: J(f.options, []) })),
+    customFields: db.prepare("SELECT * FROM custom_fields WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(f => ({ id: f.id, name: f.name, nameId: f.name_id || "", type: f.type, options: J(f.options, []), displayMode: FIELD_MODES.includes(f.display_mode) ? f.display_mode : "secondary" })),
     /* v17 §7.5 manual order wins; §7.7 archived tags still round-trip. No colour (§1). */
     tags: db.prepare("SELECT name,sort_order,archived FROM tags WHERE workspace_id=? ORDER BY sort_order, name").all(wsId)
       .map((t, i) => ({ id: "tag_" + String(t.name).trim().toLowerCase().replace(/\s+/g, " ").replace(/[^a-z0-9]+/g, "_"), name: t.name, archived: !!t.archived, sortOrder: t.sort_order || (i + 1) * 10 })),
@@ -143,12 +146,17 @@ function writeWorkspace(db, wsId, d) {
     .run(d.name, d.logo, d.logoImg || null, d.favicon || null, d.tagline || "", d.timeZone || "Asia/Jakarta", S(d.workingDays || [1,2,3,4,5]), d.workStart || "09:00", d.workEnd || "18:00", S(d.theme || {}), S(d.brand || {}), S(d.briefFields || []), S(d.notifPrefs || {}), S(d.autoHide || {}), S(mergeAI(db, wsId, d.ai)), S(d.labels || []), S(d.taskFields || []), d.joinCode || null, d.defaultRole || "member", d.allowRegistration === false ? 0 : 1, now(), wsId);
   // statuses: upsert + archive missing (tasks keep referencing archived ids until moved)
   const keep = new Set();
-  (d.workflow || []).forEach((s, i) => { keep.add(s.id); const b3 = v => v === true ? 1 : v === false ? 0 : null; db.prepare("INSERT INTO task_statuses (id,workspace_id,name,kind,color,sort_order,is_completed,is_archived,reviewer_only,require_reviewer) VALUES (?,?,?,?,?,?,?,0,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, color=excluded.color, sort_order=excluded.sort_order, is_completed=excluded.is_completed, is_archived=0, reviewer_only=excluded.reviewer_only, require_reviewer=excluded.require_reviewer").run(s.id, wsId, s.name, s.kind, s.color || null, i, s.kind === "closed" ? 1 : 0, b3(s.reviewerOnly), b3(s.requireReviewer)); });
+  /* A stage keeps its English name in name and its Indonesian one in name_id. name can never be
+     empty — every screen and report reads it — so a stage named only in Indonesian stores that
+     name in both, which is exactly the fallback the page shows. */
+  (d.workflow || []).forEach((s, i) => { keep.add(s.id); const b3 = v => v === true ? 1 : v === false ? 0 : null; const nid = localName(s.nameId), en = localName(s.name) || nid || s.id; db.prepare("INSERT INTO task_statuses (id,workspace_id,name,name_id,kind,color,sort_order,is_completed,is_archived,reviewer_only,require_reviewer) VALUES (?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_id=excluded.name_id, kind=excluded.kind, color=excluded.color, sort_order=excluded.sort_order, is_completed=excluded.is_completed, is_archived=0, reviewer_only=excluded.reviewer_only, require_reviewer=excluded.require_reviewer").run(s.id, wsId, en, nid || null, s.kind, s.color || null, i, s.kind === "closed" ? 1 : 0, b3(s.reviewerOnly), b3(s.requireReviewer)); });
   db.prepare("SELECT id FROM task_statuses WHERE workspace_id=?").all(wsId).forEach(r => { if (!keep.has(r.id)) db.prepare("UPDATE task_statuses SET is_archived=1 WHERE id=?").run(r.id); });
   db.prepare("DELETE FROM brief_templates WHERE workspace_id=?").run(wsId);
   (d.briefTemplates || []).forEach((t, i) => db.prepare("INSERT INTO brief_templates (id,workspace_id,name,description,fields,required_fields,sort_order) VALUES (?,?,?,?,?,?,?)").run(t.id, wsId, t.name, t.description || "", S(t.fields || []), S(t.required || []), i));
   const keepF = new Set();
-  (d.customFields || []).forEach((f, i) => { keepF.add(f.id); db.prepare("INSERT INTO custom_fields (id,workspace_id,name,type,options,sort_order) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, options=excluded.options, sort_order=excluded.sort_order").run(f.id, wsId, f.name, f.type, S(f.options || []), i); });
+  /* display_mode was never written before, so a custom field set to Primary or Hidden fell back to
+     More details on every reload. */
+  (d.customFields || []).forEach((f, i) => { keepF.add(f.id); const nid = localName(f.nameId), en = localName(f.name) || nid || f.id, mode = FIELD_MODES.includes(f.displayMode) ? f.displayMode : null; db.prepare("INSERT INTO custom_fields (id,workspace_id,name,name_id,type,options,sort_order,display_mode) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, name_id=excluded.name_id, type=excluded.type, options=excluded.options, sort_order=excluded.sort_order, display_mode=excluded.display_mode").run(f.id, wsId, en, nid || null, f.type, S(f.options || []), i, mode); });
   db.prepare("SELECT id FROM custom_fields WHERE workspace_id=?").all(wsId).forEach(r => { if (!keepF.has(r.id)) db.prepare("DELETE FROM custom_fields WHERE id=?").run(r.id); });
   const keepT = new Set();
   /* Accepts legacy plain strings and legacy {name,color} objects alike; the

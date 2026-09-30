@@ -25,6 +25,11 @@ function open() {
     "ALTER TABLE workspaces ADD COLUMN ai_settings TEXT DEFAULT '{}'",
     /* the contact, entity and jurisdiction shown on /privacy and /terms (server/legal.js) */
     "ALTER TABLE workspaces ADD COLUMN legal TEXT DEFAULT '{}'",
+    /* Indonesian names for stages and custom fields (the English one stays in name), and the
+       Primary / More details / Hidden choice for custom fields, which was never saved before */
+    "ALTER TABLE task_statuses ADD COLUMN name_id TEXT",
+    "ALTER TABLE custom_fields ADD COLUMN name_id TEXT",
+    "ALTER TABLE custom_fields ADD COLUMN display_mode TEXT",
     "ALTER TABLE file_versions ADD COLUMN drive_url TEXT",
     "ALTER TABLE file_versions ADD COLUMN drive_id TEXT",
     /* v17 §7.5/§7.7 — tags gain a manual order and an archive flag.

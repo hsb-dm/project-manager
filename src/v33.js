@@ -74,7 +74,7 @@ function zcApplyPreset(kind){
 }
 function zcSetRule(i,key,val){ if (!canI.manageWorkspace()) return; WS.workflow[i][key]=!!val; saveWS(); refresh(); }
 function zcMoveRulesPanel(){
-  var ed=canI.manageWorkspace(), list=WS.workflow||[];
+  var ed=canI.manageWorkspace(), list=localStages();
   var rows=list.map(function(s,i){
     return '<div class="zc-rule-row" role="row">'
       +'<span class="zc-rule-stage" role="cell"><i class="zc-dot c-'+attr(s.color||"gray")+'" aria-hidden="true"></i>'+esc(s.name)+'</span>'

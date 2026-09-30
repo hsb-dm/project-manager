@@ -67,3 +67,11 @@
 @media(max-width:560px){.task-filter-toolbar .task-toolbar-sort{order:1;flex:1 1 auto;min-width:0;flex-wrap:nowrap}.task-filter-toolbar .task-toolbar-sort .pillsel{flex:1 1 auto;min-width:0}.task-filter-toolbar .pillsel-trigger{min-width:0}.task-filter-toolbar .pillsel-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.task-filter-toolbar .task-toolbar-primary{order:2;flex:none}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none}/* a true single row: chips are already hidden at this width, so nothing needs to wrap */.task-filter-toolbar{flex-wrap:nowrap;overflow-x:auto}.task-filter-toolbar .task-toolbar-spacer{display:none}}
 @media(max-width:520px){.task-filter-toolbar .task-toolbar-tail .tb-label{display:none}.task-filter-toolbar .task-toolbar-tail .btn{padding-left:8px;padding-right:8px}.task-filter-toolbar .pillsel{font-size:11px;padding-left:9px;padding-right:6px}.task-filter-toolbar .pillsel select{max-width:105px}.task-filter-toolbar .pillsel-menu{left:auto;right:0;min-width:176px}}
 .file-upload-pending{margin-bottom:8px}.file.pending{opacity:.8;background:var(--color-surface-sunken)}.file.pending .badge{color:var(--color-primary);background:var(--color-primary-soft)}.file.pending .spinner{width:16px;height:16px;border:2px solid var(--color-border-strong);border-top-color:var(--color-primary);border-radius:50%;animation:cos-spin .75s linear infinite;flex:0 0 auto}@keyframes cos-spin{to{transform:rotate(360deg)}}
+
+/* Bilingual names (settings.js bilingualNameInputs): English and Indonesian side by side inside the
+   name column, so each settings row keeps its grid. The language tag sits inside the field. */
+.bi-name{display:flex;gap:8px;min-width:0;width:100%}
+.bi-in{position:relative;flex:1 1 0;min-width:0;display:block}
+.bi-in>input{width:100%;padding-left:36px!important}
+.bi-tag{position:absolute;left:10px;top:50%;transform:translateY(-50%);font:600 10px/1 var(--font-mono);letter-spacing:.04em;color:var(--color-text-tertiary);pointer-events:none;z-index:1}
+@media (max-width:560px){.bi-name{flex-direction:column;gap:6px}}

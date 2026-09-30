@@ -741,6 +741,8 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* Bilingual stage and field names (settings.js). */
+Object.assign(UI_ID,{"Optional — follows the English name":"Opsional — mengikuti nama bahasa Inggris","Give the stage a name in either language":"Beri nama tahap dalam salah satu bahasa","Give the field a label in either language":"Beri label kolom dalam salah satu bahasa","Stage added":"Tahap ditambahkan","Field added":"Kolom ditambahkan","Name (English)":"Nama (bahasa Inggris)","Name (Bahasa Indonesia)":"Nama (Bahasa Indonesia)","Label (English)":"Label (bahasa Inggris)","Label (Bahasa Indonesia)":"Label (Bahasa Indonesia)","Field renamed":"Kolom diganti namanya"});
 /* File storage switch (src/storage-settings.js) and server uploads (src/gdrive.js). */
 Object.assign(UI_ID,{
  "File storage": "Penyimpanan file",

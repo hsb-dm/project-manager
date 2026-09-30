@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS milestones (
 );
 CREATE TABLE IF NOT EXISTS task_statuses (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'work', color TEXT,
-  sort_order INTEGER DEFAULT 0, is_completed INTEGER DEFAULT 0, is_archived INTEGER DEFAULT 0
+  sort_order INTEGER DEFAULT 0, is_completed INTEGER DEFAULT 0, is_archived INTEGER DEFAULT 0, name_id TEXT
 );
 CREATE TABLE IF NOT EXISTS brief_templates (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, description TEXT,
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS briefs (
 CREATE TABLE IF NOT EXISTS tags (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, sort_order INTEGER DEFAULT 0, archived INTEGER DEFAULT 0, UNIQUE(workspace_id, name));
 CREATE TABLE IF NOT EXISTS task_tags (task_id TEXT REFERENCES tasks(id) ON DELETE CASCADE, tag_id TEXT REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY(task_id, tag_id));
 CREATE TABLE IF NOT EXISTS custom_fields (
-  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, type TEXT NOT NULL, options TEXT DEFAULT '[]', sort_order INTEGER DEFAULT 0
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, type TEXT NOT NULL, options TEXT DEFAULT '[]', sort_order INTEGER DEFAULT 0, name_id TEXT, display_mode TEXT
 );
 CREATE TABLE IF NOT EXISTS custom_field_values (task_id TEXT REFERENCES tasks(id) ON DELETE CASCADE, field_id TEXT REFERENCES custom_fields(id) ON DELETE CASCADE, value TEXT, PRIMARY KEY(task_id, field_id));
 CREATE TABLE IF NOT EXISTS files (

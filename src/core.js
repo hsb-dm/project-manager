@@ -60,7 +60,14 @@ function teamsOf(id){ var p=person(id); return (p.teams||[]).map(function(x){ re
 function teamMembers(tid){ return Object.keys(PEOPLE).filter(function(id){ return teamsOf(id).indexOf(tid)>=0; }); }
 function activeTeams(){ return TEAMS.filter(function(t){ return !t.archived; }).sort(function(a,b){ return a.sort-b.sort; }); }
 function stage(id){ var st=WS.workflow||[]; for (var i=0;i<st.length;i++) if (st[i].id===id) return st[i]; return {id:id,kind:"",name:id}; }
-function stageName(id){ return stage(id).name; } function stageKind(id){ return stage(id).kind; }
+/* A stage or field name in the interface language. English lives in name, Indonesian in nameId,
+   and whichever is empty follows the other. An English name with no Indonesian one still goes
+   through the dictionary, so the built-in stages and fields read exactly as they did before. */
+function locName(o){ if(!o) return ""; var en=String(o.name||""), idn=String(o.nameId||""); return UI_LANG==="id"?(idn||tr(en)):(en||idn); }
+/* Display copies of the stages, named in the interface language. Only for reading: settings and
+   rules still edit WS.workflow itself, so nothing localised can be saved back as English. */
+function localStages(){ return (WS.workflow||[]).map(function(s){ return Object.assign({},s,{name:locName(s)}); }); }
+function stageName(id){ return locName(stage(id)); } function stageKind(id){ return stage(id).kind; }
 function isClosed(tk){ return stageKind(tk.status)==="closed"; } function isReview(tk){ return stageKind(tk.status)==="review"; }
 function isSuccessfulTask(tk){ return !!tk&&stageKind(tk.status)==="closed"&&tk.status!=="declined"; }
 function projectProgressInfo(p,taskRows){
@@ -190,11 +197,11 @@ function taskFields(){
   var saved=(WS&&WS.taskFields)||[];
   var byId={}; saved.forEach(function(f){ byId[f.id]=f; });
   var out=[], seen={};
-  saved.forEach(function(f){ var d=null; TASK_FIELDS_DEFAULT.forEach(function(x){ if (x.id===f.id) d=x; }); if (!d) return; var mode=taskFieldMode(f,d); seen[f.id]=1; out.push({id:d.id,name:f.name||d.name,builtin:true,displayMode:mode,show:mode!=="hidden"}); });
-  TASK_FIELDS_DEFAULT.forEach(function(d){ if (!seen[d.id]){ var f=byId[d.id]||{}, mode=taskFieldMode(f,d); out.push({id:d.id,name:f.name||d.name,builtin:true,displayMode:mode,show:mode!=="hidden"}); } });
+  saved.forEach(function(f){ var d=null; TASK_FIELDS_DEFAULT.forEach(function(x){ if (x.id===f.id) d=x; }); if (!d) return; var mode=taskFieldMode(f,d); seen[f.id]=1; out.push({id:d.id,name:f.name||d.name,nameId:f.nameId||"",builtin:true,displayMode:mode,show:mode!=="hidden"}); });
+  TASK_FIELDS_DEFAULT.forEach(function(d){ if (!seen[d.id]){ var f=byId[d.id]||{}, mode=taskFieldMode(f,d); out.push({id:d.id,name:f.name||d.name,nameId:f.nameId||"",builtin:true,displayMode:mode,show:mode!=="hidden"}); } });
   return out;
 }
-function fieldLabel(id){ var f=taskFields(); for (var i=0;i<f.length;i++) if (f[i].id===id) return f[i].name; return id; }
+function fieldLabel(id){ var f=taskFields(); for (var i=0;i<f.length;i++) if (f[i].id===id) return locName(f[i]); return id; }
 
 /* ---------- deliverable assets: count per task + the links attached to it ---------- */
 function assetCount(t){ return Math.max(0,+((t&&t.assetCount)||0)); }
