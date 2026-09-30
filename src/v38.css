@@ -75,3 +75,12 @@
 .bi-in>input{width:100%;padding-left:36px!important}
 .bi-tag{position:absolute;left:10px;top:50%;transform:translateY(-50%);font:600 10px/1 var(--font-mono);letter-spacing:.04em;color:var(--color-text-tertiary);pointer-events:none;z-index:1}
 @media (max-width:560px){.bi-name{flex-direction:column;gap:6px}}
+
+/* Import a snapshot (import-snapshot.js): one row per part of the snapshot, with what it would do. */
+.imp-quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.imp-list{display:flex;flex-direction:column;gap:6px}
+.imp-row{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius);cursor:pointer;background:var(--color-surface)}
+.imp-row.on{border-color:var(--color-primary);background:var(--color-primary-soft)}
+.imp-row input{margin-top:3px;flex:none}
+.imp-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.imp-radio{display:flex;gap:8px;align-items:center;font-size:var(--fs-base);margin:4px 0;cursor:pointer}

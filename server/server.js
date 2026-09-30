@@ -161,11 +161,16 @@ function validateEmbeddedImage(value, field) {
   if (!/^data:image\/(png|jpeg|webp|gif);base64,/i.test(value)) throw new HttpError(400, (field || "Image") + " must be PNG, JPEG, WebP or GIF");
   if (value.length > 3_000_000) throw new HttpError(413, (field || "Image") + " is too large");
 }
+/* checkStoredFiles only validates; validateStoredFiles also moves inline images to disk. An import
+   preview uses the first, so looking at a snapshot never writes anything. */
 function validateStoredFiles(doc, userId) {
+  checkStoredFiles(doc);
+  try { uploads.externalizeTask(db, doc, userId); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+}
+function checkStoredFiles(doc) {
   (doc.files || []).forEach(f => { if (f.preview) validateEmbeddedImage(f.preview, "File preview"); if (f.url && !filestore.isStoredUrl(db, f.url)) safeHttpsUrl(f.url, "File link"); if (String(f.name || "").length > 240) throw new HttpError(400, "File name is too long"); });
   (doc.versions || []).forEach(v => { if (v.img) validateEmbeddedImage(v.img, "Version preview"); if (v.driveUrl && !filestore.isStoredUrl(db, v.driveUrl)) safeHttpsUrl(v.driveUrl, "Version link"); });
   (doc.comments || []).forEach(c => (c.attachments || []).forEach(a => { if (a.preview) validateEmbeddedImage(a.preview, "Comment preview"); if (a.url && !filestore.isStoredUrl(db, a.url)) safeHttpsUrl(a.url, "Comment file link"); }));
-  try { uploads.externalizeTask(db, doc, userId); } catch (e) { throw new HttpError(e.status || 400, e.message); }
 }
 
 function userContext(id) {
@@ -730,6 +735,25 @@ route("PUT", "/api/workspace/legal", (u, p, q, b, ctx) => {
   db.prepare("UPDATE workspaces SET legal=? WHERE id=?").run(JSON.stringify(next), WS_ID);
   act(u, "edited", "workspace", WS_ID, { what: "legal page details" });
   return legalView(ctx.req);
+});
+/* ---- Import a JSON snapshot, whole or by section (server/importer.js) ----
+   The preview writes nothing. The import itself first takes an encrypted safety backup, so any
+   import can be undone from Backup history; without backups configured it goes ahead only when the
+   admin explicitly accepts that. */
+const importer = require("./importer").makeImporter({ db, wsId: WS_ID, sz, tx, uploads, filestore, validTaskId: security.validTaskId, validateStoredFiles, checkStoredFiles, validateDependencies, userIdFor: auth.userIdFor });
+const importBackupReady = () => String(process.env.COS_BACKUP_KEY || "").length >= 32;
+const importGuard = (u, b) => { forbid(can.manageWorkspace(u), "import data"); if (Array.isArray(b.sections) && b.sections.includes("people")) forbid(can.manageMembers(u), "import members"); };
+route("POST", "/api/admin/import/preview", (u, p, q, b) => { importGuard(u, b); const r = importer.preview(b, u.id); r.backup = { available: importBackupReady() }; return r; });
+route("POST", "/api/admin/import", (u, p, q, b, ctx) => {
+  importGuard(u, b);
+  let safety = null;
+  if (importBackupReady()) safety = backups.create(db, { kind: "pre-import", userId: u.id, reason: "Safety copy taken automatically before a JSON import", settings: backupSettings() });
+  else if (b.confirmNoBackup !== true) throw new HttpError(409, "Backups are not configured, so no safety copy can be taken first. Confirm to import without one.");
+  const r = importer.apply(b, u.id);
+  r.backup = safety ? { name: safety.name } : null;
+  security.log("data_imported", { userId: u.id, ip: ctx.ip, sections: b.sections, conflict: r.conflict, backup: safety ? safety.name : null });
+  act(u, "edited", "workspace", WS_ID, { what: "imported a JSON snapshot (" + (Array.isArray(b.sections) ? b.sections.join(", ") : "") + ")" });
+  return r;
 });
 /* ---- Server storage (server/filestore.js): any signed-in member may store a file here when the
    workspace keeps files on this server. The body is the raw file, streamed to disk. */

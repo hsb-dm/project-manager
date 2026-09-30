@@ -309,11 +309,13 @@ function bkRestore(trigger){
 function bkImportExport(){
   var actions='<button class="btn primary" onclick="exportJSON()">'+I.download+tr("Download JSON snapshot")+'</button>';
   if(!API.on) actions+='<button class="btn" onclick="importJSON()">'+I.up+tr("Load snapshot")+'</button>';
-  else if(canI.manageWorkspace()) actions+='<button class="btn" onclick="bkPreImportBackup()">'+I.lock+tr("Take a safety backup before importing")+'</button>';
+  /* This used to offer only "Take a safety backup before importing" — for an import that did not
+     exist. The import now takes that backup itself. */
+  else if(canI.manageWorkspace()) actions+='<button class="btn" onclick="importSnapshotPick()">'+I.up+tr("Import from a JSON snapshot…")+'</button>';
   return sp("Import / Export",
     '<p class="hint" style="margin-bottom:10px">'
     + tr(API.on
-        ? "The server database is the source of truth. A JSON snapshot is useful for review or migration; the encrypted backups are the recovery copy."
+        ? "Import all of a snapshot or only the parts you choose — for example just the AI settings and presets. Nothing is deleted, and a safety backup is taken first. To replace the whole workspace, restore an encrypted backup instead."
         : "Demo changes last until you reload the page. Download a snapshot to keep this state, or load one to restore it.")
     + '</p>'
     /* §9 secret exclusion from portable exports */
