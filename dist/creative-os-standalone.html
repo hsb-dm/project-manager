@@ -4260,7 +4260,7 @@ body.bulk-on .bulk-selectable {
   <nav class="nav" id="nav"></nav>
   <button class="nav-messages" id="navMessages" data-tour="nav-messages" aria-label="Messages" title="Messages" onclick="go('messages')"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><span>Messages</span><span class="cnt" id="navMessagesBadge" style="display:none">0</span></button>
   <div class="topbar-right">
-    <button class="iconbtn" id="searchBtn" aria-label="Search" onclick="toggleSearchBar()" title="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><div class="search"><svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="searchInput" placeholder="Search…" aria-label="Search everything" oninput="scheduleSearch(this.value)"><kbd id="searchShortcut">Ctrl K</kbd></div>
+    <button class="iconbtn" id="searchBtn" aria-label="Search" onclick="toggleSearchBar()" title="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><div class="search"><svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="searchInput" type="search" autocomplete="off" placeholder="Search…" aria-label="Search everything" oninput="scheduleSearch(this.value)"><kbd id="searchShortcut">Ctrl K</kbd></div>
     <button class="iconbtn" id="notifBtn" aria-label="Notifications" onclick="openPop('notifPop',this)" title="Notifications"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span class="dot" id="notifDot"></span></button>
     <button class="iconbtn" id="exportBtn" aria-label="Export" onclick="openMenu('exportMenu',this)" title="Export"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 19h16"/></svg></button>
     <button class="iconbtn" id="themeBtn" aria-label="Theme" onclick="openPop('themePop',this)" title="Theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg></button>
@@ -14385,6 +14385,9 @@ function gdsRefresh(){
   });
 }
 function gdsRow(label,value){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+value+'</span></div></div>'; }
+/* The secret field is autocomplete="new-password", not "off": Chrome ignores "off" on a password
+   input and offers the saved sign-in for this site instead, which pops the workspace admin's own
+   email over the field the moment this panel opens. */
 function gdsMarkup(st){
   var cfg=gdCfg(), pub=cfg.publicLinks===true, out="";
   out+='<p class="hint" style="margin-bottom:10px">'+tr("Connect Google once as an admin. Every member then uploads through this one account and never has to sign in to Google.")+'</p>';
@@ -14398,7 +14401,7 @@ function gdsMarkup(st){
   out+='<p class="hint">'+tr("Add that exact URI to your OAuth client under “Authorised redirect URIs”. It must match character for character.")+'</p>';
   out+=gdsRow(tr("3 · OAuth client secret"),st.hasSecret?'<span class="badge approved">'+tr("Saved")+'</span> '+tr("stored encrypted; it is never sent back to any browser"):'<span class="badge warn">'+tr("Missing")+'</span>');
   out+='<div class="pref"><div class="pl" style="flex:1"><b><label for="gdsSecret">'+tr("Paste the client secret")+'</label></b>'
-     + '<input id="gdsSecret" type="password" autocomplete="off" placeholder="'+esc(st.hasSecret?tr("Saved — paste a new one to replace it"):"GOCSPX-…")+'" style="width:100%;max-width:420px">'
+     + '<input id="gdsSecret" type="password" name="gdrive-client-secret" autocomplete="new-password" placeholder="'+esc(st.hasSecret?tr("Saved — paste a new one to replace it"):"GOCSPX-…")+'" style="width:100%;max-width:420px">'
      + '</div><div class="pr"><button class="btn" onclick="gdsSaveSecret()">'+tr("Save secret")+'</button>'+(st.hasSecret?'<button class="btn ghost" onclick="gdsSaveSecret(true)">'+tr("Clear")+'</button>':'')+'</div></div>';
   if(!st.shared) out+='<p class="hint">'+tr("If your OAuth consent screen is still in “Testing”, publish it first: refresh tokens expire after seven days there and everyone would have to reconnect weekly.")+'</p>';
   out+='<div class="pref"><div class="pl"><b>'+tr("Upload limit")+'</b><span>'+esc(String(st.maxUploadMB||0))+' MB '+tr("per file, streamed straight to Drive")+'</span></div><div class="pr">'

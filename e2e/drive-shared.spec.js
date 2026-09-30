@@ -111,6 +111,26 @@ test("a member's page knows a shared account is live without ever seeing the cre
   await page2.close();
 });
 
+/* The secret field is a password input, and Chrome ignores autocomplete="off" on those: it decides
+   the page is a sign-in form, pairs the field with the nearest text input -- the global search box
+   -- and offers the saved login there. Opening Settings then threw the admin's own email over the
+   search bar. autocomplete="new-password" is what actually stops it. */
+test("opening the panel offers no saved login over the search box", async ({ page }) => {
+  const crashes = [];
+  page.on("pageerror", e => crashes.push(String(e.message).slice(0, 200)));
+  await signIn(page, ADMIN);
+  await page.goto("/settings/integrations"); await ready(page);
+  await page.waitForTimeout(800);
+  const fields = await page.evaluate(() => Array.from(document.querySelectorAll("input")).map(i => ({ id: i.id, type: i.type, autocomplete: i.getAttribute("autocomplete") })));
+  const secret = fields.find(f => f.id === "gdsSecret");
+  expect(secret, "the panel rendered its secret field").toBeTruthy();
+  expect(secret.autocomplete).toBe("new-password");
+  expect(fields.filter(f => f.type === "password" && f.autocomplete !== "new-password")).toEqual([]);
+  const search = fields.find(f => f.id === "searchInput");
+  expect(search.autocomplete).toBe("off");
+  expect(crashes).toEqual([]);
+});
+
 test.afterAll(async ({ browser }) => {
   /* leave the workspace as the other specs expect to find it */
   const page = await browser.newPage();

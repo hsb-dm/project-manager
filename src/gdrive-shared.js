@@ -20,6 +20,9 @@ function gdsRefresh(){
   });
 }
 function gdsRow(label,value){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+value+'</span></div></div>'; }
+/* The secret field is autocomplete="new-password", not "off": Chrome ignores "off" on a password
+   input and offers the saved sign-in for this site instead, which pops the workspace admin's own
+   email over the field the moment this panel opens. */
 function gdsMarkup(st){
   var cfg=gdCfg(), pub=cfg.publicLinks===true, out="";
   out+='<p class="hint" style="margin-bottom:10px">'+tr("Connect Google once as an admin. Every member then uploads through this one account and never has to sign in to Google.")+'</p>';
@@ -33,7 +36,7 @@ function gdsMarkup(st){
   out+='<p class="hint">'+tr("Add that exact URI to your OAuth client under “Authorised redirect URIs”. It must match character for character.")+'</p>';
   out+=gdsRow(tr("3 · OAuth client secret"),st.hasSecret?'<span class="badge approved">'+tr("Saved")+'</span> '+tr("stored encrypted; it is never sent back to any browser"):'<span class="badge warn">'+tr("Missing")+'</span>');
   out+='<div class="pref"><div class="pl" style="flex:1"><b><label for="gdsSecret">'+tr("Paste the client secret")+'</label></b>'
-     + '<input id="gdsSecret" type="password" autocomplete="off" placeholder="'+esc(st.hasSecret?tr("Saved — paste a new one to replace it"):"GOCSPX-…")+'" style="width:100%;max-width:420px">'
+     + '<input id="gdsSecret" type="password" name="gdrive-client-secret" autocomplete="new-password" placeholder="'+esc(st.hasSecret?tr("Saved — paste a new one to replace it"):"GOCSPX-…")+'" style="width:100%;max-width:420px">'
      + '</div><div class="pr"><button class="btn" onclick="gdsSaveSecret()">'+tr("Save secret")+'</button>'+(st.hasSecret?'<button class="btn ghost" onclick="gdsSaveSecret(true)">'+tr("Clear")+'</button>':'')+'</div></div>';
   if(!st.shared) out+='<p class="hint">'+tr("If your OAuth consent screen is still in “Testing”, publish it first: refresh tokens expire after seven days there and everyone would have to reconnect weekly.")+'</p>';
   out+='<div class="pref"><div class="pl"><b>'+tr("Upload limit")+'</b><span>'+esc(String(st.maxUploadMB||0))+' MB '+tr("per file, streamed straight to Drive")+'</span></div><div class="pr">'
