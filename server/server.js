@@ -1124,7 +1124,7 @@ const server = http.createServer(async (req, res) => {
        OAuth app may leave "Testing", so these come before every auth check and before the app
        shell fallback that would otherwise swallow /privacy and /terms. */
     if ((req.method === "GET" || req.method === "HEAD") && legal.PAGES[url.pathname]) {
-      if (legal.serve(req, res, url.pathname, security.applyHeaders)) return;
+      if (legal.serve(req, res, url.pathname, security.applyHeaders, db)) return;
     }
     /* v39 uploaded images: signed-in users only */
     const fm = /^\/files\/([a-f0-9]{64}\.(?:png|jpg|webp|gif))$/.exec(url.pathname);

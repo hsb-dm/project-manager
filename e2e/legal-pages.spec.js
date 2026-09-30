@@ -20,7 +20,7 @@ test("each page offers both languages and switches in place", async ({ page }) =
   await page.goto("/privacy");
   await expect(page.locator("div[lang=en]")).toBeVisible();
   await expect(page.locator("div[lang=id]")).toBeHidden();
-  await page.getByRole("button", { name: "Bahasa Indonesia" }).click();
+  await page.getByRole("button", { name: "Indonesia", exact: true }).click();
   await expect(page.locator("div[lang=id]")).toBeVisible();
   await expect(page.locator("div[lang=en]")).toBeHidden();
   await expect(page.locator("div[lang=id]")).toContainText("Data pengguna Google");

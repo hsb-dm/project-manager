@@ -132,3 +132,63 @@ test("the templates are read from the directory as it is actually spelled", () =
   });
   ["privacy.html", "terms.html"].forEach(f => assert.ok(fs.readdirSync(here).includes(f), f + " is where the code looks"));
 });
+
+/* Branding follows the dashboard: renaming the workspace renames these pages. */
+function fakeWs(row) {
+  return { prepare: () => ({ get: () => row }) };
+}
+test("the pages take their name, initials, accent and radius from the workspace", () => {
+  const { mod, restore } = loadLegal({ APP_URL: "https://studio.contoh.id" });
+  try {
+    const db = fakeWs({ name: "Studio Contoh", logo: "SC", theme: JSON.stringify({ accent: "#1F4FD8", radius: "medium" }) });
+    const html = mod.render("/privacy", REQ, db);
+    assert.match(html, /Studio Contoh/, "the workspace name is used");
+    assert.ok(!html.includes("ZenCrevia"), "the hardcoded default is gone");
+    assert.match(html, /class="ws-logo">SC</, "the workspace initials are used");
+    assert.match(html, /--color-primary:#1F4FD8/, "the workspace accent reaches the stylesheet");
+    assert.match(html, /data-radius="medium"/);
+  } finally { restore(); }
+});
+
+test("an explicit legal entity overrides the workspace name", () => {
+  const { mod, restore } = loadLegal({ COS_LEGAL_ENTITY: "PT Contoh Kreatif", APP_URL: "https://studio.contoh.id" });
+  try {
+    const html = mod.render("/terms", REQ, fakeWs({ name: "Studio Contoh", logo: "SC", theme: "{}" }));
+    assert.match(html, /PT Contoh Kreatif/);
+    assert.ok(!html.includes("Studio Contoh"), "the workspace name gives way to the legal entity");
+  } finally { restore(); }
+});
+
+test("a hostile workspace name or accent cannot reach the markup or the stylesheet", () => {
+  const { mod, restore } = loadLegal({ APP_URL: "https://studio.contoh.id" });
+  try {
+    const db = fakeWs({ name: '<img src=x onerror=alert(1)>', logo: '<b>', theme: JSON.stringify({ accent: "red;}body{display:none", radius: "../etc" }) });
+    const html = mod.render("/privacy", REQ, db);
+    assert.ok(!html.includes("<img src=x"), "the name is escaped");
+    assert.ok(!html.includes("body{display:none"), "a non-hex accent is refused");
+    assert.match(html, /--color-primary:#2F5BFF/, "and falls back to the default");
+    assert.match(html, /data-radius="round"/, "an unknown radius falls back");
+  } finally { restore(); }
+});
+
+test("an unreadable database still renders a complete page", () => {
+  const { mod, restore } = loadLegal({ APP_URL: "https://studio.contoh.id" });
+  try {
+    const broken = { prepare: () => { throw new Error("no such table: workspaces"); } };
+    const html = mod.render("/privacy", REQ, broken);
+    assert.ok(!html.includes("{{"), "nothing left unfilled");
+    assert.match(html, /ZenCrevia/, "falls back to the product name");
+  } finally { restore(); }
+});
+
+test("the dashboard stylesheet is inlined, so the page needs no app bundle", () => {
+  const { mod, restore } = loadLegal({ APP_URL: "https://studio.contoh.id" });
+  try {
+    const html = mod.render("/terms", REQ, fakeWs({ name: "X", logo: "X", theme: "{}" }));
+    assert.match(html, /--font-ui:"Poppins"/, "the dashboard font stack");
+    assert.match(html, /family=Poppins/, "and the font is actually loaded");
+    assert.match(html, /class="panel"/, "laid out with the dashboard panel");
+    assert.match(html, /prefers-color-scheme:dark/, "and has a dark theme");
+    assert.ok(!/<link[^>]*index.html/.test(html));
+  } finally { restore(); }
+});

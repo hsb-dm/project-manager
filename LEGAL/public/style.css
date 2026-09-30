@@ -1,0 +1,83 @@
+/* Styling for the public legal pages, inlined into both by server/legal.js.
+
+   These pages load none of the app bundle — a signed-out visitor must be able to read them — so the
+   design tokens below are copied from src/head.html rather than shared with it. Keep them in step
+   when the dashboard's palette changes. The accent and the corner radius are the workspace's own,
+   injected at render time, so the pages match the dashboard people actually use. */
+:root{
+  --color-primary:{{ACCENT}}; --color-secondary:#C6F24E; --color-primary-ink:#fff;
+  --color-background:#EEF0F3; --color-surface:#FFFFFF; --color-surface-sunken:#F2F3F5;
+  --color-border:#E6E8EC; --color-border-strong:#D3D6DC;
+  --color-text-primary:#111214; --color-text-secondary:#5A6170; --color-text-tertiary:#656C79;
+  --color-success:#16A34A; --color-warning:#F59E0B;
+  --shadow-sm:0 1px 2px rgba(17,18,20,.04); --shadow-md:0 10px 30px -12px rgba(17,18,20,.16);
+  --radius-sm:calc(10px*var(--r)); --radius:calc(14px*var(--r)); --radius-lg:calc(20px*var(--r)); --pill:999px;
+  --font-ui:"Poppins","Inter",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --font-mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --topbar-h:64px; --gutter:32px;
+}
+/* The dashboard's appearance is a per-person setting held on the server, and nobody is signed in
+   here — so follow the browser instead, using the dashboard's own dark values. */
+@media (prefers-color-scheme:dark){
+  :root{
+    --color-background:#0F1012; --color-surface:#17181B; --color-surface-sunken:#131417;
+    --color-border:#26282D; --color-border-strong:#343740;
+    --color-text-primary:#F3F4F6; --color-text-secondary:#D1D5DB; --color-text-tertiary:#AEB5C1;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 10px 30px -12px rgba(0,0,0,.6);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-ui);font-size:14.5px;line-height:1.62;color:var(--color-text-primary);background:var(--color-background);-webkit-font-smoothing:antialiased}
+a{color:var(--color-primary);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:.92em;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:1px 6px;word-break:break-all}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:1px 5px;word-break:break-all}
+
+/* ---- topbar, matching the dashboard's height and gutter ---- */
+.topbar{height:var(--topbar-h);background:var(--color-surface);border-bottom:1px solid var(--color-border);position:sticky;top:0;z-index:40}
+.topbar-inner{height:100%;max-width:1100px;margin:0 auto;padding:0 var(--gutter);display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.ws-logo{width:34px;height:34px;border-radius:calc(11px*var(--r));background:var(--color-primary);color:var(--color-primary-ink);display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:-.02em;flex:none}
+.brand>span:last-child{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.brand .nm{display:block;font-weight:800;font-size:15px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand .sub{display:block;font-size:11.5px;color:var(--color-text-tertiary)}
+.spacer{flex:1}
+.seg{display:flex;gap:4px;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--pill);padding:3px}
+.seg button{font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--pill);color:var(--color-text-secondary);white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--color-surface);color:var(--color-text-primary);box-shadow:var(--shadow-sm)}
+
+/* ---- page ---- */
+.wrap{max-width:1100px;margin:0 auto;padding:28px var(--gutter) 72px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-secondary)}
+h1{font-size:26px;font-weight:800;letter-spacing:-.025em;margin:6px 0 4px}
+.hint{font-size:12px;color:var(--color-text-tertiary)}
+.panel{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:24px 26px;margin-top:20px}
+.panel>p+h2{margin-top:26px}
+h2{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:26px 0 7px;padding-top:18px;border-top:1px solid var(--color-border)}
+.panel>h2:first-of-type{border-top:0;padding-top:0;margin-top:20px}
+h3{font-size:13.5px;font-weight:600;margin:16px 0 3px;color:var(--color-text-primary)}
+p{margin:0 0 10px;color:var(--color-text-secondary)}
+p:last-child{margin-bottom:0}
+ul{margin:0 0 10px;padding-left:20px}
+li{margin-bottom:7px;color:var(--color-text-secondary)}
+li:last-child{margin-bottom:0}
+b{color:var(--color-text-primary);font-weight:600}
+.notice{background:var(--color-surface-sunken);border:1px solid var(--color-border-strong);border-left:3px solid var(--color-primary);border-radius:var(--radius);padding:14px 16px;margin:16px 0}
+.notice p{margin:0}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--pill);background:var(--color-surface-sunken);border:1px solid var(--color-border);color:var(--color-text-secondary)}
+footer{max-width:1100px;margin:0 auto;padding:22px var(--gutter) 40px;border-top:1px solid var(--color-border);display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:12.5px;color:var(--color-text-tertiary)}
+footer a{color:var(--color-text-secondary);font-weight:500}
+
+/* ---- language switch: one page, two versions ---- */
+[lang=id]{display:none}
+html[data-lang=id] [lang=en]{display:none}
+html[data-lang=id] [lang=id]{display:block}
+
+@media (max-width:760px){
+  :root{--gutter:16px}
+  .panel{padding:18px 16px;border-radius:var(--radius)}
+  h1{font-size:21px}
+  .brand .sub{display:none}
+}
