@@ -1,0 +1,188 @@
+<!doctype html>
+<!-- Public privacy policy. Google requires this page to be reachable without signing in before an
+     OAuth app can leave "Testing". Served by server/legal.js at /privacy, which fills in
+     {{ENTITY}}, {{CONTACT}} and {{APP_URL}} — set COS_LEGAL_ENTITY and COS_LEGAL_CONTACT to
+     control them. Update the date below whenever the text changes. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy · {{ENTITY}}</title>
+<meta name="description" content="How {{ENTITY}} handles your data, including data received from Google APIs.">
+<style>
+  :root{--bg:#fff;--fg:#1a1d21;--muted:#5b636d;--line:#e3e6ea;--accent:#1f7a4d;--card:#f7f8fa}
+  @media (prefers-color-scheme:dark){:root{--bg:#14171a;--fg:#e8eaed;--muted:#9aa3ad;--line:#2a2f35;--accent:#5fd39b;--card:#1b1f23}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:820px;margin:0 auto;padding:40px 16px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:28px;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline}
+  h1{font-size:28px;margin:0;letter-spacing:-.02em}
+  h2{font-size:19px;margin:34px 0 8px;letter-spacing:-.01em}
+  h3{font-size:16px;margin:22px 0 6px}
+  p,li{color:var(--fg)}
+  .muted{color:var(--muted);font-size:14px;margin:4px 0 0}
+  a{color:var(--accent)}
+  ul{padding-left:22px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:18px 0}
+  .box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+  .langs{margin-left:auto;display:flex;gap:6px}
+  .langs button{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;cursor:pointer}
+  .langs button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+  [lang=id]{display:none}
+  html[data-lang=id] [lang=en]{display:none}
+  html[data-lang=id] [lang=id]{display:block}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+  footer a{margin-right:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Privacy Policy</h1>
+    <p class="muted">{{ENTITY}} · Last updated 30 September 2026</p>
+  </div>
+  <div class="langs">
+    <button type="button" id="btnEn" aria-pressed="true" onclick="setLang('en')">English</button>
+    <button type="button" id="btnId" aria-pressed="false" onclick="setLang('id')">Bahasa Indonesia</button>
+  </div>
+</header>
+
+<div lang="en">
+  <p>This policy explains what {{ENTITY}} collects, why, and what we do and do not do with it. {{ENTITY}} is a creative operations workspace used by a team to plan work, review creative files and keep them organised.</p>
+
+  <h2>1. Who is responsible</h2>
+  <p>{{ENTITY}} operates this application at <a href="{{APP_URL}}">{{APP_URL}}</a>. For any question about this policy or your data, write to <a href="mailto:{{CONTACT}}">{{CONTACT}}</a>.</p>
+
+  <h2>2. What we collect</h2>
+  <h3>Account information</h3>
+  <p>Your name, email address, role, profile initials and a one-way hash of your password. We never store your password itself.</p>
+  <h3>Work you put into the workspace</h3>
+  <p>Tasks, projects, briefs, comments, messages, approvals, uploaded images and file metadata — the content your team creates while using the product.</p>
+  <h3>Technical records</h3>
+  <p>Sign-in events, IP address, browser user agent and security-relevant actions such as permission changes. These exist to keep accounts safe and to let an administrator investigate problems.</p>
+  <h3>What we do not collect</h3>
+  <p>We do not use advertising trackers, we do not build advertising profiles, and we do not sell personal information to anyone.</p>
+
+  <h2>3. Google user data</h2>
+  <p>Connecting Google Drive is optional. When an administrator connects it, the following applies.</p>
+  <ul>
+    <li><b>Scope.</b> We request only <code>https://www.googleapis.com/auth/drive.file</code>, plus your email address so the connected account can be displayed. The <code>drive.file</code> scope limits the application to files it creates itself. <b>It cannot see, read or list any other file in your Google Drive.</b></li>
+    <li><b>What we store.</b> An encrypted refresh token, so uploads can continue without asking anyone to sign in again; the connected account's email address, shown in settings; and for each uploaded file its Drive identifier, link and a small preview image.</li>
+    <li><b>What we do with it.</b> The token is used for one purpose: uploading files your team attaches, into the Drive folder configured by your administrator, and optionally setting the sharing permission your administrator has chosen.</li>
+    <li><b>Where the token lives.</b> On the server, encrypted at rest with AES-256-GCM. It is never sent to any browser, never written to a backup in plain form and never shared with a third party.</li>
+    <li><b>Ownership.</b> Files uploaded through a shared connection are owned by the connected Google account and count against that account's storage.</li>
+    <li><b>Revoking.</b> An administrator can disconnect at any time in Settings, and you can revoke access yourself at <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>. Revoking stops all further uploads immediately. Files already in Drive stay where they are, because they belong to the Google account, not to us.</li>
+  </ul>
+  <div class="box">
+    <p><b>Limited Use.</b> Our use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, including its Limited Use requirements. We do not use Google user data for advertising, we do not sell it, we do not transfer it except as needed to provide the feature you asked for or where the law requires, and we do not allow humans to read it except with your explicit permission, for security purposes, or to comply with the law. Google user data is never used to train generalised artificial-intelligence models.</p>
+  </div>
+
+  <h2>4. Artificial intelligence features</h2>
+  <p>If your administrator enables AI features and supplies a provider key, the text of a prompt — and, where you choose it, selected workspace context or an image you point the tool at — is sent to that provider to produce the result. This is off until an administrator turns it on and accepts the terms. The provider is named in your workspace settings, and its own terms govern what it does with the request.</p>
+
+  <h2>5. Email</h2>
+  <p>We send email only for product purposes: invitations, password resets and notifications you can control. Delivery may go through the mail provider configured by your administrator.</p>
+
+  <h2>6. Who else sees your data</h2>
+  <p>We do not sell data and we do not share it for advertising. Data reaches third parties only as processors carrying out a function you have enabled: Google (Drive storage and sign-in), the AI provider configured in your workspace, and the email provider configured in your workspace. Your own team members see the workspace content according to the permissions your administrator sets.</p>
+
+  <h2>7. Security</h2>
+  <p>Passwords are stored as one-way hashes. Provider keys and Google refresh tokens are encrypted at rest. Sessions are held in HTTP-only cookies, and backups are encrypted. No system is perfect, but access is limited to what each role needs and security-relevant actions are logged.</p>
+
+  <h2>8. How long we keep it</h2>
+  <p>Workspace content is kept while your workspace exists, because your team relies on its history. Removing a member ends their access. When a workspace is deleted, its content and any stored credentials are deleted with it. Security logs are kept for a limited period and then rotated away.</p>
+
+  <h2>9. Your choices</h2>
+  <p>You can ask us to show you the personal data we hold about you, correct it, or delete it. Write to <a href="mailto:{{CONTACT}}">{{CONTACT}}</a>. Some requests need your administrator's involvement, because the workspace content belongs to your organisation rather than to us.</p>
+
+  <h2>10. Children</h2>
+  <p>This is a workplace product and is not directed at children. We do not knowingly collect data from anyone under 13.</p>
+
+  <h2>11. Changes</h2>
+  <p>If this policy changes in a way that matters, we will update the date at the top of this page and, for significant changes, tell workspace administrators.</p>
+
+  <h2>12. Contact</h2>
+  <p><a href="mailto:{{CONTACT}}">{{CONTACT}}</a></p>
+</div>
+
+<div lang="id">
+  <p>Kebijakan ini menjelaskan data apa yang dikumpulkan {{ENTITY}}, untuk apa, dan apa yang kami lakukan serta tidak kami lakukan dengannya. {{ENTITY}} adalah ruang kerja operasi kreatif yang dipakai sebuah tim untuk merencanakan pekerjaan, meninjau berkas kreatif, dan menatanya.</p>
+
+  <h2>1. Siapa yang bertanggung jawab</h2>
+  <p>{{ENTITY}} mengoperasikan aplikasi ini di <a href="{{APP_URL}}">{{APP_URL}}</a>. Untuk pertanyaan apa pun tentang kebijakan ini atau data Anda, kirim surel ke <a href="mailto:{{CONTACT}}">{{CONTACT}}</a>.</p>
+
+  <h2>2. Data yang kami kumpulkan</h2>
+  <h3>Informasi akun</h3>
+  <p>Nama, alamat surel, peran, inisial profil, dan hash satu arah dari kata sandi Anda. Kami tidak pernah menyimpan kata sandi itu sendiri.</p>
+  <h3>Pekerjaan yang Anda masukkan ke ruang kerja</h3>
+  <p>Tugas, proyek, brief, komentar, pesan, persetujuan, gambar yang diunggah, dan metadata berkas — yakni konten yang dibuat tim Anda saat memakai produk ini.</p>
+  <h3>Catatan teknis</h3>
+  <p>Peristiwa masuk, alamat IP, user agent peramban, dan tindakan yang berkaitan dengan keamanan seperti perubahan izin. Catatan ini ada untuk menjaga keamanan akun dan agar admin dapat menelusuri masalah.</p>
+  <h3>Yang tidak kami kumpulkan</h3>
+  <p>Kami tidak memakai pelacak iklan, tidak menyusun profil iklan, dan tidak menjual informasi pribadi kepada siapa pun.</p>
+
+  <h2>3. Data pengguna Google</h2>
+  <p>Menghubungkan Google Drive bersifat opsional. Ketika seorang admin menghubungkannya, ketentuan berikut berlaku.</p>
+  <ul>
+    <li><b>Scope.</b> Kami hanya meminta <code>https://www.googleapis.com/auth/drive.file</code>, ditambah alamat surel Anda agar akun yang terhubung dapat ditampilkan. Scope <code>drive.file</code> membatasi aplikasi hanya pada berkas yang ia sendiri buat. <b>Aplikasi tidak dapat melihat, membaca, atau mendaftar berkas lain di Google Drive Anda.</b></li>
+    <li><b>Yang kami simpan.</b> Refresh token dalam bentuk terenkripsi, agar unggahan dapat berjalan tanpa meminta siapa pun masuk lagi; alamat surel akun yang terhubung, yang ditampilkan di pengaturan; dan untuk setiap berkas yang diunggah, pengenal Drive-nya, tautannya, serta satu gambar pratinjau kecil.</li>
+    <li><b>Kegunaannya.</b> Token dipakai untuk satu tujuan: mengunggah berkas yang dilampirkan tim Anda ke folder Drive yang dikonfigurasi admin, dan bila perlu menetapkan izin berbagi yang dipilih admin.</li>
+    <li><b>Tempat token disimpan.</b> Di server, terenkripsi dengan AES-256-GCM. Token tidak pernah dikirim ke peramban mana pun, tidak pernah ditulis ke backup dalam bentuk terbuka, dan tidak pernah dibagikan kepada pihak ketiga.</li>
+    <li><b>Kepemilikan.</b> Berkas yang diunggah melalui koneksi bersama dimiliki oleh akun Google yang terhubung dan memakai kuota penyimpanan akun tersebut.</li>
+    <li><b>Mencabut akses.</b> Admin dapat memutuskan koneksi kapan saja di Pengaturan, dan Anda sendiri dapat mencabutnya di <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a>. Pencabutan langsung menghentikan seluruh unggahan berikutnya. Berkas yang sudah ada di Drive tetap di tempatnya, karena berkas itu milik akun Google, bukan milik kami.</li>
+  </ul>
+  <div class="box">
+    <p><b>Limited Use.</b> Penggunaan dan pemindahan informasi yang kami terima dari Google API ke aplikasi lain mengikuti <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, termasuk ketentuan Limited Use di dalamnya. Kami tidak memakai data pengguna Google untuk iklan, tidak menjualnya, tidak memindahkannya kecuali sejauh diperlukan untuk menjalankan fitur yang Anda minta atau bila hukum mewajibkannya, dan tidak mengizinkan manusia membacanya kecuali dengan izin tegas Anda, untuk keperluan keamanan, atau untuk memenuhi kewajiban hukum. Data pengguna Google tidak pernah dipakai untuk melatih model kecerdasan artifisial umum.</p>
+  </div>
+
+  <h2>4. Fitur kecerdasan artifisial</h2>
+  <p>Jika admin mengaktifkan fitur AI dan menyediakan kunci provider, teks prompt — serta, bila Anda memilihnya, konteks ruang kerja tertentu atau gambar yang Anda tunjuk — dikirim ke provider tersebut untuk menghasilkan keluarannya. Fitur ini nonaktif sampai admin menyalakannya dan menyetujui ketentuannya. Nama provider tercantum di pengaturan ruang kerja Anda, dan ketentuan provider itu sendiri mengatur apa yang ia lakukan atas permintaan tersebut.</p>
+
+  <h2>5. Surel</h2>
+  <p>Kami mengirim surel hanya untuk keperluan produk: undangan, pengaturan ulang kata sandi, dan notifikasi yang dapat Anda kendalikan. Pengiriman dapat melewati penyedia surel yang dikonfigurasi admin Anda.</p>
+
+  <h2>6. Siapa lagi yang melihat data Anda</h2>
+  <p>Kami tidak menjual data dan tidak membagikannya untuk iklan. Data hanya sampai ke pihak ketiga sebagai pemroses yang menjalankan fungsi yang Anda aktifkan: Google (penyimpanan Drive dan proses masuk), provider AI yang dikonfigurasi di ruang kerja Anda, dan penyedia surel yang dikonfigurasi di ruang kerja Anda. Anggota tim Anda sendiri melihat konten ruang kerja sesuai izin yang ditetapkan admin.</p>
+
+  <h2>7. Keamanan</h2>
+  <p>Kata sandi disimpan sebagai hash satu arah. Kunci provider dan refresh token Google dienkripsi saat disimpan. Sesi disimpan dalam cookie HTTP-only, dan backup dienkripsi. Tidak ada sistem yang sempurna, tetapi akses dibatasi sesuai kebutuhan masing-masing peran dan tindakan yang berkaitan dengan keamanan dicatat.</p>
+
+  <h2>8. Berapa lama kami menyimpannya</h2>
+  <p>Konten ruang kerja disimpan selama ruang kerja Anda ada, karena tim Anda bergantung pada riwayatnya. Menghapus seorang anggota mengakhiri aksesnya. Ketika sebuah ruang kerja dihapus, kontennya dan kredensial apa pun yang tersimpan turut dihapus. Log keamanan disimpan untuk jangka terbatas lalu dirotasi.</p>
+
+  <h2>9. Pilihan Anda</h2>
+  <p>Anda dapat meminta kami menunjukkan data pribadi Anda yang kami simpan, memperbaikinya, atau menghapusnya. Kirim surel ke <a href="mailto:{{CONTACT}}">{{CONTACT}}</a>. Sebagian permintaan memerlukan keterlibatan admin Anda, karena konten ruang kerja adalah milik organisasi Anda, bukan milik kami.</p>
+
+  <h2>10. Anak-anak</h2>
+  <p>Ini adalah produk untuk lingkungan kerja dan tidak ditujukan bagi anak-anak. Kami tidak dengan sengaja mengumpulkan data dari siapa pun yang berusia di bawah 13 tahun.</p>
+
+  <h2>11. Perubahan</h2>
+  <p>Jika kebijakan ini berubah secara berarti, kami akan memperbarui tanggal di bagian atas halaman ini dan, untuk perubahan penting, memberi tahu admin ruang kerja.</p>
+
+  <h2>12. Kontak</h2>
+  <p><a href="mailto:{{CONTACT}}">{{CONTACT}}</a></p>
+</div>
+
+<footer>
+  <a href="/terms">Terms of Service</a>
+  <a href="{{APP_URL}}">{{ENTITY}}</a>
+</footer>
+</div>
+<script>
+  function setLang(l){
+    document.documentElement.setAttribute("data-lang", l);
+    document.getElementById("btnEn").setAttribute("aria-pressed", String(l === "en"));
+    document.getElementById("btnId").setAttribute("aria-pressed", String(l === "id"));
+    try { localStorage.setItem("zc.legal.lang", l); } catch (e) {}
+  }
+  /* Default to English so a reviewer reading this page sees it in English, but honour a stored
+     choice and an Indonesian browser. */
+  (function(){
+    var saved = null;
+    try { saved = localStorage.getItem("zc.legal.lang"); } catch (e) {}
+    setLang(saved || (/^id\b/i.test(navigator.language || "") ? "id" : "en"));
+  })();
+</script>
+</body>
+</html>

@@ -5541,6 +5541,7 @@ function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); clo
   document.getElementById("content").innerHTML='<div class="authwrap"><div class="authcard"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="ws-logo" style="width:44px;height:44px;border-radius:14px;font-size:16px">'+(ws.logoImg?'<img src="'+ws.logoImg+'">':esc(ws.logo||"ZC"))+'</div><div><div style="font-weight:800;font-size:18px;letter-spacing:-.02em">'+esc(ws.name||"ZenCrevia")+'</div><div class="hint">ZenCrevia · '+tr("Brand Mode")+'</div></div></div><div class="auth-language"><span>'+tr("Language")+'</span>'+lang+'</div>'+
     (API.on?(SESSION.canRegister&&(AUTH.tab==="login"||AUTH.tab==="register")?'<div class="seg" style="margin-bottom:18px;width:100%"><button style="flex:1" class="'+(AUTH.tab==="login"?"on":"")+'" onclick="AUTH.tab=\'login\';showLogin()">Log in</button><button style="flex:1" class="'+(AUTH.tab==="register"?"on":"")+'" onclick="AUTH.tab=\'register\';showLogin()">Register</button></div>':'')+(msg&&msg!=="Please sign in"?'<div class="errbox" style="margin-bottom:14px">'+esc(msg)+'</div>':'')+'<div class="authform">'+form+'</div>':
     '<div class="errbox" style="margin-bottom:14px;background:var(--color-warning-soft);color:var(--color-warning)">Demo mode. Choose a user to try the dashboard. Changes are not saved.</div><div class="demo-user-list">'+demoUsers+'</div>')+
+    '<p class="hint auth-legal" style="margin-top:16px;text-align:center"><a href="/privacy">'+tr("Privacy Policy")+'</a> · <a href="/terms">'+tr("Terms of Service")+'</a></p>'+
     '</div></div>'; localizeVisibleText(document.getElementById("content")); }
 function demoLogin(id){ ME=id; SESSION.user={id:id,perm:person(id).perm,name:person(id).name}; restoreLanguagePreference(); document.body.classList.remove("auth"); setConn(); applyShell(); S.screen="home"; renderScreen(false); setTimeout(showOnboardingIfNeeded,180); }
 function authErr(m){ var e=document.getElementById("au_err"); if (e){ e.textContent=m; e.style.display="block"; } }
@@ -12121,6 +12122,7 @@ Object.assign(UI_ID,{
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
 /* Shared Google Drive account (src/gdrive-shared.js) and its in-app setup guide. */
+Object.assign(UI_ID,{"Privacy Policy":"Kebijakan Privasi","Terms of Service":"Ketentuan Layanan"});
 Object.assign(UI_ID,{"Saved":"Tersimpan","Disconnect":"Putuskan","Warning":"Peringatan","Go to":"Buka","Google Drive: ":"Google Drive: "});
 Object.assign(UI_ID,{
  "Shared Google Drive account": "Akun Google Drive bersama",

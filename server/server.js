@@ -44,6 +44,7 @@ try { db.prepare("SELECT id FROM users WHERE id NOT IN (SELECT user_id FROM work
 /* v39: images move out of the database into COS_DATA_DIR/uploads (once; see server/uploads.js) */
 const uploads = require("./uploads");
 const gdrive = require("./gdrive");
+const legal = require("./legal");
 try { const moved = uploads.migrate(db); if (moved) console.log("[uploads] moved images out of the database:", JSON.stringify(moved)); } catch (e) { console.error("[uploads] migration failed — images stay in the database for now:", e.message); }
 /* v17 §P1-4 — load any dashboard-configured SMTP at boot so notifications use
    it immediately, without a restart or an environment variable. */
@@ -1118,6 +1119,12 @@ const server = http.createServer(async (req, res) => {
       /* v38.1 personal preferences (theme, layout, saved items) are nobody else's business: no broadcast */
       if (req.method !== "GET" && user && !(url.searchParams.get("prefsOnly") === "1" && url.pathname === "/api/members/" + user.id)) announceWorkspaceChange(url.pathname, user);
       return send(200, out);
+    }
+    /* Public legal pages. Google requires a privacy policy and terms anyone can open before an
+       OAuth app may leave "Testing", so these come before every auth check and before the app
+       shell fallback that would otherwise swallow /privacy and /terms. */
+    if ((req.method === "GET" || req.method === "HEAD") && legal.PAGES[url.pathname]) {
+      if (legal.serve(req, res, url.pathname, security.applyHeaders)) return;
     }
     /* v39 uploaded images: signed-in users only */
     const fm = /^\/files\/([a-f0-9]{64}\.(?:png|jpg|webp|gif))$/.exec(url.pathname);

@@ -742,6 +742,7 @@ Object.assign(UI_ID,{
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
 /* Shared Google Drive account (src/gdrive-shared.js) and its in-app setup guide. */
+Object.assign(UI_ID,{"Privacy Policy":"Kebijakan Privasi","Terms of Service":"Ketentuan Layanan"});
 Object.assign(UI_ID,{"Saved":"Tersimpan","Disconnect":"Putuskan","Warning":"Peringatan","Go to":"Buka","Google Drive: ":"Google Drive: "});
 Object.assign(UI_ID,{
  "Shared Google Drive account": "Akun Google Drive bersama",
