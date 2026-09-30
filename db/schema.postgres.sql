@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, logo TEXT, logo_img TEXT, favicon TEXT, tagline TEXT,
   time_zone TEXT DEFAULT 'Asia/Jakarta', working_days TEXT DEFAULT '[1,2,3,4,5]', work_start TEXT DEFAULT '09:00', work_end TEXT DEFAULT '18:00',
-  theme JSONB DEFAULT '{}'::jsonb, brand JSONB DEFAULT '{}'::jsonb, brief_fields JSONB DEFAULT '[]'::jsonb, notif_prefs JSONB DEFAULT '{}'::jsonb,
+  theme JSONB DEFAULT '{}'::jsonb, brand JSONB DEFAULT '{}'::jsonb, brief_fields JSONB DEFAULT '[]'::jsonb, notif_prefs JSONB DEFAULT '{}'::jsonb, legal JSONB DEFAULT '{}'::jsonb,
   allow_registration BOOLEAN DEFAULT true, default_role_id TEXT DEFAULT 'member', invite_code TEXT,
   created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
 );

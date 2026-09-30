@@ -192,3 +192,78 @@ test("the dashboard stylesheet is inlined, so the page needs no app bundle", () 
     assert.ok(!/<link[^>]*index.html/.test(html));
   } finally { restore(); }
 });
+
+/* ---- Contact, entity and jurisdiction set from the dashboard ---- */
+
+/* These regexes were once written through a shell that ate their backslashes: \s became the letter
+   s, so any address containing an "s" — privacy@hsb.co.id among them — was silently refused, and
+   "Indonesia" came out as "Indone ia". Pin real addresses and real words. */
+test("real addresses are accepted, including ones containing the letter s", () => {
+  const { mod, restore } = loadLegal({});
+  try {
+    ["privacy@hsb.co.id", "legal@studio.id", "a.b+tag@sub.domain.com", "support@example.com"].forEach(a =>
+      assert.equal(mod.clean({ contact: a }).contact, a, a + " is accepted"));
+    ["not an email", "x@y", "a b@c.com", "<script>@x.com", 'a"b@c.com'].forEach(a =>
+      assert.equal(mod.clean({ contact: a }).contact, "", JSON.stringify(a) + " is refused"));
+  } finally { restore(); }
+});
+
+test("tidying keeps words intact and removes only control characters", () => {
+  const { mod, restore } = loadLegal({});
+  try {
+    const c = mod.clean({ entity: "PT  Nusantara\tSejahtera\u0000", jurisdiction: "Indonesia" });
+    assert.equal(c.entity, "PT Nusantara Sejahtera");
+    assert.equal(c.jurisdiction, "Indonesia", "no letter is mistaken for whitespace");
+  } finally { restore(); }
+});
+
+test("the validator source holds escapes as text, never raw control bytes", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "server", "legal.js"));
+  const raw = [...src].filter(b => (b < 9) || (b > 13 && b < 32) || b === 127);
+  assert.equal(raw.length, 0, "no raw control bytes in server/legal.js");
+});
+
+test("what the admin types in Settings wins over the environment and the defaults", () => {
+  const { mod, restore } = loadLegal({ COS_LEGAL_CONTACT: "env@example.com", COS_LEGAL_ENTITY: "Env Entity", APP_URL: "https://studio.contoh.id" });
+  try {
+    const legal = JSON.stringify({ contact: "privacy@hsb.co.id", entity: "PT HSB", jurisdiction: "Republik Indonesia" });
+    const v = mod.values(REQ, fakeWs({ name: "ZenCrevia", logo: "ZC", theme: "{}", legal }));
+    assert.equal(v.CONTACT, "privacy@hsb.co.id");
+    assert.equal(v.ENTITY, "PT HSB");
+    assert.equal(v.JURISDICTION, "Republik Indonesia");
+  } finally { restore(); }
+});
+
+test("empty dashboard fields fall through to the environment, then to the workspace", () => {
+  const { mod, restore } = loadLegal({ COS_LEGAL_CONTACT: "env@example.com", APP_URL: "https://studio.contoh.id" });
+  try {
+    const v = mod.values(REQ, fakeWs({ name: "Studio Contoh", logo: "SC", theme: "{}", legal: JSON.stringify({ contact: "", entity: "" }) }));
+    assert.equal(v.CONTACT, "env@example.com", "the environment fills an empty contact");
+    assert.equal(v.ENTITY, "Studio Contoh", "and the workspace name fills an empty entity");
+    assert.equal(v.JURISDICTION, "Indonesia");
+  } finally { restore(); }
+});
+
+test("a hand-edited row cannot put a malformed address on the public page", () => {
+  const { mod, restore } = loadLegal({ APP_URL: "https://studio.contoh.id" });
+  try {
+    const legal = JSON.stringify({ contact: "javascript:alert(1)", entity: "<b>x</b>" });
+    const html = mod.render("/privacy", REQ, fakeWs({ name: "W", logo: "W", theme: "{}", legal }));
+    assert.ok(!html.includes("javascript:alert"), "the address is refused on the way out too");
+    assert.ok(!html.includes("<b>x</b>"), "the entity is escaped");
+  } finally { restore(); }
+});
+
+test("existing databases gain the legal column by migration", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "server", "db.js"), "utf8");
+  assert.ok(src.includes("ALTER TABLE workspaces ADD COLUMN legal TEXT"), "CREATE TABLE IF NOT EXISTS never adds a column");
+});
+
+test("the workspace save leaves the legal details alone", () => {
+  /* PUT /api/workspace rewrites the row wholesale; if it named this column, any client that did
+     not send it would wipe the contact address. */
+  const src = fs.readFileSync(path.join(__dirname, "..", "server", "serialize.js"), "utf8");
+  const update = src.slice(src.indexOf("UPDATE workspaces SET name=?"), src.indexOf("WHERE id=?", src.indexOf("UPDATE workspaces SET name=?")));
+  assert.ok(update.length > 0, "found the wholesale workspace update");
+  assert.ok(!/\blegal\b/.test(update), "it does not touch the legal column");
+});

@@ -741,6 +741,22 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* Legal page settings (src/legal-settings.js). */
+Object.assign(UI_ID,{
+ "Legal pages": "Halaman legal",
+ "Shown publicly at /privacy and /terms, with no sign-in. Google checks both before an OAuth app can leave Testing.": "Ditampilkan publik di /privacy dan /terms, tanpa perlu login. Google memeriksa keduanya sebelum aplikasi OAuth boleh keluar dari status Testing.",
+ "Contact email": "Email kontak",
+ "Required by Google. Use an address someone actually reads.": "Diwajibkan Google. Gunakan alamat yang benar-benar dibaca seseorang.",
+ "Legal entity": "Badan hukum",
+ "Leave empty to use the workspace name.": "Kosongkan untuk memakai nama ruang kerja.",
+ "Jurisdiction": "Yurisdiksi",
+ "The pages currently point at localhost. Google rejects that: set a real contact email here, and set APP_URL to your public address on the server.": "Halaman ini saat ini mengarah ke localhost. Google menolaknya: isi email kontak yang nyata di sini, dan set APP_URL ke alamat publik Anda di server.",
+ "Now showing": "Yang tampil sekarang",
+ "Open privacy policy": "Buka kebijakan privasi",
+ "Open terms": "Buka ketentuan",
+ "Legal pages updated": "Halaman legal diperbarui",
+ "That does not look like an email address.": "Itu tidak terlihat seperti alamat email."
+});
 /* Shared Google Drive account (src/gdrive-shared.js) and its in-app setup guide. */
 Object.assign(UI_ID,{"Privacy Policy":"Kebijakan Privasi","Terms of Service":"Ketentuan Layanan"});
 Object.assign(UI_ID,{"Saved":"Tersimpan","Disconnect":"Putuskan","Warning":"Peringatan","Go to":"Buka","Google Drive: ":"Google Drive: "});

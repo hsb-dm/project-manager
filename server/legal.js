@@ -35,26 +35,42 @@ function appUrl(req) {
 function branding(db) {
   const out = Object.assign({}, DEFAULTS);
   try {
-    const w = db && db.prepare("SELECT name, logo, theme FROM workspaces ORDER BY rowid LIMIT 1").get();
+    const w = db && db.prepare("SELECT * FROM workspaces ORDER BY rowid LIMIT 1").get();
     if (!w) return out;
     if (w.name) out.name = String(w.name).trim().slice(0, 80) || out.name;
     if (w.logo) out.logo = String(w.logo).trim().slice(0, 4) || out.logo;
     let theme = {}; try { theme = JSON.parse(w.theme || "{}") || {}; } catch {}
     if (/^#[0-9a-fA-F]{6}$/.test(String(theme.accent || ""))) out.accent = theme.accent;
     if (RADII.indexOf(String(theme.radius)) >= 0) out.radius = theme.radius;
+    /* SELECT * because the legal column arrives by migration: a database that has not run it yet
+       simply has no such key, rather than failing the query. */
+    let legal = {}; try { legal = JSON.parse(w.legal || "{}") || {}; } catch {}
+    out.legal = clean(legal);
   } catch {}
   return out;
 }
+/* What the admin typed in Settings wins, because that is where they expect to change it; an
+   environment variable fills in for deployments configured that way; the workspace itself is the
+   last resort. Editing a field in the dashboard and seeing nothing change would be worse than any
+   of these defaults. */
+const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+const tidy = (v, max) => String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+/* Keeps only well-formed values. Used when saving and again when reading, so a row edited by hand
+   cannot put a malformed address on a public page. */
+function clean(x) {
+  x = x || {};
+  const contact = tidy(x.contact, 120);
+  return { entity: tidy(x.entity, 120), contact: EMAIL.test(contact) ? contact : "", jurisdiction: tidy(x.jurisdiction, 80) };
+}
 function values(req, db) {
-  const b = branding(db);
+  const b = branding(db), L = b.legal || {};
   return {
-    /* an explicit legal entity wins; otherwise the workspace names itself */
-    ENTITY: String(process.env.COS_LEGAL_ENTITY || b.name).trim() || b.name,
+    ENTITY: L.entity || String(process.env.COS_LEGAL_ENTITY || "").trim() || b.name,
     LOGO: b.logo,
     ACCENT: b.accent,
     RADIUS: b.radius,
-    CONTACT: String(process.env.COS_LEGAL_CONTACT || ("privacy@" + hostOf(req))).trim(),
-    JURISDICTION: String(process.env.COS_LEGAL_JURISDICTION || "Indonesia").trim() || "Indonesia",
+    CONTACT: L.contact || String(process.env.COS_LEGAL_CONTACT || "").trim() || ("privacy@" + hostOf(req)),
+    JURISDICTION: L.jurisdiction || String(process.env.COS_LEGAL_JURISDICTION || "").trim() || "Indonesia",
     APP_URL: appUrl(req)
   };
 }
@@ -87,4 +103,4 @@ function serve(req, res, pathname, applyHeaders, db) {
   res.end(req.method === "HEAD" ? "" : html);
   return true;
 }
-module.exports = { PAGES, serve, render, _values: values, _branding: branding };
+module.exports = { PAGES, serve, render, clean, EMAIL, values, _values: values, _branding: branding };

@@ -23,6 +23,8 @@ function open() {
     "ALTER TABLE workspaces ADD COLUMN task_fields TEXT DEFAULT '[]'",
     "ALTER TABLE workspaces ADD COLUMN auto_hide TEXT DEFAULT '{}'",
     "ALTER TABLE workspaces ADD COLUMN ai_settings TEXT DEFAULT '{}'",
+    /* the contact, entity and jurisdiction shown on /privacy and /terms (server/legal.js) */
+    "ALTER TABLE workspaces ADD COLUMN legal TEXT DEFAULT '{}'",
     "ALTER TABLE file_versions ADD COLUMN drive_url TEXT",
     "ALTER TABLE file_versions ADD COLUMN drive_id TEXT",
     /* v17 §7.5/§7.7 — tags gain a manual order and an archive flag.

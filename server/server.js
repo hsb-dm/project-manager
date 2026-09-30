@@ -715,6 +715,21 @@ route("POST", "/api/ai/test", async (u, p, q, b) => {
 });
 /* v38 remove demo accounts and demo content from a live workspace (Settings → Backup & Data). */
 const demoPurge = require("./demo-purge");
+/* ---- Legal pages (server/legal.js): the contact, entity and jurisdiction shown on /privacy and
+   /terms. Saved through its own endpoint and its own column, like SMTP: PUT /api/workspace
+   rewrites the workspace row wholesale, and a client that never heard of these fields would wipe
+   them on its next save. */
+const legalView = (req) => { const w = db.prepare("SELECT * FROM workspaces WHERE id=?").get(WS_ID) || {}; let saved = {}; try { saved = JSON.parse(w.legal || "{}") || {}; } catch {} const v = legal.values(req, db); return { saved: legal.clean(saved), effective: { entity: v.ENTITY, contact: v.CONTACT, jurisdiction: v.JURISDICTION, appUrl: v.APP_URL }, env: { entity: !!process.env.COS_LEGAL_ENTITY, contact: !!process.env.COS_LEGAL_CONTACT, jurisdiction: !!process.env.COS_LEGAL_JURISDICTION, appUrl: !!process.env.APP_URL } }; };
+route("GET", "/api/workspace/legal", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "view legal page settings"); return legalView(ctx.req); });
+route("PUT", "/api/workspace/legal", (u, p, q, b, ctx) => {
+  forbid(can.manageWorkspace(u), "change legal page settings");
+  const next = legal.clean(b);
+  /* refuse rather than silently drop: an address that fails the check would otherwise just vanish */
+  if (String(b.contact || "").trim() && !next.contact) throw new HttpError(400, "That does not look like an email address.");
+  db.prepare("UPDATE workspaces SET legal=? WHERE id=?").run(JSON.stringify(next), WS_ID);
+  act(u, "edited", "workspace", WS_ID, { what: "legal page details" });
+  return legalView(ctx.req);
+});
 /* ---- Shared Google Drive (server/gdrive.js): one admin account for the whole workspace ---- */
 route("GET", "/api/cloud/gdrive/status", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "view cloud storage settings"); return Object.assign(gdrive.status(db, WS_ID), { redirectUri: gdrive.redirectUri(ctx.req), maxUploadMB: Math.round(gdrive.MAX_UPLOAD_BYTES / 1048576) }); });
 /* The secret is write-only: it goes in encrypted and is never read back out to any browser. */
