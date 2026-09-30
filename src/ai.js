@@ -561,7 +561,7 @@ function aiDownload(){
   });
 }
 function aiSaveToAssets(){
-  if(typeof gdAuto==="function"&&gdAuto()) return aiSaveGeneratedToDrive();
+  if(typeof storageKeepsFiles==="function"&&storageKeepsFiles()&&(gdAuto()||storageMode()==="server")) return aiSaveGeneratedToDrive();
   aiCompose(function(cv){
     var data = cv.toDataURL("image/png");
     var sz = aiActiveSize();
@@ -576,18 +576,19 @@ function aiSaveToAssets(){
     if (typeof persistAsset==="function") persistAsset(a,true);
   });
 }
+/* Named for Drive, but it saves to whatever storage the workspace uses. */
 function aiSaveGeneratedToDrive(){
-  if(typeof gdReady!=="function"||!gdReady()) return aiSaveToAssets();
+  if(typeof storageKeepsFiles!=="function"||!storageKeepsFiles()) return aiSaveToAssets();
   if(AI_BUSY)return toast("Wait for the visual to finish generating","bad");
   aiCompose(function(cv){ cv.toBlob(function(blob){
-    if(!blob)return toast("Could not prepare this visual for Google Drive","bad");
+    if(!blob)return toast(tr("Could not prepare this visual for upload"),"bad");
     var sz=aiActiveSize(), name=(AIF.headline||"AI banner")+" — "+sz.w+"×"+sz.h+".png", file=new File([blob],slug(AIF.headline||"ai-banner")+"-"+sz.w+"x"+sz.h+".png",{type:"image/png"});
-    toast("Saving generated visual to Google Drive…");
+    toast(tr("Saving generated visual to")+" "+storageLabel()+"…");
     uploadAny(file,{forceDrive:true,name:name}).then(function(up){
       if(!ASSET_FOLDERS.some(function(f){return f.id==="ai";}))ASSET_FOLDERS.push({id:"ai",name:"AI generated",type:"image"});
-      var a={id:uid("as"),name:name,type:"image",folder:"ai",tags:["ai","banner",aiLayout(AIF.layout).id],size:up.size,ver:1,source:"gdrive",url:up.url,driveId:up.driveId||null,ago:0,color:(WS.brand&&WS.brand.primary)||"#0B2A5B",by:ME,brand:false,description:"Generated in AI Hub — "+esc(AIF.brief).slice(0,140),img:up.preview||null};
-      ASSETS.unshift(a); if(typeof persistAsset==="function")persistAsset(a,true); toast("Generated visual saved to Google Drive"); renderScreen(false);
-    }).catch(function(e){toast("Could not save generated visual to Google Drive: "+e.message,"bad");});
+      var a={id:uid("as"),name:name,type:"image",folder:"ai",tags:["ai","banner",aiLayout(AIF.layout).id],size:up.size,ver:1,source:up.source,url:up.url,driveId:up.driveId||null,ago:0,color:(WS.brand&&WS.brand.primary)||"#0B2A5B",by:ME,brand:false,description:"Generated in AI Hub — "+esc(AIF.brief).slice(0,140),img:up.preview||null};
+      ASSETS.unshift(a); if(typeof persistAsset==="function")persistAsset(a,true); toast(tr("Generated visual saved to")+" "+storageLabel()); renderScreen(false);
+    }).catch(function(e){toast(tr("Could not save the generated visual")+": "+e.message,"bad");});
   },"image/png"); });
 }
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "banner"; }

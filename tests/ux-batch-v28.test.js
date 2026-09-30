@@ -17,7 +17,13 @@ test('Chat recognizes internal task/project links and routes inferred images to 
   const m=read('src/messages.js'),g=read('src/gdrive.js');
   assert.match(m,/internalEntityFromUrl/);assert.match(m,/p\.resourceType==="task"\|\|p\.resourceType==="project"/);
   assert.match(m,/function msgRefMediaKind/);assert.match(m,/png\|jpe\?g\|gif\|webp/);
-  assert.match(m,/forceDrive:!!msgMediaKind/);assert.match(g,/opts\.forceDrive&&gdReady\(\)/);
+  assert.match(m,/forceDrive:!!msgMediaKind/);
+  /* forceDrive means "keep the file itself, not a preview". It used to be spelled
+     opts.forceDrive&&gdReady(), which read it as "use Drive", so a workspace that had switched
+     storage to its own server still sent every attachment to Drive. Pin the meaning, not the
+     wording: the storage mode decides, and the flag still asks for real storage. */
+  assert.match(g,/opts\.forceDrive\|\|opts\.needsStore/);
+  assert.ok(g.indexOf('storageMode()==="server"')<g.indexOf('needsStore&&gdReady()'),'the storage mode is checked before Drive');
   assert.match(m,/msg-quick-label/);
 });
 

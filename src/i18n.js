@@ -741,6 +741,23 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* Storage mode labels (src/gdrive.js, drawer.js, ai.js, assets.js). */
+Object.assign(UI_ID,{
+ "this server": "server ini",
+ "Files are kept on this server.": "Berkas disimpan di server ini.",
+ "Files are kept in full in": "Berkas disimpan utuh di",
+ "Images are saved as previews. Other files need a file storage — ask an admin to set one up in Settings.": "Gambar disimpan sebagai pratinjau. Berkas lain memerlukan penyimpanan berkas — minta admin mengaturnya di Pengaturan.",
+ "Uploads go straight to your Google Drive": "Unggahan langsung masuk ke Google Drive Anda",
+ "folder": "folder",
+ "the server only keeps the link.": "server hanya menyimpan tautannya.",
+ "uploading to Google Drive…": "mengunggah ke Google Drive…",
+ "uploading…": "mengunggah…",
+ "processing…": "memproses…",
+ "Could not prepare this visual for upload": "Tidak dapat menyiapkan visual ini untuk diunggah",
+ "Saving generated visual to": "Menyimpan visual hasil generate ke",
+ "Generated visual saved to": "Visual hasil generate disimpan ke",
+ "Could not save the generated visual": "Tidak dapat menyimpan visual hasil generate"
+});
 /* Importing a JSON snapshot (src/import-snapshot.js). */
 Object.assign(UI_ID,{
  "Import a snapshot": "Impor snapshot",
