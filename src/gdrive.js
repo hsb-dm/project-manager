@@ -5,7 +5,23 @@
    ============================================================ */
 var GD={token:null,exp:0,loading:null,request:null,cooldown:0};
 function gdCfg(){ var c=cloudOf("gdrive"); return (c&&c.config)||{}; }
-function gdReady(){ return !!gdCfg().clientId; }
+/* One shared admin account (server/gdrive.js). The credential lives on the server, so the browser
+   hands the file to us and we stream it to Drive: no Google window, nothing for a member to sign
+   in to, and no token in the page at all. "shared" is set by the server and cannot be faked here. */
+function gdShared(){ var c=cloudOf("gdrive"); return !!(c&&c.shared); }
+function gdSharedAccount(){ var c=cloudOf("gdrive"); return (c&&c.sharedAccount)||""; }
+function gdReady(){ return gdShared()||!!gdCfg().clientId; }
+function gdUploadShared(file,name){
+  var mime=file.type||"application/octet-stream";
+  var q="?name="+encodeURIComponent(name||file.name||"file")+"&mime="+encodeURIComponent(mime);
+  var h={"Content-Type":mime};
+  if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
+  /* the file is the body: no base64, no JSON, nothing buffered on either side */
+  return fetch(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",credentials:"same-origin",headers:h,body:file}).then(function(r){
+    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+      if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
+  });
+}
 function gdAuto(){ var c=gdCfg(); return gdReady()&&c.autoUpload!==false; }
 /* Google access tokens are intentionally never persisted.  We do remember that
    this browser/account completed consent, so the next page load asks GIS for a
@@ -32,7 +48,7 @@ function gdLiveToken(){ if(GD.token&&Date.now()<GD.exp) return GD.token;
    for the token after the chooser closed missed the gesture; asking on the same click
    collided with the chooser. So when a token is needed the chooser is held back: the click
    spends itself on Google, and the next click — now cheap — opens the chooser. */
-function gdNeedsToken(){ return typeof gdAuto==="function" && gdAuto() && !gdLiveToken(); }
+function gdNeedsToken(){ if(gdShared()) return false; return typeof gdAuto==="function" && gdAuto() && !gdLiveToken(); }
 function gdWarmOnPick(){
   var inp=document.getElementById("fileInput");
   if(!inp||inp.dataset.gdWarm) return;
@@ -67,7 +83,7 @@ function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(to
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 /* uploadAny(file) → {source,url,driveId,preview,size,type}: Drive when configured, else a downscaled local preview (images) / metadata only. */
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
-  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return gdUpload(file,opts.name).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.preview,size:size,type:type,name:file.name};
+  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
     /* The thumbnail used to point at Drive, but the server stores previews itself and refuses
        a remote link ("no hot-linking arbitrary paths into the database"), so the attach was
        rejected. Make the thumbnail here from the file we already hold. */

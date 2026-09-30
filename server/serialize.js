@@ -109,6 +109,12 @@ function stageRules(rows) {
     });
   });
 }
+/* Reads only the two harmless facts out of cloud_secrets. Tolerates a missing table so an older
+   database still serialises. */
+function sharedCloud(db, wsId, provider) {
+  try { const r = db.prepare("SELECT refresh_token, account FROM cloud_secrets WHERE workspace_id=? AND provider=?").get(wsId, provider); return { shared: !!(r && r.refresh_token), sharedAccount: (r && r.account) || "" }; } catch { return { shared: false, sharedAccount: "" }; }
+}
+
 function readWorkspace(db, wsId) {
   const w = db.prepare("SELECT * FROM workspaces WHERE id=?").get(wsId);
   if (!w) return null;
@@ -124,7 +130,12 @@ function readWorkspace(db, wsId) {
     /* v17 §7.5 manual order wins; §7.7 archived tags still round-trip. No colour (§1). */
     tags: db.prepare("SELECT name,sort_order,archived FROM tags WHERE workspace_id=? ORDER BY sort_order, name").all(wsId)
       .map((t, i) => ({ id: "tag_" + String(t.name).trim().toLowerCase().replace(/\s+/g, " ").replace(/[^a-z0-9]+/g, "_"), name: t.name, archived: !!t.archived, sortOrder: t.sort_order || (i + 1) * 10 })),
-    cloud: db.prepare("SELECT * FROM cloud_connections WHERE workspace_id=? ORDER BY rowid").all(wsId).map(c => ({ id: c.provider, name: c.name, connected: !!c.is_connected, account: c.account || "", folder: c.root_folder || "", lastSyncAt: c.last_sync_at, color: c.color, config: J(c.config, {}) })),
+    /* "shared" says a workspace-wide account is connected, so the browser uploads through this
+       server instead of asking each member to sign in to Google. Only the flag and the account
+       label cross over -- the credential itself never leaves cloud_secrets. These sit outside
+       config on purpose: writeWorkspace only writes known columns, so they cannot be spoofed or
+       clobbered by a client that sends the workspace back. */
+    cloud: db.prepare("SELECT * FROM cloud_connections WHERE workspace_id=? ORDER BY rowid").all(wsId).map(c => Object.assign({ id: c.provider, name: c.name, connected: !!c.is_connected, account: c.account || "", folder: c.root_folder || "", lastSyncAt: c.last_sync_at, color: c.color, config: J(c.config, {}) }, sharedCloud(db, wsId, c.provider))),
   };
 }
 function writeWorkspace(db, wsId, d) {

@@ -327,7 +327,7 @@ function gdCheck(){ var c=cloudOf("gdrive"); if(!c||!gdReady()) return toast(tr(
 (function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations; setIntegrations=function(){ var h=base.apply(this,arguments); if(typeof h!=="string") return h; var c=cloudOf("gdrive")||{}, lc=(c.config||{}).lastCheck||c.lastCheck, verified=c.connected&&lc&&lc.ok;
     if(c.connected&&!verified) h=h.replace('<span class="drive-status">'+esc(tr("Connected"))+'</span>','<span class="badge warn">'+esc(tr(lc&&!lc.ok?"Test failed":"Not verified"))+'</span>');
     var panel=sp("Google Drive connection",'<p class="hint" style="margin-bottom:10px">'+tr("Checks sign-in and access to the team folder from this browser.")+'</p>'+(lc?'<div class="pref"><div class="pl"><b>'+(lc.ok?'<span class="badge approved">'+tr("Verified")+'</span>':'<span class="badge bad">'+tr("Test failed")+'</span>')+'</b><span>'+tr("Last check")+' '+esc(new Date(lc.at).toLocaleString())+(lc.account?' · '+esc(lc.account):'')+(lc.error?' · '+esc(lc.error):'')+'</span></div></div>':''),gdReady()?'<button class="btn primary" onclick="gdCheck()">'+I.sync+tr("Test Google Drive")+'</button>':'',I.cloud);
-    return panel+gdDiagPanel()+h; }; })();
+    return (gdShared()?"":panel+gdDiagPanel())+h; }; })();
 /* Google sign-in opens a popup. When a CDN or proxy in front of the app rewrites
    Cross-Origin-Opener-Policy, that popup can never hand its token back and the connection
    silently never completes — which reads as Drive resetting on every refresh. The app cannot

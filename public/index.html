@@ -5556,7 +5556,23 @@ function changePasswordModal(){ openModal("Change password",fieldHtml("cp_cur","
    ============================================================ */
 var GD={token:null,exp:0,loading:null,request:null,cooldown:0};
 function gdCfg(){ var c=cloudOf("gdrive"); return (c&&c.config)||{}; }
-function gdReady(){ return !!gdCfg().clientId; }
+/* One shared admin account (server/gdrive.js). The credential lives on the server, so the browser
+   hands the file to us and we stream it to Drive: no Google window, nothing for a member to sign
+   in to, and no token in the page at all. "shared" is set by the server and cannot be faked here. */
+function gdShared(){ var c=cloudOf("gdrive"); return !!(c&&c.shared); }
+function gdSharedAccount(){ var c=cloudOf("gdrive"); return (c&&c.sharedAccount)||""; }
+function gdReady(){ return gdShared()||!!gdCfg().clientId; }
+function gdUploadShared(file,name){
+  var mime=file.type||"application/octet-stream";
+  var q="?name="+encodeURIComponent(name||file.name||"file")+"&mime="+encodeURIComponent(mime);
+  var h={"Content-Type":mime};
+  if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
+  /* the file is the body: no base64, no JSON, nothing buffered on either side */
+  return fetch(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",credentials:"same-origin",headers:h,body:file}).then(function(r){
+    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+      if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
+  });
+}
 function gdAuto(){ var c=gdCfg(); return gdReady()&&c.autoUpload!==false; }
 /* Google access tokens are intentionally never persisted.  We do remember that
    this browser/account completed consent, so the next page load asks GIS for a
@@ -5583,7 +5599,7 @@ function gdLiveToken(){ if(GD.token&&Date.now()<GD.exp) return GD.token;
    for the token after the chooser closed missed the gesture; asking on the same click
    collided with the chooser. So when a token is needed the chooser is held back: the click
    spends itself on Google, and the next click — now cheap — opens the chooser. */
-function gdNeedsToken(){ return typeof gdAuto==="function" && gdAuto() && !gdLiveToken(); }
+function gdNeedsToken(){ if(gdShared()) return false; return typeof gdAuto==="function" && gdAuto() && !gdLiveToken(); }
 function gdWarmOnPick(){
   var inp=document.getElementById("fileInput");
   if(!inp||inp.dataset.gdWarm) return;
@@ -5618,7 +5634,7 @@ function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(to
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 /* uploadAny(file) → {source,url,driveId,preview,size,type}: Drive when configured, else a downscaled local preview (images) / metadata only. */
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
-  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return gdUpload(file,opts.name).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.preview,size:size,type:type,name:file.name};
+  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
     /* The thumbnail used to point at Drive, but the server stores previews itself and refuses
        a remote link ("no hot-linking arbitrary paths into the database"), so the attach was
        rejected. Make the thumbnail here from the file we already hold. */
@@ -14307,7 +14323,7 @@ function gdCheck(){ var c=cloudOf("gdrive"); if(!c||!gdReady()) return toast(tr(
 (function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations; setIntegrations=function(){ var h=base.apply(this,arguments); if(typeof h!=="string") return h; var c=cloudOf("gdrive")||{}, lc=(c.config||{}).lastCheck||c.lastCheck, verified=c.connected&&lc&&lc.ok;
     if(c.connected&&!verified) h=h.replace('<span class="drive-status">'+esc(tr("Connected"))+'</span>','<span class="badge warn">'+esc(tr(lc&&!lc.ok?"Test failed":"Not verified"))+'</span>');
     var panel=sp("Google Drive connection",'<p class="hint" style="margin-bottom:10px">'+tr("Checks sign-in and access to the team folder from this browser.")+'</p>'+(lc?'<div class="pref"><div class="pl"><b>'+(lc.ok?'<span class="badge approved">'+tr("Verified")+'</span>':'<span class="badge bad">'+tr("Test failed")+'</span>')+'</b><span>'+tr("Last check")+' '+esc(new Date(lc.at).toLocaleString())+(lc.account?' · '+esc(lc.account):'')+(lc.error?' · '+esc(lc.error):'')+'</span></div></div>':''),gdReady()?'<button class="btn primary" onclick="gdCheck()">'+I.sync+tr("Test Google Drive")+'</button>':'',I.cloud);
-    return panel+gdDiagPanel()+h; }; })();
+    return (gdShared()?"":panel+gdDiagPanel())+h; }; })();
 /* Google sign-in opens a popup. When a CDN or proxy in front of the app rewrites
    Cross-Origin-Opener-Policy, that popup can never hand its token back and the connection
    silently never completes — which reads as Drive resetting on every refresh. The app cannot
@@ -14346,6 +14362,87 @@ function demoPurgeRun(content){ confirmModal(tr("Remove demo data"),tr("Demo acc
 (function(){ var base=saveFile; saveFile=function(o){ o=o||{}; var src=o.img||o.preview||o.url||"";
   if(/^\/files\/[a-f0-9]{64}\./.test(src)&&!o.driveId){ toast(tr("Downloading…")); return fetch(src,{credentials:"same-origin"}).then(function(r){ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(function(b){ triggerDownload(b,saveFileName(o.name||"image",b.type)); }).catch(function(){ toast(tr("Nothing to save"),"bad"); }); }
   return base.apply(this,arguments); }; })();
+</script>
+<script>
+/* SHARED GOOGLE DRIVE ACCOUNT — Settings → Integrations (admins only).
+   The admin connects Google once here; the refresh token stays on the server (server/gdrive.js,
+   table cloud_secrets) and every member's upload is streamed through it. Members never see a
+   Google window, so none of the per-browser popup machinery applies to them.
+   The client secret is write-only: it can be set and cleared from here, never read back. */
+var GDS = { status: null };
+function gdsPanel(){
+  if(typeof canI!=="function" && !(canI&&canI.manageWorkspace)) return "";
+  if(!canI.manageWorkspace()) return "";
+  setTimeout(gdsRefresh,0);
+  return sp("Shared Google Drive account",'<div id="gdsBody"><p class="hint">'+tr("Checking…")+'</p></div>',"",I.cloud);
+}
+function gdsRefresh(){
+  var el=document.getElementById("gdsBody"); if(!el) return;
+  apiFetch("GET","/api/cloud/gdrive/status").then(function(st){
+    GDS.status=st; var e=document.getElementById("gdsBody"); if(e) e.innerHTML=gdsMarkup(st);
+  },function(err){
+    var e=document.getElementById("gdsBody"); if(e) e.innerHTML='<p class="hint">'+esc(err.message)+'</p>';
+  });
+}
+function gdsRow(label,value){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+value+'</span></div></div>'; }
+function gdsMarkup(st){
+  var cfg=gdCfg(), pub=cfg.publicLinks===true, out="";
+  out+='<p class="hint" style="margin-bottom:10px">'+tr("Connect Google once as an admin. Every member then uploads through this one account and never has to sign in to Google.")+'</p>';
+  out+=st.shared
+    ? gdsRow('<span class="badge approved">'+tr("Connected")+'</span>',tr("Uploads go to")+' '+esc(st.sharedAccount||tr("the connected account"))+' · '+tr("members need no sign-in"))
+    : gdsRow('<span class="badge warn">'+tr("Not connected")+'</span>',tr("Members are each asked to sign in to Google until this is connected."));
+  /* Every prerequisite is something only the admin can do in Google Cloud Console, so name them
+     plainly rather than failing later with a Google error code. */
+  out+=gdsRow(tr("1 · OAuth client ID"),st.clientId?'<span class="mono">'+esc(st.clientId)+'</span>':'<em>'+tr("set it in the Google Drive card below")+'</em>');
+  out+=gdsRow(tr("2 · Authorised redirect URI"),'<span class="mono">'+esc(st.redirectUri||"")+'</span>');
+  out+='<p class="hint">'+tr("Add that exact URI to your OAuth client under “Authorised redirect URIs”. It must match character for character.")+'</p>';
+  out+=gdsRow(tr("3 · OAuth client secret"),st.hasSecret?'<span class="badge approved">'+tr("Saved")+'</span> '+tr("stored encrypted; it is never sent back to any browser"):'<span class="badge warn">'+tr("Missing")+'</span>');
+  out+='<div class="pref"><div class="pl" style="flex:1"><b><label for="gdsSecret">'+tr("Paste the client secret")+'</label></b>'
+     + '<input id="gdsSecret" type="password" autocomplete="off" placeholder="'+esc(st.hasSecret?tr("Saved — paste a new one to replace it"):"GOCSPX-…")+'" style="width:100%;max-width:420px">'
+     + '</div><div class="pr"><button class="btn" onclick="gdsSaveSecret()">'+tr("Save secret")+'</button>'+(st.hasSecret?'<button class="btn ghost" onclick="gdsSaveSecret(true)">'+tr("Clear")+'</button>':'')+'</div></div>';
+  if(!st.shared) out+='<p class="hint">'+tr("If your OAuth consent screen is still in “Testing”, publish it first: refresh tokens expire after seven days there and everyone would have to reconnect weekly.")+'</p>';
+  out+='<div class="pref"><div class="pl"><b>'+tr("Upload limit")+'</b><span>'+esc(String(st.maxUploadMB||0))+' MB '+tr("per file, streamed straight to Drive")+'</span></div><div class="pr">'
+     + (st.clientId&&st.hasSecret?'<button class="btn primary" onclick="gdsConnect()">'+I.cloud+(st.shared?tr("Reconnect Google"):tr("Connect Google"))+'</button>':'')
+     + (st.shared?'<button class="btn ghost" onclick="gdsDisconnect()">'+tr("Disconnect")+'</button>':'')+'</div></div>';
+  if(pub) out+='<p class="hint"><b>'+tr("Warning")+':</b> '+tr("“Public links” is on, so every uploaded file is shared with anyone who has the link. With one shared account that is every file the whole team uploads. Turn it off unless you need it.")+'</p>';
+  if(st.shared) out+='<p class="hint">'+tr("Files are owned by the connected Google account and count against its storage. ZenCrevia still records which member uploaded each file.")+'</p>';
+  return out;
+}
+function gdsSaveSecret(clear){
+  var inp=document.getElementById("gdsSecret"), v=clear?"":String((inp&&inp.value)||"").trim();
+  if(!clear&&!v) return toast(tr("Paste the client secret first"),"bad");
+  apiFetch("PUT","/api/cloud/gdrive/secret",{clientSecret:v}).then(function(){
+    if(inp) inp.value="";
+    toast(clear?tr("Client secret cleared"):tr("Client secret saved"));
+    gdsRefresh();
+  },function(e){ toast(e.message,"bad"); });
+}
+/* A full-page redirect, not a popup: nothing to block and no opener channel to lose. */
+function gdsConnect(){
+  apiFetch("POST","/api/cloud/gdrive/connect").then(function(r){
+    if(!r||!r.url) return toast(tr("Could not start the Google connection"),"bad");
+    location.href=r.url;
+  },function(e){ toast(e.message,"bad"); });
+}
+function gdsDisconnect(){
+  if(!confirm(tr("Disconnect the shared Google Drive account? Uploads stop working until someone reconnects it. Files already in Drive are untouched."))) return;
+  apiFetch("DELETE","/api/cloud/gdrive/shared").then(function(){ toast(tr("Shared Google Drive disconnected")); gdsRefresh(); if(typeof loadWorkspace==="function") loadWorkspace(); },function(e){ toast(e.message,"bad"); });
+}
+/* Google hands the admin back to /settings/integrations?gdrive=… — report it, then tidy the URL so
+   a later reload does not repeat the message. */
+function gdsCallbackNotice(){
+  try{
+    var q=new URLSearchParams(location.search), st=q.get("gdrive"); if(!st) return;
+    if(st==="ok") toast(tr("Google Drive connected for the whole workspace"));
+    else toast(tr("Google Drive: ")+(q.get("msg")||tr("could not connect")),"bad");
+    q.delete("gdrive"); q.delete("msg");
+    history.replaceState(null,"",location.pathname+(q.toString()?"?"+q.toString():"")+location.hash);
+    if(typeof loadWorkspace==="function") loadWorkspace();
+  }catch(e){}
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){ setTimeout(gdsCallbackNotice,600); }); else setTimeout(gdsCallbackNotice,600);
+(function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations;
+  setIntegrations=function(){ var h=base.apply(this,arguments); return typeof h==="string"?gdsPanel()+h:h; }; })();
 </script>
 <script>
 /* ============================================================

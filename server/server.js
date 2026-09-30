@@ -43,6 +43,7 @@ function releaseAccount(userId) {
 try { db.prepare("SELECT id FROM users WHERE id NOT IN (SELECT user_id FROM workspace_members) AND (email IS NOT NULL OR password_hash IS NOT NULL)").all().forEach(r => releaseAccount(r.id)); } catch (e) { console.warn("[v38] account release migration:", e.message); }
 /* v39: images move out of the database into COS_DATA_DIR/uploads (once; see server/uploads.js) */
 const uploads = require("./uploads");
+const gdrive = require("./gdrive");
 try { const moved = uploads.migrate(db); if (moved) console.log("[uploads] moved images out of the database:", JSON.stringify(moved)); } catch (e) { console.error("[uploads] migration failed — images stay in the database for now:", e.message); }
 /* v17 §P1-4 — load any dashboard-configured SMTP at boot so notifications use
    it immediately, without a restart or an environment variable. */
@@ -262,6 +263,7 @@ function moveTask(user, id, op) {
 
 /* ---------- routes ---------- */
 const routes = [];
+const RAW_BODY = new Set(["/api/cloud/gdrive/upload"]);
 const OPEN = new Set(["/api/auth/session", "/api/auth/status", "/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/auth/forgot", "/api/auth/reset", "/api/auth/reset/check", "/api/health"]);
 function readRoles() { return db.prepare("SELECT * FROM roles ORDER BY rank DESC, sort_order, name").all().map(r => ({ id: r.id, name: r.name, description: r.description || "", permissions: J(r.permissions, []), rank: r.rank || 0, system: !!r.is_system })); }
 function publicUser(id) { const u = db.prepare("SELECT id, name, email, initials, avatar_color FROM users WHERE id=?").get(id); const m = db.prepare("SELECT role_id, job_title FROM workspace_members WHERE user_id=? AND workspace_id=?").get(id, WS_ID); return u && { id: u.id, name: u.name, email: u.email, ini: u.initials, c: u.avatar_color, perm: m ? m.role_id : null, role: m ? m.job_title : "" }; }
@@ -712,6 +714,31 @@ route("POST", "/api/ai/test", async (u, p, q, b) => {
 });
 /* v38 remove demo accounts and demo content from a live workspace (Settings → Backup & Data). */
 const demoPurge = require("./demo-purge");
+/* ---- Shared Google Drive (server/gdrive.js): one admin account for the whole workspace ---- */
+route("GET", "/api/cloud/gdrive/status", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "view cloud storage settings"); return Object.assign(gdrive.status(db, WS_ID), { redirectUri: gdrive.redirectUri(ctx.req), maxUploadMB: Math.round(gdrive.MAX_UPLOAD_BYTES / 1048576) }); });
+/* The secret is write-only: it goes in encrypted and is never read back out to any browser. */
+route("PUT", "/api/cloud/gdrive/secret", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change cloud storage settings"); const v = String(b.clientSecret || "").trim(); if (!v) gdrive._upsert(db, WS_ID, { client_secret: null, updated_by: u.id }); else { if (v.length < 8) throw new HttpError(400, "That does not look like a Google client secret."); gdrive._upsert(db, WS_ID, { client_secret: secrets.encrypt(v), updated_by: u.id }); } security.log("drive_client_secret_changed", { userId: u.id, ip: ctx.ip, cleared: !v }); return gdrive.status(db, WS_ID); });
+route("POST", "/api/cloud/gdrive/connect", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "connect cloud storage"); return gdrive.authUrl(db, WS_ID, ctx.req, u.id); });
+/* Google sends the admin back here as a top-level navigation. The session cookie is SameSite=Lax,
+   so it arrives; the signed state proves the trip started on this server and by this admin. */
+route("GET", "/api/cloud/gdrive/callback", async (u, p, q, b, ctx) => {
+  const back = (msg, ok) => { security.applyHeaders(ctx.res); ctx.res.writeHead(302, { Location: "/settings/integrations?gdrive=" + (ok ? "ok" : "error") + (msg ? "&msg=" + encodeURIComponent(String(msg).slice(0, 300)) : ""), "Cache-Control": "no-store" }); ctx.res.end(); return { __raw: true }; };
+  try {
+    forbid(can.manageWorkspace(u), "connect cloud storage");
+    if (q.error) throw new HttpError(400, q.error === "access_denied" ? "You declined the Google permission request." : String(q.error));
+    const st = gdrive.readState(q.state);
+    if (st.u !== u.id) throw new HttpError(400, "That sign-in was started by a different account. Start again from Settings.");
+    if (!q.code) throw new HttpError(400, "Google did not return an authorisation code.");
+    const out = await gdrive.exchangeCode(db, WS_ID, ctx.req, String(q.code), u.id);
+    security.log("drive_shared_account_connected", { userId: u.id, ip: ctx.ip, account: out.sharedAccount });
+    act(u, "edited", "workspace", WS_ID, { what: "connected the shared Google Drive account" });
+    return back("", true);
+  } catch (e) { return back(e.message || "Could not connect Google Drive", false); }
+});
+route("DELETE", "/api/cloud/gdrive/shared", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "disconnect cloud storage"); gdrive.disconnect(db, WS_ID); security.log("drive_shared_account_disconnected", { userId: u.id, ip: ctx.ip }); act(u, "edited", "workspace", WS_ID, { what: "disconnected the shared Google Drive account" }); return gdrive.status(db, WS_ID); });
+/* Any signed-in member may upload -- that is the point of a shared account. The bytes stream
+   straight through to Drive (RAW_BODY keeps readBody away from this path). */
+route("POST", "/api/cloud/gdrive/upload", async (u, p, q, b, ctx) => { const out = await gdrive.upload(db, WS_ID, ctx.req, { name: q.name, mime: q.mime || ctx.req.headers["content-type"] }); security.log("drive_upload", { userId: u.id, ip: ctx.ip, driveId: out.driveId, bytes: +(ctx.req.headers["content-length"] || 0) }); return Object.assign(out, { uploadedBy: u.id }); });
 route("GET", "/api/admin/demo-data", (u) => { forbid(can.manageWorkspace(u) && can.manageMembers(u), "remove demo data"); return demoPurge.preview(db, WS_ID, u.id); });
 route("POST", "/api/admin/demo-data/remove", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u) && can.manageMembers(u), "remove demo data"); const out = demoPurge.purge(db, WS_ID, u.id, { people: b.people !== false, content: b.content !== false }, releaseAccount); DATA_VERSION++; security.log("demo_data_removed", Object.assign({ adminId: u.id, ip: ctx.ip }, out)); return out; });
 /* teams */
@@ -1075,7 +1102,8 @@ const server = http.createServer(async (req, res) => {
       if (ALLOW_IMPERSONATION && user && req.headers["x-act-as"] && user.caps.manage_members) { const adminId = user.id, imp = userContext(String(req.headers["x-act-as"])); if (imp) { imp.impersonatedBy = adminId; user = imp; security.log("admin_impersonation", { adminId, targetId: imp.id, ip }); } }
       if (!user && !OPEN.has(url.pathname)) throw new HttpError(401, "Please sign in");
       const params = url.pathname.match(r.re).groups || {};
-      const body = req.method === "GET" || req.method === "DELETE" ? {} : await readBody(req);
+      /* Drive uploads carry raw file bytes; readBody would buffer them into a 12 MB string. */
+      const body = req.method === "GET" || req.method === "DELETE" || RAW_BODY.has(url.pathname) ? {} : await readBody(req);
       checkTextLimits(url.pathname, body);
       const out = await r.handler(user, params, Object.fromEntries(url.searchParams), body, ctx);
       if (out && out.__raw) return; /* v18: streaming handlers (SSE) own the response */
@@ -1085,7 +1113,7 @@ const server = http.createServer(async (req, res) => {
       if (!ctx.setCookie && ctx.session) { const exp = auth.renewSession(db, ctx.token, ctx.session); if (exp) ctx.setCookie = auth.cookie(ctx.token, exp); }
       if (ctx.setCookie) res.setHeader("Set-Cookie", ctx.setCookie);
       /* sign-ins, chat, read receipts, saved views and AI calls never touch tasks */
-      if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;
+      if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live|cloud)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;
       if (req.method !== "GET" && user) announceTaskChange(req.method, url.pathname, out, user);
       /* v38.1 personal preferences (theme, layout, saved items) are nobody else's business: no broadcast */
       if (req.method !== "GET" && user && !(url.searchParams.get("prefsOnly") === "1" && url.pathname === "/api/members/" + user.id)) announceWorkspaceChange(url.pathname, user);

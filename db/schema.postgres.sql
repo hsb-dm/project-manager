@@ -136,6 +136,13 @@ CREATE TABLE IF NOT EXISTS cloud_connections (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), provider TEXT NOT NULL, name TEXT, account TEXT, root_folder TEXT,
   color TEXT, is_connected BOOLEAN DEFAULT false, last_sync_at TEXT, config JSONB DEFAULT '{}'::jsonb
 );
+-- The shared Google Drive credential. Deliberately NOT in cloud_connections.config: that
+-- column is sent to every browser and written back wholesale, so a secret there would leak and
+-- then be wiped. Values are encrypted at rest by server/secrets.js.
+CREATE TABLE IF NOT EXISTS cloud_secrets (
+  workspace_id TEXT NOT NULL, provider TEXT NOT NULL, client_secret TEXT, refresh_token TEXT,
+  account TEXT, updated_at TEXT, updated_by TEXT, PRIMARY KEY (workspace_id, provider)
+);
 CREATE TABLE IF NOT EXISTS knowledge_pages (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), folder TEXT, title TEXT NOT NULL, body TEXT, author_id TEXT REFERENCES users(id),
   translations JSONB DEFAULT '{}'::jsonb, is_favorite BOOLEAN DEFAULT false, is_pinned BOOLEAN DEFAULT false, sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
