@@ -131,6 +131,62 @@ test("opening the panel offers no saved login over the search box", async ({ pag
   expect(crashes).toEqual([]);
 });
 
+/* Switching language re-renders the whole settings screen. The panel paints from its cached status
+   so the section swaps straight from English to Indonesian; if it rebuilt the placeholder each time,
+   the observer below would catch the blink. */
+async function openIntegrations(page) {
+  await page.goto("/settings/integrations");
+  await ready(page);
+  await expect(page.locator("#gdsBody")).toContainText(/OAuth/, { timeout: 8000 });
+}
+test("the panel is bilingual and does not blink when the language changes", async ({ page }) => {
+  await signIn(page, ADMIN);
+  await openIntegrations(page);
+  await expect(page.locator("#gdsBody")).toContainText("Connect Google once as an admin");
+
+  /* watch every mutation for the loading placeholder reappearing */
+  await page.evaluate(() => {
+    window.__blinks = 0;
+    const look = () => { const el = document.getElementById("gdsBody"); if (el && /Checking|Memeriksa/.test(el.textContent) ) window.__blinks++; };
+    window.__obs = new MutationObserver(look);
+    window.__obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+  await page.evaluate(() => setLanguage("id"));
+  await page.waitForTimeout(1500);
+
+  expect(await page.evaluate(() => window.__blinks)).toBe(0);
+  await expect(page.locator("#gdsBody")).toContainText("Hubungkan Google sekali sebagai admin");
+  /* the panel heading travels through sp(), which translates it */
+  await expect(page.locator("#gdsBody").locator("xpath=ancestor::section[1]")).toContainText("Akun Google Drive bersama");
+  /* no English left behind in the section */
+  const text = await page.locator("#gdsBody").innerText();
+  expect(text).not.toContain("Not connected");
+  expect(text).not.toContain("Upload limit");
+
+  await page.evaluate(() => setLanguage("en"));
+  await expect(page.locator("#gdsBody")).toContainText("Connect Google once as an admin");
+  expect(await page.evaluate(() => window.__blinks)).toBe(0);
+});
+
+test("the in-app setup guide is bilingual and shows this server's redirect URI", async ({ page }) => {
+  await signIn(page, ADMIN);
+  await openIntegrations(page);
+  const uri = await page.evaluate(() => GDS.status.redirectUri);
+  expect(uri.endsWith("/api/cloud/gdrive/callback")).toBe(true);
+
+  await page.locator("#gdsBody").getByRole("button", { name: "Step-by-step setup guide" }).click();
+  await expect(page.locator("#modal")).toContainText("Open Google Cloud Console");
+  await expect(page.locator("#modal")).toContainText(uri, { useInnerText: true });
+  await page.locator("#modal").getByRole("button", { name: "Got it" }).click();
+
+  await page.evaluate(() => setLanguage("id"));
+  await page.locator("#gdsBody").getByRole("button", { name: "Panduan langkah demi langkah" }).click();
+  await expect(page.locator("#modal")).toContainText("Buka Google Cloud Console");
+  await expect(page.locator("#modal")).toContainText("Selama masih berstatus Testing");
+  await expect(page.locator("#modal")).toContainText(uri, { useInnerText: true });
+  await page.evaluate(() => setLanguage("en"));
+});
+
 test.afterAll(async ({ browser }) => {
   /* leave the workspace as the other specs expect to find it */
   const page = await browser.newPage();
