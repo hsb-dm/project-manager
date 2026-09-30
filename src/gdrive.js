@@ -85,16 +85,24 @@ function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(to
   return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
   .then(function(j){ var done=function(){ return {driveId:j.id,url:j.webViewLink||("https://drive.google.com/file/d/"+j.id+"/view"),thumb:"https://drive.google.com/thumbnail?id="+j.id+"&sz=w1600",preview:"https://drive.google.com/file/d/"+j.id+"/preview",mime:j.mimeType,size:j.size?(j.size/1048576).toFixed(1)+" MB":"—"}; };
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
-/* uploadAny(file) → {source,url,driveId,preview,size,type}: Drive when configured, else a downscaled local preview (images) / metadata only. */
+/* Where a file that must be kept whole can go, and what to call it in a message. */
+function storageKeepsFiles(){ var m=storageMode(); return m==="server"?!!API.on:gdReady(); }
+function storageLabel(){ return storageMode()==="server"?tr("this server"):tr("Google Drive"); }
+/* uploadAny(file) → {source,url,driveId,preview,size,type}.
+   The storage mode decides. opts.forceDrive means "this caller needs the file itself kept, not a
+   downscaled preview" — its name is from when Drive was the only place that could keep one. Reading
+   it as "Drive specifically" made every attachment ignore the storage switch while a Drive client
+   ID was still configured, which is exactly the state a workspace is in when Drive did not work out. */
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
-  if ((gdAuto()||(opts.forceDrive&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
+  var needsStore=!!(opts.forceDrive||opts.needsStore);
+  if (storageMode()==="server"&&!opts.forceLocal) return API.on?serverUpload(file,type,opts):localUpload(file,type,size);
+  if ((gdAuto()||(needsStore&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
     /* The thumbnail used to point at Drive, but the server stores previews itself and refuses
        a remote link ("no hot-linking arbitrary paths into the database"), so the attach was
        rejected. Make the thumbnail here from the file we already hold. */
     if(type!=="image") return out;
     return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
   }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
-  if (storageMode()==="server"&&API.on&&!opts.forceLocal) return serverUpload(file,type,opts);
   return localUpload(file,type,size); }
 /* "This server" storage (server/filestore.js). Images are optimised first; everything is checked
    against the size limit before a single byte is sent, so a too-large file fails at once instead of

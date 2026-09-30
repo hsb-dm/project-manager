@@ -23,11 +23,20 @@ const file = (name, mimeType, bytes) => ({ name, mimeType, buffer: Buffer.alloc(
 
 test("an admin switches storage to this server, and the choice survives a reload", async ({ page }) => {
   await signIn(page, ADMIN, "/settings/integrations");
+  /* The real situation: a Drive client ID is still configured — the workspace tried Drive and it
+     did not work out. Without this the earlier version of these tests passed while every
+     attachment still went to Drive, because forceDrive only asked whether Drive was configured. */
+  await page.evaluate(() => { const c = cloudOf("gdrive"); c.config = c.config || {}; c.config.clientId = "left-over.apps.googleusercontent.com"; return persistWS(); });
+  await page.reload(); await ready(page);
   await expect(page.locator("#stoBody")).toBeVisible();
   await page.locator("#stoBody").getByRole("button", { name: "This server", exact: true }).click();
   await expect(page.locator("#stoBody")).toContainText("5 MB");
   await page.reload(); await ready(page);
   expect(await page.evaluate(() => storageMode())).toBe("server");
+  /* every upload path asks for real storage with forceDrive; none of them may reach Drive now */
+  expect(await page.evaluate(() => gdAuto())).toBe(false);
+  expect(await page.evaluate(() => gdReady())).toBe(true);   /* Drive is still configured… */
+  expect(await page.evaluate(() => storageLabel())).toBe("this server");   /* …and still not used */
   await expect(page.locator('#stoBody [data-storage="server"]')).toHaveAttribute("aria-pressed", "true");
 
   /* a member to do the uploading, and a task for them to attach to */
