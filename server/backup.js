@@ -122,6 +122,9 @@ function create(db, opts) {
     /* v39: images live in COS_DATA_DIR/uploads; they are immutable, so an incremental encrypted
        mirror (BACKUP_DIR/uploads/<name>.enc) is enough for every database backup to be complete */
     let files = null; try { files = require("./uploads").mirror(BACKUP_DIR, encryptFile); } catch (e) { files = { error: e.message }; console.error("[backup] uploads mirror failed:", e.message); }
+    /* Documents kept on this server live in their own folder, which the image mirror above does not
+       match. Without this a restore would bring back every image and none of the PDFs or decks. */
+    try { const docs = require("./filestore").mirror(BACKUP_DIR, encryptFile); files = Object.assign({}, files, { documents: docs }); } catch (e) { files = Object.assign({}, files, { documents: { error: e.message } }); console.error("[backup] documents mirror failed:", e.message); }
     const meta = writeMeta(name, {
       name, kind, createdAt: new Date().toISOString(), createdBy: opts.userId || null,
       reason: opts.reason || null, checksum: sha256(encrypted),

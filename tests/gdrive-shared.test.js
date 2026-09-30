@@ -65,7 +65,14 @@ test("the OAuth state is signed, single-purpose, and rejects tampering", () => {
   const { url } = gd.authUrl(db, WS, { headers: { host: "app.example.com" } }, "admin");
   const state = new URL(url).searchParams.get("state");
   assert.equal(gd.readState(state).u, "admin");
-  assert.throws(() => gd.readState(state.replace(/.$/, c => (c === "A" ? "B" : "A"))), /not issued by this server|not valid/);
+  /* Tamper in the middle, never at the end. The final character of a 43-character base64url HMAC
+     carries only 4 real bits; the other 2 are padding that decoding ignores. Changing it could
+     yield the same bytes — about one run in sixteen — and this test used to fail at random for
+     exactly that reason. Every middle character carries all 6 bits, so any change there counts. */
+  const [payload, sig] = state.split(".");
+  const flip = s => { const i = Math.floor(s.length / 2); return s.slice(0, i) + (s[i] === "A" ? "B" : "A") + s.slice(i + 1); };
+  assert.throws(() => gd.readState(payload + "." + flip(sig)), /not issued by this server|not valid/, "a changed signature");
+  assert.throws(() => gd.readState(flip(payload) + "." + sig), /not issued by this server|not valid/, "a changed payload under the old signature");
   assert.throws(() => gd.readState("nonsense"), /not valid/);
 });
 
@@ -188,6 +195,8 @@ test("disconnecting removes the credential outright", () => {
 
 test("the streaming upload route is exempt from the JSON body reader", () => {
   const src = fs.readFileSync(path.join(__dirname, "..", "server", "server.js"), "utf8");
-  assert.match(src, /RAW_BODY = new Set\(\["\/api\/cloud\/gdrive\/upload"\]\)/);
+  /* the set also holds server storage's upload path now; what matters is that Drive's is in it */
+  const set = src.slice(src.indexOf("const RAW_BODY = new Set(["), src.indexOf("]);", src.indexOf("const RAW_BODY = new Set([")));
+  assert.ok(set.includes('"/api/cloud/gdrive/upload"'), "the Drive upload path is exempt");
   assert.match(src, /RAW_BODY\.has\(url\.pathname\) \? \{\} : await readBody\(req\)/, "readBody must be skipped for the upload path");
 });

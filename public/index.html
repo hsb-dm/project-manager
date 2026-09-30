@@ -5574,7 +5574,11 @@ function gdUploadShared(file,name){
       if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
   });
 }
-function gdAuto(){ var c=gdCfg(); return gdReady()&&c.autoUpload!==false; }
+/* Where uploads go. An admin picks it in Settings → Integrations → File storage; before anyone has,
+   the old behaviour stands: Drive when it is configured, otherwise image previews only ("legacy"),
+   which is also all the standalone demo can do without a server. */
+function storageMode(){ var c=gdCfg(); if(c.storage==="server"||c.storage==="drive") return c.storage; return gdReady()?"drive":"legacy"; }
+function gdAuto(){ var c=gdCfg(); return storageMode()==="drive"&&gdReady()&&c.autoUpload!==false; }
 /* Google access tokens are intentionally never persisted.  We do remember that
    this browser/account completed consent, so the next page load asks GIS for a
    silent fresh token instead of showing the consent screen again. */
@@ -5642,14 +5646,46 @@ function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type
     if(type!=="image") return out;
     return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
   }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
+  if (storageMode()==="server"&&API.on&&!opts.forceLocal) return serverUpload(file,type,opts);
   return localUpload(file,type,size); }
-function localUpload(file,type,size){ return new Promise(function(res,rej){ if(type==="video")return res({source:"local",url:"",driveId:null,preview:URL.createObjectURL(file),size:size,type:type,name:file.name,temporary:true}); if (type!=="image") return rej(new Error("Connect Google Drive to upload this file, or paste its Drive link.")); shrinkImage(file,1600,1600,function(u){ res({source:"local",url:"",driveId:null,preview:u,size:size,type:type,name:file.name}); },rej); }); }
+/* "This server" storage (server/filestore.js). Images are optimised first; everything is checked
+   against the size limit before a single byte is sent, so a too-large file fails at once instead of
+   after a long upload. The result has the same shape as a Drive upload — a link to the original and
+   a small preview — so every screen that shows an attachment works unchanged. */
+function serverMaxBytes(){ return (typeof WS!=="undefined"&&WS&&+WS.fileMaxBytes)||5242880; }
+function serverUpload(file,type,opts){
+  opts=opts||{};
+  var prep=type==="image"?optimizeImage(file):Promise.resolve({file:file,changed:false});
+  return prep.then(function(o){
+    var f=o.file, max=serverMaxBytes();
+    if(f.size>max) throw new Error(tr("That file is larger than the")+" "+Math.round(max/1048576)+" MB "+tr("limit for server storage. Use Google Drive for larger files."));
+    if(o.changed) toast(tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after));
+    else toast(tr("Uploading…"));
+    var h={"Content-Type":"application/octet-stream"};
+    if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
+    /* the stored extension comes from this name, so it must be the file actually sent — after
+       optimisation a .webp is a .jpg */
+    return fetch(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",credentials:"same-origin",headers:h,body:f}).then(function(r){
+      return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+        if(r.status===401&&typeof showLogin==="function") showLogin(j.error||"Please sign in");
+        if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
+    }).then(function(r){
+      var out={source:"server",url:r.url,driveId:null,preview:null,previewUrl:null,size:r.size,type:type,name:opts.name||f.name||file.name};
+      if(type!=="image") return out;
+      return new Promise(function(done){ shrinkImage(f,640,640,function(u){ out.preview=u; done(out); },function(){ done(out); }); });
+    });
+  });
+}
+function localUpload(file,type,size){ return new Promise(function(res,rej){ if(type==="video")return res({source:"local",url:"",driveId:null,preview:URL.createObjectURL(file),size:size,type:type,name:file.name,temporary:true}); if (type!=="image") return rej(new Error(tr("Connect Google Drive, or ask an admin to switch File storage to This server, to upload this file."))); shrinkImage(file,1600,1600,function(u){ res({source:"local",url:"",driveId:null,preview:u,size:size,type:type,name:file.name}); },rej); }); }
 /* full-size preview modal (images from Drive or local, or the Drive viewer for anything else) */
 /* v19.11 save any attachment to the device: local previews (data URLs) download directly, Drive files go through Drive's download endpoint, other URLs try a same-origin fetch first and fall back to a link */
 function saveFileName(name,mime){ var n=String(name||"file").trim()||"file"; if(!/\.[a-z0-9]{2,5}$/i.test(n)&&mime){ var ext=(mime.split("/")[1]||"").split(";")[0].replace("jpeg","jpg").replace("svg+xml","svg"); if(ext) n+="."+ext; } return n.replace(/[\\/:*?"<>|]+/g,"-"); }
 function dataUrlToBlob(u){ var m=/^data:([^;,]+)?(;base64)?,(.*)$/i.exec(u); if(!m) return null; var mime=m[1]||"application/octet-stream", raw=m[2]?atob(m[3]):decodeURIComponent(m[3]); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return new Blob([arr],{type:mime}); }
 function triggerDownload(blob,name){ var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500); }
 function saveFile(o){ o=o||{}; var data=o.img||o.preview||(o.url&&/^data:/i.test(o.url)?o.url:""); var name=o.name||"file";
+  /* the original lives on this server → same rule as Drive: the original, never the preview.
+     The server answers ?download=1 with an attachment carrying the file's own name. */
+  if(o.url&&/^\/files\/d\//.test(o.url)){ var a=document.createElement("a"); a.href=o.url+"?download=1&name="+encodeURIComponent(name); a.download=name; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },1500); toast(tr("Downloading…")); return; }
   /* the original lives in Drive → always prefer it over the reduced preview */
   if(o.driveId){ openExternalNow("https://drive.google.com/uc?export=download&id="+encodeURIComponent(o.driveId)); toast(tr("Downloading from Google Drive…")); return; }
   if(data&&/^data:/i.test(data)){ var b=dataUrlToBlob(data); if(!b) return toast(tr("Nothing to save"),"bad"); var fn=saveFileName(name,b.type); /* a PNG preview of a .psd/.pdf/.ai must not pretend to be the original */ if(/^image\//.test(b.type)&&/\.(psd|ai|pdf|mp4|mov|indd|sketch|fig|zip|docx?|pptx?|xlsx?)$/i.test(fn)) fn=fn.replace(/\.[^.]+$/,"")+" (preview)."+((b.type.split("/")[1]||"png").replace("jpeg","jpg")); triggerDownload(b,fn); toast(tr("Saved")+" · "+fn); return; }
@@ -5660,6 +5696,93 @@ function copyImageToClipboard(src){ if(!navigator.clipboard||!window.ClipboardIt
 function previewModal(o){ var body; if (o.driveId&&!o.img) body='<iframe src="https://drive.google.com/file/d/'+attr(o.driveId)+'/preview" style="width:100%;height:72vh;border:0;border-radius:var(--radius);background:#111" allow="autoplay"></iframe>'; else if (o.img) body='<div style="text-align:center;background:var(--color-surface-sunken);border-radius:var(--radius);padding:8px"><img src="'+attr(o.img)+'" style="max-width:100%;max-height:72vh;border-radius:8px"></div>'; else body=emptyBox("No preview available","Open the file in its storage provider.");
   var saveArg=attr(JSON.stringify({name:o.name||o.plainTitle||"",img:o.img||"",url:o.url||"",driveId:o.driveId||null})); var canSave=!!(o.img||o.driveId||(o.url&&/^https?:/i.test(o.url)));
   openModal(o.rawTitle?o.title:esc(o.title||"Preview"),body,(o.url?'<button class="btn" onclick="openExternal(\''+attr(o.url)+'\')">'+I.ext+(o.driveId?"Open in Google Drive":"Open")+'</button>':'')+(canSave?'<button class="btn" onclick="saveFile('+saveArg+')">'+I.download+tr("Download")+'</button>':'')+(o.img?'<button class="btn ghost" onclick="copyImageToClipboard(\''+attr(o.img)+'\')">'+I.copy+tr("Copy image")+'</button>':'')+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">Close</button>',true); }
+</script>
+<script>
+/* IMAGE OPTIMISATION for server storage.
+   When a workspace keeps files on its own server, images are re-encoded in the browser before they
+   are sent: JPEG for anything opaque, PNG when there is transparency (JPEG has no alpha, so a logo
+   would come back with a black box around it). Resizing and re-encoding happen here rather than on
+   the server because the server has no image library and the browser already has one.
+
+   Deliberately left alone:
+   - GIF, because drawing one on a canvas keeps only its first frame and would kill the animation;
+   - SVG, because it is a vector and re-encoding would rasterise it;
+   - anything the browser cannot decode (HEIC, TIFF, RAW), which is uploaded as it is.
+
+   Re-encoding also drops EXIF metadata — including the GPS position phones write into photos. */
+var IMG_PRESETS = {
+  balanced: { max: 2048, q: 0.85 },   /* sharp enough to review at full screen */
+  smaller:  { max: 1600, q: 0.78 },   /* noticeably lighter; still fine for feedback */
+  full:     { max: 0,    q: 0.92 },   /* keep every pixel, just re-encode */
+  off:      null                      /* upload exactly what was chosen */
+};
+function imgPresetName(){ var p=(typeof gdCfg==="function"?gdCfg():{}).imageOptimize; return Object.prototype.hasOwnProperty.call(IMG_PRESETS,p)?p:"balanced"; }
+function humanBytes(n){ n=+n||0; return n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB"; }
+function imgDecode(file){
+  if(typeof createImageBitmap==="function"){
+    return createImageBitmap(file,{imageOrientation:"from-image"}).catch(function(){ return createImageBitmap(file); });
+  }
+  return new Promise(function(res,rej){ var u=URL.createObjectURL(file), img=new Image();
+    img.onload=function(){ URL.revokeObjectURL(u); res(img); }; img.onerror=function(){ URL.revokeObjectURL(u); rej(new Error("decode")); }; img.src=u; });
+}
+/* Transparency is found on a small copy: shrinking averages alpha, so even a thin transparent edge
+   pulls some probe pixel below fully opaque, and a 512px probe costs nothing next to reading a
+   full-size photo pixel by pixel. */
+function imgHasAlpha(src,w,h){
+  var s=Math.min(1,512/Math.max(w,h)), pw=Math.max(1,Math.round(w*s)), ph=Math.max(1,Math.round(h*s));
+  var cv=document.createElement("canvas"); cv.width=pw; cv.height=ph;
+  var cx=cv.getContext("2d",{willReadFrequently:true}); cx.drawImage(src,0,0,pw,ph);
+  var d=cx.getImageData(0,0,pw,ph).data;
+  for(var i=3;i<d.length;i+=4) if(d[i]<255) return true;
+  return false;
+}
+function imgToBlob(cv,mime,q){ return new Promise(function(res,rej){ cv.toBlob(function(b){ b?res(b):rej(new Error("encode")); },mime,q); }); }
+/* optimizeImage(file) → Promise<{file, changed, before, after, format, width, height}>. Never
+   rejects: if anything goes wrong the original is returned untouched, so an odd image still uploads. */
+function optimizeImage(file,presetName){
+  var preset=IMG_PRESETS[presetName||imgPresetName()], type=String(file&&file.type||"").toLowerCase();
+  var keep=function(reason){ return { file:file, changed:false, reason:reason, before:file.size, after:file.size }; };
+  if(!preset) return Promise.resolve(keep("off"));
+  if(!/^image\/(png|jpeg|webp)$/.test(type)) return Promise.resolve(keep(type==="image/gif"?"animated":"unsupported"));
+  return imgDecode(file).then(function(src){
+    var w=src.width, h=src.height;
+    if(!w||!h) return keep("empty");
+    var scale=preset.max?Math.min(1,preset.max/Math.max(w,h)):1;
+    var ow=Math.max(1,Math.round(w*scale)), oh=Math.max(1,Math.round(h*scale));
+    var alpha=type!=="image/jpeg"&&imgHasAlpha(src,w,h);
+    var mime=alpha?"image/png":"image/jpeg";
+    var cv=document.createElement("canvas"); cv.width=ow; cv.height=oh;
+    var cx=cv.getContext("2d");
+    /* opaque output: paint white first, so any stray soft edge does not turn black in JPEG */
+    if(!alpha){ cx.fillStyle="#fff"; cx.fillRect(0,0,ow,oh); }
+    cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality="high";
+    cx.drawImage(src,0,0,ow,oh);
+    if(src.close) try{ src.close(); }catch(e){}
+    /* JPEG is not always smaller. Flat graphics — banners, UI mockups, line art — compress far better
+       as PNG, and as JPEG they come out both bigger and blurrier: a 137 KB PNG banner once became a
+       1.6 MB JPEG here. So an opaque PNG or WebP is encoded both ways and the smaller one wins.
+       A JPEG source is a photo already; re-encoding it as PNG would only inflate it. */
+    var tries=[imgToBlob(cv,mime,alpha?undefined:preset.q).then(function(b){ return {blob:b,format:alpha?"png":"jpeg"}; })];
+    if(!alpha&&type!=="image/jpeg") tries.push(imgToBlob(cv,"image/png").then(function(b){ return {blob:b,format:"png"}; }));
+    return Promise.all(tries).then(function(all){
+      /* Smallest is not automatically best. Measured at 2048 px: a flat banner was 62 KB as PNG and
+         32 KB as JPEG (1.95×), a photo 5.8 MB against 860 KB (6.8×). Taking the JPEG banner saves
+         30 KB and puts ringing round every letter — a poor trade for a team reviewing artwork. So
+         PNG is kept unless JPEG saves at least three times over, which separates the two cleanly;
+         and a PNG that would break the upload limit loses to a JPEG that fits. */
+      var jpg=all.filter(function(x){ return x.format==="jpeg"; })[0], pngC=all.filter(function(x){ return x.format==="png"; })[0];
+      var limit=typeof serverMaxBytes==="function"?serverMaxBytes():Infinity;
+      var best=(jpg&&pngC)?((pngC.blob.size<=jpg.blob.size*3&&pngC.blob.size<=limit)?pngC:jpg):all[0];
+      /* Never hand back something heavier than what was chosen: if the original PNG or JPEG is
+         already smaller, keep it — at full resolution, which is strictly better. WebP has no such
+         escape, because the point is to end up with PNG or JPEG. */
+      if(type!=="image/webp"&&best.blob.size>=file.size) return keep("already-small");
+      var base=String(file.name||"image").replace(/\.[^.]+$/,"")||"image", png=best.format==="png";
+      var out=new File([best.blob],base+(png?".png":".jpg"),{type:png?"image/png":"image/jpeg",lastModified:Date.now()});
+      return { file:out, changed:true, before:file.size, after:best.blob.size, format:best.format, width:ow, height:oh };
+    });
+  }).catch(function(){ return keep("undecodable"); });
+}
 </script>
 <script>
 /* ============================================================
@@ -6074,7 +6197,7 @@ function C(by,agoMin,vis,text,parent){ return {id:uid("cm"),by:by,ago:agoMin||0,
 function F(name,type,source,size,agoMin,url,extra){ var f={id:uid("file"),name:name,type:type,source:source,size:size,ago:agoMin||0,url:url||"",preview:null,driveId:null}; if (extra) for (var k in extra) f[k]=extra[k]; return f; }
 function fileThumb(f){ if (f.preview) return '<span class="fthumb" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="Preview"></span>'; return fileIcon(f); }
 function previewFile(fid){ var tk=task(S.drawerTask); var f=byId(tk.files,fid); if (!f) return; previewModal({title:esc(f.name)+' <span class="badge" style="margin-left:6px">'+esc(tk.id)+'</span> '+statusBadge(tk.status)+(isClosed(tk)?' <span class="badge done">'+I.check+'done</span>':""),name:f.name,img:f.preview,driveId:f.driveId,url:f.url,rawTitle:true}); }
-function previewVersion(n){ var tk=task(S.drawerTask); var v=tk.versions.filter(function(x){ return x.n===n; })[0]; if (!v) return; var canPin=canI.editTask(tk)||canI.reviewTask(tk); openModal("Version "+n+" · "+esc(tk.title)+' '+statusBadge(tk.status)+(v.state==="approved"?' <span class="badge approved">approved</span>':v.state==="revision"?' <span class="badge revision">revision</span>':' <span class="badge review">pending</span>'),'<div class="preview" style="margin:0"><div class="canvas full" style="background:'+v.color+(v.img?";background-image:url("+v.img+")":"")+'" '+(canPin?'onclick="addAnnot(event,this)" title="Click to add an annotation"':'')+'>'+(v.img?"":'<div class="lbl">'+tk.id+' · V'+v.n+'<b>'+esc(tk.title)+'</b></div>')+v.annots.map(function(a,i){ return '<span class="pin'+(a.done?" done":"")+'" style="left:'+a.x+'%;top:'+a.y+'%" onclick="event.stopPropagation();toggleAnnot('+i+');previewVersion('+n+')" title="'+attr(a.text)+'">'+(i+1)+'</span>'; }).join("")+'</div><div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago)+(v.note?" · "+esc(v.note):"")+'</span><span class="spacer"></span>'+(v.annots.length?'<span class="hint">'+v.annots.length+' annotation'+(v.annots.length>1?"s":"")+' · click a pin to resolve':'<span class="hint">Click the image to drop an annotation pin</span>')+'</div></div>'+(v.annots.length?'<ul class="annots" style="margin:12px 0 0">'+v.annots.map(function(a,i){ return '<li><span class="pinnum'+(a.done?" done":"")+'">'+(i+1)+'</span><span style="flex:1;'+(a.done?"text-decoration:line-through;color:var(--color-text-tertiary)":"")+'">'+esc(a.text)+'</span><span class="who">'+esc(first(a.by))+'</span></li>'; }).join("")+'</ul>':""),(v.driveUrl?'<button class="btn" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+'Open in Google Drive</button>':"")+((v.img||v.driveId)?'<button class="btn" onclick="saveFile('+attr(JSON.stringify({name:tk.id+" V"+v.n+" "+tk.title,img:v.img||"",driveId:v.driveId||null,url:v.driveUrl||""}))+')">'+I.download+tr("Download")+'</button>':"")+(v.img?'<button class="btn ghost" onclick="copyImageToClipboard(\''+attr(v.img)+'\')">'+I.copy+tr("Copy image")+'</button>':"")+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">Close</button>',true); }
+function previewVersion(n){ var tk=task(S.drawerTask); var v=tk.versions.filter(function(x){ return x.n===n; })[0]; if (!v) return; var canPin=canI.editTask(tk)||canI.reviewTask(tk); openModal("Version "+n+" · "+esc(tk.title)+' '+statusBadge(tk.status)+(v.state==="approved"?' <span class="badge approved">approved</span>':v.state==="revision"?' <span class="badge revision">revision</span>':' <span class="badge review">pending</span>'),'<div class="preview" style="margin:0"><div class="canvas full" style="background:'+v.color+(v.img?";background-image:url("+v.img+")":"")+'" '+(canPin?'onclick="addAnnot(event,this)" title="Click to add an annotation"':'')+'>'+(v.img?"":'<div class="lbl">'+tk.id+' · V'+v.n+'<b>'+esc(tk.title)+'</b></div>')+v.annots.map(function(a,i){ return '<span class="pin'+(a.done?" done":"")+'" style="left:'+a.x+'%;top:'+a.y+'%" onclick="event.stopPropagation();toggleAnnot('+i+');previewVersion('+n+')" title="'+attr(a.text)+'">'+(i+1)+'</span>'; }).join("")+'</div><div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago)+(v.note?" · "+esc(v.note):"")+'</span><span class="spacer"></span>'+(v.annots.length?'<span class="hint">'+v.annots.length+' annotation'+(v.annots.length>1?"s":"")+' · click a pin to resolve':'<span class="hint">Click the image to drop an annotation pin</span>')+'</div></div>'+(v.annots.length?'<ul class="annots" style="margin:12px 0 0">'+v.annots.map(function(a,i){ return '<li><span class="pinnum'+(a.done?" done":"")+'">'+(i+1)+'</span><span style="flex:1;'+(a.done?"text-decoration:line-through;color:var(--color-text-tertiary)":"")+'">'+esc(a.text)+'</span><span class="who">'+esc(first(a.by))+'</span></li>'; }).join("")+'</ul>':""),(v.driveUrl?'<button class="btn" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+origLabel(v.driveUrl)+'</button>':"")+((v.img||v.driveId)?'<button class="btn" onclick="saveFile('+attr(JSON.stringify({name:tk.id+" V"+v.n+" "+tk.title,img:v.img||"",driveId:v.driveId||null,url:v.driveUrl||""}))+')">'+I.download+tr("Download")+'</button>':"")+(v.img?'<button class="btn ghost" onclick="copyImageToClipboard(\''+attr(v.img)+'\')">'+I.copy+tr("Copy image")+'</button>':"")+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">Close</button>',true); }
 function openTask(id){ var tk=task(id); if (!tk) return; var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=null; closePops(); markRead(id);
   document.getElementById("overlay").classList.add("open"); var d=document.getElementById("drawer"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderDrawer(); }
 function closeDrawer(){ var cur=S.drawerTask?task(S.drawerTask):null; document.getElementById("overlay").classList.remove("open"); var d=document.getElementById("drawer"); d.classList.remove("open"); d.setAttribute("aria-hidden","true"); S.drawerTask=null; if (cur&&cur._draft){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); refresh(); } }
@@ -6382,7 +6505,7 @@ function assetsTab(tk){
 function versionsView(tk){ var ed=canI.editTask(tk); if (!tk.versions.length) return '<div class="empty" style="padding:48px 20px"><div class="ico">'+I.assets+'</div><div class="h">No versions uploaded yet</div><p>Upload the first version or link an existing file from Google Drive — the preview and approval flow work for both.</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn primary" onclick="uploadVersion()">'+I.up+'Upload version</button><button class="btn" onclick="linkDriveVersionModal()">'+I.link+'Link Google Drive</button></div>':'')+'</div>';
   var v=curVer(tk); var isLast=v.n===tk.versions[tk.versions.length-1].n; var h='';
   if (ed) h+='<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px"><button class="btn sm" onclick="linkDriveVersionModal()">'+I.link+'Link Google Drive version</button><button class="btn sm primary" onclick="uploadVersion()">'+I.up+'Upload new version</button></div>';
-  h+='<div class="preview'+(v.img?' has-img zoom-'+(S.annotZoom||"actual"):'')+'">'+(v.img?'<div class="annot-zoom"><span class="hint">'+tr("Zoom")+'</span><div class="seg"><button class="'+((S.annotZoom||"actual")==="actual"?"on":"")+'" onclick="S.annotZoom=\'actual\';renderDrawer()">100%</button><button class="'+(S.annotZoom==="fit"?"on":"")+'" onclick="S.annotZoom=\'fit\';renderDrawer()">'+tr("Fit")+'</button></div></div><div class="annot-scroll">':'')+'<div class="canvas'+(v.img?' canvas-img':'')+'" style="background:'+(v.img?'transparent':v.color)+'" onclick="addAnnot(event,this)" title="Click to add an annotation">'+(v.img?'<img src="'+attr(v.img)+'" alt="" draggable="false">':'<div class="lbl">'+tk.id+' · V'+v.n+'<b>'+esc(tk.title)+'</b>'+esc(v.note)+'</div>')+v.annots.map(function(a,i){ return '<span class="pin'+(a.done?" done":"")+'" data-pin="'+i+'" style="left:'+a.x+'%;top:'+a.y+'%;--lc:'+attr(a.color||"var(--color-primary)")+'" onmouseenter="hotAnnot('+i+',true)" onmouseleave="hotAnnot('+i+',false)" onclick="event.stopPropagation();toggleAnnot('+i+')" title="'+attr(a.text+" \u2014 "+first(a.by))+'">'+(i+1)+'</span>'; }).join("")+'</div>'+(v.img?'</div>':'')+'<div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago)+'</span><span class="spacer"></span><button class="btn xs" onclick="previewVersion('+v.n+')">'+I.eye+'Full view</button>'+(v.driveUrl?'<button class="btn xs ghost" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+'Drive</button>':'<button class="btn xs ghost" onclick="downloadVersion('+v.n+')">'+I.download+'Download</button>')+verBadge(v)+'</div></div>';
+  h+='<div class="preview'+(v.img?' has-img zoom-'+(S.annotZoom||"actual"):'')+'">'+(v.img?'<div class="annot-zoom"><span class="hint">'+tr("Zoom")+'</span><div class="seg"><button class="'+((S.annotZoom||"actual")==="actual"?"on":"")+'" onclick="S.annotZoom=\'actual\';renderDrawer()">100%</button><button class="'+(S.annotZoom==="fit"?"on":"")+'" onclick="S.annotZoom=\'fit\';renderDrawer()">'+tr("Fit")+'</button></div></div><div class="annot-scroll">':'')+'<div class="canvas'+(v.img?' canvas-img':'')+'" style="background:'+(v.img?'transparent':v.color)+'" onclick="addAnnot(event,this)" title="Click to add an annotation">'+(v.img?'<img src="'+attr(v.img)+'" alt="" draggable="false">':'<div class="lbl">'+tk.id+' · V'+v.n+'<b>'+esc(tk.title)+'</b>'+esc(v.note)+'</div>')+v.annots.map(function(a,i){ return '<span class="pin'+(a.done?" done":"")+'" data-pin="'+i+'" style="left:'+a.x+'%;top:'+a.y+'%;--lc:'+attr(a.color||"var(--color-primary)")+'" onmouseenter="hotAnnot('+i+',true)" onmouseleave="hotAnnot('+i+',false)" onclick="event.stopPropagation();toggleAnnot('+i+')" title="'+attr(a.text+" \u2014 "+first(a.by))+'">'+(i+1)+'</span>'; }).join("")+'</div>'+(v.img?'</div>':'')+'<div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago)+'</span><span class="spacer"></span><button class="btn xs" onclick="previewVersion('+v.n+')">'+I.eye+'Full view</button>'+(v.driveUrl?'<button class="btn xs ghost" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+origLabel(v.driveUrl,true)+'</button>':'<button class="btn xs ghost" onclick="downloadVersion('+v.n+')">'+I.download+'Download</button>')+verBadge(v)+'</div></div>';
   if (v.annots.length){ h+='<div class="eyebrow" style="margin-bottom:6px">Image annotations <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500">\u00b7 hover to locate it on the image \u00b7 click a pin to resolve \u00b7 click the image to add</span></div><ul class="annots">'+v.annots.map(function(a,i){ return '<li data-annot="'+i+'" onmouseenter="hotAnnot('+i+',true)" onmouseleave="hotAnnot('+i+',false)"><span class="pinnum'+(a.done?" done":"")+'" onclick="toggleAnnot('+i+')" style="cursor:pointer">'+(i+1)+'</span><span style="flex:1;'+(a.done?"text-decoration:line-through;color:var(--color-text-tertiary)":"")+'">'+esc(a.text)+'</span><span class="who">'+esc(first(a.by))+'</span><button class="iconbtn flat" style="width:22px;height:22px" aria-label="'+attr(tr("Remove annotation"))+'" onclick="removeAnnot('+i+')">'+I.x+'</button></li>'; }).join("")+'</ul>'; }
   else h+='<div class="hint" style="margin-bottom:12px">Click anywhere on the preview to drop an annotation pin.</div>';
   if (v.state==="approved") h+='<div class="approval ok"><div class="h">'+I.check.replace("<svg",'<svg width="16" height="16" stroke="var(--color-success)" fill="none" stroke-width="2.5"')+'Version '+v.n+' approved</div><p>Approved by '+esc(person(v.decidedBy||tk.reviewer).name)+', '+ago(v.decidedAgo!=null?v.decidedAgo:v.ago)+'. Ready for delivery.</p></div>';
@@ -6408,7 +6531,7 @@ function uploadVersion(silent){ var tk=task(S.drawerTask); if (silent){ return p
 function pickVersionFile(){ var inp=document.getElementById("fileInput"); inp.accept="image/*,.pdf,.psd,.ai,.mp4,.mov"; inp.onchange=function(){ var f=inp.files[0]; inp.value=""; if (!f) return; versionFileChosen(f); }; inp.click(); }
 /* v19.9 shared by the file picker and clipboard paste */
 function versionFileChosen(f){ if(!f||!document.getElementById("uv_file")||!document.getElementById("modalWrap").classList.contains("open")) return; var session=window._verSession, token=window._verPick=(window._verPick||0)+1; window._verPending=true;window._verUp=null;window._verImg=null;window._verName=f.name; document.getElementById("uv_preview").innerHTML=""; document.getElementById("uv_file").textContent=f.name+" · "+(f.size/1048576).toFixed(1)+" MB · "+(gdAuto()?"uploading to Google Drive…":"processing…"); uploadAny(f).then(function(u){ if(session!==window._verSession||token!==window._verPick)return; window._verImg=u.preview||null; window._verUp=u; var el=document.getElementById("uv_file"); if (el) el.textContent=f.name+" · "+u.size+(u.driveId?" · in Google Drive":""); var pv=document.getElementById("uv_preview"); if (pv&&u.preview) pv.innerHTML='<img src="'+attr(u.preview)+'" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--color-border)">'; }).catch(function(e){if(session===window._verSession&&token===window._verPick){window._verUp=null;toast(e.message,"bad");var el=document.getElementById("uv_file");if(el)el.textContent="Upload failed";}}).finally(function(){if(session===window._verSession&&token===window._verPick)window._verPending=false;}); }
-function pushVersion(tk,img,note,silent,name){ if(!silent&&window._verPending)return toast("Wait for the upload to finish","bad");if(!silent&&!window._verUp)return toast("Choose a file first","bad"); var n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"]; if (!silent) closeModal(); S.drawerVer=n; S.drawerTab="versions"; var up=silent?null:(window._verUp||null); window._verUp=null; return editTaskWith(tk,function(t){ var v=V(n,ME,0,"pending",cols[n%cols.length],note||""); if (img) v.img=img; if (up&&up.driveId){ v.driveUrl=up.url; v.driveId=up.driveId; } t.versions.push(v); if (name) t.files.push(F(name,up?up.type:(img?"image":"other"),up?up.source:"local",up?up.size:"—",0,up?up.url:"",up?{preview:up.preview,driveId:up.driveId}:null)); log(t,"upload",{v:n}); }).then(function(saved){ if(saved===false)return false; notify("upload",reviewersOf(tk),tk.id); if (!silent) toast("Version "+n+" uploaded"); }); }
+function pushVersion(tk,img,note,silent,name){ if(!silent&&window._verPending)return toast("Wait for the upload to finish","bad");if(!silent&&!window._verUp)return toast("Choose a file first","bad"); var n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"]; if (!silent) closeModal(); S.drawerVer=n; S.drawerTab="versions"; var up=silent?null:(window._verUp||null); window._verUp=null; return editTaskWith(tk,function(t){ var v=V(n,ME,0,"pending",cols[n%cols.length],note||""); if (img) v.img=img; if (up&&(up.driveId||up.source==="server")){ v.driveUrl=up.url; if(up.driveId) v.driveId=up.driveId; } t.versions.push(v); if (name) t.files.push(F(name,up?up.type:(img?"image":"other"),up?up.source:"local",up?up.size:"—",0,up?up.url:"",up?{preview:up.preview,driveId:up.driveId}:null)); log(t,"upload",{v:n}); }).then(function(saved){ if(saved===false)return false; notify("upload",reviewersOf(tk),tk.id); if (!silent) toast("Version "+n+" uploaded"); }); }
 function linkDriveVersionModal(){ var tk=task(S.drawerTask); openModal("Link version from Google Drive",'<p class="hint">Paste a Google Drive file link. ZenCrevia will create the next version, keep the source in Drive, and open Drive’s preview in the dashboard.</p>'+fieldHtml("ldv_url","Google Drive share link",'<input id="ldv_url" placeholder="https://drive.google.com/file/d/…">')+fieldHtml("ldv_name","Version note",'<input id="ldv_name" placeholder="e.g. Final layout with updated disclaimer">'),'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveDriveVersion()">Link version</button>'); }
 function saveDriveVersion(){ if (!require(["ldv_url"])) return; var url=val("ldv_url"), note=val("ldv_name"); if (!isDriveUrl(url)) return toast("Use a Google Drive share link","bad"); var tk=task(S.drawerTask), n=tk.versions.length+1, id=(url.match(/\/d\/([^/?]+)/)||[])[1]||""; closeModal(); S.drawerVer=n; S.drawerTab="versions"; editTaskWith(tk,function(t){ var v=V(n,ME,0,"pending",["#7C3AED","#0F766E","#B45309"][n%3],note||"Linked from Google Drive"); v.driveUrl=url; v.driveId=id; t.versions.push(v); t.files.push(F("Version "+n,"document","gdrive","—",0,url,{driveId:id})); log(t,"upload",{v:n}); }).then(function(saved){ if(saved===false)return false; notify("upload",reviewersOf(tk),tk.id); toast("Google Drive version linked"); }); }
 function submitReview(){ var tk=task(S.drawerTask); var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="review") target=s.id; }); if (!target){ toast("Add a review stage in Settings → Workflow","bad"); return; } var go_=function(){ setStatus(tk.id,target); S.drawerTab="versions"; toast("Submitted for review"); notify("status",reviewersOf(tk),tk.id); }; if (!tk.versions.length) pushVersion(tk,null,"",true).then(go_); else go_(); }
@@ -6433,7 +6556,8 @@ function filesView(tk,nested){ var ed=tk._draft||canI.editTask(tk); var drive=ty
   var imgs=tk.files.filter(function(f){ return f.preview; }); h+=imgs.length?'<div class="fgallery">'+imgs.map(function(f){ return '<div class="fg" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="'+attr(f.name)+'"><span>'+esc(f.name)+'</span></div>'; }).join("")+'</div>':'';
   return h+pending+tk.files.map(function(f,i){ return '<div class="file">'+fileThumb(f)+'<div style="min-width:0"><div class="t">'+esc(f.name)+'</div><div class="m">'+srcBadge(srcOf(f))+'<span>'+esc(f.size)+'</span><span>·</span><span>'+ago(f.ago)+'</span>'+(f.url?'<span>·</span><span class="mono" style="overflow:hidden;text-overflow:ellipsis">'+esc(f.url)+'</span>':'')+'</div></div><div style="display:flex;gap:4px">'+((f.preview||f.driveId)?'<button class="btn xs" onclick="previewFile(\''+f.id+'\')">'+I.eye+'Preview</button>':'')+((f.preview||f.driveId||(f.url&&/^https?:/i.test(f.url)))?'<button class="btn xs" title="'+attr(tr("Save to device"))+'" onclick="saveFile('+attr(JSON.stringify({name:f.name,img:f.preview||"",url:f.url||"",driveId:f.driveId||null}))+')">'+I.download+tr("Save")+'</button>':'')+(f.url?'<button class="btn xs" onclick="openExternal(\''+attr(f.url)+'\')">'+I.ext+(f.driveId?'Drive':'Open')+'</button>':'')+(ed?'<button class="iconbtn flat" style="width:26px;height:26px" aria-label="'+attr(tr("Remove file"))+'" onclick="removeFile('+i+')">'+I.trash+'</button>':'')+'</div></div>'; }).join(""); }
 /* v19.7 one gate for every external link — task versions/files, project final assets, asset library, Drive cards, chat links: confirm popup first, then a new tab */
-function openExternalNow(url){ if (/^https?:/.test(url)) window.open(url,"_blank","noopener"); else toast("Opens in the connected storage: "+url); }
+function origLabel(url,short){ return /^[/]files[/]/.test(String(url||""))?tr(short?"Original":"Open original"):(short?"Drive":"Open in Google Drive"); }
+function openExternalNow(url){ if (/^[/]files[/]/.test(String(url||""))) return window.open(url,"_blank","noopener"); if (/^https?:/.test(url)) window.open(url,"_blank","noopener"); else toast("Opens in the connected storage: "+url); }
 function openExternal(url){ if(!/^https?:/.test(url)) return openExternalNow(url); externalLinkPop(url); }
 function externalLinkPop(url){ var p=typeof detectProvider==="function"?detectProvider(url):null, host=""; try{ host=new URL(url).host; }catch(e){} var ico=p&&/^GOOGLE_/.test(p.provider)&&typeof driveIcon==="function"?driveIcon():(p&&typeof SMART_ICON!=="undefined"?SMART_ICON[p.provider]:"")||"🔗"; openModal(tr("Open external link"),'<div class="msg-linkpop"><span class="msg-card-ico'+(p&&/^GOOGLE_/.test(p.provider)?" drive":"")+'">'+ico+'</span><div class="msg-linkpop-body"><b data-no-translate>'+esc(host||url)+'</b>'+(p&&typeof smartSubtitle==="function"?'<span>'+esc(tr(smartSubtitle(p)))+'</span>':'')+'<code data-no-translate>'+esc(url)+'</code></div></div><p class="hint">'+tr("This opens in a new tab outside ZenCrevia. Only open links you trust.")+'</p>','<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn" onclick="(navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(\''+attr(url)+'\'):Promise.reject()).then(function(){toast(tr(\'Link copied\'))},function(){prompt(tr(\'Copy link\'),\''+attr(url)+'\')})">'+I.link+tr("Copy link")+'</button><span class="spacer"></span><button class="btn primary" onclick="closeModal();openExternalNow(\''+attr(url)+'\')">'+I.ext+tr("Open link")+'</button>'); }
 function removeFile(i){ var tk=task(S.drawerTask), f0=tk&&tk.files[i]; if(!f0) return; var linked=fileLinkedVersions(tk,f0);
@@ -12121,6 +12245,35 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* File storage switch (src/storage-settings.js) and server uploads (src/gdrive.js). */
+Object.assign(UI_ID,{
+ "File storage": "Penyimpanan file",
+ "Where new uploads go. Switch to this server if Google sign-in cannot be made to work.": "Tempat unggahan baru disimpan. Pindah ke server ini bila login Google tidak bisa dijalankan.",
+ "This server": "Server ini",
+ "Nothing is chosen yet, so only image previews can be uploaded. Pick one to accept PDFs, decks and spreadsheets.": "Belum ada yang dipilih, jadi hanya pratinjau gambar yang bisa diunggah. Pilih salah satu agar PDF, presentasi, dan spreadsheet bisa diterima.",
+ "Google Drive is not connected, so uploads will fail. Connect it below, or switch to This server to keep working.": "Google Drive belum terhubung, jadi unggahan akan gagal. Hubungkan di bawah, atau pindah ke Server ini agar tetap bisa bekerja.",
+ "Image optimisation": "Optimasi gambar",
+ "Balanced — up to 2048 px, JPEG 85%": "Seimbang — hingga 2048 px, JPEG 85%",
+ "Smaller — up to 1600 px, JPEG 78%": "Lebih kecil — hingga 1600 px, JPEG 78%",
+ "Full size — re-encode only": "Ukuran penuh — hanya encode ulang",
+ "Off — keep files exactly as uploaded": "Mati — simpan berkas persis seperti diunggah",
+ "Images are stored exactly as uploaded.": "Gambar disimpan persis seperti diunggah.",
+ "Photos become JPEG; flat graphics and anything transparent become PNG — whichever is smaller. A file is never made heavier than it was. GIFs keep their animation. The original is not kept, so choose Off if your team needs pixel-exact finals.":"Foto menjadi JPEG; grafik datar dan apa pun yang transparan menjadi PNG — mana yang lebih kecil. Berkas tidak pernah dibuat lebih berat dari aslinya. GIF tetap beranimasi. Berkas aslinya tidak disimpan, jadi pilih Mati bila tim Anda butuh hasil akhir yang persis per piksel.",
+ "Size limit": "Batas ukuran",
+ "per file. PDF, PowerPoint, Excel, Word and other files are accepted.": "per berkas. PDF, PowerPoint, Excel, Word, dan berkas lain diterima.",
+ "Switching only affects new uploads. Files already uploaded stay where they are.": "Perpindahan hanya berlaku untuk unggahan baru. Berkas yang sudah diunggah tetap di tempatnya.",
+ "New uploads are stored on this server": "Unggahan baru disimpan di server ini",
+ "New uploads go to Google Drive": "Unggahan baru masuk ke Google Drive",
+ "Image optimisation updated": "Optimasi gambar diperbarui",
+ "That file is larger than the": "Berkas itu melebihi batas",
+ "limit for server storage. Use Google Drive for larger files.": "untuk penyimpanan server. Gunakan Google Drive untuk berkas yang lebih besar.",
+ "Image optimised": "Gambar dioptimalkan",
+ "Uploading…": "Mengunggah…",
+ "Downloading…": "Mengunduh…",
+ "Original": "Asli",
+ "Open original": "Buka berkas asli",
+ "Connect Google Drive, or ask an admin to switch File storage to This server, to upload this file.": "Hubungkan Google Drive, atau minta admin memindahkan Penyimpanan file ke Server ini, untuk mengunggah berkas ini."
+});
 /* Legal page settings (src/legal-settings.js). */
 Object.assign(UI_ID,{
  "Legal pages": "Halaman legal",
@@ -14606,6 +14759,59 @@ function legSave(){
 }
 (function(){ if(typeof setWorkspace!=="function") return; var base=setWorkspace;
   setWorkspace=function(){ var h=base.apply(this,arguments); return typeof h==="string"?h+legPanel():h; }; })();
+</script>
+<script>
+/* FILE STORAGE — Settings → Integrations (admins only).
+   The manual switch between Google Drive and this server, for when Google sign-in cannot be made
+   to work. Only new uploads follow the switch: files already uploaded keep the link they have,
+   whichever side they live on.
+
+   Everything shown comes from WS, which is already loaded, so the panel renders in one pass and a
+   language switch cannot make it flash. */
+function stoCfg(){ var c=cloudOf("gdrive"); c.config=c.config||{}; return c.config; }
+function stoPanel(){
+  if(typeof canI==="undefined"||!canI||typeof canI.manageWorkspace!=="function"||!canI.manageWorkspace()) return "";
+  return sp("File storage",'<div id="stoBody">'+stoMarkup()+'</div>',"",I.cloud);
+}
+function stoSeg(mode,label,on){ return '<button type="button" class="'+(on?"on":"")+'" aria-pressed="'+(on?"true":"false")+'" data-storage="'+mode+'" onclick="stoSet(\''+mode+'\')">'+tr(label)+'</button>'; }
+function stoMarkup(){
+  var mode=storageMode(), cfg=stoCfg(), preset=imgPresetName(), max=Math.round(serverMaxBytes()/1048576), out="";
+  out+='<p class="hint" style="margin-bottom:10px">'+tr("Where new uploads go. Switch to this server if Google sign-in cannot be made to work.")+'</p>';
+  out+='<div class="seg" role="group" aria-label="'+esc(tr("File storage"))+'" style="margin-bottom:12px">'+stoSeg("drive","Google Drive",mode==="drive")+stoSeg("server","This server",mode==="server")+'</div>';
+  if(mode==="legacy") out+='<p class="hint">'+tr("Nothing is chosen yet, so only image previews can be uploaded. Pick one to accept PDFs, decks and spreadsheets.")+'</p>';
+  if(mode==="drive"&&!gdReady()) out+='<div class="errbox" style="margin:8px 0;background:var(--color-warning-soft);color:var(--color-warning)">'+tr("Google Drive is not connected, so uploads will fail. Connect it below, or switch to This server to keep working.")+'</div>';
+  if(mode==="server"){
+    out+='<div class="field"><label for="sto_opt">'+tr("Image optimisation")+'</label>'
+      + '<select id="sto_opt" onchange="stoSetPreset(this.value)">'
+      + [["balanced","Balanced — up to 2048 px, JPEG 85%"],["smaller","Smaller — up to 1600 px, JPEG 78%"],["full","Full size — re-encode only"],["off","Off — keep files exactly as uploaded"]]
+          .map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===preset?" selected":"")+'>'+esc(tr(o[1]))+'</option>'; }).join("")
+      + '</select>'
+      + '<div class="hint" style="margin-top:4px">'+(preset==="off"
+          ? tr("Images are stored exactly as uploaded.")
+          : tr("Photos become JPEG; flat graphics and anything transparent become PNG — whichever is smaller. A file is never made heavier than it was. GIFs keep their animation. The original is not kept, so choose Off if your team needs pixel-exact finals."))+'</div></div>';
+    out+='<div class="pref"><div class="pl"><b>'+tr("Size limit")+'</b><span>'+max+' MB '+tr("per file. PDF, PowerPoint, Excel, Word and other files are accepted.")+'</span></div></div>';
+  }
+  out+='<p class="hint">'+tr("Switching only affects new uploads. Files already uploaded stay where they are.")+'</p>';
+  return out;
+}
+function stoRender(){ var el=document.getElementById("stoBody"); if(el) el.innerHTML=stoMarkup(); }
+function stoSave(msg){
+  var r=typeof persistWS==="function"?persistWS():null;
+  var done=function(){ stoRender(); if(msg) toast(msg); };
+  if(r&&typeof r.then==="function") r.then(done,function(e){ toast(e.message,"bad"); stoRender(); }); else done();
+}
+function stoSet(mode){
+  if(mode!=="drive"&&mode!=="server") return;
+  var c=stoCfg(); if(c.storage===mode) return;
+  c.storage=mode;
+  stoSave(mode==="server"?tr("New uploads are stored on this server"):tr("New uploads go to Google Drive"));
+}
+function stoSetPreset(p){
+  if(!Object.prototype.hasOwnProperty.call(IMG_PRESETS,p)) return;
+  stoCfg().imageOptimize=p; stoSave(tr("Image optimisation updated"));
+}
+(function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations;
+  setIntegrations=function(){ var h=base.apply(this,arguments); return typeof h==="string"?stoPanel()+h:h; }; })();
 </script>
 <script>
 /* ============================================================

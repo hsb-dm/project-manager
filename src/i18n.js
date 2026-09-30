@@ -741,6 +741,35 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* File storage switch (src/storage-settings.js) and server uploads (src/gdrive.js). */
+Object.assign(UI_ID,{
+ "File storage": "Penyimpanan file",
+ "Where new uploads go. Switch to this server if Google sign-in cannot be made to work.": "Tempat unggahan baru disimpan. Pindah ke server ini bila login Google tidak bisa dijalankan.",
+ "This server": "Server ini",
+ "Nothing is chosen yet, so only image previews can be uploaded. Pick one to accept PDFs, decks and spreadsheets.": "Belum ada yang dipilih, jadi hanya pratinjau gambar yang bisa diunggah. Pilih salah satu agar PDF, presentasi, dan spreadsheet bisa diterima.",
+ "Google Drive is not connected, so uploads will fail. Connect it below, or switch to This server to keep working.": "Google Drive belum terhubung, jadi unggahan akan gagal. Hubungkan di bawah, atau pindah ke Server ini agar tetap bisa bekerja.",
+ "Image optimisation": "Optimasi gambar",
+ "Balanced — up to 2048 px, JPEG 85%": "Seimbang — hingga 2048 px, JPEG 85%",
+ "Smaller — up to 1600 px, JPEG 78%": "Lebih kecil — hingga 1600 px, JPEG 78%",
+ "Full size — re-encode only": "Ukuran penuh — hanya encode ulang",
+ "Off — keep files exactly as uploaded": "Mati — simpan berkas persis seperti diunggah",
+ "Images are stored exactly as uploaded.": "Gambar disimpan persis seperti diunggah.",
+ "Photos become JPEG; flat graphics and anything transparent become PNG — whichever is smaller. A file is never made heavier than it was. GIFs keep their animation. The original is not kept, so choose Off if your team needs pixel-exact finals.":"Foto menjadi JPEG; grafik datar dan apa pun yang transparan menjadi PNG — mana yang lebih kecil. Berkas tidak pernah dibuat lebih berat dari aslinya. GIF tetap beranimasi. Berkas aslinya tidak disimpan, jadi pilih Mati bila tim Anda butuh hasil akhir yang persis per piksel.",
+ "Size limit": "Batas ukuran",
+ "per file. PDF, PowerPoint, Excel, Word and other files are accepted.": "per berkas. PDF, PowerPoint, Excel, Word, dan berkas lain diterima.",
+ "Switching only affects new uploads. Files already uploaded stay where they are.": "Perpindahan hanya berlaku untuk unggahan baru. Berkas yang sudah diunggah tetap di tempatnya.",
+ "New uploads are stored on this server": "Unggahan baru disimpan di server ini",
+ "New uploads go to Google Drive": "Unggahan baru masuk ke Google Drive",
+ "Image optimisation updated": "Optimasi gambar diperbarui",
+ "That file is larger than the": "Berkas itu melebihi batas",
+ "limit for server storage. Use Google Drive for larger files.": "untuk penyimpanan server. Gunakan Google Drive untuk berkas yang lebih besar.",
+ "Image optimised": "Gambar dioptimalkan",
+ "Uploading…": "Mengunggah…",
+ "Downloading…": "Mengunduh…",
+ "Original": "Asli",
+ "Open original": "Buka berkas asli",
+ "Connect Google Drive, or ask an admin to switch File storage to This server, to upload this file.": "Hubungkan Google Drive, atau minta admin memindahkan Penyimpanan file ke Server ini, untuk mengunggah berkas ini."
+});
 /* Legal page settings (src/legal-settings.js). */
 Object.assign(UI_ID,{
  "Legal pages": "Halaman legal",

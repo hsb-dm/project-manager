@@ -45,6 +45,7 @@ try { db.prepare("SELECT id FROM users WHERE id NOT IN (SELECT user_id FROM work
 const uploads = require("./uploads");
 const gdrive = require("./gdrive");
 const legal = require("./legal");
+const filestore = require("./filestore");
 try { const moved = uploads.migrate(db); if (moved) console.log("[uploads] moved images out of the database:", JSON.stringify(moved)); } catch (e) { console.error("[uploads] migration failed — images stay in the database for now:", e.message); }
 /* v17 §P1-4 — load any dashboard-configured SMTP at boot so notifications use
    it immediately, without a restart or an environment variable. */
@@ -161,9 +162,9 @@ function validateEmbeddedImage(value, field) {
   if (value.length > 3_000_000) throw new HttpError(413, (field || "Image") + " is too large");
 }
 function validateStoredFiles(doc, userId) {
-  (doc.files || []).forEach(f => { if (f.preview) validateEmbeddedImage(f.preview, "File preview"); if (f.url) safeHttpsUrl(f.url, "File link"); if (String(f.name || "").length > 240) throw new HttpError(400, "File name is too long"); });
-  (doc.versions || []).forEach(v => { if (v.img) validateEmbeddedImage(v.img, "Version preview"); if (v.driveUrl) safeHttpsUrl(v.driveUrl, "Version link"); });
-  (doc.comments || []).forEach(c => (c.attachments || []).forEach(a => { if (a.preview) validateEmbeddedImage(a.preview, "Comment preview"); if (a.url) safeHttpsUrl(a.url, "Comment file link"); }));
+  (doc.files || []).forEach(f => { if (f.preview) validateEmbeddedImage(f.preview, "File preview"); if (f.url && !filestore.isStoredUrl(db, f.url)) safeHttpsUrl(f.url, "File link"); if (String(f.name || "").length > 240) throw new HttpError(400, "File name is too long"); });
+  (doc.versions || []).forEach(v => { if (v.img) validateEmbeddedImage(v.img, "Version preview"); if (v.driveUrl && !filestore.isStoredUrl(db, v.driveUrl)) safeHttpsUrl(v.driveUrl, "Version link"); });
+  (doc.comments || []).forEach(c => (c.attachments || []).forEach(a => { if (a.preview) validateEmbeddedImage(a.preview, "Comment preview"); if (a.url && !filestore.isStoredUrl(db, a.url)) safeHttpsUrl(a.url, "Comment file link"); }));
   try { uploads.externalizeTask(db, doc, userId); } catch (e) { throw new HttpError(e.status || 400, e.message); }
 }
 
@@ -264,11 +265,11 @@ function moveTask(user, id, op) {
 
 /* ---------- routes ---------- */
 const routes = [];
-const RAW_BODY = new Set(["/api/cloud/gdrive/upload"]);
+const RAW_BODY = new Set(["/api/cloud/gdrive/upload", "/api/files/upload"]);
 const OPEN = new Set(["/api/auth/session", "/api/auth/status", "/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/auth/forgot", "/api/auth/reset", "/api/auth/reset/check", "/api/health"]);
 function readRoles() { return db.prepare("SELECT * FROM roles ORDER BY rank DESC, sort_order, name").all().map(r => ({ id: r.id, name: r.name, description: r.description || "", permissions: J(r.permissions, []), rank: r.rank || 0, system: !!r.is_system })); }
 function publicUser(id) { const u = db.prepare("SELECT id, name, email, initials, avatar_color FROM users WHERE id=?").get(id); const m = db.prepare("SELECT role_id, job_title FROM workspace_members WHERE user_id=? AND workspace_id=?").get(id, WS_ID); return u && { id: u.id, name: u.name, email: u.email, ini: u.initials, c: u.avatar_color, perm: m ? m.role_id : null, role: m ? m.job_title : "" }; }
-function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; return w; }
+function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
 const route = (method, pattern, handler) => routes.push({ method, re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), handler });
 require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
 /* v18 §144–147 Messages: the SSE stream handler needs the raw response, which route handlers receive as ctx.res */
@@ -730,6 +731,9 @@ route("PUT", "/api/workspace/legal", (u, p, q, b, ctx) => {
   act(u, "edited", "workspace", WS_ID, { what: "legal page details" });
   return legalView(ctx.req);
 });
+/* ---- Server storage (server/filestore.js): any signed-in member may store a file here when the
+   workspace keeps files on this server. The body is the raw file, streamed to disk. */
+route("POST", "/api/files/upload", async (u, p, q, b, ctx) => { const out = await filestore.putStream(db, ctx.req, { name: q.name, userId: u.id }); security.log("file_stored", { userId: u.id, ip: ctx.ip, url: out.url, bytes: out.bytes }); return Object.assign(out, { maxBytes: filestore.MAX_BYTES }); });
 /* ---- Shared Google Drive (server/gdrive.js): one admin account for the whole workspace ---- */
 route("GET", "/api/cloud/gdrive/status", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "view cloud storage settings"); return Object.assign(gdrive.status(db, WS_ID), { redirectUri: gdrive.redirectUri(ctx.req), maxUploadMB: Math.round(gdrive.MAX_UPLOAD_BYTES / 1048576) }); });
 /* The secret is write-only: it goes in encrypted and is never read back out to any browser. */
@@ -1140,6 +1144,14 @@ const server = http.createServer(async (req, res) => {
        shell fallback that would otherwise swallow /privacy and /terms. */
     if ((req.method === "GET" || req.method === "HEAD") && legal.PAGES[url.pathname]) {
       if (legal.serve(req, res, url.pathname, security.applyHeaders, db)) return;
+    }
+    /* Files kept on this server (server/filestore.js): signed-in users only, like images. */
+    const dm = /^\/files\/d\/([a-f0-9]{64}\.[a-z0-9]{1,6})$/.exec(url.pathname);
+    if (dm) {
+      if (req.method !== "GET" && req.method !== "HEAD") return send(405, "Method not allowed", "text/plain");
+      const token = auth.parseCookies(req.headers.cookie).cos_session, uid1 = auth.sessionUser(db, token);
+      if (!uid1 || !userContext(uid1)) return send(401, "Please sign in", "text/plain");
+      security.applyHeaders(res); return filestore.serve(req, res, dm[1], Object.fromEntries(url.searchParams), backups.BACKUP_DIR, backups.decryptFile);
     }
     /* v39 uploaded images: signed-in users only */
     const fm = /^\/files\/([a-f0-9]{64}\.(?:png|jpg|webp|gif))$/.exec(url.pathname);

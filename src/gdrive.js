@@ -22,7 +22,11 @@ function gdUploadShared(file,name){
       if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
   });
 }
-function gdAuto(){ var c=gdCfg(); return gdReady()&&c.autoUpload!==false; }
+/* Where uploads go. An admin picks it in Settings → Integrations → File storage; before anyone has,
+   the old behaviour stands: Drive when it is configured, otherwise image previews only ("legacy"),
+   which is also all the standalone demo can do without a server. */
+function storageMode(){ var c=gdCfg(); if(c.storage==="server"||c.storage==="drive") return c.storage; return gdReady()?"drive":"legacy"; }
+function gdAuto(){ var c=gdCfg(); return storageMode()==="drive"&&gdReady()&&c.autoUpload!==false; }
 /* Google access tokens are intentionally never persisted.  We do remember that
    this browser/account completed consent, so the next page load asks GIS for a
    silent fresh token instead of showing the consent screen again. */
@@ -90,14 +94,46 @@ function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type
     if(type!=="image") return out;
     return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
   }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
+  if (storageMode()==="server"&&API.on&&!opts.forceLocal) return serverUpload(file,type,opts);
   return localUpload(file,type,size); }
-function localUpload(file,type,size){ return new Promise(function(res,rej){ if(type==="video")return res({source:"local",url:"",driveId:null,preview:URL.createObjectURL(file),size:size,type:type,name:file.name,temporary:true}); if (type!=="image") return rej(new Error("Connect Google Drive to upload this file, or paste its Drive link.")); shrinkImage(file,1600,1600,function(u){ res({source:"local",url:"",driveId:null,preview:u,size:size,type:type,name:file.name}); },rej); }); }
+/* "This server" storage (server/filestore.js). Images are optimised first; everything is checked
+   against the size limit before a single byte is sent, so a too-large file fails at once instead of
+   after a long upload. The result has the same shape as a Drive upload — a link to the original and
+   a small preview — so every screen that shows an attachment works unchanged. */
+function serverMaxBytes(){ return (typeof WS!=="undefined"&&WS&&+WS.fileMaxBytes)||5242880; }
+function serverUpload(file,type,opts){
+  opts=opts||{};
+  var prep=type==="image"?optimizeImage(file):Promise.resolve({file:file,changed:false});
+  return prep.then(function(o){
+    var f=o.file, max=serverMaxBytes();
+    if(f.size>max) throw new Error(tr("That file is larger than the")+" "+Math.round(max/1048576)+" MB "+tr("limit for server storage. Use Google Drive for larger files."));
+    if(o.changed) toast(tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after));
+    else toast(tr("Uploading…"));
+    var h={"Content-Type":"application/octet-stream"};
+    if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
+    /* the stored extension comes from this name, so it must be the file actually sent — after
+       optimisation a .webp is a .jpg */
+    return fetch(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",credentials:"same-origin",headers:h,body:f}).then(function(r){
+      return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+        if(r.status===401&&typeof showLogin==="function") showLogin(j.error||"Please sign in");
+        if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
+    }).then(function(r){
+      var out={source:"server",url:r.url,driveId:null,preview:null,previewUrl:null,size:r.size,type:type,name:opts.name||f.name||file.name};
+      if(type!=="image") return out;
+      return new Promise(function(done){ shrinkImage(f,640,640,function(u){ out.preview=u; done(out); },function(){ done(out); }); });
+    });
+  });
+}
+function localUpload(file,type,size){ return new Promise(function(res,rej){ if(type==="video")return res({source:"local",url:"",driveId:null,preview:URL.createObjectURL(file),size:size,type:type,name:file.name,temporary:true}); if (type!=="image") return rej(new Error(tr("Connect Google Drive, or ask an admin to switch File storage to This server, to upload this file."))); shrinkImage(file,1600,1600,function(u){ res({source:"local",url:"",driveId:null,preview:u,size:size,type:type,name:file.name}); },rej); }); }
 /* full-size preview modal (images from Drive or local, or the Drive viewer for anything else) */
 /* v19.11 save any attachment to the device: local previews (data URLs) download directly, Drive files go through Drive's download endpoint, other URLs try a same-origin fetch first and fall back to a link */
 function saveFileName(name,mime){ var n=String(name||"file").trim()||"file"; if(!/\.[a-z0-9]{2,5}$/i.test(n)&&mime){ var ext=(mime.split("/")[1]||"").split(";")[0].replace("jpeg","jpg").replace("svg+xml","svg"); if(ext) n+="."+ext; } return n.replace(/[\\/:*?"<>|]+/g,"-"); }
 function dataUrlToBlob(u){ var m=/^data:([^;,]+)?(;base64)?,(.*)$/i.exec(u); if(!m) return null; var mime=m[1]||"application/octet-stream", raw=m[2]?atob(m[3]):decodeURIComponent(m[3]); var arr=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i); return new Blob([arr],{type:mime}); }
 function triggerDownload(blob,name){ var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1500); }
 function saveFile(o){ o=o||{}; var data=o.img||o.preview||(o.url&&/^data:/i.test(o.url)?o.url:""); var name=o.name||"file";
+  /* the original lives on this server → same rule as Drive: the original, never the preview.
+     The server answers ?download=1 with an attachment carrying the file's own name. */
+  if(o.url&&/^\/files\/d\//.test(o.url)){ var a=document.createElement("a"); a.href=o.url+"?download=1&name="+encodeURIComponent(name); a.download=name; a.style.display="none"; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); },1500); toast(tr("Downloading…")); return; }
   /* the original lives in Drive → always prefer it over the reduced preview */
   if(o.driveId){ openExternalNow("https://drive.google.com/uc?export=download&id="+encodeURIComponent(o.driveId)); toast(tr("Downloading from Google Drive…")); return; }
   if(data&&/^data:/i.test(data)){ var b=dataUrlToBlob(data); if(!b) return toast(tr("Nothing to save"),"bad"); var fn=saveFileName(name,b.type); /* a PNG preview of a .psd/.pdf/.ai must not pretend to be the original */ if(/^image\//.test(b.type)&&/\.(psd|ai|pdf|mp4|mov|indd|sketch|fig|zip|docx?|pptx?|xlsx?)$/i.test(fn)) fn=fn.replace(/\.[^.]+$/,"")+" (preview)."+((b.type.split("/")[1]||"png").replace("jpeg","jpg")); triggerDownload(b,fn); toast(tr("Saved")+" · "+fn); return; }
