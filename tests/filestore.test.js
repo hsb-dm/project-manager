@@ -193,3 +193,19 @@ test("the server wires the store in: raw body, validation, serving and backups",
   const backup = fs.readFileSync(path.join(__dirname, "..", "server", "backup.js"), "utf8");
   assert.ok(backup.includes('require("./filestore").mirror('), "backups mirror documents");
 });
+
+/* An undocumented knob is one nobody can find: COS_DRIVE_MAX_BYTES existed in the code for a day
+   without appearing in .env.example. Every COS_* the server reads has to be listed there. */
+test("every COS_* setting the server reads is documented in .env.example", () => {
+  const dir = path.join(__dirname, "..", "server");
+  const found = new Set();
+  for (const f of fs.readdirSync(dir).filter(n => n.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    (src.match(/process\.env\.COS_[A-Z0-9_]+/g) || []).forEach(m => found.add(m.replace("process.env.", "")));
+  }
+  const example = fs.readFileSync(path.join(__dirname, "..", ".env.example"), "utf8");
+  /* set only by the test harness and the demo seeder, never by a deployment */
+  const internal = new Set(["COS_SEED_DEMO", "COS_ALLOW_MISSING_ORIGIN", "COS_DB_PATH"]);
+  const missing = [...found].filter(k => !internal.has(k) && !example.includes(k)).sort();
+  assert.deepEqual(missing, [], "add these to .env.example: " + missing.join(", "));
+});
