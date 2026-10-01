@@ -4283,6 +4283,11 @@ body.bulk-on .bulk-selectable {
 .aiact .hint{padding:2px 12px 8px}
 .aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
 
+/* A pasted image leaves a chip in the brief that opens Comments (src/paste-image.js) */
+.paste-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;font:inherit;font-size:11.5px;font-weight:500;padding:2px 9px;margin:1px 2px;border-radius:var(--pill);background:var(--color-primary-soft);border:1px solid var(--color-border);color:var(--color-text-primary);cursor:pointer;vertical-align:baseline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.paste-chip:hover{border-color:var(--color-primary)}
+.paste-chip svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+
 </style>
 </head>
 <body>
@@ -5265,7 +5270,8 @@ function renderNotifScreen(){ document.getElementById("content").innerHTML='<div
 /* ---------- search (tasks, projects, teams, people, files, briefs, knowledge) ---------- */
 var _searchTimer=null;
 function scheduleSearch(q){ clearTimeout(_searchTimer); if(!q.trim())return onSearch(q); _searchTimer=setTimeout(function(){_searchTimer=null;var input=document.getElementById("searchInput");if(input&&input.value===q)onSearch(q);},140); }
-function onSearch(q){ clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
+/* Reached from the topbar input rather than renderScreen, so it carries its own guard. */
+function onSearch(q){ if(!signedIn()) return; clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
 function renderSearch(){ var q=S.search.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; };
   var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
   var ps=PROJECTS.filter(function(x){ return m(x.name)||m(x.description); }); var tm=activeTeams().filter(function(t){ return m(t.name)||m(t.description); }); var us=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role)||m(PEOPLE[id].email); });
@@ -6560,7 +6566,7 @@ function descView(tk){ if(typeof descEditorHtml==="function") return descEditorH
 function briefView(tk){ var ed=canI.editTask(tk); if (!tk.brief) return '<div class="empty" style="padding:36px 20px"><div class="ico">'+I.knowledge+'</div><div class="h">No creative brief yet</div><p>Add a structured brief so the designer does not have to guess.</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center">'+WS.briefTemplates.map(function(t){ return '<button class="btn sm" onclick="addBrief(\''+t.id+'\')">'+esc(t.name)+'</button>'; }).join("")+'</div>':'')+'</div>';
   var b=tk.brief; var tpl=byId(WS.briefTemplates,b.tpl)||{name:"Custom",fields:WS.briefFields.map(function(f){ return f[0]; }),required:[]}; var fields=WS.briefFields.filter(function(f){ return tpl.fields.indexOf(f[0])>=0; }); var req=tpl.required||[]; var missing=req.filter(function(f){ return !b[f]; });
   var h='<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Creative brief</span><span class="tpl">'+esc(tpl.name)+'</span>'+(missing.length?'<span class="badge bad">'+missing.length+' required field'+(missing.length>1?"s":"")+' missing</span>':'<span class="badge ok">Complete</span>')+'<span class="spacer"></span>'+(tk._draft?'':'<button class="btn xs" onclick="closeDrawer();go(\'assets\');S.assetTab=\'brand\';renderScreen(false)">'+I.assets.replace('class="i"','')+'Brand library</button>')+(ed?(S.briefEdit?'<button class="btn sm" onclick="S.briefEdit=false;renderDrawer()">Cancel</button><button class="btn sm primary" onclick="saveBrief()">Save brief</button>':'<button class="btn sm" onclick="S.briefEdit=true;renderDrawer()">'+I.edit+'Edit</button>'):'')+'</div><div class="brief">';
-  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?esc(v):"Not set"))+'</div>'; });
+  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToChips==="function"?pasteMarkersToChips(esc(v)):esc(v)):"Not set"))+'</div>'; });
   return h+'</div>'; }
 function addBrief(tplId){ var tk=task(S.drawerTask); var tpl=byId(WS.briefTemplates,tplId); editTaskWith(tk,function(t){ t.brief={tpl:tplId}; tpl.fields.forEach(function(f){ t.brief[f]=""; }); if (t.description) t.brief.objective=t.description; log(t,"brief"); }); S.briefEdit=true; renderDrawer(); }
 function saveBrief(){ var tk=task(S.drawerTask); var tas=document.querySelectorAll("[data-bf]"); var vals={}; for (var i=0;i<tas.length;i++) vals[tas[i].getAttribute("data-bf")]=tas[i].value.trim(); S.briefEdit=false; editTaskWith(tk,function(t){ Object.assign(t.brief,vals); log(t,"edited",{what:"the brief"}); }); toast("Brief saved"); }
@@ -6691,6 +6697,95 @@ function postComment(){ var el=document.getElementById("cmtText"); var txt=el.va
 function deleteComment(id){ var tk=task(S.drawerTask); editTaskWith(tk,function(t){ t.comments=t.comments.filter(function(c){ return c.id!==id&&c.parent!==id; }); }); }
 function activityView(tk){ return '<div class="tl">'+tk.activity.slice().sort(function(a,b){ return a.ago-b.ago; }).map(function(a){ var args={who:first(a.who),from:a.a.from?stageName(a.a.from):"",to:a.a.to?(a.k==="team"?teamName(a.a.to):a.k==="assigned"?(PEOPLE[a.a.to]?first(a.a.to):a.a.to):stageName(a.a.to)):"",v:a.a.v,name:a.a.name,what:a.a.what}; return '<div class="it'+(a.k==="approved"||a.k==="revision"?" hi":"")+'"><i></i><div>'+fmt(ATEXT[a.k]||("<b>{who}</b> "+esc(a.k)),args)+'</div><div class="when">'+ago(a.ago)+'</div></div>'; }).join("")+'</div>'; }
 Object.assign(UI_ID,{"More details":"Detail lainnya","No dependencies yet.":"Belum ada dependensi.","This task is ready to start.":"Task ini siap dimulai.","Add dependency":"Tambah dependensi","Add context not covered by the brief…":"Tambahkan konteks yang belum tercakup di brief…","Use this for additional context, constraints, or notes.":"Gunakan untuk konteks tambahan, batasan, atau catatan.","Edit date":"Ubah tanggal","Workflow stage":"Tahap workflow","deliverables":"deliverable","Attach link":"Lampirkan tautan","Attach any trusted HTTPS link. It stays connected to this task and appears with the other files and references.":"Lampirkan tautan HTTPS tepercaya. Tautan tetap terhubung ke task ini dan tampil bersama file serta referensi lainnya.","Display name":"Nama tampilan","e.g. Campaign reference":"mis. Referensi campaign","Use a valid HTTPS link":"Gunakan tautan HTTPS yang valid","External link":"Tautan eksternal","Link attached":"Tautan dilampirkan","Upload a working file, link one from Google Drive, or attach any HTTPS link.":"Unggah file kerja, tautkan dari Google Drive, atau lampirkan tautan HTTPS lain."});
+</script>
+<script>
+/* AN IMAGE PASTED INTO A BRIEF FIELD OR THE DESCRIPTION.
+
+   src/clipboard.js already routes pasted images to the chat composer, the comment box and the
+   upload modals, but it deliberately leaves alone anything being typed into — so a brief field and
+   the description did nothing at all. This is the branch it calls for those two ("brief").
+
+   A brief field is a <textarea> and the description is a contenteditable; neither can hold an
+   image, and embedding one as a data URL would put the picture inside the task record, which is
+   what server/uploads.js exists to prevent. So the image is uploaded the way any attachment is
+   (uploadAny, honouring whichever storage the workspace uses) and posted as a comment — that path
+   already files every attachment under the task's References too, so one paste lands in both, with
+   a note saying which field it came from. The text keeps a marker that reads as a chip opening
+   Comments.
+
+   Brief edits in progress are gathered and written with the same change, because adding the
+   comment re-renders the drawer and would otherwise discard whatever was being typed. */
+
+var PASTE_MARK_OPEN = "[[img:", PASTE_MARK_CLOSE = "]]";
+/* Where the caret is, so the marker lands where the person was typing. */
+function pasteInsertInField(el,text){
+  if(!el) return;
+  if(el.tagName==="TEXTAREA"||el.tagName==="INPUT"){
+    var s=el.selectionStart==null?el.value.length:el.selectionStart, t=el.selectionEnd==null?s:el.selectionEnd;
+    el.value=el.value.slice(0,s)+text+el.value.slice(t);
+    el.selectionStart=el.selectionEnd=s+text.length;
+  } else {
+    var sel=window.getSelection();
+    if(sel&&sel.rangeCount&&el.contains(sel.anchorNode)){
+      var r=sel.getRangeAt(0); r.deleteContents(); var n=document.createTextNode(text);
+      r.insertNode(n); r.setStartAfter(n); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
+    } else el.appendChild(document.createTextNode(text));
+  }
+  el.dispatchEvent(new Event("input",{bubbles:true}));
+}
+function pasteFieldName(el){
+  if(!el||!el.getAttribute) return tr("the brief");
+  if(el.id==="descSrc"||(el.closest&&el.closest("#descSrc"))) return tr("the description");
+  var k=el.getAttribute("data-bf")||(el.closest&&el.closest("[data-bf]")&&el.closest("[data-bf]").getAttribute("data-bf"));
+  if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
+  return tr("the brief");
+}
+/* Brief edits in progress, so adding a comment does not discard them. */
+function pasteBriefDraft(){
+  var out={}, list=document.querySelectorAll("[data-bf]");
+  for(var i=0;i<list.length;i++) out[list[i].getAttribute("data-bf")]=list[i].value;
+  return out;
+}
+/* Returns true when it takes the paste; clipboard.js calls preventDefault on true. */
+function briefPasteImage(file){
+  if(!file||!/^image\//.test(file.type||"")) return false;
+  if(typeof signedIn==="function"&&!signedIn()) return false;
+  var tk=S.drawerTask?task(S.drawerTask):null;
+  if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
+  var field=document.activeElement;
+  if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
+  var label=pasteFieldName(field), name=file.name||("pasted-"+Date.now()+".png");
+  var marker=PASTE_MARK_OPEN+name+PASTE_MARK_CLOSE;
+  pasteInsertInField(field,marker);
+  var brief=pasteBriefDraft();
+  toast(tr("Uploading the pasted image…"));
+
+  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+    editTaskWith(tk,function(t){
+      if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
+      var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
+      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null}];
+      t.comments.push(c);
+      /* the same record the comment path files under References */
+      t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
+      log(t,"comment");
+    });
+    toast(tr("Image attached and added to Comments"));
+  },function(err){
+    /* take the marker back out: there is nothing for it to point at */
+    if(field){ if(field.tagName==="TEXTAREA"||field.tagName==="INPUT") field.value=String(field.value).split(marker).join("");
+               else field.textContent=String(field.textContent).split(marker).join(""); }
+    toast(tr("Could not attach that image")+": "+err.message,"bad");
+  });
+  return true;
+}
+/* In the brief, a marker reads as a chip that opens Comments. */
+function pasteMarkersToChips(html){
+  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){
+    return '<button type="button" class="paste-chip" onclick="pasteOpenComments()" title="'+attr(tr("Open Comments"))+'">'+I.image+esc(n)+'</button>';
+  });
+}
+function pasteOpenComments(){ S.drawerTab="comments"; renderDrawer(); var b=document.getElementById("drBody"); if(b) b.scrollTop=b.scrollHeight; }
 </script>
 <script>
 /* ============================================================
@@ -12731,6 +12826,17 @@ Object.assign(UI_ID,{
   "AI Hub starting point saved":"Titik awal AI Hub disimpan","AI Hub starts from a blank canvas":"AI Hub dimulai dari kanvas kosong",
   "This workspace generates through Magnific, which expands only with its own expand models. Register one with the Model ID flux-pro or seedream-v4-5, then pick it under Settings → AI → Models → Generative Expand.":"Workspace ini memakai Magnific, yang hanya bisa memperluas dengan model expand miliknya sendiri. Daftarkan model dengan Model ID flux-pro atau seedream-v4-5, lalu pilih di Pengaturan → AI → Model → Perluas Generatif."
 });
+/* Pasting an image into a brief, description or comment (src/paste-image.js). */
+Object.assign(UI_ID,{
+ "Uploading the pasted image…": "Mengunggah gambar yang ditempel…",
+ "Image attached and added to Comments": "Gambar dilampirkan dan ditambahkan ke Komentar",
+ "Could not attach that image": "Tidak dapat melampirkan gambar itu",
+ "Pasted into": "Ditempel di",
+ "the comment box": "kolom komentar",
+ "the description": "deskripsi",
+ "the brief": "brief",
+ "Open Comments": "Buka Komentar"
+});
 /* AI chat attachments and proposals (src/ai-chat-actions.js). */
 Object.assign(UI_ID,{
  "Attach to this conversation": "Lampirkan ke percakapan ini",
@@ -14304,6 +14410,9 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
   var modal=document.getElementById("modalWrap"), modalOpen=!!(modal&&modal.classList.contains("open")); /* closed modals keep their DOM, so only an OPEN modal counts */
   if(modalOpen&&document.getElementById("uv_file")) return "version-modal";
   if(modalOpen&&document.getElementById("ua_file")) return "asset-modal";
+  /* A brief field and the description are being typed in, so they fall under the rule below — but
+     an image cannot live in either, and until now a paste there simply did nothing. */
+  if(t&&t.closest&&t.closest("[data-bf],#descSrc")) return "brief";
   if(editing) return null; /* typing somewhere else: leave the paste alone */
   if(modalOpen) return null;
   if(document.getElementById("entityPicker")||document.getElementById("palette")) return null;
@@ -14314,6 +14423,7 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
   if(where==="comment"){ var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); } }); return true; }
+  if(where==="brief"){ return briefPasteImage(files[0]); }
   if(where==="version-modal"){ versionFileChosen(files[0]); return true; }
   if(where==="asset-modal"){ assetFileChosen(files[0]); if(files[0]&&/^image\//.test(files[0].type)){ var n=document.getElementById("ua_name"); if(n&&!n.value) n.value=files[0].name.replace(/\.\w+$/,""); } return true; }
   if(where==="drawer"){ if(!/^image\//.test(files[0].type)) return false; S.drawerTab="versions"; uploadVersion(); setTimeout(function(){ versionFileChosen(files[0]); },30); return true; }

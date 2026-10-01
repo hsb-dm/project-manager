@@ -3,7 +3,7 @@ const core=fs.readFileSync(path.join(__dirname,'../src/core.js'),'utf8'),ai=fs.r
 function timers(){const callbacks=new Map();let id=0;return {setTimeout(fn){callbacks.set(++id,fn);return id},clearTimeout(k){callbacks.delete(k)},flush(){const all=[...callbacks.values()];callbacks.clear();all.forEach(fn=>fn())},size(){return callbacks.size}}}
 test('rapid search input renders only the final query and clearing cancels pending work',()=>{
  const clock=timers(),input={value:''};let renders=0,clears=0;
- const ctx={...clock,S:{search:''},document:{getElementById(){return input}},renderSearch(){renders++},renderScreen(){clears++}};vm.createContext(ctx);vm.runInContext(core.slice(core.indexOf('var _searchTimer='),core.indexOf('function renderSearch()')),ctx);
+ const ctx={...clock,S:{search:''},SESSION:{user:{id:'zein'}},signedIn(){return true},document:{getElementById(){return input}},renderSearch(){renders++},renderScreen(){clears++}};vm.createContext(ctx);vm.runInContext(core.slice(core.indexOf('var _searchTimer='),core.indexOf('function renderSearch()')),ctx);
  for(const q of ['a','as','asset']){input.value=q;ctx.scheduleSearch(q)}assert.equal(renders,0);assert.equal(clock.size(),1);clock.flush();assert.equal(renders,1);assert.equal(ctx.S.search,'asset');
  input.value='other';ctx.scheduleSearch('other');input.value='';ctx.scheduleSearch('');clock.flush();assert.equal(ctx.S.search,'');assert.equal(renders,1);assert.equal(clears,1);
  input.value='stale';ctx.scheduleSearch('stale');input.value='';clock.flush();assert.equal(renders,1,'A cleared navigation search cannot render an old query');

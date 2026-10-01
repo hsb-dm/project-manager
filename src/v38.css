@@ -101,3 +101,8 @@
 .aiact-row b.warn{color:var(--color-warning)}
 .aiact .hint{padding:2px 12px 8px}
 .aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
+
+/* A pasted image leaves a chip in the brief that opens Comments (src/paste-image.js) */
+.paste-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;font:inherit;font-size:11.5px;font-weight:500;padding:2px 9px;margin:1px 2px;border-radius:var(--pill);background:var(--color-primary-soft);border:1px solid var(--color-border);color:var(--color-text-primary);cursor:pointer;vertical-align:baseline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.paste-chip:hover{border-color:var(--color-primary)}
+.paste-chip svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}

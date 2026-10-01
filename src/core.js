@@ -673,7 +673,8 @@ function renderNotifScreen(){ document.getElementById("content").innerHTML='<div
 /* ---------- search (tasks, projects, teams, people, files, briefs, knowledge) ---------- */
 var _searchTimer=null;
 function scheduleSearch(q){ clearTimeout(_searchTimer); if(!q.trim())return onSearch(q); _searchTimer=setTimeout(function(){_searchTimer=null;var input=document.getElementById("searchInput");if(input&&input.value===q)onSearch(q);},140); }
-function onSearch(q){ clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
+/* Reached from the topbar input rather than renderScreen, so it carries its own guard. */
+function onSearch(q){ if(!signedIn()) return; clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
 function renderSearch(){ var q=S.search.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; };
   var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
   var ps=PROJECTS.filter(function(x){ return m(x.name)||m(x.description); }); var tm=activeTeams().filter(function(t){ return m(t.name)||m(t.description); }); var us=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role)||m(PEOPLE[id].email); });
