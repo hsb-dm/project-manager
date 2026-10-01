@@ -111,7 +111,7 @@ test("the field marker rides on the comment, which the server keeps", async ({ p
 
 test("an image whose attachment is gone degrades to a label, not a broken picture", async ({ page }) => {
   await signIn(page);
-  const html = await page.evaluate(() => pasteFieldImagesHtml({ comments: [{ attachments: [{ name: "gone.png", briefField: "objective" }] }] }, "objective"));
+  const html = await page.evaluate(() => { S.briefEdit = false; return pasteFieldImagesHtml({ comments: [{ attachments: [{ name: "gone.png", briefField: "objective" }] }] }, "objective"); });
   expect(html).toBe("");   /* nothing to show without a picture */
 });
 

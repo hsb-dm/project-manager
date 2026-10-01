@@ -4293,6 +4293,125 @@ body.bulk-on .bulk-selectable {
 .paste-thumb.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
 @media(max-width:560px){.paste-thumb img{max-width:120px;max-height:96px}}
 
+/* A picture sitting in the writing itself (the description editor and its read-only view).
+   It is a block, so a line of text never wraps around it and the writing keeps its rhythm. */
+.desc-img{display:block;max-width:100%;height:auto;margin:10px 0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-sunken);cursor:zoom-in}
+.md-src .desc-img{cursor:default}
+.md-src .desc-img:hover{border-color:var(--color-primary)}
+.desc-img.missing{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px dashed var(--color-border);border-radius:var(--pill);color:var(--color-text-tertiary);font-size:11.5px}
+.desc-img.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* The remove button follows whichever picture is under the pointer; it lives outside the editable
+   text so nothing can type over it or undo it. */
+.desc-img-x{position:fixed;z-index:150;display:none;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:rgba(17,17,17,.78);color:#fff;cursor:pointer;box-shadow:var(--shadow-md)}
+.desc-img-x.on{display:grid}
+.desc-img-x:hover{background:var(--color-danger)}
+.desc-img-x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4}
+/* The corner handle that sets how wide a picture in the writing is. It lives outside the editable
+   text, like the remove button, so nothing can type over it. */
+.desc-img-size{position:fixed;z-index:150;display:none;place-items:center;width:24px;height:24px;padding:0;border:2px solid #fff;border-radius:6px;background:var(--color-primary);color:#fff;cursor:nwse-resize;box-shadow:var(--shadow-md);touch-action:none}
+.desc-img-size.on{display:grid}
+.desc-img-size svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+body.paste-resizing{user-select:none;-webkit-user-select:none;cursor:nwse-resize}
+body.paste-resizing .desc-img{pointer-events:none}
+
+/* A brief field is a textarea, so its pictures stay in the strip underneath, each with its own
+   remove button and a button to add one without the clipboard. */
+.paste-thumb-wrap{position:relative;display:inline-block;line-height:0}
+.paste-thumb-x{position:absolute;top:4px;right:4px;display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:rgba(17,17,17,.74);color:#fff;cursor:pointer;opacity:0;transition:opacity .12s}
+.paste-thumb-wrap:hover .paste-thumb-x,.paste-thumb-x:focus-visible{opacity:1}
+.paste-thumb-x:hover{background:var(--color-danger)}
+.paste-thumb-x svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4}
+.paste-add{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px dashed var(--color-border);border-radius:var(--pill);background:transparent;color:var(--color-text-secondary);font:inherit;font-size:11.5px;cursor:pointer;align-self:center}
+.paste-add:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.paste-add svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* Touch has no hover, so the buttons are always there. */
+@media(pointer:coarse){.paste-thumb-x{opacity:1}}
+.desc-img.uploading{opacity:.55}
+
+/* ---- phones and tablets ---- */
+/* A new task could not be given a title on a phone. The mobile header clamps the title to two
+   lines with display:-webkit-box, and a contenteditable laid out as a -webkit-box will not take a
+   caret on iOS — worst of all when it is empty, which is exactly the state a new task is in, so
+   there was not even a letter to tap on. Clamping is for reading; while the title can be edited it
+   is laid out as ordinary text. */
+@media(max-width:980px){
+  .dr-title[contenteditable="true"]{display:block;overflow:visible;-webkit-line-clamp:none;min-height:1.6em}
+}
+/* The AI panel's header ran five round buttons at the touch size of 38px next to a title and a
+   badge, which did not fit a phone: the last ones were cut off. They take the size the task header
+   uses for the same kind of button. */
+@media(max-width:760px){
+  .aichat-head{gap:4px;padding:10px 12px}
+  .aichat-head h2{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .aichat-head .sq{width:26px;height:26px;border-radius:8px;flex:none}
+  .aichat-head .sq svg{width:14px;height:14px}
+  .aichat-head .iconbtn{width:30px!important;height:30px!important;min-width:30px;min-height:30px}
+  .aichat-head .iconbtn svg{width:15px;height:15px}
+  .aichat-head .spacer{min-width:0}
+}
+/* The message composer on a phone took three rows — the box, a row of its own buttons, then five
+   round shortcuts — leaving a slot barely tall enough for two messages. Everything the shortcuts
+   do is already in the + menu beside the box, so on a phone the composer is one row: attach, the
+   box, emoji, send. Nothing is removed and nothing is restyled; it is the same controls on one
+   line, and the reading area keeps the ~90px that buys. */
+@media(max-width:760px){
+  .msg-quick{display:none!important}
+  .msg-input{display:flex!important;align-items:flex-end;gap:4px;padding:4px 6px;border-radius:var(--pill)}
+  .msg-input .msg-ta-wrap{flex:1;min-width:0;grid-column:auto;grid-row:auto}
+  .msg-input>button,.msg-input>.msg-send-wrap{grid-column:auto;grid-row:auto;flex:none;align-self:center}
+  .msg-input textarea{max-height:96px!important}
+  /* Typing @ opens the same picker, so the button for it is the one thing a narrow row can lose. */
+  .msg-input>button[data-tour="messages-mention"]{display:none}
+}
+
+/* ---- the task panel, expanded ---- */
+/* Expanded keeps the top line — task number, project, status, priority, team and the actions —
+   and folds away the rest of the header, so the tabs sit right under it and their contents get
+   the panel. Warnings (a blocking dependency, a hidden task) stay: they are not details. */
+.drawer.expanded .dr-title,
+.drawer.expanded .dr-head .meta,
+.drawer.expanded .task-more-toggle,
+.drawer.expanded .task-tags-bottom,
+.drawer.expanded .m-details-toggle{display:none!important}
+.drawer.expanded .dr-top{margin-bottom:4px}
+/* The tab row scrolls sideways (overflow-x:auto) so it fits a phone — and CSS then quietly makes
+   it scroll vertically too, because one axis that is not visible turns the other to auto. Each tab
+   reached 1px below the row (margin-bottom:-1px, to sit on the header's border), which was enough
+   for a vertical scrollbar with its two arrows at the end of the row. The row now scrolls only
+   sideways, and the underline sits inside it, on the border. */
+.dr-head .tabs{position:relative;overflow-y:hidden}
+.dr-head .tabs .tab{margin-bottom:0}
+/* The button sits at the end of the tab row, labelled, and pinned there when the row scrolls
+   sideways on a phone — a control you cannot reach is not a control. */
+.tab-expand{margin-left:auto;flex:none;position:sticky;right:0;align-self:center;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface);color:var(--color-text-secondary);font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}
+.tab-expand:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.tab-expand svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.tab-expand[aria-pressed="true"]{color:var(--color-primary);background:var(--color-primary-soft);border-color:transparent}
+@media(max-width:420px){.tab-expand span{display:none}.tab-expand{padding:0 8px}}
+/* A centred panel was as tall as whatever tab was open, so it jumped every time the tab changed
+   (850px on Brief, 730px on Activity). It is one size now, and the tab scrolls inside it. On
+   narrow screens it is already the whole screen. */
+@media(min-width:981px){[data-task-panel="center"] .drawer{height:min(calc(100dvh - 48px),960px)}}
+/* Auto-expand, in the task's gear menu: one line and a switch. */
+.gear-toggle{display:flex;align-items:center;gap:10px;width:100%;margin-top:6px;padding:7px 4px;border:0;background:transparent;color:var(--color-text-primary);font:inherit;font-size:12.5px;font-weight:600;text-align:left;cursor:pointer}
+.gear-toggle>span{flex:1;min-width:0}
+.gear-toggle>i{position:relative;flex:none;width:30px;height:17px;border-radius:999px;background:var(--color-border-strong,#c8ccd4);transition:background .15s}
+.gear-toggle>i::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.gear-toggle[aria-checked="true"]>i{background:var(--color-primary)}
+.gear-toggle[aria-checked="true"]>i::after{transform:translateX(13px)}
+@media(prefers-reduced-motion:reduce){.gear-toggle>i,.gear-toggle>i::after{transition:none}}
+
+/* The comment box's attach row — the same five ways in as Assets & versions. */
+#drawer .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+#drawer .composer .cmt-tools .btn{gap:5px}
+#drawer .composer .cmt-tools .drive-logo,#drawer .composer .cmt-tools svg{width:13px;height:13px}
+/* A Drive link drawn as its name: the Drive mark and a short label instead of a long URL. */
+.drive-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:1px 8px 1px 5px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary);text-decoration:none;font-size:.95em;line-height:1.5;vertical-align:baseline}
+.drive-chip:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.drive-chip .drive-logo{width:13px;height:13px;flex:none}
+.drive-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmt-drive{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+
 </style>
 </head>
 <body>
@@ -4643,7 +4762,8 @@ var I={
   arrowup:'<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>', arrowdn:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg>', user:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', filter:'<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>',
   sparkle:'<svg class="i" viewBox="0 0 220.54 220.54" style="fill:currentColor;stroke:none"><path d="M0,110.27h0c60.9,0,110.27-49.37,110.27-110.27h0c0,60.9,49.37,110.27,110.27,110.27h0c-60.9,0-110.27,49.37-110.27,110.27h0c0-60.9-49.37-110.27-110.27-110.27Z"/></svg>',
   image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
-  expand:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>'
+  expand:'<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  shrink:'<svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>'
 };
 var TICONS={ palette:'<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1a2 2 0 0 0 1.5-3.3 2 2 0 0 1 1.5-3.2H18a3 3 0 0 0 3-3c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg>', pen:'<svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M13 8l3 3"/></svg>', camera:'<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>', video:'<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>', type:'<svg viewBox="0 0 24 24"><path d="M5 5h14M12 5v15M8 20h8"/></svg>', megaphone:'<svg viewBox="0 0 24 24"><path d="M3 10v4h3l8 5V5L6 10z"/><path d="M17 9a4 4 0 0 1 0 6"/></svg>', code:'<svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>', image:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>' };
 
@@ -6282,13 +6402,13 @@ function newTaskModal(pre){ if(typeof signedIn==="function"&&!signedIn()){ if(ty
   var asReq=!!pre.request; var assignee=pre.assignee!==undefined?pre.assignee:(asReq?null:ME); var due=pre.due!==undefined?pre.due:(asReq?7:5); var start=Math.min(due,pre.start!==undefined?pre.start:0);
   var status=pre.status||(asReq?firstStage():(WS.workflow[0]||{}).id); var maxSort=0; TASKS.forEach(function(x){ if (x.status===status&&x.sort>maxSort) maxSort=x.sort; });
   var tplId=pre.tpl||(asReq?(byId(WS.briefTemplates,"general")?"general":""):""); var brief=null; if (tplId){ brief={tpl:tplId}; (byId(WS.briefTemplates,tplId)||{fields:[]}).fields.forEach(function(f){ brief[f]=""; }); if (pre.brief) Object.assign(brief,pre.brief); }
-  var tk={id:"T-new",_draft:true,title:pre.title||"",description:pre.description||"",proj:pre.proj||S.projectId||(liveProjects()[0]||{}).id,team:pre.team||(assignee?primaryTeam(assignee):"")||null,status:status,prio:pre.prio||"medium",assignee:assignee,reviewer:pre.reviewer||(assignee?defaultReviewerFor(assignee,pre.team||primaryTeam(assignee)):null),assignees:assignee?[assignee]:[],reviewers:[],dependencies:pre.dependencies||[],hidden:false,assetCount:0,labels:pre.labels||[],due:due,span:Math.max(1,due-start),effort:asReq?0:4,sort:maxSort+1000,tags:pre.tags?tagsFromLegacy(pre.tags):(asReq?["request"]:[]),brief:brief,custom:{},versions:[],files:[],comments:[],activity:[],ago:0,createdBy:ME,requestId:pre.requestId||null,_onCreated:pre.onCreated||null,_request:asReq};
-  if (!tk.reviewer&&!asReq) tk.reviewer=ME; tk.reviewers=tk.reviewer?[tk.reviewer]:[]; TASKS.push(tk); openTask("T-new"); S.drawerTab="brief"; renderDrawer(); setTimeout(function(){ var el=document.querySelector(".dr-title"); if (el){ el.focus(); } },80); }
+  var tk={id:"T-new",_draft:true,_draftKey:uid("draft"),title:pre.title||"",description:pre.description||"",proj:pre.proj||S.projectId||(liveProjects()[0]||{}).id,team:pre.team||(assignee?primaryTeam(assignee):"")||null,status:status,prio:pre.prio||"medium",assignee:assignee,reviewer:pre.reviewer||(assignee?defaultReviewerFor(assignee,pre.team||primaryTeam(assignee)):null),assignees:assignee?[assignee]:[],reviewers:[],dependencies:pre.dependencies||[],hidden:false,assetCount:0,labels:pre.labels||[],due:due,span:Math.max(1,due-start),effort:asReq?0:4,sort:maxSort+1000,tags:pre.tags?tagsFromLegacy(pre.tags):(asReq?["request"]:[]),brief:brief,custom:{},versions:[],files:[],comments:[],activity:[],ago:0,createdBy:ME,requestId:pre.requestId||null,_onCreated:pre.onCreated||null,_request:asReq};
+  if (!tk.reviewer&&!asReq) tk.reviewer=ME; tk.reviewers=tk.reviewer?[tk.reviewer]:[]; TASKS.push(tk); openTask("T-new"); S.drawerTab="brief"; renderDrawer(); setTimeout(function(){ var el=document.querySelector(".dr-title"); /* only while the new task is still the one open — by now it may have been created and another task opened */ if (el&&S.drawerTask==="T-new"){ el.focus(); } },80); }
 function newRequestModal(pre){ newTaskModal(Object.assign({request:true},pre||{})); }
 function discardDraft(){ var i=TASKS.findIndex(function(x){ return x._draft; }); if (i>=0) TASKS.splice(i,1); if (S.drawerTask==="T-new") closeDrawer(); refresh(); }
 function createDraft(){ var tk=task("T-new"); if (!tk) return; var title=(document.querySelector(".dr-title")||{}).textContent||tk.title; tk.title=String(title).trim(); if (!tk.title||tk.title==="Untitled task"){ toast("Give the task a title first","bad"); var el=document.querySelector(".dr-title"); if (el) el.focus(); return; }
   var isReq=tk._request||(!tk.assignee&&tk.status===firstStage()); if (!isReq&&!canI.createTask()) return toast("You don't have permission to create tasks","bad");
-  var i=TASKS.indexOf(tk); TASKS.splice(i,1); var onCreated=tk._onCreated; var t=clone(tk); delete t._draft; delete t._onCreated; delete t._request; t.id=nextId("T-",TASKS); t.activity=[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.assignee=t.assignees[0]||null; t.reviewer=t.reviewers[0]||null;
+  var i=TASKS.indexOf(tk); TASKS.splice(i,1); var onCreated=tk._onCreated; var t=clone(tk); delete t._draft; delete t._draftKey; delete t._onCreated; delete t._request; t.id=nextId("T-",TASKS); t.activity=[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.assignee=t.assignees[0]||null; t.reviewer=t.reviewers[0]||null;
   log(t,"created"); if (t.brief) log(t,"brief"); if (t.assignee&&t.assignee!==ME) log(t,"assigned",{to:first(t.assignee)}); closeDrawer();
   createTask(t).then(function(saved){ if(saved===false)return false; toast(isReq&&!t.assignee?"Request "+t.id+" submitted — it is in the inbox for triage":"Task "+t.id+" created"); if (t.assignee) notify("assigned",assigneesOf(t),t.id); if (isReq&&!t.assignee) notify("request",Object.keys(PEOPLE).filter(function(id){ var r=byId(ROLES,PEOPLE[id].perm); return PEOPLE[id].perm==="admin"||(r&&(r.permissions||[]).indexOf("decide_request")>=0); }),t.id); if (onCreated) onCreated(t); openTask(t.id); }).catch(function(){}); }
 function submitNewTask(){ createDraft(); }
@@ -6304,10 +6424,41 @@ function F(name,type,source,size,agoMin,url,extra){ var f={id:uid("file"),name:n
 function fileThumb(f){ if (f.preview) return '<span class="fthumb" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="Preview"></span>'; return fileIcon(f); }
 function previewFile(fid){ var tk=task(S.drawerTask); var f=byId(tk.files,fid); if (!f) return; previewModal({title:esc(f.name)+' <span class="badge" style="margin-left:6px">'+esc(tk.id)+'</span> '+statusBadge(tk.status)+(isClosed(tk)?' <span class="badge done">'+I.check+'done</span>':""),name:f.name,img:f.preview,driveId:f.driveId,url:f.url,rawTitle:true}); }
 function previewVersion(n){ var tk=task(S.drawerTask); var v=tk.versions.filter(function(x){ return x.n===n; })[0]; if (!v) return; var canPin=canI.editTask(tk)||canI.reviewTask(tk); openModal("Version "+n+" · "+esc(tk.title)+' '+statusBadge(tk.status)+(v.state==="approved"?' <span class="badge approved">approved</span>':v.state==="revision"?' <span class="badge revision">revision</span>':' <span class="badge review">pending</span>'),'<div class="preview" style="margin:0"><div class="canvas full" style="background:'+v.color+(v.img?";background-image:url("+v.img+")":"")+'" '+(canPin?'onclick="addAnnot(event,this)" title="Click to add an annotation"':'')+'>'+(v.img?"":'<div class="lbl">'+tk.id+' · V'+v.n+'<b>'+esc(tk.title)+'</b></div>')+v.annots.map(function(a,i){ return '<span class="pin'+(a.done?" done":"")+'" style="left:'+a.x+'%;top:'+a.y+'%" onclick="event.stopPropagation();toggleAnnot('+i+');previewVersion('+n+')" title="'+attr(a.text)+'">'+(i+1)+'</span>'; }).join("")+'</div><div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago)+(v.note?" · "+esc(v.note):"")+'</span><span class="spacer"></span>'+(v.annots.length?'<span class="hint">'+v.annots.length+' annotation'+(v.annots.length>1?"s":"")+' · click a pin to resolve':'<span class="hint">Click the image to drop an annotation pin</span>')+'</div></div>'+(v.annots.length?'<ul class="annots" style="margin:12px 0 0">'+v.annots.map(function(a,i){ return '<li><span class="pinnum'+(a.done?" done":"")+'">'+(i+1)+'</span><span style="flex:1;'+(a.done?"text-decoration:line-through;color:var(--color-text-tertiary)":"")+'">'+esc(a.text)+'</span><span class="who">'+esc(first(a.by))+'</span></li>'; }).join("")+'</ul>':""),(v.driveUrl?'<button class="btn" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+origLabel(v.driveUrl)+'</button>':"")+((v.img||v.driveId)?'<button class="btn" onclick="saveFile('+attr(JSON.stringify({name:tk.id+" V"+v.n+" "+tk.title,img:v.img||"",driveId:v.driveId||null,url:v.driveUrl||""}))+')">'+I.download+tr("Download")+'</button>':"")+(v.img?'<button class="btn ghost" onclick="copyImageToClipboard(\''+attr(v.img)+'\')">'+I.copy+tr("Copy image")+'</button>':"")+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">Close</button>',true); }
-function openTask(id){ if(typeof signedIn==="function"&&!signedIn()) return; var tk=task(id); if (!tk) return; var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=null; closePops(); markRead(id);
+function openTask(id){ if(typeof signedIn==="function"&&!signedIn()) return; var tk=task(id); if (!tk) return; if(S.drawerTask!==id) S.drawerExpanded=!tk._draft&&drawerAutoExpand(); var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=null; closePops(); markRead(id);
   document.getElementById("overlay").classList.add("open"); var d=document.getElementById("drawer"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderDrawer(); }
 function closeDrawer(){ var cur=S.drawerTask?task(S.drawerTask):null; document.getElementById("overlay").classList.remove("open"); var d=document.getElementById("drawer"); d.classList.remove("open"); d.setAttribute("aria-hidden","true"); S.drawerTask=null; if (cur&&cur._draft){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); refresh(); } }
 function setTab(tb){ S.drawerTab=tb; renderDrawer(); }
+/* Which task a field on screen was drawn for. The title saves on blur, and a blur can arrive after
+   the panel has moved on: the panel is redrawn for the next task while the old title still has
+   focus, and Chrome blurs it on the way out. Saving into "whichever task is open now" then wrote
+   the old title into the new task — creating two tasks in a row gave the second the first one's
+   name. Every draft is "T-new", so a draft is told apart by a key of its own. */
+function drawerKey(tk){ tk=tk||(S.drawerTask?task(S.drawerTask):null); return tk?(tk._draft?(tk._draftKey||"T-new"):tk.id):""; }
+/* ---- expanded: what is in the tabs gets the panel ----
+   The header — title, priority, team, people, dates, project, labels, tags — took about 390px of an
+   850px panel, leaving the brief, the assets and the comments a 350px strip with its own scrollbar.
+   Expanded, the header folds down to its top line (the task number, project, status and the
+   actions), the tabs sit straight under it, and the tab's contents fill the rest. Collapse brings
+   every field back.
+   It belongs to the task on screen: another task opens collapsed, unless Auto-expand is switched on
+   in the task's gear menu, in which case every task opens expanded. A task being created never
+   does — its title and fields are what is being filled in. */
+var DRAWER_AUTOEXPAND_KEY="zc.drawerAutoExpand";
+function drawerAutoExpand(){ if(S.drawerAutoExpand===undefined){ try{ S.drawerAutoExpand=localStorage.getItem(DRAWER_AUTOEXPAND_KEY)==="1"; }catch(e){ S.drawerAutoExpand=false; } } return !!S.drawerAutoExpand; }
+function drawerExpanded(){ var tk=S.drawerTask?task(S.drawerTask):null; return !!S.drawerExpanded&&!!tk&&!tk._draft; }
+function applyDrawerExpand(){ var d=document.getElementById("drawer"); if(d) d.classList.toggle("expanded",drawerExpanded()); }
+function toggleDrawerExpand(){ S.drawerExpanded=!drawerExpanded(); applyDrawerExpand(); renderDrawer(); }
+function toggleDrawerAutoExpand(){
+  S.drawerAutoExpand=!drawerAutoExpand();
+  try{ localStorage.setItem(DRAWER_AUTOEXPAND_KEY,S.drawerAutoExpand?"1":"0"); }catch(e){}
+  /* show what it does on the task already open, rather than only on the next one */
+  S.drawerExpanded=S.drawerAutoExpand;
+  closePops(); applyDrawerExpand(); renderDrawer();
+}
+/* The two button labels are chosen here, not looked up with tr(): "Expand" is already translated
+   three different ways across the app, and the last file to load wins with "Buka" ("Open"), which
+   is not what this button does. */
+function drawerExpandLabel(on){ return UI_LANG==="id"?(on?"Perkecil":"Perbesar"):(on?"Collapse":"Expand"); }
 function curVer(tk){ for (var i=0;i<tk.versions.length;i++) if (tk.versions[i].n===S.drawerVer) return tk.versions[i]; return tk.versions[tk.versions.length-1]||null; }
 function pplChips(tk,kind,ed){ var ids=kind==="assignees"?assigneesOf(tk):reviewersOf(tk); return '<div class="pplchips">'+ids.map(function(id,i){ return '<span class="mchip" title="'+attr(person(id).name+(i===0?" · primary":""))+'">'+av(id)+esc(first(id))+(i===0?'<span class="pr"></span>':'')+(ed?'<button onclick="removePerson(\''+kind+'\',\''+id+'\')" title="Remove" aria-label="'+attr(tr("Remove")+" "+first(id))+'">×</button>':'')+'</span>'; }).join("")+(ed?'<button class="btn xs" data-menu aria-label="'+attr(tr(kind==="assignees"?"Add assignee":"Add reviewer"))+'" onclick="addPersonMenu(this,\''+kind+'\')">'+I.plus+'</button>':'')+'</div>'; }
 function addPersonMenu(anchor,kind){ var tk=task(S.drawerTask); if(!tk)return; var cur=kind==="assignees"?assigneesOf(tk):reviewersOf(tk); entityPicker({kind:"person",anchor:anchor,title:"Add "+(kind==="assignees"?"assignee":"reviewer"),placeholder:tr("Search people..."),context:{includeMe:true},selected:cur,onSelect:function(id){ if(cur.indexOf(id)<0)addPerson(kind,id); }}); }
@@ -6316,7 +6467,12 @@ function removePerson(kind,id){ var tk=task(S.drawerTask); var arr=(kind==="assi
 function makePrimary(kind,id){ var tk=task(S.drawerTask); editTaskWith(tk,function(t){ var arr=(kind==="assignees"?assigneesOf(t):reviewersOf(t)).filter(function(x){ return x!==id; }); arr.unshift(id); t[kind]=arr; if (kind==="assignees") t.assignee=id; else t.reviewer=id; }); }
 function toggleHidden(id){ var tk=task(id); var to=!tk.hidden; var snap=clone(tk); tk.hidden=to; log(tk,to?"hidden":"unhidden"); refresh(); toast(to?"Task hidden — turn on “Hidden tasks: Show” in Filters to see it":"Task visible again"); if (API.on) apiFetch("POST","/api/tasks/"+id+"/hidden",{hidden:to}).then(function(doc){ replaceInto(tk,hTask(doc)); refresh(); }).catch(function(e){ replaceInto(tk,snap); refresh(); fail(e); }); }
 function metaCell(k,v,id){ return '<div'+(id?' data-meta="'+attr(id)+'"':'')+'><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
-function editTask(k,v){ var tk=task(S.drawerTask); if (!tk) return; if (tk._draft){ return editDraft(tk,k,v); } if (!canI.editTask(tk)) return toast("You don't have permission to edit this task","bad"); var old=tk[k];
+function editTask(k,v){ var tk=task(S.drawerTask); if (!tk) return;
+  /* The title saves on blur, so merely clicking from it into another field — the comment box, say —
+     used to save an unchanged title, and the save redrew the panel and replaced the field just
+     clicked into: what was typed next went nowhere. An unchanged title is not an edit. */
+  if (k==="title"&&String(v==null?"":v).trim()===String(tk.title||"").trim()) return;
+  if (tk._draft){ return editDraft(tk,k,v); } if (!canI.editTask(tk)) return toast("You don't have permission to edit this task","bad"); var old=tk[k];
   if (k==="status"){ if (v!==old) setStatus(tk.id,v); return; } if (k==="prio"){ if (v!==old) setPrio(tk.id,v); return; } if (k==="team"){ if ((v||null)!==(old||null)) moveTask(tk,{type:"MOVE_TASK_TEAM",teamId:v||null},function(t){ t.team=v||null; }); return; } if (k==="proj"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_PROJECT",projectId:v},function(t){ t.proj=v; }); return; }
   if (k==="assignee"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_ASSIGNEE",assigneeId:v},function(t){ t.assignee=v; }).then(function(saved){ if(saved===false)return false; notify("assigned",v,tk.id); }); return; }
   if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):tk.due; var start=k==="start"?offsetFromIso(v):tk.due-tk.span; if (start>due) start=due; if (due===tk.due&&start===tk.due-tk.span) return; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(start),dueDate:iso(due)},function(t){ t.due=due; t.span=Math.max(1,due-start); }); return; }
@@ -6402,7 +6558,7 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
     /* §18.6 / §20.4 one control now: the panel position and the task actions
        share a single menu, so the header is not two near-identical buttons. */
     +'<button class="iconbtn" data-menu data-tour="task-settings" aria-haspopup="menu" aria-expanded="false" aria-label="'+attr(tr("Task settings"))+'" title="'+attr(tr("Task settings"))+'" onclick="taskGearMenu(this)">'+I.settings.replace('class="i"','')+'</button>'
-    +'<button class="iconbtn task-close" onclick="closeDrawer()" title="Close">'+I.x+'</button></div><div class="dr-title" data-placeholder="'+attr(tr(draft?"Task title":"Untitled task"))+'" '+(ed?'contenteditable="true"':'')+' spellcheck="false" onblur="editTask(\'title\',this.textContent)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}">'+esc(tk.title)+'</div>';
+    +'<button class="iconbtn task-close" onclick="closeDrawer()" title="Close">'+I.x+'</button></div><div class="dr-title" data-placeholder="'+attr(tr(draft?"Task title":"Untitled task"))+'" '+(ed?'contenteditable="true"':'')+' spellcheck="false" data-for="'+attr(drawerKey(tk))+'" onblur="if(this.getAttribute(\'data-for\')===drawerKey())editTask(\'title\',this.textContent)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur()}">'+esc(tk.title)+'</div>';
   var popts=peopleOpts();
   var cell={
     status:function(){ return taskSelectRead("status",localStages().map(function(x){ return [x.id,x.name]; }),tk.status,ed); },
@@ -6429,8 +6585,11 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
   if (!draft) head+=dependencyDrawerBanner(tk);
   if (!draft&&(tk.hidden||autoHidden(tk))) head+='<div class="hint" style="margin:-6px 0 12px;padding:8px 12px;border-radius:var(--radius);background:var(--color-surface-sunken);display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+I.eye+'<span>'+(tk.hidden?'Hidden manually \u2014 it stays off the board until someone unhides it.':'Auto-hidden: completed work is dropped from the board '+esc(autoHideLabel())+'. Nothing was deleted.')+'</span><span class="spacer"></span>'+(tk.hidden?'<button class="btn xs" onclick="toggleHidden(\''+tk.id+'\')">Unhide</button>':'<button class="btn xs" onclick="closeDrawer();go(\'settings\',\'automation\')">Change the rule</button>')+'<button class="btn xs ghost" onclick="S.filters.hidden=\'show\';S.taskScope=\'all\';closeDrawer();go(\'tasks\',\'list\')">Show hidden tasks</button></div>';
   var tabs=[["brief","Brief",tk.brief?"✓":""],["files","Assets & versions",tk.versions.length+tk.files.length],["comments","Comments",tk.comments.length],["activity","Activity",tk.activity.length]];
-  head+='<div class="tabs">'+tabs.map(function(x){ var tour=x[0]==="brief"?"task-brief":x[0]==="files"?"task-versions":x[0]==="comments"?"task-comments":"task-activity"; return '<button data-tour="'+tour+'" class="tab'+(S.drawerTab===x[0]?" on":"")+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+(x[2]?'<span class="cnt">'+x[2]+'</span>':'')+'</button>'; }).join("")+'</div>';
+  head+='<div class="tabs">'+tabs.map(function(x){ var tour=x[0]==="brief"?"task-brief":x[0]==="files"?"task-versions":x[0]==="comments"?"task-comments":"task-activity"; return '<button data-tour="'+tour+'" class="tab'+(S.drawerTab===x[0]?" on":"")+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+(x[2]?'<span class="cnt">'+x[2]+'</span>':'')+'</button>'; }).join("")
+    + (draft?'':'<button type="button" class="tab-expand" aria-pressed="'+(drawerExpanded()?"true":"false")+'" title="'+attr(tr(drawerExpanded()?"Show the task details again":"Hide the task details so the tab has room"))+'" onclick="toggleDrawerExpand()">'+(drawerExpanded()?I.shrink:I.expand)+'<span>'+drawerExpandLabel(drawerExpanded())+'</span></button>')
+    + '</div>';
   document.getElementById("drHead").innerHTML=head; document.getElementById("drHead").classList.toggle("m-details",draft||!!S.mDetails);
+  applyDrawerExpand();
   if (S.drawerTab==="versions") S.drawerTab="files";
   var body=S.drawerTab==="brief"?descView(tk)+dependencySection(tk,ed)+briefView(tk):S.drawerTab==="files"?assetsTab(tk):S.drawerTab==="comments"?commentsView(tk):activityView(tk);
   document.getElementById("drBody").innerHTML=body;
@@ -6498,6 +6657,7 @@ function taskGearMenuHtml(){
     /* §18.11 the control stays visible on narrow screens but says why it does
        nothing here, rather than forcing a drawer layout onto a phone. */
     + (narrow?'<p class="hint gear-note">'+tr("Used on wider screens.")+'</p>':'')
+    + '<button type="button" class="gear-toggle" role="menuitemcheckbox" aria-checked="'+(drawerAutoExpand()?"true":"false")+'" onclick="toggleDrawerAutoExpand()"><span>'+tr("Auto-expand")+'</span><i aria-hidden="true"></i></button>'
     /* §18.7 make it unmistakable that this is a personal preference */
     + '<p class="hint gear-note">'+tr("Personal preference")+'</p>'
     + (actions?'<div class="gear-divider"></div>':'')+'</div>'
@@ -6663,7 +6823,7 @@ function filesView(tk,nested){ var ed=tk._draft||canI.editTask(tk); var drive=ty
      :(storageMode()==="server"&&API.on?'<div class="hint" style="margin:-6px 0 10px">'+tr("Files are kept on this server.")+'</div>':''));
   var pending=taskUploadPendingHtml(tk); if (!tk.files.length) return h+pending+emptyBox(tk._draft?"No reference images yet":"No files attached",tk._draft?"Add screenshots, moodboards or examples so the team knows what you mean.":"Upload a working file, link one from Google Drive, or attach any HTTPS link.",drive);
   var imgs=tk.files.filter(function(f){ return f.preview; }); h+=imgs.length?'<div class="fgallery">'+imgs.map(function(f){ return '<div class="fg" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="'+attr(f.name)+'"><span>'+esc(f.name)+'</span></div>'; }).join("")+'</div>':'';
-  return h+pending+tk.files.map(function(f,i){ return '<div class="file">'+fileThumb(f)+'<div style="min-width:0"><div class="t">'+esc(f.name)+'</div><div class="m">'+srcBadge(srcOf(f))+'<span>'+esc(f.size)+'</span><span>·</span><span>'+ago(f.ago)+'</span>'+(f.url?'<span>·</span><span class="mono" style="overflow:hidden;text-overflow:ellipsis">'+esc(f.url)+'</span>':'')+'</div></div><div style="display:flex;gap:4px">'+((f.preview||f.driveId)?'<button class="btn xs" onclick="previewFile(\''+f.id+'\')">'+I.eye+'Preview</button>':'')+((f.preview||f.driveId||(f.url&&/^https?:/i.test(f.url)))?'<button class="btn xs" title="'+attr(tr("Save to device"))+'" onclick="saveFile('+attr(JSON.stringify({name:f.name,img:f.preview||"",url:f.url||"",driveId:f.driveId||null}))+')">'+I.download+tr("Save")+'</button>':'')+(f.url?'<button class="btn xs" onclick="openExternal(\''+attr(f.url)+'\')">'+I.ext+(f.driveId?'Drive':'Open')+'</button>':'')+(ed?'<button class="iconbtn flat" style="width:26px;height:26px" aria-label="'+attr(tr("Remove file"))+'" onclick="removeFile('+i+')">'+I.trash+'</button>':'')+'</div></div>'; }).join(""); }
+  return h+pending+tk.files.map(function(f,i){ return '<div class="file">'+fileThumb(f)+'<div style="min-width:0"><div class="t">'+esc(f.name)+'</div><div class="m">'+srcBadge(srcOf(f))+'<span>'+esc(f.size)+'</span><span>·</span><span>'+ago(f.ago)+'</span>'+(f.url?'<span>·</span><span class="mono" style="overflow:hidden;text-overflow:ellipsis" title="'+attr(f.url)+'">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(f.url):f.url)+'</span>':'')+'</div></div><div style="display:flex;gap:4px">'+((f.preview||f.driveId)?'<button class="btn xs" onclick="previewFile(\''+f.id+'\')">'+I.eye+'Preview</button>':'')+((f.preview||f.driveId||(f.url&&/^https?:/i.test(f.url)))?'<button class="btn xs" title="'+attr(tr("Save to device"))+'" onclick="saveFile('+attr(JSON.stringify({name:f.name,img:f.preview||"",url:f.url||"",driveId:f.driveId||null}))+')">'+I.download+tr("Save")+'</button>':'')+(f.url?'<button class="btn xs" onclick="openExternal(\''+attr(f.url)+'\')">'+I.ext+(f.driveId?'Drive':'Open')+'</button>':'')+(ed?'<button class="iconbtn flat" style="width:26px;height:26px" aria-label="'+attr(tr("Remove file"))+'" onclick="removeFile('+i+')">'+I.trash+'</button>':'')+'</div></div>'; }).join(""); }
 /* v19.7 one gate for every external link — task versions/files, project final assets, asset library, Drive cards, chat links: confirm popup first, then a new tab */
 function origLabel(url,short){ return /^[/]files[/]/.test(String(url||""))?tr(short?"Original":"Open original"):(short?"Drive":"Open in Google Drive"); }
 function openExternalNow(url){ if (/^[/]files[/]/.test(String(url||""))) return window.open(url,"_blank","noopener"); if (/^https?:/.test(url)) window.open(url,"_blank","noopener"); else toast("Opens in the connected storage: "+url); }
@@ -6691,14 +6851,17 @@ function commentsView(tk){ var vis=person(ME).stakeholder?"client":S.commentVis;
   h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+'</div>';
   var rt=S.replyTo?byId(tk.comments,S.replyTo):null; window._cmtAtt=window._cmtAtt||[];
   var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),postHint=audience+" · "+shortcutCombo("Enter");
-  return h+'<div class="composer">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="S.replyTo=null;renderDrawer()">'+I.x+'</button></div>':'')+'<textarea id="cmtText" placeholder="Write a comment… use @name to mention" oninput="window._cmtDraft=this.value" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key===\'Enter\')postComment()">'+esc(window._cmtDraft||"")+'</textarea>'+(window._cmtAtt.length?'<div>'+window._cmtAtt.map(function(a,i){ return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':I.link)+esc(a.name)+' <button onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }).join("")+'</div>':'')+'<div class="bar">'+av(ME)+'<span class="hint">'+esc(postHint)+' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image")+'</span><button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button><span class="spacer"></span><button class="btn primary sm" onclick="postComment()">Post</button></div></div>'; }
+  return h+'<div class="composer">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="S.replyTo=null;renderDrawer()">'+I.x+'</button></div>':'')+'<textarea id="cmtText" placeholder="Write a comment… use @name to mention" oninput="window._cmtDraft=this.value" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key===\'Enter\')postComment()">'+esc(window._cmtDraft||"")+'</textarea>'+(window._cmtAtt.length?'<div>'+window._cmtAtt.map(function(a,i){ return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+av(ME)+'<span class="hint">'+esc(postHint)+' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image")+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span><button class="btn primary sm" onclick="postComment()">Post</button></div></div>'; }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var draft=window._cmtDraft; var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ window._cmtAtt.push(a); window._cmtDraft=draft; renderDrawer(); };
     if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
     else uploadAny(f,{forceDrive:true}).then(function(u){ done({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type}); }).catch(function(e){ toast(f.name+": "+e.message,"bad"); }); }); }; inp.click(); }
 function postComment(){ var el=document.getElementById("cmtText"); var txt=el.value.trim(); window._cmtDraft=""; if (!txt&&!(window._cmtAtt||[]).length){ el.focus(); return; } var tk=task(S.drawerTask); var vis=person(ME).stakeholder?"client":S.commentVis; var att=window._cmtAtt||[]; window._cmtAtt=[]; var parent=S.replyTo; S.replyTo=null;
-  var snap=clone(tk); var c=C(ME,0,vis,txt,parent); c.attachments=att; tk.comments.push(c); log(tk,"comment"); att.forEach(function(a){ if(a.preview||a.url) tk.files.push(F(a.name,a.type||(a.preview?"image":"other"),a.driveId?"gdrive":"local",a.size,0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null})); }); refresh();
-  (API.on?apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ replaceInto(tk,hTask(d)); refresh(); }):Promise.resolve()).then(function(saved){ if(saved===false)return false; toast("Comment posted"); var mentions=[]; (txt.match(/@(\w+)/g)||[]).forEach(function(m){ var id=m.slice(1).toLowerCase(); if (PEOPLE[id]) mentions.push(id); }); if (mentions.length) notify("mention",mentions,tk.id); var others=assigneesOf(tk).concat(reviewersOf(tk)).concat([parent?(byId(tk.comments,parent)||{}).by:null]).filter(function(x){ return x&&mentions.indexOf(x)<0; }); notify("comment",others,tk.id); }).catch(function(e){ replaceInto(tk,snap); refresh(); fail(e,"Couldn't post comment. "+e.message); }); }
+  var snap=clone(tk); var c=C(ME,0,vis,txt,parent); c.attachments=att; tk.comments.push(c); log(tk,"comment");
+  /* What is attached here is filed under Assets & versions too — but only what is an asset (see
+     src/comment-attach.js): a link to a reference page stays on the comment. */
+  var filed=typeof cmtAssetsFrom==="function"?cmtFileAssets(tk,cmtAssetsFrom(att,txt)):(att.forEach(function(a){ if(a.preview||a.url) tk.files.push(F(a.name,a.type||(a.preview?"image":"other"),a.driveId?"gdrive":"local",a.size,0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null})); }),[]); refresh();
+  (API.on?apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ replaceInto(tk,hTask(d)); refresh(); }):Promise.resolve()).then(function(saved){ if(saved===false)return false; toast("Comment posted"); if(filed.length&&typeof cmtNameFiledLinks==="function") cmtNameFiledLinks(tk,filed); var mentions=[]; (txt.match(/@(\w+)/g)||[]).forEach(function(m){ var id=m.slice(1).toLowerCase(); if (PEOPLE[id]) mentions.push(id); }); if (mentions.length) notify("mention",mentions,tk.id); var others=assigneesOf(tk).concat(reviewersOf(tk)).concat([parent?(byId(tk.comments,parent)||{}).by:null]).filter(function(x){ return x&&mentions.indexOf(x)<0; }); notify("comment",others,tk.id); }).catch(function(e){ replaceInto(tk,snap); refresh(); fail(e,"Couldn't post comment. "+e.message); }); }
 function deleteComment(id){ var tk=task(S.drawerTask); editTaskWith(tk,function(t){ t.comments=t.comments.filter(function(c){ return c.id!==id&&c.parent!==id; }); }); }
 function activityView(tk){ return '<div class="tl">'+tk.activity.slice().sort(function(a,b){ return a.ago-b.ago; }).map(function(a){ var args={who:first(a.who),from:a.a.from?stageName(a.a.from):"",to:a.a.to?(a.k==="team"?teamName(a.a.to):a.k==="assigned"?(PEOPLE[a.a.to]?first(a.a.to):a.a.to):stageName(a.a.to)):"",v:a.a.v,name:a.a.name,what:a.a.what}; return '<div class="it'+(a.k==="approved"||a.k==="revision"?" hi":"")+'"><i></i><div>'+fmt(ATEXT[a.k]||("<b>{who}</b> "+esc(a.k)),args)+'</div><div class="when">'+ago(a.ago)+'</div></div>'; }).join("")+'</div>'; }
 Object.assign(UI_ID,{"More details":"Detail lainnya","No dependencies yet.":"Belum ada dependensi.","This task is ready to start.":"Task ini siap dimulai.","Add dependency":"Tambah dependensi","Add context not covered by the brief…":"Tambahkan konteks yang belum tercakup di brief…","Use this for additional context, constraints, or notes.":"Gunakan untuk konteks tambahan, batasan, atau catatan.","Edit date":"Ubah tanggal","Workflow stage":"Tahap workflow","deliverables":"deliverable","Attach link":"Lampirkan tautan","Attach any trusted HTTPS link. It stays connected to this task and appears with the other files and references.":"Lampirkan tautan HTTPS tepercaya. Tautan tetap terhubung ke task ini dan tampil bersama file serta referensi lainnya.","Display name":"Nama tampilan","e.g. Campaign reference":"mis. Referensi campaign","Use a valid HTTPS link":"Gunakan tautan HTTPS yang valid","External link":"Tautan eksternal","Link attached":"Tautan dilampirkan","Upload a working file, link one from Google Drive, or attach any HTTPS link.":"Unggah file kerja, tautkan dari Google Drive, atau lampirkan tautan HTTPS lain."});
@@ -9197,7 +9360,12 @@ function smartCacheGet(id){ try{ var c=JSON.parse(localStorage.getItem(smartCach
 function smartCachePut(id,meta){ try{ var all=JSON.parse(localStorage.getItem(smartCacheKey())||"{}"); all[id]=Object.assign({fetchedAt:Date.now(),expiresAt:Date.now()+12*3600e3},meta); var ks=Object.keys(all); if(ks.length>300) ks.slice(0,ks.length-300).forEach(function(k){ delete all[k]; }); localStorage.setItem(smartCacheKey(),JSON.stringify(all)); }catch(e){} }
 /* §39 resolveSmartLink: parse now, placeholder now, metadata later (§57.4). */
 function resolveSmartLink(url){ var p=detectProvider(url); if(!p) return Promise.resolve(null); var ref={type:/^GOOGLE_/.test(p.provider)?"DRIVE_LINK":"URL",url:p.url,normalizedUrl:p.url,provider:p.provider,resourceType:p.resourceType,resourceId:p.resourceId,title:"",subtitle:smartSubtitle(p),state:"pending"}; var cached=p.resourceId?smartCacheGet(p.provider+":"+p.resourceId):null; if(cached){ Object.assign(ref,cached,{state:"ok"}); return Promise.resolve(ref); }
-  if(/^GOOGLE_/.test(p.provider)){ var connected=typeof gdReady==="function"&&gdReady()&&GD&&GD.token; if(!connected){ ref.state=typeof gdReady==="function"&&gdReady()?"auth":"unavailable"; return Promise.resolve(ref); } return gdToken().then(function(tok){ return fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(p.resourceId)+"?fields=name,mimeType",{headers:{Authorization:"Bearer "+tok}}).then(function(r){ if(!r.ok) throw new Error("perm"); return r.json(); }); }).then(function(j){ ref.title=j.name; ref.state="ok"; smartCachePut(p.provider+":"+p.resourceId,{title:j.name,mimeType:j.mimeType}); return ref; }).catch(function(){ ref.state="unavailable"; return ref; }); }
+  /* Without a Google token of their own — which members of a workspace on the shared Drive account
+     never have — the server reads the name from the page Google serves for a link shared with
+     "anyone with the link". A private link gets no name and keeps the state it had. */
+  var fromServer=function(fallback){ if(typeof API==="undefined"||!API.on) { ref.state=fallback; return Promise.resolve(ref); }
+    return apiFetch("GET","/api/links/title?url="+encodeURIComponent(p.url)).then(function(r){ if(r&&r.title){ ref.title=r.title; ref.state="ok"; smartCachePut(p.provider+":"+p.resourceId,{title:r.title}); } else ref.state=fallback; return ref; }).catch(function(){ ref.state=fallback; return ref; }); };
+  if(/^GOOGLE_/.test(p.provider)){ var connected=typeof gdReady==="function"&&gdReady()&&GD&&GD.token; if(!connected){ return fromServer(typeof gdReady==="function"&&gdReady()?"auth":"unavailable"); } return gdToken().then(function(tok){ return fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(p.resourceId)+"?fields=name,mimeType",{headers:{Authorization:"Bearer "+tok}}).then(function(r){ if(!r.ok) throw new Error("perm"); return r.json(); }); }).then(function(j){ ref.title=j.name; ref.state="ok"; smartCachePut(p.provider+":"+p.resourceId,{title:j.name,mimeType:j.mimeType}); return ref; }).catch(function(){ return fromServer("unavailable"); }); }
   if(p.provider==="GENERIC"){ ref.title=p.resourceId; ref.state="ok"; } else ref.state="unavailable"; return Promise.resolve(ref); }
 function smartCardHtml(ref,compact){ var p=ref.provider||"GENERIC", title=ref.title||(ref.state==="pending"?tr("Fetching link…"):smartSubtitle(ref)), sub=ref.subtitle||ref.hostname||smartSubtitle(ref), drive=/^GOOGLE_/.test(p); return '<div class="msg-card msg-link'+(compact?" compact":"")+'">'+(ref.faviconUrl?'<img class="msg-link-favicon" src="'+attr(ref.faviconUrl)+'" alt="" loading="lazy">':'<span class="msg-card-ico'+(drive?" drive":"")+'">'+(drive&&typeof driveIcon==="function"?driveIcon():SMART_ICON[p]||"🔗")+'</span>')+'<div class="msg-card-body"><b data-no-translate>'+esc(title)+'</b><span>'+esc(tr(sub))+(ref.description?' · '+esc(ref.description.slice(0,120)):'')+(ref.updated?' · '+tr("Updated")+' '+esc(ref.updated):'')+(ref.state==="unavailable"&&!ref.title?' · '+tr("Preview unavailable"):'')+'</span></div>'+(ref.state==="auth"?'<button class="btn xs" onclick="event.stopPropagation();gdToken().then(function(){renderMessages()}).catch(function(e){toast(e.message,\'bad\')})">'+tr("Connect Google Drive")+'</button>':'')+'<a class="btn xs'+(drive?" primary":"")+'" href="'+attr(ref.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation();event.preventDefault();msgOpenLink(this.href)">'+tr(drive?"Open in Drive":"Open")+'</a></div>'; }
 /* v19.6 links in chat open through the same confirm popup as the project asset links (no silent new tab) */
@@ -9319,8 +9487,13 @@ function msgMemberRow(id,c){ var p=person(id), lead=c.teamId&&team(c.teamId)&&te
 /* ---------- §43 composer ---------- */
 function msgDraft(id){ return CHAT_RUNTIME.drafts[id]=CHAT_RUNTIME.drafts[id]||{text:"",refs:[],mentions:[],replyTo:null,suppressedUrls:[]}; }
 function msgStagedRefHtml(r,i){ var icon=r.type==="TASK"?I.tasks:r.type==="FILE"&&r.preview?'<img src="'+attr(r.preview)+'" alt="">':r.type==="FILE"?I.assets:r.type==="DRIVE_LINK"?(typeof driveIcon==="function"?driveIcon():"📁"):r.type==="PROJECT"?I.projects:r.type==="ASSET"?I.assets:I.link; var label=r.type==="TASK"?r.entityId+" · "+((task(r.entityId)||{}).title||r.fallbackTitle):r.title||r.name||r.fallbackTitle||r.url||""; var state=r.uploadState==="pending"?tr("Uploading…"):r.uploadState==="failed"?tr("Failed"):r.type==="FILE"?tr("Ready"):r.state==="pending"?tr("Fetching…"):""; return '<span class="msg-staged-chip'+(r.mediaKind?" media":"")+(r.uploadState==="failed"?" failed":"")+'">'+icon+'<span data-no-translate>'+esc(label)+'</span>'+(state?'<small>'+esc(state)+'</small>':'')+(r.uploadState==="failed"?'<button class="msg-retry" onclick="msgRetryUpload('+i+')">'+tr("Retry")+'</button>':'')+'<button aria-label="'+attr(tr("Remove"))+'" onclick="msgRemoveRef('+i+')">'+I.x+'</button></span>'; }
+/* The full hint wrapped onto three lines on a phone and pushed the reading area up; the short one
+   says the same thing in the space there is, and the long one is kept where it fits. */
+function msgComposerPlaceholder(){
+  return (window.innerWidth||0)<=760 ? tr("Write a message…") : tr("Write a message… @mention, paste a link or an image");
+}
 function msgComposerHtml(c){ if(convArchived(c)) return '<div class="msg-composer msg-archived-bar"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg><span>'+tr(c.archivedAt?"This conversation is archived. You can read it, but nobody can send new messages.":"This team is archived, so its channels are read-only.")+'</span>'+(c.archivedAt&&convCanArchive(c)?'<button class="btn sm primary" onclick="convArchive(\''+c.id+'\',false)">'+tr("Unarchive")+'</button>':'')+'</div>'; var d=msgDraft(c.id), reply=d.replyTo?byId(convMsgs(c.id),d.replyTo):null; return '<div class="msg-composer" data-tour="messages-composer">'+(reply?'<div class="msg-staged reply"><svg viewBox="0 0 24 24"><path d="M9 14l-5-5 5-5M4 9h9a6 6 0 0 1 6 6v4"/></svg><span>'+tr("Replying to")+' <b data-no-translate>'+esc(first(reply.senderId))+'</b>: '+esc((reply.body||"").slice(0,70))+'</span><button class="iconbtn flat" onclick="msgSetReply(null)">'+I.x+'</button></div>':'')+(d.refs.length?'<div class="msg-staged-list"><span class="tiny">'+tr("Attached to this message")+'</span>'+d.refs.map(msgStagedRefHtml).join("")+'</div>':'')
-    +msgScheduledStripHtml(c)+'<div class="msg-input"><button class="iconbtn flat" title="'+attr(tr("Add to message"))+'" onclick="msgAddMenu(this)"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button><span class="msg-ta-wrap"><div class="msg-ta-mirror" id="msgMirror" aria-hidden="true"></div><textarea id="msgInput" rows="1" maxlength="4000" aria-label="'+attr(tr("Message"))+'" placeholder="'+attr(tr("Write a message… @mention, paste a link or an image"))+'">'+esc(d.text)+'</textarea></span><button class="iconbtn flat" title="'+attr(tr("Emoji"))+'" onclick="msgEmojiInsert(this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="iconbtn flat" data-tour="messages-mention" title="'+attr(tr("Mention"))+'" onclick="msgMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button><span class="msg-send-wrap"><button class="msg-send" id="msgSend" title="'+attr(tr("Send"))+'" onclick="sendMessage()"><svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg></button><button class="msg-sched-btn" data-menu aria-haspopup="menu" title="'+attr(tr("Schedule message"))+'" aria-label="'+attr(tr("Schedule message"))+'" onclick="msgScheduleMenu(this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button></span></div>'
+    +msgScheduledStripHtml(c)+'<div class="msg-input"><button class="iconbtn flat" title="'+attr(tr("Add to message"))+'" onclick="msgAddMenu(this)"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button><span class="msg-ta-wrap"><div class="msg-ta-mirror" id="msgMirror" aria-hidden="true"></div><textarea id="msgInput" rows="1" maxlength="4000" aria-label="'+attr(tr("Message"))+'" placeholder="'+attr(msgComposerPlaceholder())+'">'+esc(d.text)+'</textarea></span><button class="iconbtn flat" title="'+attr(tr("Emoji"))+'" onclick="msgEmojiInsert(this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></button><button class="iconbtn flat" data-tour="messages-mention" title="'+attr(tr("Mention"))+'" onclick="msgMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button><span class="msg-send-wrap"><button class="msg-send" id="msgSend" title="'+attr(tr("Send"))+'" onclick="sendMessage()"><svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg></button><button class="msg-sched-btn" data-menu aria-haspopup="menu" title="'+attr(tr("Schedule message"))+'" aria-label="'+attr(tr("Schedule message"))+'" onclick="msgScheduleMenu(this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button></span></div>'
     +'<div class="msg-quick"><button class="btn sm" title="'+attr(tr("Task"))+'" aria-label="'+attr(tr("Task"))+'" data-tour="messages-task-picker" onclick="msgAttachTask(this)">'+I.tasks+'<span class="msg-quick-label">'+tr("Task")+'</span></button><button class="btn sm" title="'+attr(tr("Attachments"))+'" aria-label="'+attr(tr("Attachments"))+'" onclick="msgAttachFile()"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg><span class="msg-quick-label">'+tr("Attachments")+'</span></button><button class="btn sm" title="Google Drive" aria-label="Google Drive" onclick="msgAttachDrive()">'+(typeof driveIcon==="function"?driveIcon():"")+'<span class="msg-quick-label">'+tr("Google Drive")+'</span></button><button class="btn sm" title="'+attr(tr("Attach link"))+'" aria-label="'+attr(tr("Attach link"))+'" onclick="msgAttachLink()">'+I.link+'<span class="msg-quick-label">'+tr("Attach link")+'</span></button><button class="btn sm" title="'+attr(tr("AI Assist"))+'" aria-label="'+attr(tr("AI Assist"))+'" onclick="msgAiAssist()">'+I.sparkle+'<span class="msg-quick-label">'+tr("AI Assist")+'</span></button></div></div>'; }
 function msgComposerBind(c){ var ta=document.getElementById("msgInput"); if(!ta) return; var grow=function(){ ta.style.height="auto"; ta.style.height=Math.min(160,ta.scrollHeight)+"px"; msgMirrorSync(c); }; grow();
   ta.addEventListener("scroll",function(){ var m=document.getElementById("msgMirror"); if(m) m.scrollTop=ta.scrollTop; });
@@ -9348,7 +9521,7 @@ function msgRetryUpload(i){ var c=conv(S.messageConversationId), ref=msgDraft(c.
 function msgRefreshStaged(id){ var comp=document.querySelector('.msg-composer'); if(!comp||S.messageConversationId!==id) return; var d=msgDraft(id), old=comp.querySelector('.msg-staged-list'), html=d.refs.length?'<div class="msg-staged-list"><span class="tiny">'+tr("Attached to this message")+'</span>'+d.refs.map(msgStagedRefHtml).join("")+'</div>':''; if(old){ if(html) old.outerHTML=html; else old.remove(); } else if(html){ var inp=comp.querySelector('.msg-input'); if(inp) inp.insertAdjacentHTML('beforebegin',html); else comp.insertAdjacentHTML('afterbegin',html); } }
 function msgSyncDraftUrls(id){ var before=JSON.stringify(msgDraft(id).refs.map(function(r){return r.type+(r.entityId||r.url);})); msgSyncDraftUrlsCore(id); if(JSON.stringify(msgDraft(id).refs.map(function(r){return r.type+(r.entityId||r.url);}))!==before) msgRefreshStaged(id); }
 function msgSyncDraftUrlsCore(id){ var d=msgDraft(id), urls=messageUrls(d.text||""), keep={}; urls.forEach(function(x){keep[x.url]=1;}); d.suppressedUrls=(d.suppressedUrls||[]).filter(function(u){return keep[u];}); d.refs=d.refs.filter(function(r){return !r.fromBody||keep[r.normalizedUrl||r.url];}); urls.forEach(function(x){ if((d.suppressedUrls||[]).indexOf(x.url)>=0||d.refs.some(function(r){return (r.normalizedUrl||r.url)===x.url;}))return; msgStageUrl(x.url,true,true); }); }
-function msgAddMenu(a){ ctxMenu(a,'<div class="mh">'+tr("Add to message")+'</div><button onclick="closePops();msgAttachTask(document.getElementById(\'msgInput\'))">'+I.tasks+tr("Task")+'</button><button onclick="closePops();msgAttachProject(document.getElementById(\'msgInput\'))">'+I.projects+tr("Project")+'</button><button onclick="closePops();msgAttachAsset(document.getElementById(\'msgInput\'))">'+I.assets+tr("Asset")+'</button><button onclick="closePops();msgAttachDrive()">'+(typeof driveIcon==="function"?driveIcon():"")+tr("Google Drive")+'</button><button onclick="closePops();msgAttachLink()">'+I.link+tr("Attach link")+'</button><button onclick="closePops();msgAttachFile()">'+I.up+tr("Upload / File")+'</button><button onclick="closePops();clipboardReadInto(\'message\')"><svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2M9 13h6M9 17h6"/></svg>'+tr("Paste from clipboard")+'<span class="hint">'+esc(shortcutCombo("V"))+'</span></button>',"left"); }
+function msgAddMenu(a){ ctxMenu(a,'<div class="mh">'+tr("Add to message")+'</div><button onclick="closePops();msgAttachTask(document.getElementById(\'msgInput\'))">'+I.tasks+tr("Task")+'</button><button onclick="closePops();msgAttachProject(document.getElementById(\'msgInput\'))">'+I.projects+tr("Project")+'</button><button onclick="closePops();msgAttachAsset(document.getElementById(\'msgInput\'))">'+I.assets+tr("Asset")+'</button><button onclick="closePops();msgAttachDrive()">'+(typeof driveIcon==="function"?driveIcon():"")+tr("Google Drive")+'</button><button onclick="closePops();msgAttachLink()">'+I.link+tr("Attach link")+'</button><button onclick="closePops();msgAttachFile()">'+I.up+tr("Upload / File")+'</button><button onclick="closePops();msgAiAssist()">'+I.sparkle+tr("AI Assist")+'</button><button onclick="closePops();clipboardReadInto(\'message\')"><svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2M9 13h6M9 17h6"/></svg>'+tr("Paste from clipboard")+'<span class="hint">'+esc(shortcutCombo("V"))+'</span></button>',"left"); }
 function msgAttachTask(a){ var c=conv(S.messageConversationId); entityPicker({kind:"task",anchor:a,align:"left",placeholder:tr("Search task title, ID or project…"),context:{projectId:c.projectId||null},onSelect:function(tk){ msgStageRef({type:"TASK",entityId:tk.id,fallbackTitle:tk.title,projectName:(project(tk.proj)||{}).name||""}); if(typeof WorkspaceQuest!=="undefined") WorkspaceQuest.emit("messages-task-attached"); }}); }
 function msgAttachProject(a){ entityPicker({kind:"project",anchor:a,align:"left",placeholder:tr("Search projects…"),onSelect:function(p){ msgStageRef({type:"PROJECT",entityId:p.id,fallbackTitle:p.name}); }}); }
 function msgAttachAsset(a){ entityPicker({kind:"asset",anchor:a,align:"left",placeholder:tr("Search assets…"),onSelect:function(x){ msgStageRef({type:"ASSET",entityId:x.id,fallbackTitle:x.name}); }}); }
@@ -9417,7 +9590,7 @@ function msgHandleHash(){ var h=location.hash||""; var mc=h.match(/conv=([-\w]+)
 /* Called from applyShell(): (re)load the conversation summary for the signed-in member so the topbar badge is right before Messages is ever opened. */
 function msgBootSync(){ if(CHAT_RUNTIME.forUser!==ME||CHAT_RUNTIME.forWs!==WS.id){ CHAT_RUNTIME.forUser=ME; CHAT_RUNTIME.forWs=WS.id; CHAT_RUNTIME.loaded=false; CHAT_RUNTIME.drafts={}; if(CHAT_RUNTIME.connection){ try{ CHAT_RUNTIME.connection.close(); }catch(e){} CHAT_RUNTIME.connection=null; } if(document.body.classList.contains("auth")) return; msgLoad().then(function(){ messagesBadgeSync(); if(!msgHandleHash()&&S.screen==="messages") renderMessages(); }); } else messagesBadgeSync(); }
 document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible"&&S.screen==="messages"&&S.messageConversationId){ var c=conv(S.messageConversationId); if(c) msgMarkRead(c); } });
-Object.assign(UI_ID,{"Save to device":"Simpan ke perangkat","Save attachments":"Simpan lampiran","Download":"Unduh","Copy image":"Salin gambar","Image copied":"Gambar disalin","Could not copy image":"Gagal menyalin gambar","Your browser cannot copy images to the clipboard":"Browser tidak bisa menyalin gambar ke clipboard","Nothing to save":"Tidak ada yang bisa disimpan","Saved":"Tersimpan","Downloading…":"Mengunduh…","Downloading from Google Drive…":"Mengunduh dari Google Drive…","Messages":"Messages","Koordinasi tim, terhubung dengan pekerjaan.":"Koordinasi tim, terhubung dengan pekerjaan.","Notifications":"Notifikasi","Percakapan baru":"Percakapan baru","Cari percakapan...":"Cari percakapan...","Semua":"Semua","Belum dibaca":"Belum dibaca","Mention":"Mention","Starred":"Berbintang","Arsip":"Arsip","Team":"Tim","Direct messages":"Pesan langsung","Groups":"Grup","Pesan":"Pesan","Files":"File","Tasks":"Task","Links":"Tautan","Detail":"Detail","Members":"Anggota","members":"anggota","Lihat semua":"Lihat semua","Pinned":"Disematkan","All messages":"Semua pesan","Mentions only":"Hanya mention","Mute":"Bisukan","Dapatkan notifikasi untuk pesan baru di channel ini.":"Dapatkan notifikasi untuk pesan baru di channel ini.","Keluar dari channel":"Keluar dari channel","Edit channel":"Edit channel","Edit group":"Edit grup","View profile":"Lihat profil","Tulis pesan... @mention atau tempel tautan":"Tulis pesan... @mention atau tempel tautan","Write a message… @mention, paste a link or an image":"Tulis pesan... @mention, tempel tautan atau gambar","Task":"Task","Lampiran":"Lampiran","Google Drive":"Google Drive","AI Assist":"AI Assist","Add to message":"Tambahkan ke pesan","Project":"Project","Asset":"Aset","Upload / File":"Unggah / File","Attached to this message":"Dilampirkan ke pesan ini","Replying to":"Membalas","Fetching…":"Mengambil…","Fetching link…":"Mengambil tautan…","Remove":"Hapus","Reply":"Balas","React":"Reaksi","Add reaction":"Tambah reaksi","Create Task from message":"Buat Task dari pesan","Pin":"Sematkan","Unpin":"Lepas sematan","Copy link":"Salin tautan","Link copied":"Tautan disalin","Edit":"Edit","Delete":"Hapus","Delete message?":"Hapus pesan?","This cannot be undone.":"Tindakan ini tidak bisa dibatalkan.","Edit message":"Edit pesan","Save":"Simpan","Cancel":"Batal","Today":"Hari ini","Yesterday":"Kemarin","New messages":"Pesan baru","is typing…":"sedang mengetik…","and":"dan","others are typing…":"lainnya sedang mengetik…","Load previous messages":"Muat pesan sebelumnya","Task created from this message":"Task dibuat dari pesan ini","Task no longer available":"Task tidak lagi tersedia","Assigned to":"Ditugaskan ke","Due":"Tenggat","View Task":"Lihat Task","Open in Drive":"Buka di Drive","Open":"Buka","Updated":"Diperbarui","Preview unavailable":"Pratinjau tidak tersedia","Connect Google Drive":"Hubungkan Google Drive","Google Drive Folder":"Folder Google Drive","Google Drive File":"File Google Drive","Search in conversation":"Cari di percakapan","Search in":"Cari di","Back":"Kembali","Star":"Beri bintang","Unstar":"Hapus bintang","Mark as read":"Tandai dibaca","Hide details":"Sembunyikan detail","Show details":"Tampilkan detail","Rename / members":"Ubah nama / anggota","Archive":"Arsipkan","Unarchive":"Keluarkan dari arsip","Leave":"Keluar","You will stop receiving messages from this conversation.":"Kamu tidak akan menerima pesan dari percakapan ini lagi.","You left the conversation":"Kamu keluar dari percakapan","You cannot leave the team's #general channel":"Kamu tidak bisa keluar dari #general tim","Membership follows the team. Leave the team to leave #general.":"Keanggotaan mengikuti tim. Keluar dari tim untuk keluar dari #general.","Pin a message from its menu to keep it here.":"Sematkan pesan dari menunya agar tampil di sini.","Message":"Kirim pesan","Admin":"Admin","Member":"Anggota","Online":"Online","Offline":"Offline","No files shared yet":"Belum ada file dibagikan","No tasks referenced yet":"Belum ada task yang dirujuk","No links shared yet":"Belum ada tautan dibagikan","Anything shared in this conversation appears here automatically.":"Semua yang dibagikan di percakapan ini otomatis muncul di sini.","Go to message":"Ke pesan","New conversation":"Percakapan baru","Search people...":"Cari orang...","Create small group":"Buat grup kecil","New team channel":"Channel tim baru","New channel":"Channel baru","Group name":"Nama grup","Add member":"Tambah anggota","Add people…":"Tambah orang…","Create group":"Buat grup","Group created":"Grup dibuat","Group saved":"Grup disimpan","Give the group a name":"Beri nama grup","Add at least one other member":"Tambahkan minimal satu anggota lain","Your role cannot create groups":"Peranmu tidak bisa membuat grup","Channel name":"Nama channel","Description":"Deskripsi","Create channel":"Buat channel","Give the channel a name":"Beri nama channel","#general already exists for every team":"#general sudah ada di setiap tim","Every team member joins automatically. #general is created for every team and cannot be removed.":"Semua anggota tim otomatis bergabung. #general dibuat untuk setiap tim dan tidak bisa dihapus.","Mention someone…":"Sebut seseorang…","Mention":"Mention","Emoji":"Emoji","Send":"Kirim","Up to":"Maksimal","attachments per message":"lampiran per pesan","Search projects…":"Cari project…","Search assets…":"Cari aset…","Paste a Google Drive, Docs, Sheets or Slides link. ZenCrevia shows it as a smart card and never bypasses Drive permissions.":"Tempel tautan Google Drive, Docs, Sheets, atau Slides. ZenCrevia menampilkannya sebagai smart card dan tidak pernah melewati izin Drive.","Link":"Tautan","Attach":"Lampirkan","Enter a valid link":"Masukkan tautan yang valid","Drive is connected: folder and file names resolve automatically.":"Drive terhubung: nama folder dan file diambil otomatis.","Connect Google Drive to resolve names automatically.":"Hubungkan Google Drive agar nama diambil otomatis.","Uploading…":"Mengunggah…","Your role cannot send messages":"Peranmu tidak bisa mengirim pesan","Task from message":"Task dari pesan","From":"Dari","mentioned you":"menyebut kamu","shared a link":"membagikan tautan","You are not a member of this conversation":"Kamu bukan anggota percakapan ini","No conversation selected":"Belum ada percakapan dipilih","Pick a conversation or start a new one.":"Pilih percakapan atau mulai yang baru.","No archived conversations":"Tidak ada percakapan diarsipkan","No conversations match":"Tidak ada percakapan yang cocok","Sort conversations":"Urutkan percakapan","Unread first":"Belum dibaca dulu","All conversations":"Semua percakapan","Teams":"Tim","Expand all":"Buka semua","Collapse all":"Tutup semua","Mark all conversations read":"Tandai semua percakapan dibaca","Hide detail panel":"Sembunyikan panel detail","Show detail panel":"Tampilkan panel detail","Notification settings":"Pengaturan notifikasi","All conversations marked read":"Semua percakapan ditandai dibaca","Your role cannot view Messages":"Peranmu tidak bisa melihat Messages","Ask a workspace admin for the view_messages permission.":"Minta izin view_messages ke admin workspace.","edited":"diedit","Group":"Grup","Diskusi umum tim.":"Diskusi umum tim.","File":"File","Archived":"Diarsipkan","team archived":"tim diarsipkan","Conversation archived":"Percakapan diarsipkan","Conversation restored":"Percakapan dipulihkan","This conversation is archived. You can read it, but nobody can send new messages.":"Percakapan ini diarsipkan. Masih bisa dibaca, tapi tidak ada yang bisa mengirim pesan baru.","This team is archived, so its channels are read-only.":"Tim ini diarsipkan, jadi channel-nya hanya bisa dibaca.","This conversation is archived":"Percakapan ini diarsipkan","#general is archived with its team":"#general diarsipkan bersama timnya","Only a team lead or admin can archive a team channel":"Hanya team lead atau admin yang bisa mengarsipkan channel tim","More emoji":"Emoji lainnya","e.g. Product Launch":"mis. Product Launch"});
+Object.assign(UI_ID,{"Write a message…":"Tulis pesan…","AI Assist":"Bantuan AI","Save to device":"Simpan ke perangkat","Save attachments":"Simpan lampiran","Download":"Unduh","Copy image":"Salin gambar","Image copied":"Gambar disalin","Could not copy image":"Gagal menyalin gambar","Your browser cannot copy images to the clipboard":"Browser tidak bisa menyalin gambar ke clipboard","Nothing to save":"Tidak ada yang bisa disimpan","Saved":"Tersimpan","Downloading…":"Mengunduh…","Downloading from Google Drive…":"Mengunduh dari Google Drive…","Messages":"Messages","Koordinasi tim, terhubung dengan pekerjaan.":"Koordinasi tim, terhubung dengan pekerjaan.","Notifications":"Notifikasi","Percakapan baru":"Percakapan baru","Cari percakapan...":"Cari percakapan...","Semua":"Semua","Belum dibaca":"Belum dibaca","Mention":"Mention","Starred":"Berbintang","Arsip":"Arsip","Team":"Tim","Direct messages":"Pesan langsung","Groups":"Grup","Pesan":"Pesan","Files":"File","Tasks":"Task","Links":"Tautan","Detail":"Detail","Members":"Anggota","members":"anggota","Lihat semua":"Lihat semua","Pinned":"Disematkan","All messages":"Semua pesan","Mentions only":"Hanya mention","Mute":"Bisukan","Dapatkan notifikasi untuk pesan baru di channel ini.":"Dapatkan notifikasi untuk pesan baru di channel ini.","Keluar dari channel":"Keluar dari channel","Edit channel":"Edit channel","Edit group":"Edit grup","View profile":"Lihat profil","Tulis pesan... @mention atau tempel tautan":"Tulis pesan... @mention atau tempel tautan","Write a message… @mention, paste a link or an image":"Tulis pesan... @mention, tempel tautan atau gambar","Task":"Task","Lampiran":"Lampiran","Google Drive":"Google Drive","AI Assist":"AI Assist","Add to message":"Tambahkan ke pesan","Project":"Project","Asset":"Aset","Upload / File":"Unggah / File","Attached to this message":"Dilampirkan ke pesan ini","Replying to":"Membalas","Fetching…":"Mengambil…","Fetching link…":"Mengambil tautan…","Remove":"Hapus","Reply":"Balas","React":"Reaksi","Add reaction":"Tambah reaksi","Create Task from message":"Buat Task dari pesan","Pin":"Sematkan","Unpin":"Lepas sematan","Copy link":"Salin tautan","Link copied":"Tautan disalin","Edit":"Edit","Delete":"Hapus","Delete message?":"Hapus pesan?","This cannot be undone.":"Tindakan ini tidak bisa dibatalkan.","Edit message":"Edit pesan","Save":"Simpan","Cancel":"Batal","Today":"Hari ini","Yesterday":"Kemarin","New messages":"Pesan baru","is typing…":"sedang mengetik…","and":"dan","others are typing…":"lainnya sedang mengetik…","Load previous messages":"Muat pesan sebelumnya","Task created from this message":"Task dibuat dari pesan ini","Task no longer available":"Task tidak lagi tersedia","Assigned to":"Ditugaskan ke","Due":"Tenggat","View Task":"Lihat Task","Open in Drive":"Buka di Drive","Open":"Buka","Updated":"Diperbarui","Preview unavailable":"Pratinjau tidak tersedia","Connect Google Drive":"Hubungkan Google Drive","Google Drive Folder":"Folder Google Drive","Google Drive File":"File Google Drive","Search in conversation":"Cari di percakapan","Search in":"Cari di","Back":"Kembali","Star":"Beri bintang","Unstar":"Hapus bintang","Mark as read":"Tandai dibaca","Hide details":"Sembunyikan detail","Show details":"Tampilkan detail","Rename / members":"Ubah nama / anggota","Archive":"Arsipkan","Unarchive":"Keluarkan dari arsip","Leave":"Keluar","You will stop receiving messages from this conversation.":"Kamu tidak akan menerima pesan dari percakapan ini lagi.","You left the conversation":"Kamu keluar dari percakapan","You cannot leave the team's #general channel":"Kamu tidak bisa keluar dari #general tim","Membership follows the team. Leave the team to leave #general.":"Keanggotaan mengikuti tim. Keluar dari tim untuk keluar dari #general.","Pin a message from its menu to keep it here.":"Sematkan pesan dari menunya agar tampil di sini.","Message":"Kirim pesan","Admin":"Admin","Member":"Anggota","Online":"Online","Offline":"Offline","No files shared yet":"Belum ada file dibagikan","No tasks referenced yet":"Belum ada task yang dirujuk","No links shared yet":"Belum ada tautan dibagikan","Anything shared in this conversation appears here automatically.":"Semua yang dibagikan di percakapan ini otomatis muncul di sini.","Go to message":"Ke pesan","New conversation":"Percakapan baru","Search people...":"Cari orang...","Create small group":"Buat grup kecil","New team channel":"Channel tim baru","New channel":"Channel baru","Group name":"Nama grup","Add member":"Tambah anggota","Add people…":"Tambah orang…","Create group":"Buat grup","Group created":"Grup dibuat","Group saved":"Grup disimpan","Give the group a name":"Beri nama grup","Add at least one other member":"Tambahkan minimal satu anggota lain","Your role cannot create groups":"Peranmu tidak bisa membuat grup","Channel name":"Nama channel","Description":"Deskripsi","Create channel":"Buat channel","Give the channel a name":"Beri nama channel","#general already exists for every team":"#general sudah ada di setiap tim","Every team member joins automatically. #general is created for every team and cannot be removed.":"Semua anggota tim otomatis bergabung. #general dibuat untuk setiap tim dan tidak bisa dihapus.","Mention someone…":"Sebut seseorang…","Mention":"Mention","Emoji":"Emoji","Send":"Kirim","Up to":"Maksimal","attachments per message":"lampiran per pesan","Search projects…":"Cari project…","Search assets…":"Cari aset…","Paste a Google Drive, Docs, Sheets or Slides link. ZenCrevia shows it as a smart card and never bypasses Drive permissions.":"Tempel tautan Google Drive, Docs, Sheets, atau Slides. ZenCrevia menampilkannya sebagai smart card dan tidak pernah melewati izin Drive.","Link":"Tautan","Attach":"Lampirkan","Enter a valid link":"Masukkan tautan yang valid","Drive is connected: folder and file names resolve automatically.":"Drive terhubung: nama folder dan file diambil otomatis.","Connect Google Drive to resolve names automatically.":"Hubungkan Google Drive agar nama diambil otomatis.","Uploading…":"Mengunggah…","Your role cannot send messages":"Peranmu tidak bisa mengirim pesan","Task from message":"Task dari pesan","From":"Dari","mentioned you":"menyebut kamu","shared a link":"membagikan tautan","You are not a member of this conversation":"Kamu bukan anggota percakapan ini","No conversation selected":"Belum ada percakapan dipilih","Pick a conversation or start a new one.":"Pilih percakapan atau mulai yang baru.","No archived conversations":"Tidak ada percakapan diarsipkan","No conversations match":"Tidak ada percakapan yang cocok","Sort conversations":"Urutkan percakapan","Unread first":"Belum dibaca dulu","All conversations":"Semua percakapan","Teams":"Tim","Expand all":"Buka semua","Collapse all":"Tutup semua","Mark all conversations read":"Tandai semua percakapan dibaca","Hide detail panel":"Sembunyikan panel detail","Show detail panel":"Tampilkan panel detail","Notification settings":"Pengaturan notifikasi","All conversations marked read":"Semua percakapan ditandai dibaca","Your role cannot view Messages":"Peranmu tidak bisa melihat Messages","Ask a workspace admin for the view_messages permission.":"Minta izin view_messages ke admin workspace.","edited":"diedit","Group":"Grup","Diskusi umum tim.":"Diskusi umum tim.","File":"File","Archived":"Diarsipkan","team archived":"tim diarsipkan","Conversation archived":"Percakapan diarsipkan","Conversation restored":"Percakapan dipulihkan","This conversation is archived. You can read it, but nobody can send new messages.":"Percakapan ini diarsipkan. Masih bisa dibaca, tapi tidak ada yang bisa mengirim pesan baru.","This team is archived, so its channels are read-only.":"Tim ini diarsipkan, jadi channel-nya hanya bisa dibaca.","This conversation is archived":"Percakapan ini diarsipkan","#general is archived with its team":"#general diarsipkan bersama timnya","Only a team lead or admin can archive a team channel":"Hanya team lead atau admin yang bisa mengarsipkan channel tim","More emoji":"Emoji lainnya","e.g. Product Launch":"mis. Product Launch"});
 Object.assign(UI_ID,{"Media":"Media","Shared":"Dibagikan","Search links...":"Cari tautan...","Search shared content...":"Cari konten bersama...","Web":"Web","Drive":"Drive","Images":"Gambar","Video":"Video","Newest":"Terbaru","Oldest":"Terlama","View in conversation":"Lihat di percakapan","No media shared yet":"Belum ada media dibagikan","Ready":"Siap","Failed":"Gagal","Retry":"Coba lagi","Attachment":"Lampiran","Wait for attachments to finish uploading":"Tunggu sampai lampiran selesai diunggah","Retry or remove failed attachments":"Coba lagi atau hapus lampiran yang gagal","links per message":"tautan per pesan","Load more":"Muat lagi"});
 Object.assign(UI_ID,{"Attach link":"Lampirkan tautan","Paste any public web link. ZenCrevia will show a safe preview when metadata is available.":"Tempel tautan web publik apa pun. ZenCrevia akan menampilkan pratinjau aman jika metadata tersedia.","Enter a valid web link":"Masukkan tautan web yang valid","Enter a valid Google Drive link":"Masukkan tautan Google Drive yang valid"});
 </script>
@@ -15038,6 +15211,13 @@ function versionFilesChosen(files){ if(!document.getElementById("uv_file")) retu
 function descDriveLabel(u){ try{ var p=typeof detectProvider==="function"?detectProvider(u):null; if(p&&/^GOOGLE_/.test(p.provider)) return p.resourceType==="folder"?tr("Google Drive Folder"):tr("Google Drive"); }catch(e){} return /^https?:\/\/(?:drive|docs)\.google\.com\//i.test(u)?tr("Google Drive"):""; }
 function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return ""; if(/^(?:www\.)/i.test(u)||/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(u)) u="https://"+u; try{ var x=new URL(u); return /^(https?|ftp):$/i.test(x.protocol)?x.href:""; }catch(e){ return ""; } }
 function descMdInline(s){ /* s is already escaped */
+  /* An image placed in the writing: ![name](zc-att:ID). The marker carries the attachment id, never
+     the picture, so the task record stays free of data URLs (server/uploads.js) and a Drive-hosted
+     image resolves the same way an attachment does. It runs before the link rule, which would
+     otherwise swallow the [name](…) half.
+     A width the reader chose is written after it as "=50%", the usual Markdown extension for image
+     size. The space before the "=" is what keeps it apart from a link whose query string has one. */
+  s=s.replace(/!\[([^\]\n]*)\]\((zc-att:[A-Za-z0-9_.:-]{1,80}|https?:\/\/[^\s)]+)(?:\s+=\s*(\d{1,3})%)?\)/g,function(_,alt,ref,w){ return typeof descImgHtml==="function"?descImgHtml(ref,alt,"",w):alt; });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
   s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ var drive=descDriveLabel(u); return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(drive&&(t===u||/^(?:https?|ftp):/i.test(t))?drive:t)+'</a>'; });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
@@ -15071,6 +15251,16 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
     if(t==="code") return "`"+inner+"`";
     if(t==="a"){ var h=n.getAttribute("href")||""; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
+    /* An image in the writing serialises back to its marker, so moving it in the editor moves it in
+       the text. An image pasted from elsewhere as a data URL is dropped rather than inlined — that
+       is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
+    if(t==="img"){ var aid=n.getAttribute("data-zc-att")||"", alt=(n.getAttribute("alt")||"").replace(/[\[\]]/g,""), srcAttr=n.getAttribute("src")||"";
+      /* A width the reader set by dragging the corner. Full width is the default, so it is written
+         only when it is something else — the Markdown of an untouched picture stays plain. */
+      var w=parseInt(n.getAttribute("data-zc-w")||(/%$/.test((n.style&&n.style.width)||"")?n.style.width:""),10);
+      var size=(w>0&&w<100)?" ="+w+"%":"";
+      if(aid) return "\n\n!["+alt+"](zc-att:"+aid+size+")\n\n";
+      return /^(?:https?):/i.test(srcAttr)?"\n\n!["+alt+"]("+srcAttr+size+")\n\n":""; }
     if(/^h[1-3]$/.test(t)) return "\n"+"#".repeat(+t[1])+" "+inner.trim()+"\n";
     if(/^h[4-6]$/.test(t)) return "\n### "+inner.trim()+"\n";
     if(t==="li") return "\n"+(ctx==="ol"?"1. ":"- ")+inner.trim();
@@ -15085,7 +15275,10 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
   if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("Nothing to preview yet.")+'</span>')+'</div></div>';
   var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="descFormat(\''+act+'\')">'+html+'</button>'; };
   return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
-    +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")+'</div>'
+    +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
+    /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
+       shortcut and the picture is in the camera roll. */
+    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'</div>'
     +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
@@ -15093,6 +15286,23 @@ function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
 function descSaveNow(){ descWysiwygSave(); }
+/* Writing is only saved a beat after the typing stops, and the drawer is redrawn by anything that
+   touches the task — a comment arriving, a status change, an upload finishing. Redrawing rebuilds
+   the editor from the saved text, so a sentence typed a moment earlier used to disappear. What is
+   in the editor is the newest version there is, so it is carried into the task before the redraw
+   and saved on the usual delay. */
+(function(){
+  if(typeof renderDrawer!=="function") return;
+  var base=renderDrawer;
+  renderDrawer=function(){
+    var el=document.getElementById("descSrc"), tk=typeof task==="function"&&S.drawerTask?task(S.drawerTask):null;
+    if(el&&tk){
+      var live=descHtmlToMd(el.innerHTML);
+      if(live!==(tk.description||"")){ tk.description=live; descSaveSoon(); }
+    }
+    return base.apply(this,arguments);
+  };
+})();
 function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
 function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
 function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
@@ -15216,106 +15426,36 @@ function demoPurgeRun(content){ confirmModal(tr("Remove demo data"),tr("Demo acc
   return base.apply(this,arguments); }; })();
 </script>
 <script>
-/* AN IMAGE PASTED INTO A BRIEF FIELD OR THE DESCRIPTION.
+/* IMAGES IN A BRIEF OR A DESCRIPTION.
 
-   src/clipboard.js already routes pasted images to the chat composer, the comment box and the
-   upload modals, but it deliberately leaves alone anything being typed into — so a brief field and
-   the description did nothing at all. This is the branch it calls for those two ("brief").
+   Two fields, two different things, because they are built differently:
 
-   A brief field is a <textarea> and the description is a contenteditable; neither can hold an
-   image, and embedding one as a data URL would put the picture inside the task record, which is
-   what server/uploads.js exists to prevent. So the image is uploaded the way any attachment is
-   (uploadAny, honouring whichever storage the workspace uses) and posted as a comment — that path
-   already files every attachment under the task's References too, so one paste lands in both, with
-   a note saying which field it came from. The text keeps a marker that reads as a chip opening
-   Comments.
+   • The description is a contenteditable (v38's md-wysiwyg), so a picture can sit in the writing
+     itself — between two paragraphs, after a bullet, wherever the caret is. It behaves the way a
+     picture does in any editor: select it and press Backspace, or drag it somewhere else, and the
+     text follows. The Markdown keeps a marker, ![name](zc-att:ID), never the picture: the task
+     record must stay free of data URLs (that is what server/uploads.js exists to enforce), and an
+     image on Drive resolves through its attachment the same way every other attachment does.
 
-   Brief edits in progress are gathered and written with the same change, because adding the
-   comment re-renders the drawer and would otherwise discard whatever was being typed. */
+   • A brief field is a <textarea>, which can only hold text. Nothing can be placed inside it, so
+     its pictures hang underneath the field instead, as a strip.
 
-var PASTE_MARK_OPEN = "[[img:", PASTE_MARK_CLOSE = "]]";
-/* Where the caret is, so the marker lands where the person was typing. */
-function pasteInsertInField(el,text){
-  if(!el) return;
-  if(el.tagName==="TEXTAREA"||el.tagName==="INPUT"){
-    var s=el.selectionStart==null?el.value.length:el.selectionStart, t=el.selectionEnd==null?s:el.selectionEnd;
-    el.value=el.value.slice(0,s)+text+el.value.slice(t);
-    el.selectionStart=el.selectionEnd=s+text.length;
-  } else {
-    var sel=window.getSelection();
-    if(sel&&sel.rangeCount&&el.contains(sel.anchorNode)){
-      var r=sel.getRangeAt(0); r.deleteContents(); var n=document.createTextNode(text);
-      r.insertNode(n); r.setStartAfter(n); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
-    } else el.appendChild(document.createTextNode(text));
-  }
-  el.dispatchEvent(new Event("input",{bubbles:true}));
-}
-function pasteFieldName(el){
-  if(!el||!el.getAttribute) return tr("the brief");
-  if(el.id==="descSrc"||(el.closest&&el.closest("#descSrc"))) return tr("the description");
-  var k=el.getAttribute("data-bf")||(el.closest&&el.closest("[data-bf]")&&el.closest("[data-bf]").getAttribute("data-bf"));
-  if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
-  return tr("the brief");
-}
-/* Which field an image belongs to. The description has no data-bf, so it gets its own key. */
-var PASTE_DESC_KEY="__description";
-function pasteFieldKey(el){
-  if(!el||!el.closest) return PASTE_DESC_KEY;
-  if(el.id==="descSrc"||el.closest("#descSrc")) return PASTE_DESC_KEY;
-  var f=el.closest("[data-bf]");
-  return f?f.getAttribute("data-bf"):PASTE_DESC_KEY;
-}
-/* Brief edits in progress, so adding a comment does not discard them. */
-function pasteBriefDraft(){
-  var out={}, list=document.querySelectorAll("[data-bf]");
-  for(var i=0;i<list.length;i++) out[list[i].getAttribute("data-bf")]=list[i].value;
-  return out;
-}
-/* Returns true when it takes the paste; clipboard.js calls preventDefault on true. */
-function briefPasteImage(file){
-  if(!file||!/^image\//.test(file.type||"")) return false;
-  if(typeof signedIn==="function"&&!signedIn()) return false;
-  var tk=S.drawerTask?task(S.drawerTask):null;
-  if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
-  var field=document.activeElement;
-  if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
-  var label=pasteFieldName(field), key=pasteFieldKey(field), name=file.name||("pasted-"+Date.now()+".png");
-  /* Nothing is written into the text. A brief field is a textarea, so any marker put there shows as
-     raw characters the moment the field is edited — which is what a pasted image looked like at
-     first. The picture is attached to the field instead and drawn underneath it, so the writing
-     stays writing and Enter still just starts a new line. */
-  var brief=pasteBriefDraft();
-  toast(tr("Uploading the pasted image…"));
+   Either way the file is uploaded through uploadAny — honouring whichever storage the workspace
+   uses — and kept as a comment attachment, which is the only record that stores attachments as
+   JSON and can therefore carry the field marker. Deliberately NOT added to the task's files:
+   Assets & versions is where the work being delivered lives, and reference material dropped into a
+   brief would stop the count beside that tab meaning "assets produced".
 
-  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
-    editTaskWith(tk,function(t){
-      if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
-      var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
-      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key}];
-      t.comments.push(c);
-      /* Deliberately NOT added to the task's files. Assets & versions is where the work being
-         delivered lives; reference material pasted into a brief would blur that line, and the
-         count beside the tab would stop meaning "assets produced". The picture lives on the
-         comment, which is what the field strip reads. */
-      log(t,"comment");
-    });
-    toast(tr("Image attached"));
-  },function(err){
-    toast(tr("Could not attach that image")+": "+err.message,"bad");
-  });
-  return true;
-}
-/* A marker becomes the picture itself, wherever the text is shown read-only: the brief and the
-   description. The marker holds only the file name, so the image is looked up on the task each
-   time — that keeps the raw text readable while editing ([[img:moodboard.png]]) instead of burying
-   a URL in it, and a picture that was removed degrades to a plain label rather than a broken image. */
+   Images arrive two ways: pasted (src/clipboard.js routes them here) or picked with the toolbar
+   button, which is the only way in on a phone. */
+
+/* ---------- looking an image up ---------- */
 function pasteUnesc(s){
   return String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&");
 }
-/* The newest attachment with this name: files first, then anything still only on a comment. */
 /* Match the attachment id first. A deliverable in Assets can share a file name with a brief
    reference, and opening the wrong one would be worse than opening nothing. The name is only a
-   fallback, for markers written before images moved out of the text. */
+   fallback, for markers written before images carried ids. */
 function pasteFindImage(tk,ref){
   var byId=null, byName=null;
   (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){
@@ -15327,35 +15467,363 @@ function pasteFindImage(tk,ref){
   var hit=null; (tk&&tk.files||[]).forEach(function(f){ if(f&&f.name===ref&&(f.preview||f.url)) hit=f; });
   return hit;
 }
-function pasteOpenImage(name){
-  var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return;
-  var a=pasteFindImage(tk,name);
+function pasteImgSrc(a){ return a?(a.preview||(/^\/files\//.test(a.url||"")?a.url:"")):""; }
+function pasteCurrentTask(){ return S.drawerTask?task(S.drawerTask):null; }
+
+/* ---------- the picture in the writing ---------- */
+/* Called by descMdInline for every ![…](…) it finds, in the editor and the read-only view alike. */
+/* Pictures whose upload has not answered yet, by the id their marker already uses. The editor is
+   rebuilt from the saved text on every change to the task, which happens constantly while someone
+   is typing; without this the picture would vanish from the writing and reappear at the end when
+   the upload landed. */
+var PASTE_INFLIGHT={};
+function descImgHtml(ref,alt,srcHint,width){
+  var id="", src=srcHint||"", label=pasteUnesc(alt||""), busy=false;
+  var w=parseInt(width,10); if(!(w>0&&w<100)) w=0;
+  if(/^zc-att:/.test(ref)){
+    id=ref.slice(7);
+    if(!src){
+      var a=pasteFindImage(pasteCurrentTask(),id);
+      if(a){ src=pasteImgSrc(a); label=label||a.name||""; }
+      else if(PASTE_INFLIGHT[id]){ src=PASTE_INFLIGHT[id].src; label=label||PASTE_INFLIGHT[id].name; busy=true; }
+      else return '<span class="desc-img missing" title="'+attr(tr("That image is no longer attached to this task"))+'">'+I.image+esc(label||tr("Image"))+'</span>';
+    }
+  } else src=src||ref;
+  if(!src) return '<span class="desc-img missing">'+I.image+esc(label)+'</span>';
+  return '<img class="desc-img'+(busy?" uploading":"")+'" data-zc-att="'+attr(id)+'"'+(w?' data-zc-w="'+w+'" style="width:'+w+'%"':'')
+    + ' src="'+attr(src)+'" alt="'+attr(label)+'" loading="lazy">';
+}
+/* The caret, kept across the file dialog and the upload — both of which take the focus away. */
+var PASTE_RANGE=null;
+function descKeepCaret(){
+  var el=document.getElementById("descSrc"); if(!el) return;
+  var sel=window.getSelection();
+  PASTE_RANGE=(sel&&sel.rangeCount&&el.contains(sel.anchorNode))?sel.getRangeAt(0).cloneRange():null;
+}
+/* Puts the picture where the caret was, or at the end when the caret was elsewhere. A paragraph is
+   left after it so there is somewhere to keep typing — otherwise an image at the end of the
+   writing traps the caret. */
+function descInsertImage(html){
+  var el=document.getElementById("descSrc"); if(!el) return false;
+  el.focus();
+  var sel=window.getSelection();
+  if(PASTE_RANGE&&el.contains(PASTE_RANGE.startContainer)){ sel.removeAllRanges(); sel.addRange(PASTE_RANGE); }
+  else { var r=document.createRange(); r.selectNodeContents(el); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+  document.execCommand("insertHTML",false,html+"<p><br></p>");
+  PASTE_RANGE=null;
+  return true;
+}
+/* ---------- picking a file ---------- */
+function pastePickImage(key){
+  var inp=document.createElement("input");
+  inp.type="file"; inp.accept="image/*"; inp.style.display="none";
+  inp.onchange=function(){ var f=inp.files&&inp.files[0]; inp.remove(); if(f) briefPasteImage(f,{key:key}); };
+  document.body.appendChild(inp); inp.click();
+}
+function descPickImage(){ pastePickImage(PASTE_DESC_KEY); }
+
+/* ---------- which field an image belongs to ---------- */
+function pasteFieldName(el){
+  if(!el||!el.getAttribute) return tr("the brief");
+  if(el.id==="descSrc"||(el.closest&&el.closest("#descSrc"))) return tr("the description");
+  var k=el.getAttribute("data-bf")||(el.closest&&el.closest("[data-bf]")&&el.closest("[data-bf]").getAttribute("data-bf"));
+  if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
+  return tr("the brief");
+}
+/* The description has no data-bf, so it gets its own key. */
+var PASTE_DESC_KEY="__description";
+function pasteFieldKey(el){
+  if(!el||!el.closest) return PASTE_DESC_KEY;
+  if(el.id==="descSrc"||el.closest("#descSrc")) return PASTE_DESC_KEY;
+  var f=el.closest("[data-bf]");
+  return f?f.getAttribute("data-bf"):PASTE_DESC_KEY;
+}
+function pasteLabelFor(key){
+  if(key===PASTE_DESC_KEY) return tr("the description");
+  var f=(WS.briefFields||[]).filter(function(x){ return x[0]===key; })[0];
+  return f?f[1]:tr("the brief");
+}
+/* Brief edits in progress, so adding a comment does not discard them. */
+function pasteBriefDraft(){
+  var out={}, list=document.querySelectorAll("[data-bf]");
+  for(var i=0;i<list.length;i++) out[list[i].getAttribute("data-bf")]=list[i].value;
+  return out;
+}
+/* ---------- taking an image in ----------
+   Returns true when it takes the paste; clipboard.js calls preventDefault on true. */
+function briefPasteImage(file,opts){
+  opts=opts||{};
+  if(!file||!/^image\//.test(file.type||"")) return false;
+  if(typeof signedIn==="function"&&!signedIn()) return false;
+  var tk=pasteCurrentTask();
+  if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
+  var key=opts.key, field=null;
+  if(key===undefined||key===null){
+    field=document.activeElement;
+    if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
+    key=pasteFieldKey(field);
+  }
+  var label=field?pasteFieldName(field):pasteLabelFor(key);
+  var name=file.name||("pasted-"+Date.now()+".png");
+  var attId=uid("att");
+  /* The description can hold the picture itself; a brief textarea cannot, so its images hang below
+     the field instead. */
+  var inline=key===PASTE_DESC_KEY&&!!document.getElementById("descSrc");
+  /* The picture goes in where the caret is, now, while the writing around it is still exactly as
+     the person left it. Waiting for the upload meant a save could land first, rebuild the editor
+     from the saved text, and drop whatever had been typed since. Until the upload answers it is a
+     local preview carrying no id, and descHtmlToMd writes nothing for an image without one — so a
+     save during the upload cannot put a blob: URL into the task. */
+  if(inline){
+    if(!PASTE_RANGE) descKeepCaret();
+    var tmp=""; try{ tmp=URL.createObjectURL(file); }catch(x){}
+    PASTE_INFLIGHT[attId]={src:tmp,name:name};
+    descInsertImage(descImgHtml("zc-att:"+attId,name,tmp,PASTE_DEFAULT_WIDTH).replace('class="desc-img"','class="desc-img uploading"'));
+  }
+  var brief=pasteBriefDraft();
+  toast(tr("Uploading the pasted image…"));
+
+  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+    var att={id:attId,name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key,pasteAuto:true};
+    var md=null;
+    if(inline){
+      att.inlineIn="description";
+      delete PASTE_INFLIGHT[attId];
+      var el=document.getElementById("descSrc");
+      var slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
+      if(slot){ slot.classList.remove("uploading"); slot.src=pasteImgSrc(att); }
+      /* No slot: either the marker is already in the saved text and will draw itself, or the
+         person deleted the preview while it was uploading, which is a decision to be respected. */
+      else if(el&&(tk.description||"").indexOf("zc-att:"+attId)>=0&&typeof descMdHtml==="function") el.innerHTML=descMdHtml(tk.description);
+      if(tmp) try{ URL.revokeObjectURL(tmp); }catch(x){}
+      if(el&&typeof descHtmlToMd==="function") md=descHtmlToMd(el.innerHTML);
+    }
+    editTaskWith(tk,function(t){
+      if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
+      if(md!==null) t.description=md;
+      var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
+      c.attachments=[att];
+      t.comments.push(c);
+      log(t,"comment");
+    });
+    toast(tr("Image attached"));
+  },function(err){
+    delete PASTE_INFLIGHT[attId];
+    if(inline){
+      var el=document.getElementById("descSrc"), slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
+      if(slot) slot.remove();
+      /* A save may already have written the marker; nothing will ever resolve it now. */
+      if((tk.description||"").indexOf("zc-att:"+attId)>=0) editTaskWith(tk,function(t){ t.description=pasteStripMarker(t.description,attId); });
+      if(tmp) try{ URL.revokeObjectURL(tmp); }catch(x){}
+    }
+    toast(tr("Could not attach that image")+": "+err.message,"bad");
+  });
+  return true;
+}
+/* ---------- taking an image out ----------
+   Removing means removing: the picture leaves the writing and the comment that carried it goes
+   too. Leaving the comment behind would put a picture the person just deleted back in Comments,
+   which reads as the delete having failed. A comment someone replied to is kept — a reply is
+   somebody else's words, and no delete here may take those away. */
+function pasteDropAttachment(t,attId){
+  var drop=[];
+  (t.comments||[]).forEach(function(c){
+    var had=(c.attachments||[]).some(function(a){ return a&&a.id===attId; });
+    if(!had) return;
+    c.attachments=(c.attachments||[]).filter(function(a){ return !a||a.id!==attId; });
+    var auto=!c.attachments.length&&!(t.comments||[]).some(function(x){ return x.parent===c.id; });
+    if(auto) drop.push(c.id);
+  });
+  if(drop.length) t.comments=(t.comments||[]).filter(function(c){ return drop.indexOf(c.id)<0; });
+}
+function pasteRemoveImage(attId){
+  var tk=pasteCurrentTask(); if(!tk) return;
+  var a=pasteFindImage(tk,attId);
+  confirmModal(tr("Remove this image?"),tr("It is taken out of the brief and out of Comments. Files in Assets & versions are not touched."),function(){
+    /* Out of the writing first, so the editor and the saved text agree. */
+    var el=document.getElementById("descSrc"), md=null;
+    if(el){
+      Array.prototype.forEach.call(el.querySelectorAll('img[data-zc-att="'+attId+'"]'),function(n){ n.remove(); });
+      if(typeof descHtmlToMd==="function") md=descHtmlToMd(el.innerHTML);
+    }
+    editTaskWith(tk,function(t){
+      if(md!==null) t.description=md;
+      else if(t.description) t.description=pasteStripMarker(t.description,attId);
+      pasteDropAttachment(t,attId);
+    });
+    toast(tr("Image removed"));
+  },true);
+  return a;
+}
+function pasteStripMarker(text,attId){
+  /* the width suffix, when the reader set one, is part of the marker and goes with it */
+  return String(text||"").replace(new RegExp("!\\[[^\\]\\n]*\\]\\(zc-att:"+attId.replace(/[^A-Za-z0-9_.:-]/g,"")+"(?:\\s+=\\s*\\d{1,3}%)?\\)","g"),"").replace(/\n{3,}/g,"\n\n");
+}
+/* ---------- opening one ---------- */
+function pasteOpenImage(ref){
+  var tk=pasteCurrentTask(); if(!tk) return;
+  var a=pasteFindImage(tk,ref);
   if(!a) return toast(tr("That image is no longer attached to this task"),"bad");
   previewModal({ name:a.name, title:a.name, img:a.preview||"", url:a.url||"", driveId:a.driveId||null });
 }
-function pasteThumbHtml(name,tk){
-  var a=pasteFindImage(tk,name), src=a&&(a.preview||(a.url&&/^\/files\//.test(a.url)?a.url:""));
-  var label=esc(name), q=attr(name);
-  if(!src) return '<span class="paste-thumb missing" title="'+attr(tr("That image is no longer attached to this task"))+'">'+I.image+label+'</span>';
-  return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')">'
-    + '<img src="'+attr(src)+'" alt="'+q+'" loading="lazy">'
-    + '<span class="paste-thumb-cap">'+label+'</span></button>';
+/* ---------- the two buttons on a picture: remove (top right) and resize (bottom right) ----------
+   Both float above the page (position:fixed) rather than living inside the editable text, where
+   anything placed becomes part of what gets typed over, serialised and undone. That makes them easy
+   to strand, so they share ONE record of which picture they belong to, and every handler — hover,
+   leave, scroll, redraw — moves or hides both together. Each used to look only at whether the x was
+   showing: once the x had scrolled under the header, the resize square was never touched again and
+   was left floating over the page with no picture under it. */
+var PASTE_TOOLS=null;   /* {img, id} while a picture's buttons are up */
+document.addEventListener("click",function(e){
+  var img=e.target&&e.target.closest&&e.target.closest("img.desc-img"); if(!img) return;
+  var id=img.getAttribute("data-zc-att")||"";
+  if(img.closest('[contenteditable="true"]')){ if(id) pasteShowImageX(img,id); return; }
+  /* in the read-only view a picture opens full size */
+  if(id){ e.preventDefault(); pasteOpenImage(id); }
+});
+document.addEventListener("mouseover",function(e){
+  var img=e.target&&e.target.closest&&e.target.closest('[contenteditable="true"] img.desc-img');
+  if(img){ var id=img.getAttribute("data-zc-att")||""; if(id) pasteShowImageX(img,id); }
+  if(PASTE_TOOLS&&e.target&&e.target.closest&&e.target.closest(".desc-img-x,.desc-img-size")) clearTimeout(PASTE_TOOLS.t);
+});
+function pasteImageXEl(){
+  var b=document.getElementById("descImgX");
+  if(b) return b;
+  b=document.createElement("button");
+  b.id="descImgX"; b.type="button"; b.className="desc-img-x"; b.innerHTML=I.x;
+  b.addEventListener("mousedown",function(e){ e.preventDefault(); });
+  b.addEventListener("click",function(e){ e.preventDefault(); e.stopPropagation(); var id=PASTE_TOOLS&&PASTE_TOOLS.id; pasteHideImageX(); if(id) pasteRemoveImage(id); });
+  document.body.appendChild(b);
+  return b;
 }
-/* Runs over already-escaped or already-rendered HTML, so the name is unescaped before the lookup. */
-function pasteMarkersToThumbs(html,tk){
-  tk=tk||(S.drawerTask?task(S.drawerTask):null);
-  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){ return pasteThumbHtml(pasteUnesc(n),tk); });
+/* The panel that scrolls says where the buttons may be drawn: a corner that has scrolled out of
+   sight takes its button with it, instead of leaving it over the tabs with nothing beneath. */
+function pasteToolsClip(img){
+  var box=img.closest("#drBody")||img.closest(".dr-body")||img.closest(".drawer")||document.documentElement;
+  var r=box.getBoundingClientRect();
+  return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};
 }
-/* The description renders through descMdHtml, which escapes as it goes, so the swap happens after. */
+/* The whole button has to be inside, not just its corner — half a button hanging over the header
+   is the same bug, only smaller. */
+function pastePlaceTool(b,x,y,size,clip){
+  if(y<clip.top-2||y+size>clip.bottom+2||x<clip.left-2||x+size>clip.right+2){ b.classList.remove("on"); return false; }
+  b.style.left=Math.round(x)+"px";
+  b.style.top=Math.round(y)+"px";
+  b.classList.add("on");
+  return true;
+}
+function pastePlaceTools(){
+  var st=PASTE_TOOLS;
+  if(!st||!st.img||!st.img.isConnected||!st.img.closest('[contenteditable="true"]')) return pasteHideImageX();
+  var r=st.img.getBoundingClientRect(), clip=pasteToolsClip(st.img);
+  pastePlaceTool(pasteImageXEl(),r.right-32,r.top+6,26,clip);
+  pastePlaceTool(pasteImageSizeEl(),r.right-28,r.bottom-28,24,clip);
+}
+function pasteShowImageX(img,id){
+  if(!img||!img.isConnected||!img.closest('[contenteditable="true"]')) return pasteHideImageX();
+  if(PASTE_TOOLS) clearTimeout(PASTE_TOOLS.t);
+  PASTE_TOOLS={img:img,id:id};
+  var x=pasteImageXEl(), s=pasteImageSizeEl();
+  x.setAttribute("title",tr("Remove this image")); x.setAttribute("aria-label",tr("Remove this image"));
+  s.setAttribute("title",tr("Drag to resize — tap to step through sizes")); s.setAttribute("aria-label",tr("Drag to resize — tap to step through sizes"));
+  pastePlaceTools();
+}
+function pasteHideImageX(){
+  if(PASTE_SIZING) return;   /* never pull the handle out from under a drag */
+  if(PASTE_TOOLS) clearTimeout(PASTE_TOOLS.t);
+  PASTE_TOOLS=null;
+  ["descImgX","descImgSize"].forEach(function(id){ var b=document.getElementById(id); if(b) b.classList.remove("on"); });
+}
+/* Leaving the picture hides both, unless the pointer went onto one of its own buttons. */
+document.addEventListener("mouseout",function(e){
+  if(!PASTE_TOOLS||PASTE_SIZING) return;
+  var to=e.relatedTarget;
+  if(to&&to.closest&&(to===PASTE_TOOLS.img||to.closest(".desc-img-x,.desc-img-size"))) return;
+  clearTimeout(PASTE_TOOLS.t); PASTE_TOOLS.t=setTimeout(pasteHideImageX,180);
+});
+/* Scrolling moves the picture, so its buttons move with it — or go, once it is out of sight. */
+document.addEventListener("scroll",function(){ if(PASTE_TOOLS) pastePlaceTools(); },true);
+window.addEventListener("resize",function(){ if(PASTE_TOOLS) pastePlaceTools(); });
+/* Redrawing the drawer can swap the editor for the read-only view, where there is nothing to
+   remove or resize. */
 (function(){
-  if(typeof descMdHtml!=="function") return;
-  var base=descMdHtml;
-  descMdHtml=function(){ return pasteMarkersToThumbs(base.apply(this,arguments)); };
+  if(typeof renderDrawer!=="function") return;
+  var base=renderDrawer;
+  renderDrawer=function(){ pasteHideImageX(); return base.apply(this,arguments); };
 })();
-/* ---- images attached to a field, drawn under it ----
-   Shown in edit mode and in view mode alike, because they are not part of the text. The file name
-   is the tooltip, not a caption: in the writing it is the picture that matters. Removing one is
-   where every other attachment is removed, under Assets & versions. */
+
+/* ---------- how big the picture is ----------
+   A picture arrives at a quarter of the column: big enough to recognise, small enough that a
+   screenshot of one button does not take over the brief. Drag the corner to set it, as a percentage
+   of the writing — a percentage, not pixels, so it keeps its proportions on a phone, in a wider
+   panel and in a printed brief. A tap with no drag steps up through the usual sizes instead, since
+   there is no comfortable way to drag a corner on a touch screen. */
+var PASTE_DEFAULT_WIDTH=25;
+var PASTE_SIZES=[25,50,75,100];
+/* A diagonal double arrow: the conventional sign for "drag this corner". */
+var PASTE_RESIZE_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg>';
+function pasteImageSizeEl(){
+  var b=document.getElementById("descImgSize");
+  if(b) return b;
+  b=document.createElement("button");
+  b.id="descImgSize"; b.type="button"; b.className="desc-img-size"; b.innerHTML=PASTE_RESIZE_ICON;
+  b.addEventListener("mousedown",function(e){ e.preventDefault(); });
+  b.addEventListener("pointerdown",pasteSizeStart);
+  document.body.appendChild(b);
+  return b;
+}
+function pasteImageWidth(img){
+  var w=parseInt(img.getAttribute("data-zc-w")||"",10);
+  if(w>0) return w;
+  return /%$/.test(img.style.width||"")?parseInt(img.style.width,10):100;
+}
+/* Full width is written as no width at all, so the Markdown of a full-width picture stays plain. */
+function pasteSetImageWidth(img,pct){
+  pct=Math.max(15,Math.min(100,Math.round(pct)));
+  if(pct>=100){ img.removeAttribute("data-zc-w"); img.style.width=""; }
+  else { img.setAttribute("data-zc-w",pct); img.style.width=pct+"%"; }
+  return pct;
+}
+var PASTE_SIZING=null;
+function pasteSizeStart(e){
+  var img=PASTE_TOOLS&&PASTE_TOOLS.img;
+  if(!img||!img.isConnected||!img.closest('[contenteditable="true"]')) return;
+  e.preventDefault(); e.stopPropagation();
+  var host=img.closest('[contenteditable="true"]');
+  PASTE_SIZING={img:img,left:img.getBoundingClientRect().left,hostW:host.getBoundingClientRect().width||1,moved:false,x0:e.clientX};
+  try{ e.target.setPointerCapture(e.pointerId); }catch(x){}
+  document.addEventListener("pointermove",pasteSizeMove);
+  document.addEventListener("pointerup",pasteSizeEnd);
+  document.addEventListener("pointercancel",pasteSizeEnd);
+  document.body.classList.add("paste-resizing");
+}
+function pasteSizeMove(e){
+  var st=PASTE_SIZING; if(!st) return;
+  if(Math.abs(e.clientX-st.x0)>3) st.moved=true;
+  if(!st.moved) return;
+  st.pct=pasteSetImageWidth(st.img,((e.clientX-st.left)/st.hostW)*100);
+  pastePlaceTools();
+}
+function pasteSizeEnd(){
+  document.removeEventListener("pointermove",pasteSizeMove);
+  document.removeEventListener("pointerup",pasteSizeEnd);
+  document.removeEventListener("pointercancel",pasteSizeEnd);
+  document.body.classList.remove("paste-resizing");
+  var st=PASTE_SIZING; PASTE_SIZING=null;
+  if(!st) return;
+  if(!st.moved){
+    var now=pasteImageWidth(st.img), next=PASTE_SIZES[0];
+    for(var i=0;i<PASTE_SIZES.length;i++) if(Math.abs(PASTE_SIZES[i]-now)<4){ next=PASTE_SIZES[(i+1)%PASTE_SIZES.length]; break; }
+    st.pct=pasteSetImageWidth(st.img,next);
+  }
+  pastePlaceTools();
+  if(typeof descSaveNow==="function") descSaveNow();
+  if(st.pct) toast(st.pct+"%");
+}
+
+/* ---------- a brief field's images, drawn under it ----------
+   A textarea cannot hold a picture, so these hang below the field in both edit and view mode. The
+   file name is the tooltip, not a caption: in the writing it is the picture that matters. */
 function pasteFieldImages(tk,key){
   /* The files table has a fixed column list, so a key added to a file record is dropped on save.
      A comment keeps its attachments as JSON, so that is where the field marker lives. */
@@ -15363,24 +15831,337 @@ function pasteFieldImages(tk,key){
   (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.briefField===key&&(a.preview||a.url)) out.push(a); }); });
   return out;
 }
-function pasteFieldImagesHtml(tk,key){
-  var list=pasteFieldImages(tk,key);
-  if(!list.length) return "";
-  return '<div class="paste-strip">'+list.map(function(f){
-    var src=f.preview||(/^\/files\//.test(f.url||"")?f.url:"");
-    var q=attr(f.name||"");
-    if(!src) return '<span class="paste-thumb missing" title="'+q+'">'+I.image+esc(f.name||"")+'</span>';
-    return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+attr(f.id||f.name||"")+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>';
-  }).join("")+'</div>';
+function pasteThumbHtml(a){
+  var src=pasteImgSrc(a), q=attr(a.name||""), id=attr(a.id||a.name||"");
+  if(!src) return '<span class="paste-thumb missing" title="'+q+'">'+I.image+esc(a.name||"")+'</span>';
+  return '<span class="paste-thumb-wrap">'
+    + '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+id+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>'
+    + '<button type="button" class="paste-thumb-x" title="'+attr(tr("Remove this image"))+'" aria-label="'+attr(tr("Remove this image"))+'" onclick="pasteRemoveImage(\''+id+'\')">'+I.x+'</button></span>';
 }
-/* The description is rendered by v38's descEditorHtml; its images hang below whichever mode it is in. */
+function pasteFieldImagesHtml(tk,key){
+  var list=pasteFieldImages(tk,key), edit=!!S.briefEdit&&key!==PASTE_DESC_KEY&&(tk._draft||canI.editTask(tk));
+  if(!list.length&&!edit) return "";
+  return '<div class="paste-strip">'+list.map(pasteThumbHtml).join("")
+    + (edit?'<button type="button" class="paste-add" onclick="pastePickImage(\''+attr(key)+'\')">'+I.image+'<span>'+esc(tr("Add image"))+'</span></button>':"")
+    + '</div>';
+}
+/* Images pasted into the description before it could hold them are still filed against it. They
+   are shown below the editor unless the writing already points at them, so nothing that was
+   attached once quietly disappears. */
+function pasteLegacyDescHtml(tk){
+  var txt=(tk&&tk.description)||"";
+  var list=pasteFieldImages(tk,PASTE_DESC_KEY).filter(function(a){ return txt.indexOf("zc-att:"+a.id)<0; });
+  if(!list.length) return "";
+  return '<div class="paste-strip">'+list.map(pasteThumbHtml).join("")+'</div>';
+}
 (function(){
   if(typeof descEditorHtml!=="function") return;
   var base=descEditorHtml;
-  descEditorHtml=function(tk){
-    return base.apply(this,arguments)+pasteFieldImagesHtml(tk,PASTE_DESC_KEY);
+  descEditorHtml=function(tk){ return base.apply(this,arguments)+pasteLegacyDescHtml(tk); };
+})();
+
+/* Briefs written by an earlier version carry [[img:name]] in the text. Nothing writes those any
+   more, but a task saved then would otherwise show the raw characters. */
+function pasteMarkersToThumbs(html,tk){
+  tk=tk||pasteCurrentTask();
+  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){
+    var a=pasteFindImage(tk,pasteUnesc(n));
+    return a?pasteThumbHtml(a):'<span class="paste-thumb missing">'+I.image+esc(pasteUnesc(n))+'</span>';
+  });
+}
+
+Object.assign(UI_ID,{
+  "Insert image":"Sisipkan gambar",
+  "Add image":"Tambah gambar",
+  "Remove this image":"Hapus gambar ini",
+  "Remove this image?":"Hapus gambar ini?",
+  "It is taken out of the brief and out of Comments. Files in Assets & versions are not touched.":"Gambar ini dikeluarkan dari brief dan dari Komentar. File di Aset & versi tidak tersentuh.",
+  "Image removed":"Gambar dihapus",
+  "Image":"Gambar",
+  "Drag to resize — tap to step through sizes":"Tarik untuk mengubah ukuran — ketuk untuk berganti ukuran",
+  "Hide the task details so the tab has room":"Sembunyikan detail task agar isi tab lebih lega",
+  "Show the task details again":"Tampilkan lagi detail task",
+  "Auto-expand":"Auto perbesar"
+});
+</script>
+<script>
+/* MOBILE: THE PAGE MUST NOT ZOOM WHEN A FIELD IS TAPPED.
+
+   Safari on iOS zooms the whole page in whenever a field with text smaller than 16px takes focus,
+   and then leaves it zoomed: half the screen is off to the side, the send button is gone, and you
+   are typing a message you cannot see. Every compact control in here — the message box, the
+   comment box, the task fields — is deliberately smaller than 16px, so this happened constantly.
+
+   Raising all of them to 16px would undo the dense layout the phone screens are built around, so
+   the page says instead that it is already at its intended scale while a field is focused, and
+   says so only then: pinch-to-zoom works everywhere else, and comes back the moment the field is
+   left. Browsers that do not auto-zoom are unaffected — the attribute means nothing to them.
+
+   Only on touch. A mouse never triggers this, and a page that cannot be zoomed is a page somebody
+   with poor eyesight cannot read. */
+(function(){
+  var meta=document.querySelector('meta[name="viewport"]');
+  if(!meta) return;
+  var BASE=meta.getAttribute("content")||"width=device-width, initial-scale=1.0";
+  var LOCKED=BASE+", maximum-scale=1, user-scalable=no";
+  var timer=null;
+  function touch(){ return !!(window.matchMedia&&window.matchMedia("(pointer:coarse)").matches); }
+  /* Which fields Safari zooms into: anything you can type in, plus a select. A button or a
+     checkbox takes focus without ever opening a keyboard. */
+  function typable(el){
+    if(!el||!el.tagName) return false;
+    var tag=el.tagName;
+    if(tag==="TEXTAREA"||tag==="SELECT") return true;
+    if(tag==="INPUT") return !/^(button|submit|reset|checkbox|radio|file|image|range|color)$/i.test(el.type||"text");
+    return !!el.isContentEditable;
+  }
+  function lock(on){ var want=on?LOCKED:BASE; if(meta.getAttribute("content")!==want) meta.setAttribute("content",want); }
+  document.addEventListener("focusin",function(e){ if(!touch()||!typable(e.target)) return; clearTimeout(timer); lock(true); });
+  document.addEventListener("focusout",function(){
+    clearTimeout(timer);
+    /* Moving between two fields fires focusout before focusin; a beat avoids unlocking and
+       relocking between them, which is what makes the page jump. */
+    timer=setTimeout(function(){ if(!typable(document.activeElement)) lock(false); },200);
+  });
+})();
+</script>
+<script>
+/* COMMENTS: ATTACH THE WAY ASSETS & VERSIONS DOES, AND DRIVE LINKS THAT READ AS THEIR NAMES.
+
+   Some people hand work over in the comments rather than in Assets & versions, so the comment box
+   gets the same five ways in: Upload images, Upload file, Link Google Drive, Attach link and Attach
+   from library. What is attached there is filed under Assets too, so the deliverable is found where
+   deliverables are looked for, whichever way it arrived.
+
+   A link is filed as an asset only when it is one: a Google Drive / Docs / Sheets / Slides link, a
+   Figma or Canva design, a cloud-storage share, or a link straight to a file (.pdf, .psd, .zip…).
+   A link to an article or a reference page stays on the comment — putting that among the assets
+   would make the tab mean less. Drive links pasted into the comment's text count as attached; that
+   is how most people attach one.
+
+   A Drive link is shown short, as its name ("Q4 Campaign") rather than as a URL. The name comes from
+   resolveSmartLink, which asks the server when nobody here has a Google token of their own. A link
+   that is not shared with "anyone with the link" has no readable name and is shown as "Google
+   Drive folder" (or file, doc, sheet…), which is still shorter than the URL and still says what it
+   is. */
+
+/* ---------- what counts as an asset ---------- */
+var CMT_ASSET_EXT=/\.(pdf|png|jpe?g|gif|webp|svg|tiff?|psd|ai|eps|indd|fig|sketch|xd|zip|rar|7z|mp4|mov|webm|mp3|wav|pptx?|xlsx?|docx?|key|numbers|pages)$/i;
+var CMT_ASSET_HOSTS=/(^|\.)(dropbox\.com|onedrive\.live\.com|1drv\.ms|sharepoint\.com|wetransfer\.com|we\.tl|box\.com|frame\.io)$/i;
+function linkLooksLikeAsset(url){
+  var p=typeof detectProvider==="function"?detectProvider(url):null;
+  if(p&&(/^GOOGLE_/.test(p.provider)||p.provider==="FIGMA"||p.provider==="CANVA")) return true;
+  try{ var u=new URL(url); return CMT_ASSET_HOSTS.test(u.hostname)||CMT_ASSET_EXT.test(u.pathname); }catch(e){ return false; }
+}
+function isGoogleLink(url){ var p=typeof detectProvider==="function"?detectProvider(url):null; return !!(p&&/^GOOGLE_/.test(p.provider)); }
+
+/* ---------- a Drive link's short label ---------- */
+/* What is known right now, without waiting: the remembered name, or what kind of thing it is. */
+function driveLinkLabel(url){
+  var p=typeof detectProvider==="function"?detectProvider(url):null;
+  if(!p||!/^GOOGLE_/.test(p.provider)) return "";
+  var c=p.resourceId&&typeof smartCacheGet==="function"?smartCacheGet(p.provider+":"+p.resourceId):null;
+  return (c&&c.title)||tr(smartSubtitle(p));
+}
+function driveLinkKnown(url){ var p=detectProvider(url); var c=p&&p.resourceId?smartCacheGet(p.provider+":"+p.resourceId):null; return !!(c&&c.title); }
+/* One lookup per link however many times it is drawn. */
+var DRIVE_NAME_JOBS={};
+function driveLinkName(url){
+  if(!DRIVE_NAME_JOBS[url]) DRIVE_NAME_JOBS[url]=resolveSmartLink(url).then(function(r){ return r&&r.title?r.title:""; },function(){ return ""; });
+  return DRIVE_NAME_JOBS[url];
+}
+/* A Drive link in written text becomes a chip: the Drive mark and the name. */
+function driveChipHtml(url){
+  var known=driveLinkKnown(url);
+  return '<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" class="rich-link drive-chip"'+(known?'':' data-drive-pending="1"')
+    + ' title="'+attr(url)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.href)">'
+    + (typeof driveIcon==="function"?driveIcon():"")+'<span>'+esc(driveLinkLabel(url))+'</span></a>';
+}
+/* richLinkText draws every external link the same way, as its raw URL. A Drive link is drawn as a
+   chip instead — in comments, and wherever else written text shows one. */
+(function(){
+  if(typeof richLinkText!=="function") return;
+  var base=richLinkText;
+  richLinkText=function(){
+    return base.apply(this,arguments).replace(/<a href="([^"]+)" target="_blank" rel="noopener nofollow" class="rich-link"[^>]*>[^<]*<\/a>/g,function(whole,href){
+      var url=typeof pasteUnesc==="function"?pasteUnesc(href):href;
+      return isGoogleLink(url)?driveChipHtml(url):whole;
+    });
   };
 })();
+/* Chips drawn before their name was known fill it in when it arrives. Watching the page rather than
+   one screen catches every place written text is drawn. */
+var DRIVE_CHIP_SCAN=null;
+function driveChipsFill(){
+  DRIVE_CHIP_SCAN=null;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-drive-pending="1"]'),function(a){
+    a.removeAttribute("data-drive-pending");
+    var url=a.getAttribute("href");
+    driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector("span"); if(s) s.textContent=name; });
+  });
+}
+new MutationObserver(function(){ if(!DRIVE_CHIP_SCAN&&document.querySelector('[data-drive-pending="1"]')) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
+  .observe(document.documentElement,{childList:true,subtree:true});
+
+/* ---------- the comment box's toolbar ---------- */
+/* Plain buttons: in a comment box Post is the one primary action. */
+function cmtToolbarHtml(){
+  var drive=typeof driveIcon==="function"?driveIcon():I.cloud;
+  return '<div class="cmt-tools">'
+    + '<button type="button" class="btn xs" onclick="cmtUpload(true)">'+I.up+tr("Upload images")+'</button>'
+    + '<button type="button" class="btn xs" onclick="cmtUpload(false)">'+I.up+tr("Upload file")+'</button>'
+    + '<button type="button" class="btn xs" onclick="cmtLinkModal(\'drive\')">'+drive+tr("Link Google Drive")+'</button>'
+    + '<button type="button" class="btn xs" onclick="cmtLinkModal(\'web\')">'+I.link+tr("Attach link")+'</button>'
+    + '<button type="button" class="btn xs" onclick="cmtLibraryModal()">'+I.assets.replace('class="i"','')+tr("Attach from library")+'</button>'
+    + '</div>';
+}
+function cmtRoom(){ return 10-(window._cmtAtt||[]).length; }
+function cmtStage(a){
+  window._cmtAtt=window._cmtAtt||[];
+  if(cmtRoom()<=0) return toast(tr("Up to 10 attachments per comment"),"bad");
+  if(a.url&&window._cmtAtt.some(function(x){ return x.url===a.url; })) return toast(tr("That link is already attached"));
+  var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value;
+  window._cmtAtt.push(a); renderDrawer();
+}
+/* Upload images / Upload file: the same path as the comment box's own attach, filtered by kind. */
+function cmtUpload(imagesOnly){
+  var inp=document.getElementById("fileInput");
+  inp.accept=imagesOnly?"image/*":"*/*"; inp.multiple=true;
+  inp.onchange=function(){
+    var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if(!files.length) return;
+    if(files.length>cmtRoom()){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,cmtRoom())); }
+    files.forEach(function(f){
+      var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type);
+      if(isImg) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+      else uploadAny(f,{forceDrive:true}).then(function(u){ cmtStage({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type,source:u.source||(u.driveId?"gdrive":"local")}); }).catch(function(e){ toast(f.name+": "+e.message,"bad"); });
+    });
+  };
+  inp.click();
+}
+/* Link Google Drive / Attach link: paste a link; a Drive link's name is filled in by itself when it
+   can be read, and can always be typed over. */
+function cmtLinkModal(kind){
+  var drive=kind==="drive";
+  openModal(drive?(driveIcon()+" "+tr("Link Google Drive")):tr("Attach link"),
+    '<p class="hint" style="margin-bottom:10px">'+tr(drive?"Paste a Google Drive, Docs, Sheets or Slides link. It is shown by its name, and filed under Assets & versions.":"Paste a link. A link to a file or a design is also filed under Assets & versions; any other link stays on the comment.")+'</p>'
+    + fieldHtml("cmt_url",tr("Link"),'<input id="cmt_url" inputmode="url" placeholder="'+attr(drive?"https://drive.google.com/drive/folders/…":"https://")+'" oninput="cmtLinkNameSoon(\''+kind+'\')">')
+    + fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')
+    + '<p class="hint" id="cmt_name_hint" style="min-height:1.3em"></p>',
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
+  setTimeout(function(){ var i=document.getElementById("cmt_url"); if(i) i.focus(); },40);
+}
+var CMT_NAME_T=null;
+function cmtLinkNameSoon(kind){
+  clearTimeout(CMT_NAME_T);
+  CMT_NAME_T=setTimeout(function(){
+    var url=normalizedAttachUrl(val("cmt_url")), hint=document.getElementById("cmt_name_hint"), nameEl=document.getElementById("cmt_name");
+    if(!url||!isGoogleLink(url)||!nameEl){ if(hint) hint.textContent=""; return; }
+    if(hint) hint.textContent=tr("Reading the name from Google Drive…");
+    driveLinkName(url).then(function(name){
+      var h=document.getElementById("cmt_name_hint"), n=document.getElementById("cmt_name"); if(!n) return;
+      if(name){ if(!n.value.trim()||n.value===n.getAttribute("data-auto")){ n.value=name; n.setAttribute("data-auto",name); } if(h) h.textContent=""; }
+      else if(h) h.textContent=tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+driveLinkLabel(url)+"”.";
+    });
+  },350);
+}
+function cmtLinkSave(kind){
+  var url=normalizedAttachUrl(val("cmt_url"));
+  if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
+  var drive=isGoogleLink(url);
+  if(kind==="drive"&&!drive) return toast(tr("Use a Google Drive, Docs, Sheets, or Slides share link"),"bad");
+  var nameEl=document.getElementById("cmt_name"), typed=val("cmt_name").trim(), host=""; try{ host=new URL(url).hostname; }catch(e){}
+  /* a name filled in from Drive is Drive's, and follows it; only one somebody typed or changed is theirs */
+  var own=!!typed&&typed!==(nameEl&&nameEl.getAttribute("data-auto"));
+  closeModal();
+  cmtStage({name:typed||(drive?driveLinkLabel(url):host||tr("External link")),url:url,type:"link",kind:"link",
+    source:drive?"gdrive":"link",size:tr("Link"),named:own});
+}
+/* Attach from library: the same list as in Assets & versions. */
+function cmtLibraryModal(){
+  if(!ASSETS.length) return toast(tr("The asset library is empty"),"bad");
+  openModal(tr("Attach from library"),'<div class="agenda">'+ASSETS.map(function(a){
+    return '<div class="row" onclick="cmtLibraryPick(\''+a.id+'\')"><span class="ficon" style="background:'+a.color+'">'+typeExt(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(srcOf(a))+' <span>'+esc(a.size)+'</span></div></div><span class="btn xs">'+tr("Attach")+'</span></div>';
+  }).join("")+'</div>',null,true);
+}
+function cmtLibraryPick(id){
+  var a=asset(id); if(!a) return; closeModal();
+  cmtStage({name:a.name,size:a.size,url:a.url||"",preview:a.img||null,driveId:a.driveId||null,
+    type:a.type==="image"||a.type==="logo"||a.type==="icon"?"image":(a.type||"other"),source:a.source||"local",fromLibrary:true});
+}
+
+/* ---------- filing a comment's assets under Assets & versions ----------
+   Called by postComment with the task, the comment's attachments and its text. */
+function cmtAssetsFrom(att,text){
+  var out=[];
+  (att||[]).forEach(function(a){
+    if(!a||!(a.preview||a.url)) return;
+    if(a.kind==="link"&&!linkLooksLikeAsset(a.url)) return;   /* a reference page stays on the comment */
+    out.push(a);
+  });
+  /* Drive links written into the comment are attachments too */
+  (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){
+    var url=normalizedAttachUrl(x.url); if(!url||!isGoogleLink(url)) return;
+    if(out.some(function(a){ return a.url===url; })) return;
+    out.push({name:driveLinkLabel(url),url:url,type:"link",kind:"link",source:"gdrive",size:tr("Link")});
+  });
+  return out;
+}
+function cmtFileAssets(t,list){
+  var added=[];
+  list.forEach(function(a){
+    var dup=(t.files||[]).some(function(f){ return (a.url&&f.url===a.url)||(a.driveId&&f.driveId===a.driveId)||(a.preview&&f.preview===a.preview); });
+    if(dup) return;
+    var drive=a.url&&isGoogleLink(a.url);
+    var f=F(a.name,drive?"document":(a.type==="link"?"document":(a.type||(a.preview?"image":"other"))),a.source||(a.driveId?"gdrive":(a.url&&/^https?:/i.test(a.url)?"link":"local")),a.size||"—",0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null});
+    t.files.push(f); added.push(f);
+  });
+  return added;
+}
+/* A Drive link filed before its name was known is renamed once the name arrives — unless somebody
+   typed a name for it, which is theirs to keep. */
+function cmtNameFiledLinks(tk,files){
+  files.forEach(function(f){
+    if(!f.url||!isGoogleLink(f.url)||f.name!==driveLinkLabel(f.url)||driveLinkKnown(f.url)) return;
+    driveLinkName(f.url).then(function(name){
+      if(!name) return;
+      var live=task(tk.id); if(!live) return;
+      var mine=(live.files||[]).filter(function(x){ return x.id===f.id; })[0];
+      if(!mine||mine.name===name) return;
+      /* Only the Assets entry is renamed. A comment's attachments cannot be changed once posted —
+         the server refuses it, so nobody can alter what someone else attached — and the comment
+         does not need it: it draws its Drive links as chips that look the name up themselves. */
+      editTaskWith(live,function(t){ (t.files||[]).forEach(function(x){ if(x.id===f.id) x.name=name; }); });
+    });
+  });
+}
+/* A posted comment's Drive attachments, drawn as chips with their live name — unless someone typed
+   a name for one, which is shown as typed. */
+(function(){
+  if(typeof commentAttachmentsHtml!=="function") return;
+  var base=commentAttachmentsHtml;
+  commentAttachmentsHtml=function(c){
+    var list=(c&&c.attachments||[]).filter(Boolean);
+    var drive=list.filter(function(a){ return a.url&&!a.preview&&!a.named&&isGoogleLink(a.url); });
+    if(!drive.length) return base.apply(this,arguments);
+    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return drive.indexOf(a)<0; })});
+    return base.call(this,rest)+'<div class="cmt-drive">'+drive.map(function(a){ return driveChipHtml(a.url); }).join("")+'</div>';
+  };
+})();
+/* In Assets & versions a Drive link's row said its full URL under its name; it says what kind of
+   Drive item it is instead, which is what the URL was being read for. */
+function fileUrlLabel(url){ return isGoogleLink(url)?driveLinkKindLabel(url):url; }
+function driveLinkKindLabel(url){ var p=detectProvider(url); return p?tr(smartSubtitle(p)):url; }
+
+Object.assign(UI_ID,{
+  "That link is already attached":"Tautan itu sudah dilampirkan",
+  "Paste a Google Drive, Docs, Sheets or Slides link. It is shown by its name, and filed under Assets & versions.":"Tempel tautan Google Drive, Docs, Sheets, atau Slides. Ditampilkan dengan namanya, dan disimpan di Aset & versi.",
+  "Paste a link. A link to a file or a design is also filed under Assets & versions; any other link stays on the comment.":"Tempel tautan. Tautan ke file atau desain juga disimpan di Aset & versi; tautan lain tetap di komentar.",
+  "Filled in from Drive when it can be read":"Diisi otomatis dari Drive jika bisa dibaca",
+  "Optional":"Opsional",
+  "Reading the name from Google Drive…":"Membaca nama dari Google Drive…",
+  "The name could not be read — the link is probably not shared with anyone who has it. It will show as":"Namanya tidak bisa dibaca — kemungkinan tautan tidak dibagikan ke siapa pun yang memilikinya. Akan tampil sebagai",
+  "The asset library is empty":"Pustaka aset masih kosong"
+});
 </script>
 <script>
 /* SHARED GOOGLE DRIVE ACCOUNT — Settings → Integrations (admins only).

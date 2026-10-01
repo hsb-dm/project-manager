@@ -111,3 +111,122 @@
 .paste-thumb.missing{display:inline-flex;align-items:center;gap:5px;line-height:1.3;padding:4px 10px;border-radius:var(--pill);border-style:dashed;color:var(--color-text-tertiary);font-size:11.5px;cursor:default}
 .paste-thumb.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
 @media(max-width:560px){.paste-thumb img{max-width:120px;max-height:96px}}
+
+/* A picture sitting in the writing itself (the description editor and its read-only view).
+   It is a block, so a line of text never wraps around it and the writing keeps its rhythm. */
+.desc-img{display:block;max-width:100%;height:auto;margin:10px 0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-sunken);cursor:zoom-in}
+.md-src .desc-img{cursor:default}
+.md-src .desc-img:hover{border-color:var(--color-primary)}
+.desc-img.missing{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:1px dashed var(--color-border);border-radius:var(--pill);color:var(--color-text-tertiary);font-size:11.5px}
+.desc-img.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* The remove button follows whichever picture is under the pointer; it lives outside the editable
+   text so nothing can type over it or undo it. */
+.desc-img-x{position:fixed;z-index:150;display:none;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:rgba(17,17,17,.78);color:#fff;cursor:pointer;box-shadow:var(--shadow-md)}
+.desc-img-x.on{display:grid}
+.desc-img-x:hover{background:var(--color-danger)}
+.desc-img-x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4}
+/* The corner handle that sets how wide a picture in the writing is. It lives outside the editable
+   text, like the remove button, so nothing can type over it. */
+.desc-img-size{position:fixed;z-index:150;display:none;place-items:center;width:24px;height:24px;padding:0;border:2px solid #fff;border-radius:6px;background:var(--color-primary);color:#fff;cursor:nwse-resize;box-shadow:var(--shadow-md);touch-action:none}
+.desc-img-size.on{display:grid}
+.desc-img-size svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+body.paste-resizing{user-select:none;-webkit-user-select:none;cursor:nwse-resize}
+body.paste-resizing .desc-img{pointer-events:none}
+
+/* A brief field is a textarea, so its pictures stay in the strip underneath, each with its own
+   remove button and a button to add one without the clipboard. */
+.paste-thumb-wrap{position:relative;display:inline-block;line-height:0}
+.paste-thumb-x{position:absolute;top:4px;right:4px;display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:rgba(17,17,17,.74);color:#fff;cursor:pointer;opacity:0;transition:opacity .12s}
+.paste-thumb-wrap:hover .paste-thumb-x,.paste-thumb-x:focus-visible{opacity:1}
+.paste-thumb-x:hover{background:var(--color-danger)}
+.paste-thumb-x svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4}
+.paste-add{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px dashed var(--color-border);border-radius:var(--pill);background:transparent;color:var(--color-text-secondary);font:inherit;font-size:11.5px;cursor:pointer;align-self:center}
+.paste-add:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.paste-add svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* Touch has no hover, so the buttons are always there. */
+@media(pointer:coarse){.paste-thumb-x{opacity:1}}
+.desc-img.uploading{opacity:.55}
+
+/* ---- phones and tablets ---- */
+/* A new task could not be given a title on a phone. The mobile header clamps the title to two
+   lines with display:-webkit-box, and a contenteditable laid out as a -webkit-box will not take a
+   caret on iOS — worst of all when it is empty, which is exactly the state a new task is in, so
+   there was not even a letter to tap on. Clamping is for reading; while the title can be edited it
+   is laid out as ordinary text. */
+@media(max-width:980px){
+  .dr-title[contenteditable="true"]{display:block;overflow:visible;-webkit-line-clamp:none;min-height:1.6em}
+}
+/* The AI panel's header ran five round buttons at the touch size of 38px next to a title and a
+   badge, which did not fit a phone: the last ones were cut off. They take the size the task header
+   uses for the same kind of button. */
+@media(max-width:760px){
+  .aichat-head{gap:4px;padding:10px 12px}
+  .aichat-head h2{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .aichat-head .sq{width:26px;height:26px;border-radius:8px;flex:none}
+  .aichat-head .sq svg{width:14px;height:14px}
+  .aichat-head .iconbtn{width:30px!important;height:30px!important;min-width:30px;min-height:30px}
+  .aichat-head .iconbtn svg{width:15px;height:15px}
+  .aichat-head .spacer{min-width:0}
+}
+/* The message composer on a phone took three rows — the box, a row of its own buttons, then five
+   round shortcuts — leaving a slot barely tall enough for two messages. Everything the shortcuts
+   do is already in the + menu beside the box, so on a phone the composer is one row: attach, the
+   box, emoji, send. Nothing is removed and nothing is restyled; it is the same controls on one
+   line, and the reading area keeps the ~90px that buys. */
+@media(max-width:760px){
+  .msg-quick{display:none!important}
+  .msg-input{display:flex!important;align-items:flex-end;gap:4px;padding:4px 6px;border-radius:var(--pill)}
+  .msg-input .msg-ta-wrap{flex:1;min-width:0;grid-column:auto;grid-row:auto}
+  .msg-input>button,.msg-input>.msg-send-wrap{grid-column:auto;grid-row:auto;flex:none;align-self:center}
+  .msg-input textarea{max-height:96px!important}
+  /* Typing @ opens the same picker, so the button for it is the one thing a narrow row can lose. */
+  .msg-input>button[data-tour="messages-mention"]{display:none}
+}
+
+/* ---- the task panel, expanded ---- */
+/* Expanded keeps the top line — task number, project, status, priority, team and the actions —
+   and folds away the rest of the header, so the tabs sit right under it and their contents get
+   the panel. Warnings (a blocking dependency, a hidden task) stay: they are not details. */
+.drawer.expanded .dr-title,
+.drawer.expanded .dr-head .meta,
+.drawer.expanded .task-more-toggle,
+.drawer.expanded .task-tags-bottom,
+.drawer.expanded .m-details-toggle{display:none!important}
+.drawer.expanded .dr-top{margin-bottom:4px}
+/* The tab row scrolls sideways (overflow-x:auto) so it fits a phone — and CSS then quietly makes
+   it scroll vertically too, because one axis that is not visible turns the other to auto. Each tab
+   reached 1px below the row (margin-bottom:-1px, to sit on the header's border), which was enough
+   for a vertical scrollbar with its two arrows at the end of the row. The row now scrolls only
+   sideways, and the underline sits inside it, on the border. */
+.dr-head .tabs{position:relative;overflow-y:hidden}
+.dr-head .tabs .tab{margin-bottom:0}
+/* The button sits at the end of the tab row, labelled, and pinned there when the row scrolls
+   sideways on a phone — a control you cannot reach is not a control. */
+.tab-expand{margin-left:auto;flex:none;position:sticky;right:0;align-self:center;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface);color:var(--color-text-secondary);font:inherit;font-size:12px;font-weight:650;white-space:nowrap;cursor:pointer}
+.tab-expand:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.tab-expand svg{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.tab-expand[aria-pressed="true"]{color:var(--color-primary);background:var(--color-primary-soft);border-color:transparent}
+@media(max-width:420px){.tab-expand span{display:none}.tab-expand{padding:0 8px}}
+/* A centred panel was as tall as whatever tab was open, so it jumped every time the tab changed
+   (850px on Brief, 730px on Activity). It is one size now, and the tab scrolls inside it. On
+   narrow screens it is already the whole screen. */
+@media(min-width:981px){[data-task-panel="center"] .drawer{height:min(calc(100dvh - 48px),960px)}}
+/* Auto-expand, in the task's gear menu: one line and a switch. */
+.gear-toggle{display:flex;align-items:center;gap:10px;width:100%;margin-top:6px;padding:7px 4px;border:0;background:transparent;color:var(--color-text-primary);font:inherit;font-size:12.5px;font-weight:600;text-align:left;cursor:pointer}
+.gear-toggle>span{flex:1;min-width:0}
+.gear-toggle>i{position:relative;flex:none;width:30px;height:17px;border-radius:999px;background:var(--color-border-strong,#c8ccd4);transition:background .15s}
+.gear-toggle>i::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.gear-toggle[aria-checked="true"]>i{background:var(--color-primary)}
+.gear-toggle[aria-checked="true"]>i::after{transform:translateX(13px)}
+@media(prefers-reduced-motion:reduce){.gear-toggle>i,.gear-toggle>i::after{transition:none}}
+
+/* The comment box's attach row — the same five ways in as Assets & versions. */
+#drawer .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+#drawer .composer .cmt-tools .btn{gap:5px}
+#drawer .composer .cmt-tools .drive-logo,#drawer .composer .cmt-tools svg{width:13px;height:13px}
+/* A Drive link drawn as its name: the Drive mark and a short label instead of a long URL. */
+.drive-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:1px 8px 1px 5px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary);text-decoration:none;font-size:.95em;line-height:1.5;vertical-align:baseline}
+.drive-chip:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.drive-chip .drive-logo{width:13px;height:13px;flex:none}
+.drive-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmt-drive{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}

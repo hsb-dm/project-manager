@@ -78,6 +78,39 @@ module.exports = function (db, ws, route, deps) {
   const previewQueue=[], previewRate={at:0,n:0}; let previewActive=0;
   const runPreviewQueue=()=>{while(previewActive<2&&previewQueue.length){const job=previewQueue.shift();previewActive++;job().catch(()=>{}).finally(()=>{previewActive--;runPreviewQueue();});}};
   const queueLinkMetadata=(c,messageId)=>{const minute=Math.floor(Date.now()/60000);if(previewRate.at!==minute){previewRate.at=minute;previewRate.n=0;}if(previewRate.n>=20)return;const row=db.prepare('SELECT * FROM messages WHERE id=? AND deleted_at IS NULL').get(messageId);if(!row)return;const refs=J(row.refs,[]), todo=refs.filter(r=>r.type==='URL'&&r.provider==='GENERIC'&&r.normalizedUrl&&!r.title).slice(0,2);todo.forEach(ref=>{previewRate.n++;previewQueue.push(async()=>{const cached=db.prepare('SELECT * FROM link_metadata_cache WHERE normalized_url=? AND expires_at>?').get(ref.normalizedUrl,now());let meta=cached&&cached.status==='ok'?{hostname:cached.hostname,title:cached.title||'',description:cached.description||'',faviconUrl:cached.favicon_url||'',imageUrl:cached.image_url||'',status:'ok'}:null;if(!cached){try{meta=await fetchPreview(ref.normalizedUrl);}catch(e){}const at=now(),exp=new Date(Date.now()+(meta?12:1)*3600e3).toISOString();db.prepare('INSERT INTO link_metadata_cache(normalized_url,hostname,title,description,favicon_url,image_url,status,fetched_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(normalized_url) DO UPDATE SET hostname=excluded.hostname,title=excluded.title,description=excluded.description,favicon_url=excluded.favicon_url,image_url=excluded.image_url,status=excluded.status,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at').run(ref.normalizedUrl,ref.hostname||new URL(ref.normalizedUrl).hostname,meta&&meta.title||'',meta&&meta.description||'',meta&&meta.faviconUrl||'',meta&&meta.imageUrl||'',meta?'ok':'blocked',at,exp);}if(!meta)return;const fresh=db.prepare('SELECT * FROM messages WHERE id=? AND deleted_at IS NULL').get(messageId);if(!fresh)return;const next=J(fresh.refs,[]).map(r=>(r.normalizedUrl===ref.normalizedUrl?Object.assign({},r,meta):r));db.prepare('UPDATE messages SET refs=? WHERE id=?').run(JSON.stringify(next),messageId);const out=msgOut(db.prepare('SELECT * FROM messages WHERE id=?').get(messageId));publishToConversation(c,{type:'message_updated',conversationId:c.id,messageId,message:out});});});runPreviewQueue(); };
+  /* The name of a Google Drive / Docs link, so it can be shown as "Q4 Campaign" instead of a long URL.
+     In this workspace members have no Google token of their own (uploads go through the one shared
+     account), and that account's drive.file scope cannot read a folder someone else created. The
+     page Google serves for a link shared with "anyone with the link" carries the name in its title,
+     so that is where it comes from. A private link redirects to Google's sign-in page, whose title
+     is not a name, and gets no answer — the label falls back to "Google Drive folder".
+     Only Google's two hosts are fetched, so this is not a general fetch-any-URL endpoint, and the
+     same guarded fetch, cache and rate limit as message previews apply. */
+  const GOOGLE_LINK_HOSTS = new Set(['drive.google.com', 'docs.google.com']);
+  const googleName = raw => {
+    const t = String(raw || '').replace(/\s+[-–]\s+Google\s+(Drive|Docs|Sheets|Slides|Forms)\s*$/i, '').trim();
+    if (!t || /^(sign[\s-]?in|masuk|google\s+accounts?|google\s+drive:\s*sign)/i.test(t) || /^Google\s+(Drive|Docs|Sheets|Slides|Forms)$/i.test(t)) return '';
+    return t.slice(0, 160);
+  };
+  route('GET', '/api/links/title', async (u, p, q) => {
+    const url = normalizeUrl(q.url);
+    if (!url) error(400, 'Give a link.');
+    if (!GOOGLE_LINK_HOSTS.has(new URL(url).hostname.toLowerCase())) error(400, 'Only Google Drive and Docs links are looked up.');
+    const cached = db.prepare('SELECT * FROM link_metadata_cache WHERE normalized_url=? AND expires_at>?').get(url, now());
+    if (cached) return { title: cached.status === 'ok' ? googleName(cached.title) : '' };
+    const minute = Math.floor(Date.now() / 60000);
+    if (previewRate.at !== minute) { previewRate.at = minute; previewRate.n = 0; }
+    if (previewRate.n >= 20) return { title: '' };
+    previewRate.n++;
+    let meta = null; try { meta = await fetchPreview(url); } catch (e) {}
+    /* A redirect that ends anywhere but Google's own pages (the sign-in host, say) is not the link's page. */
+    const ok = !!(meta && GOOGLE_LINK_HOSTS.has(String(meta.hostname || '').toLowerCase()));
+    const name = ok ? googleName(meta.title) : '';
+    const at = now(), exp = new Date(Date.now() + (name ? 12 : 1) * 3600e3).toISOString();
+    db.prepare('INSERT INTO link_metadata_cache(normalized_url,hostname,title,description,favicon_url,image_url,status,fetched_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(normalized_url) DO UPDATE SET title=excluded.title,status=excluded.status,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at')
+      .run(url, new URL(url).hostname, name, '', '', '', name ? 'ok' : 'blocked', at, exp);
+    return { title: name };
+  });
   route('GET', '/api/messages/stream', (u, p, q, b, req, res) => {
     if (!canView(u)) error(403, 'Your role cannot view Messages.');
     if (!res || !res.writeHead) error(500, 'Stream needs the raw response.');

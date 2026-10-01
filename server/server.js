@@ -832,7 +832,17 @@ function sanitizeComments(prevComments, bodyComments, u) {
   (Array.isArray(bodyComments) ? bodyComments : []).forEach(c => {
     if (!c) return;
     const old = c.id && prev.get(c.id);
-    if (old) { out.push(Object.assign({}, old, { text: old.author_id === u.id || old.by === u.id || can.manageWorkspace(u) ? String(c.text != null ? c.text : old.text) : old.text, vis: old.vis })); prev.delete(c.id); }
+    if (old) {
+      const mine = old.author_id === u.id || old.by === u.id || can.manageWorkspace(u);
+      /* An attachment may be taken off your own comment — that is how a picture is removed from a
+         brief — but never added or altered here, so a task PUT still cannot forge one onto anybody's
+         comment. Only attachments the client names by id can be dropped; anything without an id
+         predates ids and is kept. */
+      const keep = mine && Array.isArray(c.attachments) ? new Set(c.attachments.map(a => a && a.id).filter(Boolean)) : null;
+      const attachments = keep ? (Array.isArray(old.attachments) ? old.attachments : []).filter(a => !a || !a.id || keep.has(a.id)) : old.attachments;
+      out.push(Object.assign({}, old, { text: mine ? String(c.text != null ? c.text : old.text) : old.text, vis: old.vis, attachments }));
+      prev.delete(c.id);
+    }
     else out.push({ id: /^[-\w]{1,40}$/.test(String(c.id || "")) ? c.id : uid("cm"), by: u.id, createdAt: now(), vis: c.vis === "internal" ? "internal" : c.vis === "client" ? "client" : "team", text: String(c.text || ""), parent: c.parent || null, attachments: Array.isArray(c.attachments) ? c.attachments.slice(0, 10) : [] });
   });
   /* keep other people's comments even if the client dropped them; only the author or an

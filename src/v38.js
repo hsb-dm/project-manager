@@ -193,6 +193,13 @@ function versionFilesChosen(files){ if(!document.getElementById("uv_file")) retu
 function descDriveLabel(u){ try{ var p=typeof detectProvider==="function"?detectProvider(u):null; if(p&&/^GOOGLE_/.test(p.provider)) return p.resourceType==="folder"?tr("Google Drive Folder"):tr("Google Drive"); }catch(e){} return /^https?:\/\/(?:drive|docs)\.google\.com\//i.test(u)?tr("Google Drive"):""; }
 function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return ""; if(/^(?:www\.)/i.test(u)||/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(u)) u="https://"+u; try{ var x=new URL(u); return /^(https?|ftp):$/i.test(x.protocol)?x.href:""; }catch(e){ return ""; } }
 function descMdInline(s){ /* s is already escaped */
+  /* An image placed in the writing: ![name](zc-att:ID). The marker carries the attachment id, never
+     the picture, so the task record stays free of data URLs (server/uploads.js) and a Drive-hosted
+     image resolves the same way an attachment does. It runs before the link rule, which would
+     otherwise swallow the [name](…) half.
+     A width the reader chose is written after it as "=50%", the usual Markdown extension for image
+     size. The space before the "=" is what keeps it apart from a link whose query string has one. */
+  s=s.replace(/!\[([^\]\n]*)\]\((zc-att:[A-Za-z0-9_.:-]{1,80}|https?:\/\/[^\s)]+)(?:\s+=\s*(\d{1,3})%)?\)/g,function(_,alt,ref,w){ return typeof descImgHtml==="function"?descImgHtml(ref,alt,"",w):alt; });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
   s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ var drive=descDriveLabel(u); return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(drive&&(t===u||/^(?:https?|ftp):/i.test(t))?drive:t)+'</a>'; });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
@@ -226,6 +233,16 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
     if(t==="code") return "`"+inner+"`";
     if(t==="a"){ var h=n.getAttribute("href")||""; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
+    /* An image in the writing serialises back to its marker, so moving it in the editor moves it in
+       the text. An image pasted from elsewhere as a data URL is dropped rather than inlined — that
+       is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
+    if(t==="img"){ var aid=n.getAttribute("data-zc-att")||"", alt=(n.getAttribute("alt")||"").replace(/[\[\]]/g,""), srcAttr=n.getAttribute("src")||"";
+      /* A width the reader set by dragging the corner. Full width is the default, so it is written
+         only when it is something else — the Markdown of an untouched picture stays plain. */
+      var w=parseInt(n.getAttribute("data-zc-w")||(/%$/.test((n.style&&n.style.width)||"")?n.style.width:""),10);
+      var size=(w>0&&w<100)?" ="+w+"%":"";
+      if(aid) return "\n\n!["+alt+"](zc-att:"+aid+size+")\n\n";
+      return /^(?:https?):/i.test(srcAttr)?"\n\n!["+alt+"]("+srcAttr+size+")\n\n":""; }
     if(/^h[1-3]$/.test(t)) return "\n"+"#".repeat(+t[1])+" "+inner.trim()+"\n";
     if(/^h[4-6]$/.test(t)) return "\n### "+inner.trim()+"\n";
     if(t==="li") return "\n"+(ctx==="ol"?"1. ":"- ")+inner.trim();
@@ -240,7 +257,10 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
   if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("Nothing to preview yet.")+'</span>')+'</div></div>';
   var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="descFormat(\''+act+'\')">'+html+'</button>'; };
   return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
-    +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")+'</div>'
+    +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
+    /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
+       shortcut and the picture is in the camera roll. */
+    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'</div>'
     +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
@@ -248,6 +268,23 @@ function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
 function descSaveNow(){ descWysiwygSave(); }
+/* Writing is only saved a beat after the typing stops, and the drawer is redrawn by anything that
+   touches the task — a comment arriving, a status change, an upload finishing. Redrawing rebuilds
+   the editor from the saved text, so a sentence typed a moment earlier used to disappear. What is
+   in the editor is the newest version there is, so it is carried into the task before the redraw
+   and saved on the usual delay. */
+(function(){
+  if(typeof renderDrawer!=="function") return;
+  var base=renderDrawer;
+  renderDrawer=function(){
+    var el=document.getElementById("descSrc"), tk=typeof task==="function"&&S.drawerTask?task(S.drawerTask):null;
+    if(el&&tk){
+      var live=descHtmlToMd(el.innerHTML);
+      if(live!==(tk.description||"")){ tk.description=live; descSaveSoon(); }
+    }
+    return base.apply(this,arguments);
+  };
+})();
 function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
 function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
 function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
