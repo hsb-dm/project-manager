@@ -60,8 +60,9 @@ test("an image pasted into a brief field is uploaded, not embedded in the task",
   expect(c.attachments).toHaveLength(1);
   expect(c.attachments[0].name).toBe("moodboard.png");
   expect(c.text).toMatch(/Pasted into/);
-  /* it also lands under References, which is what the comment path does for any attachment */
-  expect(t.files.some(f => f.name === "moodboard.png")).toBe(true);
+  /* and it stays out of Assets & versions: that tab is the work being delivered, so reference
+     material pasted into a brief must not be counted among it */
+  expect(t.files.some(f => f.name === "moodboard.png"), "not an asset").toBe(false);
 
   /* The picture must never be stored as bytes inside the task. With Drive or server storage the
      attachment carries a link; with neither configured it is a preview, which the server writes to
@@ -133,7 +134,7 @@ test("unsaved brief edits survive the paste", async ({ page }) => {
   const key = await page.evaluate(() => document.querySelector("[data-bf]").getAttribute("data-bf"));
   await page.evaluate(() => { const el = document.querySelector("[data-bf]"); el.value = "TYPED BUT NOT SAVED"; el.dispatchEvent(new Event("input", { bubbles: true })); });
   await pasteImage(page, "[data-bf]", "second.png");
-  await expect.poll(() => page.evaluate(id => task(id).files.some(f => f.name === "second.png"), taskId), { timeout: 15000 }).toBe(true);
+  await expect.poll(() => page.evaluate(id => task(id).comments.some(c => (c.attachments || []).some(a => a.name === "second.png")), taskId), { timeout: 15000 }).toBe(true);
   expect(await page.evaluate(([id, k]) => task(id).brief[k], [taskId, key])).toContain("TYPED BUT NOT SAVED");
 });
 
@@ -179,4 +180,24 @@ test("a signed-out page does not upload anything on paste", async ({ page }) => 
 test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
   try { await signIn(page); if (taskId) await page.evaluate(id => apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}), taskId); } catch {} finally { await page.close(); }
+});
+
+/* Assets & versions is the work being delivered. A brief reference must never be counted there,
+   or the number beside the tab stops meaning anything. */
+test("brief images stay out of Assets, and a same-named asset is not confused with one", async ({ page }) => {
+  await signIn(page);
+  const saved = await page.evaluate(id => apiFetch("GET", "/api/tasks/" + id), taskId);
+  const pasted = ["moodboard.png", "second.png", "from-description.png"];
+  pasted.forEach(n => expect(saved.files.some(f => f.name === n), n + " is not an asset").toBe(false));
+  /* it is still reachable, on the comment */
+  expect(saved.comments.flatMap(c => c.attachments || []).some(a => a.name === "moodboard.png")).toBe(true);
+
+  /* an asset really named the same must not be what the brief thumbnail opens */
+  const which = await page.evaluate(id => {
+    const tk = JSON.parse(JSON.stringify(task(id)));
+    const att = tk.comments.flatMap(c => c.attachments || []).find(a => a.name === "moodboard.png");
+    tk.files = [{ id: "f_decoy", name: "moodboard.png", type: "image", preview: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", url: "" }];
+    return { byId: (pasteFindImage(tk, att.id) || {}).id, attId: att.id };
+  }, taskId);
+  expect(which.byId, "the brief's own attachment, not the decoy asset").toBe(which.attId);
 });

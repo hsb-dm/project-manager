@@ -76,8 +76,10 @@ function briefPasteImage(file){
       var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
       c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key}];
       t.comments.push(c);
-      /* the same record the comment path files under References, plus which field it belongs to */
-      t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
+      /* Deliberately NOT added to the task's files. Assets & versions is where the work being
+         delivered lives; reference material pasted into a brief would blur that line, and the
+         count beside the tab would stop meaning "assets produced". The picture lives on the
+         comment, which is what the field strip reads. */
       log(t,"comment");
     });
     toast(tr("Image attached"));
@@ -94,10 +96,18 @@ function pasteUnesc(s){
   return String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&");
 }
 /* The newest attachment with this name: files first, then anything still only on a comment. */
-function pasteFindImage(tk,name){
-  var hit=null;
-  (tk&&tk.files||[]).forEach(function(f){ if(f&&f.name===name&&(f.preview||f.url)) hit=f; });
-  if(!hit) (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.name===name&&(a.preview||a.url)) hit=a; }); });
+/* Match the attachment id first. A deliverable in Assets can share a file name with a brief
+   reference, and opening the wrong one would be worse than opening nothing. The name is only a
+   fallback, for markers written before images moved out of the text. */
+function pasteFindImage(tk,ref){
+  var byId=null, byName=null;
+  (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){
+    if(!a||!(a.preview||a.url)) return;
+    if(a.id===ref) byId=a; else if(a.name===ref&&!byName) byName=a;
+  }); });
+  if(byId) return byId;
+  if(byName) return byName;
+  var hit=null; (tk&&tk.files||[]).forEach(function(f){ if(f&&f.name===ref&&(f.preview||f.url)) hit=f; });
   return hit;
 }
 function pasteOpenImage(name){
@@ -143,7 +153,7 @@ function pasteFieldImagesHtml(tk,key){
     var src=f.preview||(/^\/files\//.test(f.url||"")?f.url:"");
     var q=attr(f.name||"");
     if(!src) return '<span class="paste-thumb missing" title="'+q+'">'+I.image+esc(f.name||"")+'</span>';
-    return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>';
+    return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+attr(f.id||f.name||"")+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>';
   }).join("")+'</div>';
 }
 /* The description is rendered by v38's descEditorHtml; its images hang below whichever mode it is in. */
