@@ -40,6 +40,14 @@ function pasteFieldName(el){
   if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
   return tr("the brief");
 }
+/* Which field an image belongs to. The description has no data-bf, so it gets its own key. */
+var PASTE_DESC_KEY="__description";
+function pasteFieldKey(el){
+  if(!el||!el.closest) return PASTE_DESC_KEY;
+  if(el.id==="descSrc"||el.closest("#descSrc")) return PASTE_DESC_KEY;
+  var f=el.closest("[data-bf]");
+  return f?f.getAttribute("data-bf"):PASTE_DESC_KEY;
+}
 /* Brief edits in progress, so adding a comment does not discard them. */
 function pasteBriefDraft(){
   var out={}, list=document.querySelectorAll("[data-bf]");
@@ -54,9 +62,11 @@ function briefPasteImage(file){
   if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
   var field=document.activeElement;
   if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
-  var label=pasteFieldName(field), name=file.name||("pasted-"+Date.now()+".png");
-  var marker=PASTE_MARK_OPEN+name+PASTE_MARK_CLOSE;
-  pasteInsertInField(field,marker);
+  var label=pasteFieldName(field), key=pasteFieldKey(field), name=file.name||("pasted-"+Date.now()+".png");
+  /* Nothing is written into the text. A brief field is a textarea, so any marker put there shows as
+     raw characters the moment the field is edited — which is what a pasted image looked like at
+     first. The picture is attached to the field instead and drawn underneath it, so the writing
+     stays writing and Enter still just starts a new line. */
   var brief=pasteBriefDraft();
   toast(tr("Uploading the pasted image…"));
 
@@ -64,17 +74,14 @@ function briefPasteImage(file){
     editTaskWith(tk,function(t){
       if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
       var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
-      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null}];
+      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key}];
       t.comments.push(c);
-      /* the same record the comment path files under References */
+      /* the same record the comment path files under References, plus which field it belongs to */
       t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
       log(t,"comment");
     });
-    toast(tr("Image attached and added to Comments"));
+    toast(tr("Image attached"));
   },function(err){
-    /* take the marker back out: there is nothing for it to point at */
-    if(field){ if(field.tagName==="TEXTAREA"||field.tagName==="INPUT") field.value=String(field.value).split(marker).join("");
-               else field.textContent=String(field.textContent).split(marker).join(""); }
     toast(tr("Could not attach that image")+": "+err.message,"bad");
   });
   return true;
@@ -117,5 +124,34 @@ function pasteMarkersToThumbs(html,tk){
   if(typeof descMdHtml!=="function") return;
   var base=descMdHtml;
   descMdHtml=function(){ return pasteMarkersToThumbs(base.apply(this,arguments)); };
+})();
+/* ---- images attached to a field, drawn under it ----
+   Shown in edit mode and in view mode alike, because they are not part of the text. The file name
+   is the tooltip, not a caption: in the writing it is the picture that matters. Removing one is
+   where every other attachment is removed, under Assets & versions. */
+function pasteFieldImages(tk,key){
+  /* The files table has a fixed column list, so a key added to a file record is dropped on save.
+     A comment keeps its attachments as JSON, so that is where the field marker lives. */
+  var out=[];
+  (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.briefField===key&&(a.preview||a.url)) out.push(a); }); });
+  return out;
+}
+function pasteFieldImagesHtml(tk,key){
+  var list=pasteFieldImages(tk,key);
+  if(!list.length) return "";
+  return '<div class="paste-strip">'+list.map(function(f){
+    var src=f.preview||(/^\/files\//.test(f.url||"")?f.url:"");
+    var q=attr(f.name||"");
+    if(!src) return '<span class="paste-thumb missing" title="'+q+'">'+I.image+esc(f.name||"")+'</span>';
+    return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>';
+  }).join("")+'</div>';
+}
+/* The description is rendered by v38's descEditorHtml; its images hang below whichever mode it is in. */
+(function(){
+  if(typeof descEditorHtml!=="function") return;
+  var base=descEditorHtml;
+  descEditorHtml=function(tk){
+    return base.apply(this,arguments)+pasteFieldImagesHtml(tk,PASTE_DESC_KEY);
+  };
 })();
 </script>

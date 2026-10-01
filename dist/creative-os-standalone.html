@@ -4283,14 +4283,15 @@ body.bulk-on .bulk-selectable {
 .aiact .hint{padding:2px 12px 8px}
 .aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
 
-/* A pasted image shows as the picture itself, in the brief and the description (paste-image.js) */
-.paste-thumb{display:inline-block;vertical-align:top;max-width:220px;margin:4px 6px 4px 0;padding:0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:zoom-in;overflow:hidden;text-align:left;font:inherit;line-height:0}
+/* Images pasted into a brief field or the description, shown under it (src/paste-image.js).
+   No caption: the file name is the tooltip, because in the writing it is the picture that matters. */
+.paste-strip{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.paste-thumb{display:block;padding:0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface-sunken);cursor:zoom-in;overflow:hidden;line-height:0;font:inherit}
 .paste-thumb:hover{border-color:var(--color-primary)}
-.paste-thumb img{display:block;width:100%;max-height:150px;object-fit:cover;background:var(--color-surface-sunken)}
-.paste-thumb-cap{display:block;padding:4px 8px 5px;font-size:11px;line-height:1.3;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.paste-thumb.missing{display:inline-flex;align-items:center;gap:5px;line-height:1.3;padding:3px 9px;border-radius:var(--pill);border-style:dashed;color:var(--color-text-tertiary);font-size:11.5px;cursor:default}
+.paste-thumb img{display:block;max-width:200px;max-height:140px;width:auto;height:auto;object-fit:contain}
+.paste-thumb.missing{display:inline-flex;align-items:center;gap:5px;line-height:1.3;padding:4px 10px;border-radius:var(--pill);border-style:dashed;color:var(--color-text-tertiary);font-size:11.5px;cursor:default}
 .paste-thumb.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
-.md-view .paste-thumb{margin-top:6px}
+@media(max-width:560px){.paste-thumb img{max-width:120px;max-height:96px}}
 
 </style>
 </head>
@@ -6570,7 +6571,7 @@ function descView(tk){ if(typeof descEditorHtml==="function") return descEditorH
 function briefView(tk){ var ed=canI.editTask(tk); if (!tk.brief) return '<div class="empty" style="padding:36px 20px"><div class="ico">'+I.knowledge+'</div><div class="h">No creative brief yet</div><p>Add a structured brief so the designer does not have to guess.</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center">'+WS.briefTemplates.map(function(t){ return '<button class="btn sm" onclick="addBrief(\''+t.id+'\')">'+esc(t.name)+'</button>'; }).join("")+'</div>':'')+'</div>';
   var b=tk.brief; var tpl=byId(WS.briefTemplates,b.tpl)||{name:"Custom",fields:WS.briefFields.map(function(f){ return f[0]; }),required:[]}; var fields=WS.briefFields.filter(function(f){ return tpl.fields.indexOf(f[0])>=0; }); var req=tpl.required||[]; var missing=req.filter(function(f){ return !b[f]; });
   var h='<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Creative brief</span><span class="tpl">'+esc(tpl.name)+'</span>'+(missing.length?'<span class="badge bad">'+missing.length+' required field'+(missing.length>1?"s":"")+' missing</span>':'<span class="badge ok">Complete</span>')+'<span class="spacer"></span>'+(tk._draft?'':'<button class="btn xs" onclick="closeDrawer();go(\'assets\');S.assetTab=\'brand\';renderScreen(false)">'+I.assets.replace('class="i"','')+'Brand library</button>')+(ed?(S.briefEdit?'<button class="btn sm" onclick="S.briefEdit=false;renderDrawer()">Cancel</button><button class="btn sm primary" onclick="saveBrief()">Save brief</button>':'<button class="btn sm" onclick="S.briefEdit=true;renderDrawer()">'+I.edit+'Edit</button>'):'')+'</div><div class="brief">';
-  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToThumbs==="function"?pasteMarkersToThumbs(esc(v),tk):esc(v)):"Not set"))+'</div>'; });
+  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToThumbs==="function"?pasteMarkersToThumbs(esc(v),tk):esc(v)):"Not set"))+(typeof pasteFieldImagesHtml==="function"?pasteFieldImagesHtml(tk,f[0]):"")+'</div>'; });
   return h+'</div>'; }
 function addBrief(tplId){ var tk=task(S.drawerTask); var tpl=byId(WS.briefTemplates,tplId); editTaskWith(tk,function(t){ t.brief={tpl:tplId}; tpl.fields.forEach(function(f){ t.brief[f]=""; }); if (t.description) t.brief.objective=t.description; log(t,"brief"); }); S.briefEdit=true; renderDrawer(); }
 function saveBrief(){ var tk=task(S.drawerTask); var tas=document.querySelectorAll("[data-bf]"); var vals={}; for (var i=0;i<tas.length;i++) vals[tas[i].getAttribute("data-bf")]=tas[i].value.trim(); S.briefEdit=false; editTaskWith(tk,function(t){ Object.assign(t.brief,vals); log(t,"edited",{what:"the brief"}); }); toast("Brief saved"); }
@@ -15256,6 +15257,14 @@ function pasteFieldName(el){
   if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
   return tr("the brief");
 }
+/* Which field an image belongs to. The description has no data-bf, so it gets its own key. */
+var PASTE_DESC_KEY="__description";
+function pasteFieldKey(el){
+  if(!el||!el.closest) return PASTE_DESC_KEY;
+  if(el.id==="descSrc"||el.closest("#descSrc")) return PASTE_DESC_KEY;
+  var f=el.closest("[data-bf]");
+  return f?f.getAttribute("data-bf"):PASTE_DESC_KEY;
+}
 /* Brief edits in progress, so adding a comment does not discard them. */
 function pasteBriefDraft(){
   var out={}, list=document.querySelectorAll("[data-bf]");
@@ -15270,9 +15279,11 @@ function briefPasteImage(file){
   if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
   var field=document.activeElement;
   if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
-  var label=pasteFieldName(field), name=file.name||("pasted-"+Date.now()+".png");
-  var marker=PASTE_MARK_OPEN+name+PASTE_MARK_CLOSE;
-  pasteInsertInField(field,marker);
+  var label=pasteFieldName(field), key=pasteFieldKey(field), name=file.name||("pasted-"+Date.now()+".png");
+  /* Nothing is written into the text. A brief field is a textarea, so any marker put there shows as
+     raw characters the moment the field is edited — which is what a pasted image looked like at
+     first. The picture is attached to the field instead and drawn underneath it, so the writing
+     stays writing and Enter still just starts a new line. */
   var brief=pasteBriefDraft();
   toast(tr("Uploading the pasted image…"));
 
@@ -15280,17 +15291,14 @@ function briefPasteImage(file){
     editTaskWith(tk,function(t){
       if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
       var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
-      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null}];
+      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key}];
       t.comments.push(c);
-      /* the same record the comment path files under References */
+      /* the same record the comment path files under References, plus which field it belongs to */
       t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
       log(t,"comment");
     });
-    toast(tr("Image attached and added to Comments"));
+    toast(tr("Image attached"));
   },function(err){
-    /* take the marker back out: there is nothing for it to point at */
-    if(field){ if(field.tagName==="TEXTAREA"||field.tagName==="INPUT") field.value=String(field.value).split(marker).join("");
-               else field.textContent=String(field.textContent).split(marker).join(""); }
     toast(tr("Could not attach that image")+": "+err.message,"bad");
   });
   return true;
@@ -15333,6 +15341,35 @@ function pasteMarkersToThumbs(html,tk){
   if(typeof descMdHtml!=="function") return;
   var base=descMdHtml;
   descMdHtml=function(){ return pasteMarkersToThumbs(base.apply(this,arguments)); };
+})();
+/* ---- images attached to a field, drawn under it ----
+   Shown in edit mode and in view mode alike, because they are not part of the text. The file name
+   is the tooltip, not a caption: in the writing it is the picture that matters. Removing one is
+   where every other attachment is removed, under Assets & versions. */
+function pasteFieldImages(tk,key){
+  /* The files table has a fixed column list, so a key added to a file record is dropped on save.
+     A comment keeps its attachments as JSON, so that is where the field marker lives. */
+  var out=[];
+  (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.briefField===key&&(a.preview||a.url)) out.push(a); }); });
+  return out;
+}
+function pasteFieldImagesHtml(tk,key){
+  var list=pasteFieldImages(tk,key);
+  if(!list.length) return "";
+  return '<div class="paste-strip">'+list.map(function(f){
+    var src=f.preview||(/^\/files\//.test(f.url||"")?f.url:"");
+    var q=attr(f.name||"");
+    if(!src) return '<span class="paste-thumb missing" title="'+q+'">'+I.image+esc(f.name||"")+'</span>';
+    return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')"><img src="'+attr(src)+'" alt="'+q+'" loading="lazy"></button>';
+  }).join("")+'</div>';
+}
+/* The description is rendered by v38's descEditorHtml; its images hang below whichever mode it is in. */
+(function(){
+  if(typeof descEditorHtml!=="function") return;
+  var base=descEditorHtml;
+  descEditorHtml=function(tk){
+    return base.apply(this,arguments)+pasteFieldImagesHtml(tk,PASTE_DESC_KEY);
+  };
 })();
 </script>
 <script>

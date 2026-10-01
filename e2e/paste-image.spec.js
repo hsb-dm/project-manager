@@ -74,36 +74,44 @@ test("an image pasted into a brief field is uploaded, not embedded in the task",
   expect(JSON.stringify(saved), "nothing base64 in the stored task").not.toContain("data:image");
 });
 
-test("the brief shows the picture itself, and it opens full size", async ({ page }) => {
+test("the picture shows under the field in BOTH modes, and the writing stays clean", async ({ page }) => {
   await signIn(page);
-  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; renderDrawer(); }, taskId);
-  const thumb = page.locator(".paste-thumb").first();
-  await expect(thumb).toBeVisible();
-  await expect(thumb.locator(".paste-thumb-cap")).toHaveText("moodboard.png");
-  /* a real picture, with real pixels */
-  const size = await thumb.locator("img").evaluate(i => [i.naturalWidth, i.naturalHeight]);
+  /* Edit mode is the one that was broken: a brief field is a textarea, so a marker left in the
+     text showed as raw characters the moment anyone edited it. */
+  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = true; renderDrawer(); }, taskId);
+  await expect(page.locator(".paste-thumb img").first()).toBeVisible();
+  expect(await page.evaluate(() => (document.body.innerText || "").indexOf("[[img:") >= 0), "no marker in sight").toBe(false);
+  expect(await page.evaluate(id => JSON.stringify(task(id).brief), taskId), "nothing written into the text").not.toContain("[[img:");
+
+  /* a real picture, with real pixels, and no file name printed next to it */
+  const size = await page.locator(".paste-thumb img").first().evaluate(i => [i.naturalWidth, i.naturalHeight]);
   expect(size[0]).toBeGreaterThan(0);
   expect(size[1]).toBeGreaterThan(0);
-  /* the raw text keeps a readable marker rather than a buried URL */
-  const raw = await page.evaluate(id => JSON.stringify(task(id).brief), taskId);
-  expect(raw).toContain("[[img:moodboard.png]]");
-  expect(raw).not.toContain("/files/");
-  await thumb.click();
+  expect(await page.locator(".paste-thumb").first().innerText()).toBe("");
+  await expect(page.locator(".paste-thumb").first()).toHaveAttribute("title", "moodboard.png");
+
+  /* and the same in view mode */
+  await page.evaluate(() => { S.briefEdit = false; renderDrawer(); });
+  await expect(page.locator(".paste-thumb img").first()).toBeVisible();
+  await page.locator(".paste-thumb").first().click();
   await expect(page.locator("#modal")).toContainText("moodboard.png");
   await page.evaluate(() => closeModal());
 });
 
-test("a picture removed from the task degrades to a label, not a broken image", async ({ page }) => {
+test("the field marker rides on the comment, which the server keeps", async ({ page }) => {
   await signIn(page);
-  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; renderDrawer(); }, taskId);
-  /* render with the attachment gone, without touching the saved task */
-  const html = await page.evaluate(() => {
-    const tk = JSON.parse(JSON.stringify(task(S.drawerTask)));
-    tk.files = []; tk.comments = [];
-    return pasteMarkersToThumbs(esc("see [[img:moodboard.png]] here"), tk);
-  });
-  expect(html).toContain("paste-thumb missing");
-  expect(html).not.toContain("<img");
+  /* The files table has a fixed column list and drops an unknown key; a comment stores its
+     attachments as JSON, so that is where the marker has to live to survive a save. */
+  const saved = await page.evaluate(id => apiFetch("GET", "/api/tasks/" + id), taskId);
+  const att = saved.comments.flatMap(c => c.attachments || []).find(a => a.name === "moodboard.png");
+  expect(att, "the attachment came back").toBeTruthy();
+  expect(att.briefField, "and still knows its field").toBeTruthy();
+});
+
+test("an image whose attachment is gone degrades to a label, not a broken picture", async ({ page }) => {
+  await signIn(page);
+  const html = await page.evaluate(() => pasteFieldImagesHtml({ comments: [{ attachments: [{ name: "gone.png", briefField: "objective" }] }] }, "objective"));
+  expect(html).toBe("");   /* nothing to show without a picture */
 });
 
 test("text pasted into a brief field still pastes normally", async ({ page }) => {
