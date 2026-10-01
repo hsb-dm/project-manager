@@ -38,6 +38,8 @@ test('Contextual Back restores calendar state, supports nested team details, and
   const context={
     S:{screen:'calendar',search:'',calMode:'week',calMonth:8,calYear:2026,calDay:23,calScope:'all',filters:{team:'design'},projectId:null,teamId:null,memberId:null},
     PEOPLE:{zein:{name:'Zein'}},I:{back:'←'},_searchTimer:null,
+    /* go() refuses to navigate without a session now, so this sandbox has to be a signed-in one */
+    SESSION:{user:{id:'zein'}},showLogin:()=>{},
     document:{body:{classList},getElementById:id=>elements[id]||{classList}},
     clone:o=>JSON.parse(JSON.stringify(o)),appScrollTop:y=>y===undefined?scroll:(scroll=y),project:id=>id==='p1'?{name:'Launch'}:null,team:id=>id==='design'?{name:'Design'}:null,
     tr:x=>x,esc:x=>x,clearTimeout:()=>{},closePops:()=>{},closeModal:()=>{},renderNav:()=>{},renderScreen:()=>{rendered++},messagesBadgeSync:()=>{},requestAnimationFrame:fn=>fn(),

@@ -196,7 +196,7 @@ function tlUp(){ document.removeEventListener("mousemove",tlMove); document.remo
 function tlClick(id){ if (window._tlSuppress) return; openTask(id); }
 
 /* ---------- create (same drawer as viewing a task — a draft that is only saved on "Create") ---------- */
-function newTaskModal(pre){ pre=pre||{}; if (S.drawerTask){ var cur=task(S.drawerTask); if (cur&&cur._draft) discardDraft(); }
+function newTaskModal(pre){ if(typeof signedIn==="function"&&!signedIn()){ if(typeof showLogin==="function") showLogin(); return; } pre=pre||{}; if (S.drawerTask){ var cur=task(S.drawerTask); if (cur&&cur._draft) discardDraft(); }
   var asReq=!!pre.request; var assignee=pre.assignee!==undefined?pre.assignee:(asReq?null:ME); var due=pre.due!==undefined?pre.due:(asReq?7:5); var start=Math.min(due,pre.start!==undefined?pre.start:0);
   var status=pre.status||(asReq?firstStage():(WS.workflow[0]||{}).id); var maxSort=0; TASKS.forEach(function(x){ if (x.status===status&&x.sort>maxSort) maxSort=x.sort; });
   var tplId=pre.tpl||(asReq?(byId(WS.briefTemplates,"general")?"general":""):""); var brief=null; if (tplId){ brief={tpl:tplId}; (byId(WS.briefTemplates,tplId)||{fields:[]}).fields.forEach(function(f){ brief[f]=""; }); if (pre.brief) Object.assign(brief,pre.brief); }

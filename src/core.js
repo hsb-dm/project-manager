@@ -617,6 +617,9 @@ function navBackButton(fallback){ return '<button class="btn ghost sm nav-contex
 function navRestore(snap){ if(!snap||!snap.state) return false; closePops(); closeModal(); var drawer=document.getElementById("drawer"), overlay=document.getElementById("overlay"), sheet=document.getElementById("sheet"); if(drawer){drawer.classList.remove("open");drawer.setAttribute("aria-hidden","true");} if(overlay)overlay.classList.remove("open"); if(sheet)sheet.classList.remove("open"); S=clone(snap.state); S.drawerTask=null; S.drawerVer=null; S.replyTo=null; S.revOpen=false; S.briefEdit=false; var input=document.getElementById("searchInput"); if(input)input.value=S.search||""; document.body.classList.toggle("searchopen",!!snap.searchOpen); var nav=document.getElementById("nav"); if(nav)nav.classList.remove("open"); renderNav(); renderScreen(false); appScrollTop(snap.scroll||0); if(typeof requestAnimationFrame==="function")requestAnimationFrame(function(){ appScrollTop(snap.scroll||0); }); if(typeof messagesBadgeSync==="function")messagesBadgeSync(); return true; }
 function navBack(fallback){ var snap=NAV_CONTEXT.pop(); if(snap&&navRestore(snap)) return; go(fallback,null,{skipContext:true}); }
 function go(screen,sub,navOpts){
+  /* Clicking the logo or any nav item while signed out used to move the app underneath the login
+     card. Nothing navigates until there is a session. */
+  if(!signedIn()){ if(typeof showLogin==="function") showLogin(); return; }
   navOpts=navOpts||{};
   clearTimeout(_searchTimer); _searchTimer=null;
   var targetKey=navDetailKey(screen,sub), currentKey=navDetailKey(S.screen,navDetailId(S.screen,S));
@@ -629,7 +632,27 @@ function go(screen,sub,navOpts){
   /* Older Home cards assign filters directly. Normalize those into the same temporary KPI behaviour. */
   if(S.screen==="home"&&screen==="tasks"&&sub==="list"&&!S._temporaryTaskFilter&&S.taskScope==="all"){ var previous=S._lastManualTaskFilters||emptyTaskFilters(),k=homeKpiKind(previous); if(k){ S._manualTaskFilters=clone(previous); S._manualTaskScope=S._lastManualTaskScope||"mine"; S._manualActiveView=S._lastManualActiveView||null; S.filters=emptyTaskFilters(); if(k==="overdue")S.filters.due="overdue"; else if(k==="delivered")S.filters.kind="closed"; else if(k==="autohidden")S.filters.hidden="only"; else if(k==="inbox")S.filters.status=firstStage(); S._temporaryTaskFilter=true; } }
   rememberScroll(); S.screen=screen; S.search=""; document.getElementById("searchInput").value=""; if (screen==="settings"&&sub) S.settingsTab=sub; if (screen==="projects") S.projectId=sub||null; if (screen==="teams") S.teamId=sub||null; if (screen==="team") { S.memberId=sub||null; } if (screen==="tasks"&&sub) S.taskView=sub; if (screen==="knowledge"&&sub) S.kbPage=sub; if (screen==="requests") S.requestId=sub||null; if (screen==="calendar"&&sub) S.calMode=sub; if (screen==="messages"&&sub) S.messageConversationId=sub; document.getElementById("nav").classList.remove("open"); document.body.classList.remove("searchopen"); closePops(); renderNav(); renderScreen(false); restoreScroll(screen); if(screen==="aihub"&&typeof WorkspaceQuest!=="undefined")WorkspaceQuest.emit("aihub-open"); if(screen==="knowledge"&&typeof WorkspaceQuest!=="undefined")WorkspaceQuest.emit("knowledge-open"); if(typeof messagesBadgeSync==="function")messagesBadgeSync(); }
-function renderScreen(withLoading){ var c=document.getElementById("content"); c.className="content"+(S.screen==="tasks"||S.screen==="calendar"||S.screen==="projects"||S.screen==="messages"?" wide":"");
+/* Nobody is signed in until a session says so. In the standalone demo this becomes true the moment
+   a demo user is chosen, so that mode is unaffected. */
+function signedIn(){ return !!(typeof SESSION!=="undefined"&&SESSION&&SESSION.user); }
+/* Empties the workspace held in this page. Called when the session ends, so a 401 does not leave a
+   dashboard's worth of someone else's work sitting in memory for the next person at the keyboard.
+   In standalone demo mode the bundled data is the product, so it stays. */
+function clearWorkspaceData(){
+  if(typeof API==="undefined"||!API.on) return;
+  TASKS=[]; PROJECTS=[]; REQUESTS=[]; ASSETS=[]; ASSET_FOLDERS=[]; KNOWLEDGE=[]; KNOWLEDGE_FOLDERS=[];
+  VIEWS=[]; NOTIFS=[]; ACTIVITY=[]; TEAMS=[]; PEOPLE={}; ROLES=[];
+  try{ AN=null; }catch(e){}
+  S.drawerTask=null; S.projectId=null; S.activeView=null;
+  /* Closing the drawer only slides it away — its markup, and the task in it, stay in the document.
+     Empty the panes and the toasts so nothing of the last session is left to read. */
+  ["drHead","drBody","drFoot","toasts"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML=""; });
+}
+function renderScreen(withLoading){ var c=document.getElementById("content");
+  /* The single place every screen is drawn. Without this guard the login overlay was the only
+     thing in the way, and anything that re-rendered — clicking the logo, go(), a live update —
+     painted the workspace straight over it. */
+  if(!signedIn()){ if(typeof showLogin==="function") showLogin(); return; } c.className="content"+(S.screen==="tasks"||S.screen==="calendar"||S.screen==="projects"||S.screen==="messages"?" wide":"");
   if (withLoading){ c.innerHTML=skeleton(); return; }
   if (S.search) return renderSearch();
   var map={home:renderDashboard,tasks:renderTasks,projects:renderProjects,calendar:renderCalendarScreen,teams:renderTeams,team:renderMember,assets:renderAssets,knowledge:renderKnowledge,aihub:renderAIHub,aigallery:renderAIGallery,messages:renderMessages,analytics:renderAnalytics,notifications:renderNotifScreen,settings:renderSettings};

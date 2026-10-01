@@ -3,7 +3,10 @@
    AUTH SCREEN — sign in / register (server mode) · demo user picker (offline mode)
    ============================================================ */
 var AUTH={tab:"login"};
-function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); closePops(); closeModal(); if(API.on&&!SESSION.canRegister&&AUTH.tab==="register")AUTH.tab="login"; var ws=SESSION.ws||{name:WS.name,logo:WS.logo,logoImg:WS.logoImg}, lang=languagePicker();
+function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); closePops(); closeModal();
+  /* The session is over: let go of the workspace before drawing the card, so nothing of it can be
+     rendered, exported or read out of memory by whoever is at the keyboard next. */
+  SESSION.user=null; if(typeof clearWorkspaceData==="function") clearWorkspaceData(); if(API.on&&!SESSION.canRegister&&AUTH.tab==="register")AUTH.tab="login"; var ws=SESSION.ws||{name:WS.name,logo:WS.logo,logoImg:WS.logoImg}, lang=languagePicker();
   var demoUsers=Object.keys(PEOPLE).map(function(id){ var p=PEOPLE[id]; var r=byId(ROLES,p.perm); return '<button class="demo-user-card" onclick="demoLogin(\''+id+'\')">'+av(id,"lg")+'<span class="demo-user-info"><span class="demo-user-name">'+esc(p.name)+'</span><span class="demo-user-meta">'+esc(p.role)+' · '+esc(r?r.name:p.perm)+'</span></span><span class="btn xs demo-user-continue">Continue</span></button>'; }).join("");
   var form=AUTH.tab==="login"?'<div class="field"><label>Email</label><input id="au_email" type="email" placeholder="you@company.com" autocomplete="username" onkeydown="if(event.key===\'Enter\')doLogin()"></div><div class="field"><label>Password</label><input id="au_pw" type="password" placeholder="••••••••••••" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin()"></div><div class="err" id="au_err"></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Sign in</button><p class="hint" style="margin-top:12px;text-align:center"><button type="button" class="linkbtn auth-forgot" onclick="AUTH.tab=\'forgot\';showLogin()">Forgot password?</button></p><p class="hint" style="margin-top:6px;text-align:center">Contact your workspace administrator if you do not have an account.</p>':
     AUTH.tab==="forgot"?authForgotForm():AUTH.tab==="reset"?authResetForm():
