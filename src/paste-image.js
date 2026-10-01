@@ -79,11 +79,43 @@ function briefPasteImage(file){
   });
   return true;
 }
-/* In the brief, a marker reads as a chip that opens Comments. */
-function pasteMarkersToChips(html){
-  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){
-    return '<button type="button" class="paste-chip" onclick="pasteOpenComments()" title="'+attr(tr("Open Comments"))+'">'+I.image+esc(n)+'</button>';
-  });
+/* A marker becomes the picture itself, wherever the text is shown read-only: the brief and the
+   description. The marker holds only the file name, so the image is looked up on the task each
+   time — that keeps the raw text readable while editing ([[img:moodboard.png]]) instead of burying
+   a URL in it, and a picture that was removed degrades to a plain label rather than a broken image. */
+function pasteUnesc(s){
+  return String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&");
 }
-function pasteOpenComments(){ S.drawerTab="comments"; renderDrawer(); var b=document.getElementById("drBody"); if(b) b.scrollTop=b.scrollHeight; }
+/* The newest attachment with this name: files first, then anything still only on a comment. */
+function pasteFindImage(tk,name){
+  var hit=null;
+  (tk&&tk.files||[]).forEach(function(f){ if(f&&f.name===name&&(f.preview||f.url)) hit=f; });
+  if(!hit) (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.name===name&&(a.preview||a.url)) hit=a; }); });
+  return hit;
+}
+function pasteOpenImage(name){
+  var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return;
+  var a=pasteFindImage(tk,name);
+  if(!a) return toast(tr("That image is no longer attached to this task"),"bad");
+  previewModal({ name:a.name, title:a.name, img:a.preview||"", url:a.url||"", driveId:a.driveId||null });
+}
+function pasteThumbHtml(name,tk){
+  var a=pasteFindImage(tk,name), src=a&&(a.preview||(a.url&&/^\/files\//.test(a.url)?a.url:""));
+  var label=esc(name), q=attr(name);
+  if(!src) return '<span class="paste-thumb missing" title="'+attr(tr("That image is no longer attached to this task"))+'">'+I.image+label+'</span>';
+  return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')">'
+    + '<img src="'+attr(src)+'" alt="'+q+'" loading="lazy">'
+    + '<span class="paste-thumb-cap">'+label+'</span></button>';
+}
+/* Runs over already-escaped or already-rendered HTML, so the name is unescaped before the lookup. */
+function pasteMarkersToThumbs(html,tk){
+  tk=tk||(S.drawerTask?task(S.drawerTask):null);
+  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){ return pasteThumbHtml(pasteUnesc(n),tk); });
+}
+/* The description renders through descMdHtml, which escapes as it goes, so the swap happens after. */
+(function(){
+  if(typeof descMdHtml!=="function") return;
+  var base=descMdHtml;
+  descMdHtml=function(){ return pasteMarkersToThumbs(base.apply(this,arguments)); };
+})();
 </script>

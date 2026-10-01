@@ -750,7 +750,8 @@ Object.assign(UI_ID,{
  "the comment box": "kolom komentar",
  "the description": "deskripsi",
  "the brief": "brief",
- "Open Comments": "Buka Komentar"
+ "Open Comments": "Buka Komentar",
+ "That image is no longer attached to this task": "Gambar itu sudah tidak terlampir di task ini"
 });
 /* AI chat attachments and proposals (src/ai-chat-actions.js). */
 Object.assign(UI_ID,{

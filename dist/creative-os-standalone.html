@@ -4283,10 +4283,14 @@ body.bulk-on .bulk-selectable {
 .aiact .hint{padding:2px 12px 8px}
 .aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
 
-/* A pasted image leaves a chip in the brief that opens Comments (src/paste-image.js) */
-.paste-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;font:inherit;font-size:11.5px;font-weight:500;padding:2px 9px;margin:1px 2px;border-radius:var(--pill);background:var(--color-primary-soft);border:1px solid var(--color-border);color:var(--color-text-primary);cursor:pointer;vertical-align:baseline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.paste-chip:hover{border-color:var(--color-primary)}
-.paste-chip svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* A pasted image shows as the picture itself, in the brief and the description (paste-image.js) */
+.paste-thumb{display:inline-block;vertical-align:top;max-width:220px;margin:4px 6px 4px 0;padding:0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:zoom-in;overflow:hidden;text-align:left;font:inherit;line-height:0}
+.paste-thumb:hover{border-color:var(--color-primary)}
+.paste-thumb img{display:block;width:100%;max-height:150px;object-fit:cover;background:var(--color-surface-sunken)}
+.paste-thumb-cap{display:block;padding:4px 8px 5px;font-size:11px;line-height:1.3;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paste-thumb.missing{display:inline-flex;align-items:center;gap:5px;line-height:1.3;padding:3px 9px;border-radius:var(--pill);border-style:dashed;color:var(--color-text-tertiary);font-size:11.5px;cursor:default}
+.paste-thumb.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.md-view .paste-thumb{margin-top:6px}
 
 </style>
 </head>
@@ -6566,7 +6570,7 @@ function descView(tk){ if(typeof descEditorHtml==="function") return descEditorH
 function briefView(tk){ var ed=canI.editTask(tk); if (!tk.brief) return '<div class="empty" style="padding:36px 20px"><div class="ico">'+I.knowledge+'</div><div class="h">No creative brief yet</div><p>Add a structured brief so the designer does not have to guess.</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center">'+WS.briefTemplates.map(function(t){ return '<button class="btn sm" onclick="addBrief(\''+t.id+'\')">'+esc(t.name)+'</button>'; }).join("")+'</div>':'')+'</div>';
   var b=tk.brief; var tpl=byId(WS.briefTemplates,b.tpl)||{name:"Custom",fields:WS.briefFields.map(function(f){ return f[0]; }),required:[]}; var fields=WS.briefFields.filter(function(f){ return tpl.fields.indexOf(f[0])>=0; }); var req=tpl.required||[]; var missing=req.filter(function(f){ return !b[f]; });
   var h='<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Creative brief</span><span class="tpl">'+esc(tpl.name)+'</span>'+(missing.length?'<span class="badge bad">'+missing.length+' required field'+(missing.length>1?"s":"")+' missing</span>':'<span class="badge ok">Complete</span>')+'<span class="spacer"></span>'+(tk._draft?'':'<button class="btn xs" onclick="closeDrawer();go(\'assets\');S.assetTab=\'brand\';renderScreen(false)">'+I.assets.replace('class="i"','')+'Brand library</button>')+(ed?(S.briefEdit?'<button class="btn sm" onclick="S.briefEdit=false;renderDrawer()">Cancel</button><button class="btn sm primary" onclick="saveBrief()">Save brief</button>':'<button class="btn sm" onclick="S.briefEdit=true;renderDrawer()">'+I.edit+'Edit</button>'):'')+'</div><div class="brief">';
-  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToChips==="function"?pasteMarkersToChips(esc(v)):esc(v)):"Not set"))+'</div>'; });
+  fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToThumbs==="function"?pasteMarkersToThumbs(esc(v),tk):esc(v)):"Not set"))+'</div>'; });
   return h+'</div>'; }
 function addBrief(tplId){ var tk=task(S.drawerTask); var tpl=byId(WS.briefTemplates,tplId); editTaskWith(tk,function(t){ t.brief={tpl:tplId}; tpl.fields.forEach(function(f){ t.brief[f]=""; }); if (t.description) t.brief.objective=t.description; log(t,"brief"); }); S.briefEdit=true; renderDrawer(); }
 function saveBrief(){ var tk=task(S.drawerTask); var tas=document.querySelectorAll("[data-bf]"); var vals={}; for (var i=0;i<tas.length;i++) vals[tas[i].getAttribute("data-bf")]=tas[i].value.trim(); S.briefEdit=false; editTaskWith(tk,function(t){ Object.assign(t.brief,vals); log(t,"edited",{what:"the brief"}); }); toast("Brief saved"); }
@@ -6697,95 +6701,6 @@ function postComment(){ var el=document.getElementById("cmtText"); var txt=el.va
 function deleteComment(id){ var tk=task(S.drawerTask); editTaskWith(tk,function(t){ t.comments=t.comments.filter(function(c){ return c.id!==id&&c.parent!==id; }); }); }
 function activityView(tk){ return '<div class="tl">'+tk.activity.slice().sort(function(a,b){ return a.ago-b.ago; }).map(function(a){ var args={who:first(a.who),from:a.a.from?stageName(a.a.from):"",to:a.a.to?(a.k==="team"?teamName(a.a.to):a.k==="assigned"?(PEOPLE[a.a.to]?first(a.a.to):a.a.to):stageName(a.a.to)):"",v:a.a.v,name:a.a.name,what:a.a.what}; return '<div class="it'+(a.k==="approved"||a.k==="revision"?" hi":"")+'"><i></i><div>'+fmt(ATEXT[a.k]||("<b>{who}</b> "+esc(a.k)),args)+'</div><div class="when">'+ago(a.ago)+'</div></div>'; }).join("")+'</div>'; }
 Object.assign(UI_ID,{"More details":"Detail lainnya","No dependencies yet.":"Belum ada dependensi.","This task is ready to start.":"Task ini siap dimulai.","Add dependency":"Tambah dependensi","Add context not covered by the brief…":"Tambahkan konteks yang belum tercakup di brief…","Use this for additional context, constraints, or notes.":"Gunakan untuk konteks tambahan, batasan, atau catatan.","Edit date":"Ubah tanggal","Workflow stage":"Tahap workflow","deliverables":"deliverable","Attach link":"Lampirkan tautan","Attach any trusted HTTPS link. It stays connected to this task and appears with the other files and references.":"Lampirkan tautan HTTPS tepercaya. Tautan tetap terhubung ke task ini dan tampil bersama file serta referensi lainnya.","Display name":"Nama tampilan","e.g. Campaign reference":"mis. Referensi campaign","Use a valid HTTPS link":"Gunakan tautan HTTPS yang valid","External link":"Tautan eksternal","Link attached":"Tautan dilampirkan","Upload a working file, link one from Google Drive, or attach any HTTPS link.":"Unggah file kerja, tautkan dari Google Drive, atau lampirkan tautan HTTPS lain."});
-</script>
-<script>
-/* AN IMAGE PASTED INTO A BRIEF FIELD OR THE DESCRIPTION.
-
-   src/clipboard.js already routes pasted images to the chat composer, the comment box and the
-   upload modals, but it deliberately leaves alone anything being typed into — so a brief field and
-   the description did nothing at all. This is the branch it calls for those two ("brief").
-
-   A brief field is a <textarea> and the description is a contenteditable; neither can hold an
-   image, and embedding one as a data URL would put the picture inside the task record, which is
-   what server/uploads.js exists to prevent. So the image is uploaded the way any attachment is
-   (uploadAny, honouring whichever storage the workspace uses) and posted as a comment — that path
-   already files every attachment under the task's References too, so one paste lands in both, with
-   a note saying which field it came from. The text keeps a marker that reads as a chip opening
-   Comments.
-
-   Brief edits in progress are gathered and written with the same change, because adding the
-   comment re-renders the drawer and would otherwise discard whatever was being typed. */
-
-var PASTE_MARK_OPEN = "[[img:", PASTE_MARK_CLOSE = "]]";
-/* Where the caret is, so the marker lands where the person was typing. */
-function pasteInsertInField(el,text){
-  if(!el) return;
-  if(el.tagName==="TEXTAREA"||el.tagName==="INPUT"){
-    var s=el.selectionStart==null?el.value.length:el.selectionStart, t=el.selectionEnd==null?s:el.selectionEnd;
-    el.value=el.value.slice(0,s)+text+el.value.slice(t);
-    el.selectionStart=el.selectionEnd=s+text.length;
-  } else {
-    var sel=window.getSelection();
-    if(sel&&sel.rangeCount&&el.contains(sel.anchorNode)){
-      var r=sel.getRangeAt(0); r.deleteContents(); var n=document.createTextNode(text);
-      r.insertNode(n); r.setStartAfter(n); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
-    } else el.appendChild(document.createTextNode(text));
-  }
-  el.dispatchEvent(new Event("input",{bubbles:true}));
-}
-function pasteFieldName(el){
-  if(!el||!el.getAttribute) return tr("the brief");
-  if(el.id==="descSrc"||(el.closest&&el.closest("#descSrc"))) return tr("the description");
-  var k=el.getAttribute("data-bf")||(el.closest&&el.closest("[data-bf]")&&el.closest("[data-bf]").getAttribute("data-bf"));
-  if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
-  return tr("the brief");
-}
-/* Brief edits in progress, so adding a comment does not discard them. */
-function pasteBriefDraft(){
-  var out={}, list=document.querySelectorAll("[data-bf]");
-  for(var i=0;i<list.length;i++) out[list[i].getAttribute("data-bf")]=list[i].value;
-  return out;
-}
-/* Returns true when it takes the paste; clipboard.js calls preventDefault on true. */
-function briefPasteImage(file){
-  if(!file||!/^image\//.test(file.type||"")) return false;
-  if(typeof signedIn==="function"&&!signedIn()) return false;
-  var tk=S.drawerTask?task(S.drawerTask):null;
-  if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
-  var field=document.activeElement;
-  if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
-  var label=pasteFieldName(field), name=file.name||("pasted-"+Date.now()+".png");
-  var marker=PASTE_MARK_OPEN+name+PASTE_MARK_CLOSE;
-  pasteInsertInField(field,marker);
-  var brief=pasteBriefDraft();
-  toast(tr("Uploading the pasted image…"));
-
-  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
-    editTaskWith(tk,function(t){
-      if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
-      var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
-      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null}];
-      t.comments.push(c);
-      /* the same record the comment path files under References */
-      t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
-      log(t,"comment");
-    });
-    toast(tr("Image attached and added to Comments"));
-  },function(err){
-    /* take the marker back out: there is nothing for it to point at */
-    if(field){ if(field.tagName==="TEXTAREA"||field.tagName==="INPUT") field.value=String(field.value).split(marker).join("");
-               else field.textContent=String(field.textContent).split(marker).join(""); }
-    toast(tr("Could not attach that image")+": "+err.message,"bad");
-  });
-  return true;
-}
-/* In the brief, a marker reads as a chip that opens Comments. */
-function pasteMarkersToChips(html){
-  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){
-    return '<button type="button" class="paste-chip" onclick="pasteOpenComments()" title="'+attr(tr("Open Comments"))+'">'+I.image+esc(n)+'</button>';
-  });
-}
-function pasteOpenComments(){ S.drawerTab="comments"; renderDrawer(); var b=document.getElementById("drBody"); if(b) b.scrollTop=b.scrollHeight; }
 </script>
 <script>
 /* ============================================================
@@ -12835,7 +12750,8 @@ Object.assign(UI_ID,{
  "the comment box": "kolom komentar",
  "the description": "deskripsi",
  "the brief": "brief",
- "Open Comments": "Buka Komentar"
+ "Open Comments": "Buka Komentar",
+ "That image is no longer attached to this task": "Gambar itu sudah tidak terlampir di task ini"
 });
 /* AI chat attachments and proposals (src/ai-chat-actions.js). */
 Object.assign(UI_ID,{
@@ -15297,6 +15213,127 @@ function demoPurgeRun(content){ confirmModal(tr("Remove demo data"),tr("Demo acc
 (function(){ var base=saveFile; saveFile=function(o){ o=o||{}; var src=o.img||o.preview||o.url||"";
   if(/^\/files\/[a-f0-9]{64}\./.test(src)&&!o.driveId){ toast(tr("Downloading…")); return fetch(src,{credentials:"same-origin"}).then(function(r){ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(function(b){ triggerDownload(b,saveFileName(o.name||"image",b.type)); }).catch(function(){ toast(tr("Nothing to save"),"bad"); }); }
   return base.apply(this,arguments); }; })();
+</script>
+<script>
+/* AN IMAGE PASTED INTO A BRIEF FIELD OR THE DESCRIPTION.
+
+   src/clipboard.js already routes pasted images to the chat composer, the comment box and the
+   upload modals, but it deliberately leaves alone anything being typed into — so a brief field and
+   the description did nothing at all. This is the branch it calls for those two ("brief").
+
+   A brief field is a <textarea> and the description is a contenteditable; neither can hold an
+   image, and embedding one as a data URL would put the picture inside the task record, which is
+   what server/uploads.js exists to prevent. So the image is uploaded the way any attachment is
+   (uploadAny, honouring whichever storage the workspace uses) and posted as a comment — that path
+   already files every attachment under the task's References too, so one paste lands in both, with
+   a note saying which field it came from. The text keeps a marker that reads as a chip opening
+   Comments.
+
+   Brief edits in progress are gathered and written with the same change, because adding the
+   comment re-renders the drawer and would otherwise discard whatever was being typed. */
+
+var PASTE_MARK_OPEN = "[[img:", PASTE_MARK_CLOSE = "]]";
+/* Where the caret is, so the marker lands where the person was typing. */
+function pasteInsertInField(el,text){
+  if(!el) return;
+  if(el.tagName==="TEXTAREA"||el.tagName==="INPUT"){
+    var s=el.selectionStart==null?el.value.length:el.selectionStart, t=el.selectionEnd==null?s:el.selectionEnd;
+    el.value=el.value.slice(0,s)+text+el.value.slice(t);
+    el.selectionStart=el.selectionEnd=s+text.length;
+  } else {
+    var sel=window.getSelection();
+    if(sel&&sel.rangeCount&&el.contains(sel.anchorNode)){
+      var r=sel.getRangeAt(0); r.deleteContents(); var n=document.createTextNode(text);
+      r.insertNode(n); r.setStartAfter(n); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
+    } else el.appendChild(document.createTextNode(text));
+  }
+  el.dispatchEvent(new Event("input",{bubbles:true}));
+}
+function pasteFieldName(el){
+  if(!el||!el.getAttribute) return tr("the brief");
+  if(el.id==="descSrc"||(el.closest&&el.closest("#descSrc"))) return tr("the description");
+  var k=el.getAttribute("data-bf")||(el.closest&&el.closest("[data-bf]")&&el.closest("[data-bf]").getAttribute("data-bf"));
+  if(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
+  return tr("the brief");
+}
+/* Brief edits in progress, so adding a comment does not discard them. */
+function pasteBriefDraft(){
+  var out={}, list=document.querySelectorAll("[data-bf]");
+  for(var i=0;i<list.length;i++) out[list[i].getAttribute("data-bf")]=list[i].value;
+  return out;
+}
+/* Returns true when it takes the paste; clipboard.js calls preventDefault on true. */
+function briefPasteImage(file){
+  if(!file||!/^image\//.test(file.type||"")) return false;
+  if(typeof signedIn==="function"&&!signedIn()) return false;
+  var tk=S.drawerTask?task(S.drawerTask):null;
+  if(!tk||tk._draft) return false;        /* a task that does not exist yet has nowhere to put it */
+  var field=document.activeElement;
+  if(field&&field.closest&&!field.closest("[data-bf],#descSrc")) field=document.querySelector("[data-bf],#descSrc");
+  var label=pasteFieldName(field), name=file.name||("pasted-"+Date.now()+".png");
+  var marker=PASTE_MARK_OPEN+name+PASTE_MARK_CLOSE;
+  pasteInsertInField(field,marker);
+  var brief=pasteBriefDraft();
+  toast(tr("Uploading the pasted image…"));
+
+  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+    editTaskWith(tk,function(t){
+      if(t.brief) Object.keys(brief).forEach(function(k){ if(t.brief[k]!==undefined) t.brief[k]=brief[k]; });
+      var c=C(ME,0,"internal",tr("Pasted into")+" "+label,null);
+      c.attachments=[{id:uid("att"),name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null}];
+      t.comments.push(c);
+      /* the same record the comment path files under References */
+      t.files.push(F(name,"image",up.source||"local",up.size,0,up.url||"",{preview:up.preview||null,driveId:up.driveId||null}));
+      log(t,"comment");
+    });
+    toast(tr("Image attached and added to Comments"));
+  },function(err){
+    /* take the marker back out: there is nothing for it to point at */
+    if(field){ if(field.tagName==="TEXTAREA"||field.tagName==="INPUT") field.value=String(field.value).split(marker).join("");
+               else field.textContent=String(field.textContent).split(marker).join(""); }
+    toast(tr("Could not attach that image")+": "+err.message,"bad");
+  });
+  return true;
+}
+/* A marker becomes the picture itself, wherever the text is shown read-only: the brief and the
+   description. The marker holds only the file name, so the image is looked up on the task each
+   time — that keeps the raw text readable while editing ([[img:moodboard.png]]) instead of burying
+   a URL in it, and a picture that was removed degrades to a plain label rather than a broken image. */
+function pasteUnesc(s){
+  return String(s).replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&");
+}
+/* The newest attachment with this name: files first, then anything still only on a comment. */
+function pasteFindImage(tk,name){
+  var hit=null;
+  (tk&&tk.files||[]).forEach(function(f){ if(f&&f.name===name&&(f.preview||f.url)) hit=f; });
+  if(!hit) (tk&&tk.comments||[]).forEach(function(c){ (c.attachments||[]).forEach(function(a){ if(a&&a.name===name&&(a.preview||a.url)) hit=a; }); });
+  return hit;
+}
+function pasteOpenImage(name){
+  var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return;
+  var a=pasteFindImage(tk,name);
+  if(!a) return toast(tr("That image is no longer attached to this task"),"bad");
+  previewModal({ name:a.name, title:a.name, img:a.preview||"", url:a.url||"", driveId:a.driveId||null });
+}
+function pasteThumbHtml(name,tk){
+  var a=pasteFindImage(tk,name), src=a&&(a.preview||(a.url&&/^\/files\//.test(a.url)?a.url:""));
+  var label=esc(name), q=attr(name);
+  if(!src) return '<span class="paste-thumb missing" title="'+attr(tr("That image is no longer attached to this task"))+'">'+I.image+label+'</span>';
+  return '<button type="button" class="paste-thumb" title="'+q+'" onclick="pasteOpenImage(\''+q+'\')">'
+    + '<img src="'+attr(src)+'" alt="'+q+'" loading="lazy">'
+    + '<span class="paste-thumb-cap">'+label+'</span></button>';
+}
+/* Runs over already-escaped or already-rendered HTML, so the name is unescaped before the lookup. */
+function pasteMarkersToThumbs(html,tk){
+  tk=tk||(S.drawerTask?task(S.drawerTask):null);
+  return String(html).replace(/\[\[img:([^\]]{1,180})\]\]/g,function(m,n){ return pasteThumbHtml(pasteUnesc(n),tk); });
+}
+/* The description renders through descMdHtml, which escapes as it goes, so the swap happens after. */
+(function(){
+  if(typeof descMdHtml!=="function") return;
+  var base=descMdHtml;
+  descMdHtml=function(){ return pasteMarkersToThumbs(base.apply(this,arguments)); };
+})();
 </script>
 <script>
 /* SHARED GOOGLE DRIVE ACCOUNT — Settings → Integrations (admins only).

@@ -74,16 +74,36 @@ test("an image pasted into a brief field is uploaded, not embedded in the task",
   expect(JSON.stringify(saved), "nothing base64 in the stored task").not.toContain("data:image");
 });
 
-test("the brief keeps a chip where the image was pasted, and it opens Comments", async ({ page }) => {
+test("the brief shows the picture itself, and it opens full size", async ({ page }) => {
   await signIn(page);
   await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; renderDrawer(); }, taskId);
-  const chip = page.locator(".paste-chip");
-  await expect(chip).toContainText("moodboard.png");
-  await chip.first().click();
-  await expect.poll(() => page.evaluate(() => S.drawerTab)).toBe("comments");
-  /* the comment shows the picture itself, not its file name */
-  await expect(page.locator("#drBody")).toContainText("Pasted into");
-  await expect(page.locator("#drBody img").first()).toBeVisible();
+  const thumb = page.locator(".paste-thumb").first();
+  await expect(thumb).toBeVisible();
+  await expect(thumb.locator(".paste-thumb-cap")).toHaveText("moodboard.png");
+  /* a real picture, with real pixels */
+  const size = await thumb.locator("img").evaluate(i => [i.naturalWidth, i.naturalHeight]);
+  expect(size[0]).toBeGreaterThan(0);
+  expect(size[1]).toBeGreaterThan(0);
+  /* the raw text keeps a readable marker rather than a buried URL */
+  const raw = await page.evaluate(id => JSON.stringify(task(id).brief), taskId);
+  expect(raw).toContain("[[img:moodboard.png]]");
+  expect(raw).not.toContain("/files/");
+  await thumb.click();
+  await expect(page.locator("#modal")).toContainText("moodboard.png");
+  await page.evaluate(() => closeModal());
+});
+
+test("a picture removed from the task degrades to a label, not a broken image", async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; renderDrawer(); }, taskId);
+  /* render with the attachment gone, without touching the saved task */
+  const html = await page.evaluate(() => {
+    const tk = JSON.parse(JSON.stringify(task(S.drawerTask)));
+    tk.files = []; tk.comments = [];
+    return pasteMarkersToThumbs(esc("see [[img:moodboard.png]] here"), tk);
+  });
+  expect(html).toContain("paste-thumb missing");
+  expect(html).not.toContain("<img");
 });
 
 test("text pasted into a brief field still pastes normally", async ({ page }) => {

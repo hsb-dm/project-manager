@@ -102,7 +102,11 @@
 .aiact .hint{padding:2px 12px 8px}
 .aiact-foot{display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--color-border);background:var(--color-surface-sunken)}
 
-/* A pasted image leaves a chip in the brief that opens Comments (src/paste-image.js) */
-.paste-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;font:inherit;font-size:11.5px;font-weight:500;padding:2px 9px;margin:1px 2px;border-radius:var(--pill);background:var(--color-primary-soft);border:1px solid var(--color-border);color:var(--color-text-primary);cursor:pointer;vertical-align:baseline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.paste-chip:hover{border-color:var(--color-primary)}
-.paste-chip svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* A pasted image shows as the picture itself, in the brief and the description (paste-image.js) */
+.paste-thumb{display:inline-block;vertical-align:top;max-width:220px;margin:4px 6px 4px 0;padding:0;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:zoom-in;overflow:hidden;text-align:left;font:inherit;line-height:0}
+.paste-thumb:hover{border-color:var(--color-primary)}
+.paste-thumb img{display:block;width:100%;max-height:150px;object-fit:cover;background:var(--color-surface-sunken)}
+.paste-thumb-cap{display:block;padding:4px 8px 5px;font-size:11px;line-height:1.3;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paste-thumb.missing{display:inline-flex;align-items:center;gap:5px;line-height:1.3;padding:3px 9px;border-radius:var(--pill);border-style:dashed;color:var(--color-text-tertiary);font-size:11.5px;cursor:default}
+.paste-thumb.missing svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.md-view .paste-thumb{margin-top:6px}
