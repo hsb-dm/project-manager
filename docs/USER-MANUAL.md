@@ -229,7 +229,10 @@ Field mana yang tampil diatur admin di **Settings → Custom fields**.
 ### Empat tab
 
 **Brief** — kolom **Description** bebas, bagian **Dependencies**, lalu **Creative brief**.
-Kalau belum ada brief, pilih salah satu template (Social Media, Banner, Presentation,
+Brief terstruktur bersifat **opsional** — brief boleh ditulis langsung di Description, lengkap
+dengan gambarnya. Kalau belum ada brief, bagian ini bertanda **Optional** dan bisa dilipat dengan
+**Hide** (tetap terlipat untuk kamu di semua task tanpa brief, sampai dibuka lagi dengan **Show**).
+Untuk memakainya, pilih salah satu template (Social Media, Banner, Presentation,
 Branding, Video, Print, General Creative Request). Header brief menunjukkan **Complete**
 atau **n required fields missing**.
 
@@ -370,7 +373,7 @@ Satu kartu per tim dengan ikon, nama, deskripsi, statistik, bar utilisasi, dan c
 - **Seret kartu** untuk mengurutkan.
 
 Panel **Workload by person** dan **Stakeholders** ada di bawahnya. Di samping jam tiap orang
-ada jumlah **aset yang dihasilkan bulan ini** (arahkan kursor untuk total keseluruhan). Aset
+ada jumlah **aset yang dihasilkan** (total; arahkan kursor untuk yang sudah terkirim dan bulan ini). Aset
 dikreditkan ke orang yang mengunggah versinya; kalau sebuah task tidak punya versi, aset
 diperkirakan dari assignee dan angkanya diberi tanda \*.
 
@@ -382,8 +385,8 @@ KPI Utilization / Open tasks / In review / Overdue, lalu panel **Members** (deng
 ### Halaman anggota
 
 Foto (klik untuk mengganti), nama, jabatan, badge role dan tim, angka **Capacity** (jam/minggu),
-serta KPI Utilization / Open tasks / To review / Overdue / **Assets produced** (bulan ini, dengan
-total keseluruhan di bawahnya).
+serta KPI Utilization / Open tasks / To review / Overdue / **Assets produced** (total, dengan jumlah
+yang sudah terkirim dan bulan ini di bawahnya).
 
 ---
 

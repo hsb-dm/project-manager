@@ -384,3 +384,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 .wl-assets{display:inline-flex;align-items:center;gap:3px;margin-right:8px;padding:1px 7px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:11px;font-weight:750;vertical-align:1px}
 .wl-assets svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
 .wl-assets.zero{background:var(--color-surface-sunken);color:var(--color-text-tertiary)}
+
+/* the creative brief is optional (briefOptionalHtml in src/drawer.js): a heading with a fold */
+.brief-opt{margin-top:18px;padding-top:14px;border-top:1px solid var(--color-border)}
+.brief-opt-head{display:flex;align-items:center;gap:8px}
+.brief-opt-head .eyebrow{margin:0}
+.brief-opt.collapsed{padding-bottom:4px}
