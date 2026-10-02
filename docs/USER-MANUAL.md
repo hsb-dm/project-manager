@@ -242,9 +242,13 @@ atau **n required fields missing**.
    Tautan dari situs lain tampil sebagai kartu dengan tombol untuk membukanya.
    - **Catatan** — di bawah preview, tulis apa yang perlu diubah (Enter untuk menyimpan). Tempel
      atau lampirkan screenshot untuk menunjukkannya. Catatan dicentang saat sudah dikerjakan.
-   - **Minta revisi** (reviewer, saat task di stage review) — mengirim catatan yang belum selesai
-     ke assignee, memilih prioritas revisi, memposting catatan itu ke Comments sebagai satu pesan,
-     dan memindahkan task ke stage revisi. Tanpa catatan, tombol ini meminta catatan dulu.
+   - **Minta revisi** (reviewer, saat task di stage review) — sekali tekan, versi langsung
+     dikembalikan dan task pindah ke stage **Revision**. Catatan yang belum selesai ikut terkirim ke
+     assignee dan diposting ke Comments sebagai satu pesan. Kalau belum ada catatan, kotak catatan
+     langsung terbuka untuk menulisnya.
+   - **Versi yang sudah disetujui** masih bisa dikembalikan lewat **Minta revisi** kalau ada
+     perubahan mendadak — task dibuka lagi dan pindah ke stage revisi.
+   - Semua perilaku ini bisa diatur di **Settings → Automation → Review & revision** (lihat di bawah).
    - **Sudah direvisi → V2** (assignee) — kotak yang sama berubah menjadi versi berikutnya dengan
      tautan yang sama (atau tautan baru). Simpan file versi lama di subfolder tautan itu. Versi
      baru belum masuk review: klik **Kirim untuk review** saat sudah siap, baru reviewer bisa
@@ -679,8 +683,21 @@ dengan pekerjaan sungguhan.
 | **Progres Workspace Quest** | UI quest | hanya kamu, privat |
 | **Accent, Appearance, Density, Radius, Typography** | Quick theme atau Settings → Theme | **seluruh workspace** — hanya tersimpan kalau kamu boleh mengelola workspace |
 
-> **Automation** (auto-hide task selesai dan auto-archive project) **bukan** preferensi pribadi.
-> Itu pengaturan workspace yang hanya bisa diubah admin.
+> **Automation** (auto-hide task selesai, auto-archive project, dan alur review) **bukan**
+> preferensi pribadi. Itu pengaturan workspace yang hanya bisa diubah admin.
+
+**Settings → Automation → Review & revision** mengatur:
+
+| Pengaturan | Pilihan (default dicetak tebal) |
+|---|---|
+| Minta revisi memindahkan task ke | **Tahap revisi**, stage lain yang belum selesai, atau Jangan pindahkan task |
+| Sebelum dikembalikan | **Langsung kirim — catatan bisa menyusul**, atau Minta catatan dulu |
+| Prioritas saat dikembalikan | **Tetap seperti prioritas task**, Jadikan Tinggi, Jadikan Mendesak |
+| Versi yang sudah disetujui | **Masih bisa dikembalikan untuk revisi**, atau Tetap disetujui |
+| Versi baru (Sudah direvisi, atau dari komentar) | **Menunggu Kirim untuk review**, atau Langsung masuk review (kalau task punya reviewer) |
+
+Task yang sudah selesai dan dikembalikan selalu keluar dari stage selesai, walaupun pilihannya
+"Jangan pindahkan task".
 
 ---
 

@@ -6810,6 +6810,7 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
   var k=stageKind(tk.status); var primary='';
   if (!ed) primary='';
   else if (k==="work"||k==="revision"||k==="queue") primary='<button class="btn" onclick="uploadVersion()">'+I.up+'Upload version</button><button data-tour="task-review" class="btn primary" onclick="submitReview()">Submit for review</button>';
+  else if (k==="closed"&&canI.reviewTask(tk)&&tk.versions.length&&tk.versions[tk.versions.length-1].state==="approved"&&typeof startRevision==="function"&&reviewFlow().reopen) primary='<button class="btn danger-soft" onclick="startRevision()">'+tr("Request revision")+'</button>';
   else if (isReview(tk)&&canI.reviewTask(tk)&&tk.versions.length) primary='<button class="btn danger-soft" onclick="if(typeof startRevision===\'function\')startRevision();else{setTab(\'versions\');S.revOpen=true;renderDrawer()}">Request revision</button><button class="btn success" onclick="approveTask()">'+I.check+'Approve</button>';
   var footStages=taskFooterStages(), footStatus=taskFooterStatus(tk.status,footStages);
   var stepper=ed?'<div class="views task-stage-rail" role="group" aria-label="'+attr(tr("Workflow stage"))+'">'+footStages.map(function(s){ var on=s.ids.indexOf(tk.status)>=0; var wf=footStages.map(function(x){ return x.id; }); var done=wf.indexOf(s.id)<wf.indexOf(footStatus); return '<button class="'+(on?"on":done?"star":"")+'" '+(on?'disabled':'onclick="editTask(\'status\',\''+s.id+'\')"')+' title="Move to '+attr(s.name)+'">'+(done?I.check:on?I.chev:'')+esc(s.name)+'</button>'; }).join("")+'</div>':'';
@@ -10452,8 +10453,8 @@ function setAutomation(){ var ed=canI.manageWorkspace(); var ro=ed?"":" disabled
     +'<div class="field-row">'+fieldHtml("ap_mode","Archive done projects",selectHtml("ap_mode",modes,c.projects,ro+' onchange="document.getElementById(\'f_ap_days\').style.display=this.value===\'days\'?\'block\':\'none\'"'))
     +'<div class="field" id="f_ap_days" style="display:'+(c.projects==="days"?"block":"none")+'"><label>After how many days</label><input'+ro+' id="ap_days" type="number" min="1" max="365" value="'+c.projectDays+'"><div class="err">Required</div></div></div>'
     +'<div class="hint" style="margin-top:6px">Right now: <b>'+hid+'</b> task'+(hid===1?"":"s")+' auto-hidden ('+autoHideLabel()+') \u00b7 <b>'+arch+'</b> archived project'+(arch===1?"":"s")+'. <a href="#" style="color:var(--color-primary);font-weight:600" onclick="S.filters.hidden=\'show\';S.taskScope=\'all\';go(\'tasks\',\'list\');return false">Show hidden tasks</a></div>',
-    ed?'<button class="btn ghost" onclick="WS.autoHide=clone(AUTOHIDE_DEFAULT);saveWS(\'Automation reset to default\');renderScreen(false)">'+I.sync+'Reset to default</button><span class="spacer"></span><button class="btn primary" onclick="saveAutomation()">Save</button>':'',I.sync); }
-function saveAutomation(){ WS.autoHide={tasks:val("ah_mode"),taskDays:Math.max(1,+val("ah_days")||30),projects:val("ap_mode"),projectDays:Math.max(1,+val("ap_days")||30)}; sweepArchiveLocal(); saveWS("Automation saved"); refresh(); }
+    ed?'<button class="btn ghost" onclick="WS.autoHide=Object.assign(clone(AUTOHIDE_DEFAULT),{review:(WS.autoHide||{}).review});saveWS(\'Automation reset to default\');renderScreen(false)">'+I.sync+'Reset to default</button><span class="spacer"></span><button class="btn primary" onclick="saveAutomation()">Save</button>':'',I.sync)+(typeof reviewFlowSettingsHtml==="function"?reviewFlowSettingsHtml():""); }
+function saveAutomation(){ WS.autoHide=Object.assign({},WS.autoHide||{},{tasks:val("ah_mode"),taskDays:Math.max(1,+val("ah_days")||30),projects:val("ap_mode"),projectDays:Math.max(1,+val("ap_days")||30)}); sweepArchiveLocal(); saveWS("Automation saved"); refresh(); }
 
 /* ---------- what shows in the top menu and on home ---------- */
 function applyPresetNow(id){
@@ -16988,7 +16989,8 @@ function avDecision(tk,v,ed){
   if(v.state==="approved"){
     var fin=typeof finalAssetLink==="function"?finalAssetLink(tk):null;
     return '<div class="av-decision ok">'+I.check+'<span>'+tr("Approved by")+' <b>'+esc(person(v.decidedBy||tk.reviewer).name)+'</b> · '+ago(v.decidedAgo!=null?v.decidedAgo:v.ago,v.decidedAt||(v.decidedAgo!=null?null:v.createdAt))+'</span><span class="spacer"></span>'
-      + (fin&&fin.url?'<button class="btn sm" onclick="openExternal(\''+attr(fin.url)+'\')">'+I.ext+tr("Open final")+'</button>':'')+'</div>';
+      + (fin&&fin.url?'<button class="btn sm" onclick="openExternal(\''+attr(fin.url)+'\')">'+I.ext+tr("Open final")+'</button>':'')
+      + (canI.reviewTask(tk)&&reviewFlow().reopen?'<button class="btn danger-soft sm" title="'+attr(tr("Something changed? It can still go back for revision."))+'" onclick="startRevision()">'+tr("Request revision")+(verNotesOpen(v).length?' <span class="vn-badge">'+verNotesOpen(v).length+'</span>':'')+'</button>':'')+'</div>';
   }
   if(v.state==="revision"){
     var h='<div class="av-decision rev"><span class="av-rev-ic">↺</span><span class="av-reason"><b>'+tr("Sent back for revision")+'</b>'+(v.decidedBy?' · '+esc(person(v.decidedBy).name):'')+(v.decidedAt?' · '+ago(null,v.decidedAt):'')+'</span><span class="spacer"></span>';
@@ -17014,8 +17016,11 @@ function avDecision(tk,v,ed){
 function verNotesOpen(v){ return ((v&&v.annots)||[]).filter(function(n){ return n&&!n.done; }); }
 /* Pins saved before notes had ids get the id the server reads them with (noteIds in serialize.js). */
 function verNotesOf(v){ var l=(v&&v.annots)||[]; l.forEach(function(n,i){ if(n&&!n.id) n.id=String(v.id||("v"+v.n))+"_n"+i; }); return l.filter(function(n){ return n&&typeof n==="object"; }); }
+/* An approved version takes no notes — unless someone has started sending it back (a late change),
+   or notes written for that are still open. */
+var VN_REOPEN="";
 function verNotesHtml(tk,v){
-  var notes=verNotesOf(v), can=canI.editTask(tk), adding=can&&v.state!=="approved", open=verNotesOpen(v).length;
+  var notes=verNotesOf(v), can=canI.editTask(tk), open=verNotesOpen(v).length, adding=can&&(v.state!=="approved"||VN_REOPEN===tk.id+"#"+v.n||open>0);
   var h='<div class="vn" id="verNotes"><div class="vn-head"><b>'+tr("Notes")+'</b>'+(notes.length?'<span class="vn-count">'+(open?open+' '+tr("to fix"):I.check+tr("all done"))+'</span>':'')+'</div>';
   h+=notes.map(function(n,i){ return verNoteRow(n,i,can); }).join("");
   if(!notes.length) h+='<p class="vn-empty">'+tr(adding?"No notes yet. Write what needs to change — paste or attach a screenshot to show it.":"No notes on this version.")+'</p>';
@@ -17104,48 +17109,83 @@ function addVerNote(){
   };
 })();
 
-/* ---------- requesting a revision: the notes go back ---------- */
+/* ---------- requesting a revision: one press sends it back ---------- */
 function stageOfKind(kind){ var id=null; WS.workflow.forEach(function(s){ if(!id&&s.kind===kind) id=s.id; }); return id; }
 function revisionStage(){ return stageOfKind("revision")||(WS.workflow.filter(function(s){ return s.kind==="work"; })[0]||WS.workflow[0]).id; }
-/* "Request revision", from the version or the panel's footer. The notes are the request, so with
-   none open it asks for one first. */
+
+/* How a review moves a task, as Settings → Automation sets it. Kept with the other automation
+   settings (WS.autoHide, saved in the workspace's auto_hide column), under "review". */
+var REVIEW_FLOW_DEFAULT={stage:"auto",needNote:false,prio:"keep",reopen:true,autoSubmit:false};
+function reviewFlow(){ return Object.assign({},REVIEW_FLOW_DEFAULT,(WS&&WS.autoHide&&WS.autoHide.review)||{}); }
+/* the stage "Request revision" moves the task to; null leaves it where it is */
+function revisionTarget(){
+  var c=reviewFlow(); if(c.stage==="none") return null;
+  var s=c.stage!=="auto"?byId(WS.workflow||[],c.stage):null;
+  return s&&s.kind!=="closed"?s.id:revisionStage();
+}
+
+/* "Request revision", beside the version or in the panel's footer. One press sends the version back
+   and the task moves to the revision stage at once. The open notes go with it, and into the comments
+   as one message; with none yet, the note box is ready for them. An approved version can be sent back
+   the same way when something changes late, and the task opens again. Each of these can be changed
+   in Settings → Automation (reviewFlow). */
 function startRevision(){
   var tk=task(S.drawerTask), v=lastVer(tk); if(!v) return;
+  var cfg=reviewFlow(), approved=v.state==="approved";
+  if(approved&&!cfg.reopen) return toast(tr("Approved versions stay approved — this is set in Settings → Automation"),"bad");
   if(S.drawerTab!=="files"){ S.drawerTab="files"; renderDrawer(); }
   var open=verNotesOpen(v);
-  if(!open.length){
-    toast(tr("Write a note first — say what needs to change"),"bad");
+  if(!open.length&&cfg.needNote){
+    if(approved){ VN_REOPEN=tk.id+"#"+v.n; renderDrawer(); }
+    toast(tr(approved?"Write what changed — then send it back with Request revision":"Write a note first — say what needs to change"),"bad");
     setTimeout(function(){ var t=document.getElementById("verNoteText"); if(t){ t.scrollIntoView({block:"center"}); t.focus(); } },40);
     return;
   }
-  var to=assigneesOf(tk).map(function(id){ return person(id).name; }).join(", ");
-  openModal(tr("Request revision")+" · V"+v.n,
-    (to?'<p class="hint" style="margin-bottom:8px">'+tr("Goes back to")+' <b>'+esc(to)+'</b>. '+tr("The notes are posted to the comments too, as one message.")+'</p>':'')
-    + '<ol class="vn-sum">'+open.map(function(n){ return '<li>'+(n.text?esc(n.text):'<i>'+tr("See the screenshot")+'</i>')+(n.img?' <span class="vn-sum-pic">'+I.image.replace("<svg",'<svg class="i"')+'</span>':'')+'</li>'; }).join("")+'</ol>'
-    + fieldHtml("rv_prio","Revision priority",selectHtml("rv_prio",[["high",tr("High")],["urgent",tr("Urgent")],["medium",tr("Medium")]],"high")),
-    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn danger" onclick="sendRevisionNotes()">'+tr("Send revision request")+'</button>');
-}
-/* the message in Comments: the open notes, numbered as they are on the version */
-function revisionText(v,open){ var all=verNotesOf(v); return open.map(function(n){ return (all.indexOf(n)+1)+". "+(n.text||tr("See the screenshot")); }).join("\n"); }
-function sendRevisionNotes(){
-  var tk=task(S.drawerTask), v=lastVer(tk); if(!v) return;
-  var open=verNotesOpen(v); if(!open.length) return closeModal();
-  var pr=val("rv_prio")||"high"; closeModal();
-  var text=revisionText(v,open), all=verNotesOf(v);
+  var text=open.length?revisionText(v,open):"", all=verNotesOf(v);
   var att=open.filter(function(n){ return n.img; }).slice(0,10).map(function(n){ return {id:uid("att"),name:"V"+v.n+" · "+tr("note")+" "+(all.indexOf(n)+1)+".png",size:"",type:"image",preview:n.img}; });
-  var vis=person(ME).stakeholder?"client":S.commentVis, target=revisionStage(), n=v.n;
+  var vis=person(ME).stakeholder?"client":S.commentVis, target=revisionTarget(), n=v.n;
   editTaskWith(tk,function(t){
-    var x=t.versions.filter(function(y){ return y.n===n; })[0], from=t.status;
+    var x=t.versions.filter(function(y){ return y.n===n; })[0];
     /* the comment is found again by the reason (revisionTagHtml) */
     x.state="revision"; x.reason=text; x.feedback=text; x.decidedAgo=0; x.decidedBy=ME;
-    var c=C(ME,0,vis,text); c.attachments=att; t.comments.push(c);
-    t.status=target; t.prio=pr;
-    log(t,"revision",{v:n}); log(t,"moved",{from:from,to:target});
+    if(text){ var c=C(ME,0,vis,text); c.attachments=att; t.comments.push(c); }
+    if(cfg.prio!=="keep") t.prio=cfg.prio;
+    /* a task sent back cannot stay in Done, even when the setting says not to move it */
+    var to=target||(isClosed(t)?revisionStage():null);
+    if(to&&t.status!==to){ var from=t.status; t.status=to; log(t,"moved",{from:from,to:to}); }
+    if(!isClosed(t)) t.completedAt=null;
+    log(t,"revision",{v:n}); VN_REOPEN="";
   }).then(function(saved){
     if(saved===false) return false;
     notify("revision",assigneesOf(tk),tk.id);
-    toast(tr("Revision request sent to")+" "+(assigneesOf(tk).map(first).join(", ")||"—"),"bad");
+    var who=assigneesOf(tk).map(first).join(", ")||"—";
+    toast((approved?tr("Version")+" "+n+" "+tr("was approved — the task is open again.")+" ":"")+(open.length?tr("Revision request sent to")+" "+who:tr("Sent back for revision")+" — "+tr("add notes so they know what to change.")),"bad");
+    if(!open.length) setTimeout(function(){ var f=document.getElementById("verNoteText"); if(f){ f.scrollIntoView({block:"center"}); f.focus(); } },60);
   });
+}
+/* the message in Comments: the open notes, numbered as they are on the version */
+function revisionText(v,open){ var all=verNotesOf(v); return open.map(function(n){ return (all.indexOf(n)+1)+". "+(n.text||tr("See the screenshot")); }).join("\n"); }
+
+/* Settings → Automation: the review flow */
+function reviewFlowSettingsHtml(){
+  var ed=canI.manageWorkspace(), ro=ed?"":" disabled", c=reviewFlow();
+  var auto=revisionStage(), stages=[["auto",tr("The revision stage")+(auto?" ("+stageName(auto)+")":"")]]
+    .concat((WS.workflow||[]).filter(function(s){ return !s.hidden&&s.kind!=="closed"; }).map(function(s){ return [s.id,stageName(s.id)]; }))
+    .concat([["none",tr("Don't move the task")]]);
+  var pick=function(id,label,opts,cur){ return fieldHtml(id,label,selectHtml(id,opts,cur,ro)); };
+  return sp("Review & revision",
+    '<p class="hint" style="margin-bottom:10px">'+tr("What Request revision and a new version do to a task. Applies to everyone in this workspace.")+'</p>'
+    + '<div class="field-row">'+pick("rf_stage","Request revision moves the task to",stages,c.stage)
+    + pick("rf_note","Before it is sent back",[["0",tr("Send it at once — notes can follow")],["1",tr("Ask for a note first")]],c.needNote?"1":"0")+'</div>'
+    + '<div class="field-row">'+pick("rf_prio","Priority when sent back",[["keep",tr("Keep the task's priority")],["high",tr("Set to High")],["urgent",tr("Set to Urgent")]],c.prio)
+    + pick("rf_reopen","Approved versions",[["1",tr("Can still be sent back for revision")],["0",tr("Stay approved")]],c.reopen?"1":"0")+'</div>'
+    + pick("rf_submit","A new version (Revised, or from a comment)",[["0",tr("Waits for Submit for review")],["1",tr("Goes to review at once")]],c.autoSubmit?"1":"0"),
+    ed?'<button class="btn ghost" onclick="saveReviewFlow(true)">'+I.sync+tr("Reset to default")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveReviewFlow()">'+tr("Save")+'</button>':'',I.sync);
+}
+function saveReviewFlow(reset){
+  var r=reset?clone(REVIEW_FLOW_DEFAULT):{stage:val("rf_stage")||"auto",needNote:val("rf_note")==="1",prio:val("rf_prio")||"keep",reopen:val("rf_reopen")!=="0",autoSubmit:val("rf_submit")==="1"};
+  WS.autoHide=Object.assign({},WS.autoHide||{},{review:r});
+  saveWS("Automation saved"); if(reset) renderScreen(false);
 }
 function revisionTagHtml(tk,c){
   var v=(tk&&tk.versions||[]).filter(function(x){ return x.reason&&x.reason===c.text; })[0];
@@ -17179,7 +17219,7 @@ function saveRevised(){
    until it is submitted (avDecision), and there is no limit: V2, V3 … as many rounds as it takes. */
 function nextVersionNo(tk){ return tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; }
 function pushVersionFrom(tk,src,note){
-  var n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
+  var sent=false, n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   S.drawerVer=n; S.drawerTab="files";
   return editTaskWith(tk,function(t){
     var x=V(n,ME,0,"pending",cols[n%cols.length],note||"");
@@ -17188,9 +17228,14 @@ function pushVersionFrom(tk,src,note){
     if(src.driveId) x.driveId=src.driveId;
     else if(src.url&&isDriveUrl(src.url)){ var id=(src.url.match(/\/d\/([^/?#]+)/)||src.url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) x.driveId=id; }
     t.versions.push(x); log(t,"upload",{v:n});
+    /* Settings → Automation can send it to review at once — when the task has a reviewer to send
+       it to (a review stage may require one, and the save would be refused) */
+    var rs=reviewFlow().autoSubmit?stageOfKind("review"):null;
+    if(rs&&t.status!==rs&&reviewersOf(t).length){ var from=t.status; t.status=rs; log(t,"moved",{from:from,to:rs}); sent=true; }
   }).then(function(saved){
     if(saved===false) return false;
-    toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
+    if(sent){ notify("status",reviewersOf(tk),tk.id); toast(tr("Version")+" "+n+" "+tr("sent for review")); }
+    else toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
     return n;
   });
 }
@@ -17413,8 +17458,6 @@ Object.assign(UI_ID,{
   "Use a PNG, JPG, WebP or GIF image":"Gunakan gambar PNG, JPG, WebP, atau GIF",
   "Wait for the image to finish":"Tunggu gambar selesai dibaca",
   "Write a note first — say what needs to change":"Tulis catatan dulu — apa yang perlu diubah",
-  "Goes back to":"Dikembalikan ke",
-  "The notes are posted to the comments too, as one message.":"Catatan juga dikirim ke komentar sebagai satu pesan.",
   "See the screenshot":"Lihat screenshot",
   "note":"catatan",
   "Revised":"Sudah direvisi",
@@ -17443,6 +17486,30 @@ Object.assign(UI_ID,{
   "All versions":"Semua versi",
   "notes":"catatan",
   "Earlier versions":"Versi sebelumnya",
+  "Approved versions stay approved — this is set in Settings → Automation":"Versi yang sudah disetujui tidak bisa dikembalikan — diatur di Pengaturan → Otomatisasi",
+  "was approved — the task is open again.":"sudah disetujui — task dibuka lagi.",
+  "add notes so they know what to change.":"tambahkan catatan agar mereka tahu apa yang perlu diubah.",
+  "sent for review":"dikirim untuk review",
+  "Review & revision":"Review & revisi",
+  "What Request revision and a new version do to a task. Applies to everyone in this workspace.":"Apa yang terjadi pada task saat Minta revisi ditekan dan saat versi baru dibuat. Berlaku untuk semua orang di workspace ini.",
+  "The revision stage":"Tahap revisi",
+  "Don't move the task":"Jangan pindahkan task",
+  "Request revision moves the task to":"Minta revisi memindahkan task ke",
+  "Before it is sent back":"Sebelum dikembalikan",
+  "Send it at once — notes can follow":"Langsung kirim — catatan bisa menyusul",
+  "Ask for a note first":"Minta catatan dulu",
+  "Priority when sent back":"Prioritas saat dikembalikan",
+  "Keep the task's priority":"Tetap seperti prioritas task",
+  "Set to High":"Jadikan Tinggi",
+  "Set to Urgent":"Jadikan Mendesak",
+  "Approved versions":"Versi yang sudah disetujui",
+  "Can still be sent back for revision":"Masih bisa dikembalikan untuk revisi",
+  "Stay approved":"Tetap disetujui",
+  "A new version (Revised, or from a comment)":"Versi baru (Sudah direvisi, atau dari komentar)",
+  "Waits for Submit for review":"Menunggu Kirim untuk review",
+  "Goes to review at once":"Langsung masuk review",
+  "Something changed? It can still go back for revision.":"Ada perubahan? Versi ini masih bisa dikembalikan untuk revisi.",
+  "Write what changed — then send it back with Request revision":"Tulis apa yang berubah — lalu kirim lewat Minta revisi",
   "The version and its notes will be removed too.":"Versi dan catatannya juga akan dihapus."
 });
 </script>

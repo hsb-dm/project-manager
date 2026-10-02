@@ -32,6 +32,7 @@ const openTab = (page, tab) => page.evaluate(([id, t]) => { openTask(id); S.draw
 const taskNow = page => page.evaluate(id => JSON.parse(JSON.stringify(task(id))), taskId);
 const saved = page => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id), taskId);
 /* The page shows a change before its save has reached the server: read the server once it has it. */
+const setFlow = (page, review) => page.evaluate(r => { WS.autoHide = Object.assign({}, WS.autoHide || {}, { review: r ? Object.assign({}, REVIEW_FLOW_DEFAULT, r) : undefined }); if (!r) delete WS.autoHide.review; return persistWS(); }, review || null);
 async function savedWhen(page, has) { let s = null; await expect.poll(async () => { s = await saved(page); return !!has(s); }, { timeout: 10000 }).toBe(true); return s; }
 
 test("a task with a version waiting for review", async ({ page }) => {
@@ -75,8 +76,9 @@ test("the tab reads as one story: the version, final files, the reporting count"
   await expect(page.locator("#drBody .av-decision.ask").getByRole("button", { name: "Approve" })).toBeVisible();
 });
 
-test("Request revision with no notes asks for one first and sends nothing", async ({ page }) => {
+test("set to ask for a note first, Request revision with no notes asks for one and sends nothing", async ({ page }) => {
   await signIn(page);
+  await setFlow(page, { needNote: true });
   await openTab(page, "brief");
   /* the footer's button goes the same way as the one beside the version */
   await page.locator("#drawer .dr-foot .btn", { hasText: "Request revision" }).click();
@@ -84,6 +86,7 @@ test("Request revision with no notes asks for one first and sends nothing", asyn
   await expect(page.locator("#verNoteText")).toBeFocused();
   await expect(page.locator("#modalWrap.open")).toHaveCount(0);
   expect((await taskNow(page)).versions[0].state).not.toBe("revision");
+  await setFlow(page, null);
 });
 
 test("a note is written on the version; a pasted screenshot goes with it", async ({ page }) => {
@@ -123,23 +126,24 @@ test("a note is written on the version; a pasted screenshot goes with it", async
   await page.locator("#verNoteText").dispatchEvent("input");
 });
 
-test("Request revision sends the notes back, and into the comments as one message", async ({ page }) => {
+test("one press of Request revision sends the version back, with its notes, and moves the task to Revision", async ({ page }) => {
   await signIn(page);
   await openTab(page, "files");
+  const before = await taskNow(page);
   await page.locator("#drBody .av-decision .btn", { hasText: "Request revision" }).click();
-  await expect(page.locator("#modal .vn-sum li")).toHaveCount(2);
-  await page.locator("#rv_prio").selectOption("urgent");
-  await page.locator("#modal .btn", { hasText: "Send revision request" }).click();
+  /* no dialog: it is sent */
+  await expect(page.locator("#modalWrap.open")).toHaveCount(0);
   await expect.poll(async () => (await taskNow(page)).versions[0].state, { timeout: 10000 }).toBe("revision");
 
   const t = await taskNow(page);
-  expect(["revision", "work"]).toContain(await page.evaluate(id => stageKind(task(id).status), taskId));
-  expect(t.prio, "the revision priority chosen").toBe("urgent");
+  expect(await page.evaluate(id => task(id).status, taskId), "the Revision stage").toBe(await page.evaluate(() => revisionStage()));
+  expect(t.prio, "the priority is left as it was").toBe(before.prio);
   const c = t.comments[t.comments.length - 1];
   expect(c.text).toBe("1. Headline too small\n2. Logo goes top right");
   expect(c.attachments.length, "the note's screenshot goes with it").toBe(1);
   expect(t.versions[0].reason, "the version carries the request").toBe(c.text);
   const s = await savedWhen(page, x => x.versions[0].state === "revision");
+  expect(s.status).toBe(t.status);
   expect(s.comments.some(x => x.text === c.text && (x.attachments || []).length === 1)).toBe(true);
   /* the comment says what it is */
   await page.evaluate(() => setTab("comments"));
@@ -308,16 +312,19 @@ test("V1's notes are a button away, with what was decided", async ({ page }) => 
   await page.locator("#modal .btn.primary", { hasText: "Close" }).click();
 });
 
-test("the next round keeps the same link", async ({ page }) => {
+test("the next round: sent back before any note, notes follow; the same link carries on", async ({ page }) => {
   await signIn(page);
   await openTab(page, "files");
+  const comments = (await taskNow(page)).comments.length;
+  await page.locator("#drBody .av-decision .btn", { hasText: "Request revision" }).click();
+  await expect.poll(async () => (await taskNow(page)).versions[1].state, { timeout: 10000 }).toBe("revision");
+  await expect(page.locator("#verNoteText"), "ready for the notes").toBeFocused();
+  await expect(page.locator("#drBody .av-steps li.done.bad")).toHaveText("Revision requested");
   await page.locator("#verNoteText").fill("Move the date up");
   await page.locator("#verNoteText").press("Enter");
   await expect(page.locator("#verNotes .vn-row")).toHaveCount(1);
-  await page.locator("#drBody .av-decision .btn", { hasText: "Request revision" }).click();
-  await page.locator("#modal .btn", { hasText: "Send revision request" }).click();
-  await expect.poll(async () => (await taskNow(page)).versions[1].state, { timeout: 10000 }).toBe("revision");
-  await expect(page.locator("#drBody .av-steps li.done.bad")).toHaveText("Revision requested");
+  const s2 = await savedWhen(page, x => x.versions[1].annots.length === 1);
+  expect(s2.comments.length, "nothing to post without notes").toBe(comments);
   await page.locator("#drBody .av-decision .btn", { hasText: "Revised" }).click();
   await expect(page.locator("#rvd_url")).toHaveValue(FOLDER);
   await expect(page.locator("#modal")).toContainText("uses the same link");
@@ -395,10 +402,87 @@ test("the tab speaks Indonesian", async ({ page }) => {
   await page.evaluate(() => { UI_LANG = "en"; });
 });
 
+test("an approved version can still go back for revision when something changes late", async ({ page }) => {
+  await signIn(page);
+  /* approving needs a reviewer on the task */
+  await page.evaluate(id => editTaskWith(task(id), t => { t.reviewer = ME; t.reviewers = [ME]; }), taskId);
+  await savedWhen(page, x => x.reviewer);
+  await openTab(page, "files");
+  await page.locator("#drBody .av-decision .btn", { hasText: "Submit for review" }).click();
+  await expect.poll(() => page.evaluate(id => isReview(task(id)), taskId), { timeout: 10000 }).toBe(true);
+  await page.locator("#drBody .av-decision.ask .btn", { hasText: "Approve" }).click();
+  await savedWhen(page, x => x.versions[4].state === "approved" && x.completedAt);
+  await expect(page.locator("#drBody .av-decision.ok")).toContainText("Approved by");
+  await expect(page.locator("#verNoteText"), "an approved version takes no notes").toHaveCount(0);
+  await expect(page.locator("#drawer .dr-foot .btn", { hasText: "Request revision" }), "the footer offers it too").toBeVisible();
+
+  await page.locator("#drBody .av-decision.ok .btn", { hasText: "Request revision" }).click();
+  const s = await savedWhen(page, x => x.versions[4].state === "revision");
+  expect(s.completedAt, "no longer completed").toBeFalsy();
+  expect(await page.evaluate(id => isClosed(task(id)), taskId), "the task is open again").toBe(false);
+  expect(s.status).toBe(await page.evaluate(() => revisionStage()));
+  await expect(page.locator("#verNoteText")).toBeFocused();
+  await page.locator("#verNoteText").fill("Client moved the launch date — update the date line");
+  await page.locator("#verNoteText").press("Enter");
+  await savedWhen(page, x => x.versions[4].annots.some(n => /launch date/.test(n.text)));
+  /* and the designer carries on as with any revision */
+  await expect(page.locator("#drBody .av-decision.rev")).toContainText("Sent back for revision");
+  await expect(page.locator("#drBody .av-decision .btn", { hasText: "Revised" })).toBeVisible();
+  await expect(page.locator("#drBody .av-head .badge")).toHaveText("Revision requested");
+});
+
+test("Settings → Automation sets the review flow, and it is followed", async ({ page }) => {
+  await signIn(page);
+  await page.evaluate(() => go("settings", "automation"));
+  const sec = page.locator("section.panel", { has: page.locator("h2", { hasText: "Review & revision" }) });
+  await expect(sec).toBeVisible();
+  await expect(sec.locator("#rf_stage")).toHaveValue("auto");
+  await sec.locator("#rf_prio").selectOption("urgent");
+  await sec.locator("#rf_reopen").selectOption("0");
+  await sec.locator("#rf_submit").selectOption("1");
+  await sec.locator(".btn.primary", { hasText: "Save" }).click();
+  await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(b => JSON.stringify((b.workspace || b.ws || WS).autoHide && ((b.workspace || b.ws || WS).autoHide.review || null))))).toContain("urgent");
+  /* saving auto-hide afterwards keeps it */
+  await page.locator("section.panel", { has: page.locator("h2", { hasText: "Auto-hide completed tasks" }) }).locator(".btn.primary", { hasText: "Save" }).click();
+  await page.reload(); await ready(page);
+  expect(await page.evaluate(() => reviewFlow())).toEqual({ stage: "auto", needNote: false, prio: "urgent", reopen: false, autoSubmit: true });
+
+  /* a new version goes to review at once (V5 was a screenshot, so the link is given) */
+  await openTab(page, "files");
+  await page.locator("#drBody .av-decision .btn", { hasText: "Revised" }).click();
+  await page.locator("#rvd_url").fill(FOLDER);
+  await page.locator("#modal .btn.primary").click();
+  await expect.poll(() => page.evaluate(id => task(id).versions.length, taskId), { timeout: 10000 }).toBe(6);
+  await expect.poll(() => page.evaluate(id => isReview(task(id)), taskId), { timeout: 10000 }).toBe(true);
+  await expect(page.locator("#drBody .av-head .badge")).toHaveText("In review");
+  /* sent back: the priority goes to Urgent */
+  await page.locator("#drBody .av-decision.ask .btn", { hasText: "Request revision" }).click();
+  await savedWhen(page, x => x.versions[5].state === "revision" && x.prio === "urgent");
+  /* approved versions stay approved: no way to send one back */
+  await page.locator("#drBody .av-decision .btn", { hasText: "Revised" }).click();
+  await page.locator("#modal .btn.primary").click();
+  await expect.poll(() => page.evaluate(id => isReview(task(id)), taskId), { timeout: 10000 }).toBe(true);
+  await page.locator("#drBody .av-decision.ask .btn", { hasText: "Approve" }).click();
+  await savedWhen(page, x => x.versions[6].state === "approved");
+  await expect(page.locator("#drBody .av-decision.ok")).toContainText("Approved by");
+  await expect(page.locator("#drBody .av-decision.ok .btn", { hasText: "Request revision" })).toHaveCount(0);
+  await expect(page.locator("#drawer .dr-foot .btn", { hasText: "Request revision" })).toHaveCount(0);
+
+  /* the section speaks Indonesian, and Reset puts it back */
+  await page.evaluate(() => { closeDrawer(); UI_LANG = "id"; go("settings", "automation"); });
+  const id = page.locator("section.panel", { has: page.locator("h2", { hasText: "Review & revisi" }) });
+  await expect(id.locator("#f_rf_stage label")).toHaveText("Minta revisi memindahkan task ke");
+  await expect(id.locator("#rf_note option").first()).toHaveText("Langsung kirim — catatan bisa menyusul");
+  await page.evaluate(() => { UI_LANG = "en"; renderScreen(false); });
+  await page.locator("section.panel", { has: page.locator("h2", { hasText: "Review & revision" }) }).locator(".btn", { hasText: "Reset to default" }).click();
+  await expect.poll(() => page.evaluate(() => JSON.stringify(reviewFlow()))).toBe(JSON.stringify({ stage: "auto", needNote: false, prio: "keep", reopen: true, autoSubmit: false }));
+});
+
 test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
   try { await signIn(page);
     /* leave storage as it was found: the storage spec starts from the workspace default */
     await page.evaluate(m => { if (typeof stoCfg !== "function" || m === undefined) return; const c = stoCfg(); if ((c.storage || null) === m) return; if (m) c.storage = m; else delete c.storage; return persistWS(); }, storageBefore);
+    await setFlow(page, null);
     if (taskId) await page.evaluate(id => apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}), taskId); } catch {} finally { await page.close(); }
 });
