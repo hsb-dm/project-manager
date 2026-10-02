@@ -169,7 +169,7 @@ function validateStoredFiles(doc, userId) {
 }
 function checkStoredFiles(doc) {
   (doc.files || []).forEach(f => { if (f.preview) validateEmbeddedImage(f.preview, "File preview"); if (f.url && !filestore.isStoredUrl(db, f.url)) safeHttpsUrl(f.url, "File link"); if (String(f.name || "").length > 240) throw new HttpError(400, "File name is too long"); });
-  (doc.versions || []).forEach(v => { if (v.img) validateEmbeddedImage(v.img, "Version preview"); if (v.driveUrl && !filestore.isStoredUrl(db, v.driveUrl)) safeHttpsUrl(v.driveUrl, "Version link"); });
+  (doc.versions || []).forEach(v => { if (v.img) validateEmbeddedImage(v.img, "Version preview"); if (v.driveUrl && !filestore.isStoredUrl(db, v.driveUrl)) safeHttpsUrl(v.driveUrl, "Version link"); (Array.isArray(v.annots) ? v.annots : []).forEach(a => { if (a && a.img) validateEmbeddedImage(a.img, "Note picture"); }); });
   (doc.comments || []).forEach(c => (c.attachments || []).forEach(a => { if (a.preview) validateEmbeddedImage(a.preview, "Comment preview"); if (a.url && !filestore.isStoredUrl(db, a.url)) safeHttpsUrl(a.url, "Comment file link"); }));
 }
 
@@ -239,6 +239,50 @@ function gateStatusChange(u, cur, next, toStatus) {
      needs the same right as entering it, or the assignee could undo an acceptance. */
   const fromRule = cur && stageRule(cur.status);
   if (fromRule && fromRule.reviewerOnly && !canDecideStage(u, cur)) throw new HttpError(403, "Only the reviewer, the requester, a team lead or an admin can move this task out of " + fromRule.name + ".");
+}
+/* A task's history is the server's to write: what a browser sends as "activity" is ignored, since
+   anyone could put anything in it. But nothing wrote it in its place — a task's Activity held stage
+   moves and little else: not that it was created, nor its comments, files, links, versions or
+   decisions. So every save is compared with the stored task here, and the difference recorded.
+   Edits that come in bursts (the description saves as it is typed) are recorded once per
+   person per ten minutes rather than once per keystroke pause. */
+function recordTaskChanges(user, cur, next) {
+  const id = next.id;
+  const rec = (k, a) => act(user, k, "task", id, Object.assign({ task: id }, a || {}));
+  const recOnce = (k, a) => {
+    const last = db.prepare("SELECT actor_id, action, payload, created_at FROM activity_logs WHERE entity_type='task' AND entity_id=? ORDER BY created_at DESC LIMIT 1").get(id);
+    if (last && last.actor_id === user.id && last.action === k && (JSON.parse(last.payload || "{}").what || "") === ((a && a.what) || "") && Date.now() - new Date(last.created_at).getTime() < 10 * 60000) return;
+    rec(k, a);
+  };
+  if (!cur) { rec("created"); if (next.brief) rec("brief"); return; }
+  const by = (list, key) => new Map((list || []).map(x => [x[key], x]));
+  if (next.status !== cur.status) rec("moved", { from: cur.status, to: next.status });
+  const oldV = by(cur.versions, "n");
+  (next.versions || []).forEach(v => {
+    const o = oldV.get(v.n);
+    if (!o) rec("upload", { v: v.n });
+    else if (o.state !== v.state && v.state === "approved") rec("approved", { v: v.n });
+    else if (o.state !== v.state && v.state === "revision") rec("revision", { v: v.n });
+    if (o) {
+      const had = new Set((o.annots || []).map(a => a && a.id));
+      if ((v.annots || []).some(a => a && !had.has(a.id))) recOnce("note", { v: v.n });
+    }
+  });
+  /* a link is a file record that points somewhere and carries no file of its own */
+  const isLink = f => /^https?:/i.test(String(f.url || "")) && !f.driveId && !f.preview;
+  const oldF = by(cur.files, "id"), newF = by(next.files, "id");
+  (next.files || []).forEach(f => { if (!oldF.has(f.id)) rec(isLink(f) ? "link" : "file", { name: f.name }); });
+  (cur.files || []).forEach(f => { if (!newF.has(f.id)) rec("deleted", { what: f.name }); });
+  const oldC = by(cur.comments, "id");
+  (next.comments || []).forEach(c => { if (!oldC.has(c.id)) rec("comment"); });
+  if (JSON.stringify(next.assignees || []) !== JSON.stringify(cur.assignees || [])) rec("assigned", { to: (next.assignees || [])[0] || null });
+  if ((next.dueDate || null) !== (cur.dueDate || null) || (next.startDate || null) !== (cur.startDate || null)) recOnce("deadline");
+  if ((next.team || null) !== (cur.team || null)) rec("team", { to: next.team || null });
+  if (next.title !== cur.title) recOnce("edited", { what: "the title" });
+  if ((next.description || "") !== (cur.description || "")) recOnce("edited", { what: "the description" });
+  if (!cur.brief && next.brief) rec("brief");
+  else if (cur.brief && next.brief && JSON.stringify(cur.brief) !== JSON.stringify(next.brief)) recOnce("edited", { what: "the brief" });
+  if (next.prio && next.prio !== cur.prio) recOnce("edited", { what: "the priority" });
 }
 function moveTask(user, id, op) {
   const doc = sz.readTask(db, id); if (!doc) throw new HttpError(404, "Task not found");
@@ -850,15 +894,50 @@ function sanitizeComments(prevComments, bodyComments, u) {
   prev.forEach(old => { if (!(old.by === u.id || old.author_id === u.id || can.manageWorkspace(u))) out.push(old); });
   return out;
 }
+/* A version's notes say what has to change (they replaced the pins dropped on the preview). Like
+   comments they belong to the server: a new note is stamped with who wrote it and when; an existing
+   one keeps its text and author, and only its done tick can change, stamped with who ticked it; only
+   its author or an admin can take one away. The picture on a note is checked and stored with the
+   other images (checkStoredFiles, uploads.externalizeTask). */
+const NOTE_MAX = 100, NOTE_TEXT_MAX = 2000;
+function sanitizeNotes(prevNotes, bodyNotes, u) {
+  const prev = (Array.isArray(prevNotes) ? prevNotes : []).filter(a => a && typeof a === "object");
+  const body = (Array.isArray(bodyNotes) ? bodyNotes : []).filter(a => a && typeof a === "object");
+  const sent = new Map(body.filter(a => a.id != null).map(a => [String(a.id), a]));
+  const prevIds = new Set(prev.map(a => String(a.id)));
+  const out = [];
+  prev.forEach(old => {
+    const n = old.id != null ? sent.get(String(old.id)) : null;
+    if (!n) { if (!(old.by === u.id || can.manageWorkspace(u))) out.push(old); return; }
+    const done = !!n.done;
+    out.push(done === !!old.done ? old : Object.assign({}, old, { done, doneBy: done ? u.id : null, doneAt: done ? now() : null }));
+  });
+  const taken = new Set(prevIds);
+  body.forEach(n => {
+    if (n.id != null && prevIds.has(String(n.id))) return;
+    if (out.length >= NOTE_MAX) return;
+    const text = String(n.text || "").trim().slice(0, NOTE_TEXT_MAX);
+    const img = typeof n.img === "string" ? n.img : "";
+    if (!text && !img) return;
+    let id = /^[-\w]{1,40}$/.test(String(n.id || "")) ? String(n.id) : uid("an");
+    if (taken.has(id)) id = uid("an");
+    taken.add(id);
+    const note = { id, text, by: u.id, at: now(), done: false, doneBy: null, doneAt: null };
+    if (img) note.img = img;
+    out.push(note);
+  });
+  return out;
+}
 function sanitizeVersions(prevVersions, bodyVersions, u, decided) {
   const prev = new Map((prevVersions || []).map(v => [v.n, v]));
   const okDecision = new Set(decided.map(v => v.n));
   return (Array.isArray(bodyVersions) ? bodyVersions : []).map(v => {
     const old = prev.get(v.n);
-    if (!old) return Object.assign({}, v, { by: u.id, decidedBy: v.state === "pending" || !v.state ? null : (okDecision.has(v.n) ? u.id : null), decidedAt: okDecision.has(v.n) ? now() : null });
+    if (!old) return Object.assign({}, v, { by: u.id, decidedBy: v.state === "pending" || !v.state ? null : (okDecision.has(v.n) ? u.id : null), decidedAt: okDecision.has(v.n) ? now() : null, annots: sanitizeNotes([], v.annots, u) });
     const stateChanged = old.state !== v.state;
-    if (stateChanged && okDecision.has(v.n)) return Object.assign({}, old, { state: v.state, note: v.note != null ? v.note : old.note, reason: v.reason, decidedBy: u.id, decidedAt: now() });
-    return Object.assign({}, old, { note: v.note != null && (old.by === u.id) ? v.note : old.note, state: old.state, decidedBy: old.decidedBy, decidedAt: old.decidedAt, by: old.by });
+    const annots = sanitizeNotes(old.annots, v.annots, u);
+    if (stateChanged && okDecision.has(v.n)) return Object.assign({}, old, { state: v.state, note: v.note != null ? v.note : old.note, reason: v.reason, decidedBy: u.id, decidedAt: now(), annots });
+    return Object.assign({}, old, { note: v.note != null && (old.by === u.id) ? v.note : old.note, state: old.state, decidedBy: old.decidedBy, decidedAt: old.decidedAt, by: old.by, annots });
   });
 }
 function sanitizeTaskWrite(cur, b, u, decided) {
@@ -870,7 +949,7 @@ function sanitizeTaskWrite(cur, b, u, decided) {
 function nextTaskNumber() { const r = db.prepare("SELECT max(CAST(substr(id,3) AS INTEGER)) n FROM tasks WHERE id GLOB 'T-[0-9]*'").get(); return "T-" + Math.max(101, (r && r.n || 100) + 1); }
 function sanitizeNewTask(b, u) {
   b.comments = (Array.isArray(b.comments) ? b.comments : []).map(c => ({ id: uid("cm"), by: u.id, createdAt: now(), vis: c && c.vis === "internal" ? "internal" : "team", text: String((c && c.text) || ""), parent: null, attachments: [] })).filter(c => c.text);
-  b.versions = (Array.isArray(b.versions) ? b.versions : []).map(v => Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null }));
+  b.versions = (Array.isArray(b.versions) ? b.versions : []).map(v => Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null, annots: sanitizeNotes([], v.annots, u) }));
   b.activity = [];
   return b;
 }
@@ -881,7 +960,7 @@ route("POST", "/api/tasks", (u, p, q, b) => { const firstStage = db.prepare("SEL
   if (db.prepare("SELECT 1 FROM tasks WHERE id=?").get(b.id)) throw new HttpError(409, "A task with this ID already exists"); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1000 s FROM tasks WHERE workspace_id=?").get(WS_ID).s;
   /* v32: creation never carries server-owned history or decisions from the client. */
   gateStatusChange(u, null, Object.assign({}, b, { assignee: b.assignee, assignees: b.assignees }), b.status);
-  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); tx(db, () => sz.writeTask(db, WS_ID, b, u.id)); return sz.readTask(db, b.id); });
+  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, null, b); }); return sz.readTask(db, b.id); });
 route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found");
   if (b && b._slim) b = sz.mergeSlimTask(cur, b); /* never wipe history from a slim copy */
@@ -909,7 +988,7 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   gateStatusChange(u, cur, b, b.status);
   b = sanitizeTaskWrite(cur, b, u, decided);
   b.id = p.id; validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []);
-  tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); });
+  tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, cur, b); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); });
   { const out = sz.readTask(db, p.id); if (merged) out._merged = merged; return out; }
 });
 route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u), "delete tasks"); tx(db, () => db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID)); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });

@@ -125,9 +125,8 @@ test("the x takes the picture out of the writing and out of Comments", async ({ 
   const t = await page.evaluate(id => JSON.parse(JSON.stringify(task(id))), taskId);
   expect(t.comments.length, "the comment it rode on goes with it").toBe(before - 1);
   expect(await descOf(page), "the writing around it is kept").toContain("First paragraph");
-  /* and the server agrees */
-  const saved = await page.evaluate(id => apiFetch("GET", "/api/tasks/" + id), taskId);
-  expect(saved.description).not.toContain("zc-att:");
+  /* and the server agrees, once the save has reached it */
+  await expect.poll(() => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id).then(t => t.description), taskId), { timeout: 10000 }).not.toContain("zc-att:");
 });
 
 test("a reply is never deleted with the picture", async ({ page }) => {

@@ -9,6 +9,7 @@ test.describe.configure({ mode: "serial" });
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
 let taskId = null, plainId = null;
+let storageBefore;   /* what storage was set to before this spec changed it */
 
 async function signIn(page) {
   await page.goto("/");
@@ -61,6 +62,7 @@ test("two tasks: one with a brief and a picture in it, one with neither", async 
   await signIn(page);
   /* The storage tests leave the workspace pointed at Drive, which no e2e run can reach. Say where
      files go rather than inherit whatever the spec before this one left behind. */
+  storageBefore = await page.evaluate(() => (typeof stoCfg === "function" ? stoCfg().storage || null : null));
   await page.evaluate(() => { if (typeof stoSet === "function" && storageMode() !== "server") stoSet("server"); });
   await expect.poll(() => page.evaluate(() => storageMode())).toBe("server");
   await page.goto("/projects"); await ready(page);
@@ -123,6 +125,8 @@ test("dragging the corner resizes it, and that is what gets saved", async ({ pag
   expect((await img.boundingBox()).width, "the picture really grew").toBeGreaterThan(before + 100);
 
   await expect.poll(() => descOf(page), { timeout: 10000 }).not.toMatch(/ =25%\)/);
+  /* the page has the new width before its save has reached the server */
+  await expect.poll(() => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id).then(t => t.description), taskId), { timeout: 10000 }).not.toMatch(/ =25%\)/);
   const saved = await page.evaluate(id => apiFetch("GET", "/api/tasks/" + id), taskId);
   const pct = +(saved.description.match(/=(\d{1,3})%/) || [])[1];
   expect(pct, "a new width, from the server").toBeGreaterThan(25);
@@ -334,6 +338,9 @@ test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
   try {
     await signIn(page);
+    /* leave storage as it was found: the storage spec starts from the workspace default */
+    await page.evaluate(m => { if (typeof stoCfg !== "function" || m === undefined) return; const c = stoCfg(); if ((c.storage || null) === m) return; if (m) c.storage = m; else delete c.storage; return persistWS(); }, storageBefore);
+   
     for (const id of [taskId, plainId]) if (id) await page.evaluate(i => apiFetch("DELETE", "/api/tasks/" + i).catch(() => {}), id);
   } catch {} finally { await page.close(); }
 });

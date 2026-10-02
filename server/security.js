@@ -53,13 +53,21 @@ function requireSameOrigin(req) {
   if (!host || host !== req.headers.host) { const e = new Error("Request origin is not allowed"); e.status = 403; throw e; }
 }
 
+/* Pages the app may show inside itself. Google's own frames (sign-in, Drive, Docs) plus the services
+   whose official embed a version preview uses (src/version-preview.js): only an address made for
+   embedding, never an arbitrary site — a page from anywhere, inside the app, can pose as its sign-in. */
+const FRAME_SOURCES = [
+  "https://drive.google.com", "https://docs.google.com", "https://accounts.google.com", "https://content.googleapis.com", "https://apis.google.com",
+  "https://www.figma.com", "https://embed.figma.com", "https://www.canva.com", "https://www.youtube-nocookie.com",
+  "https://player.vimeo.com", "https://www.loom.com", "https://miro.com",
+];
 function applyHeaders(res) {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-  res.setHeader("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.gstatic.com https://apis.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src https://drive.google.com https://docs.google.com https://accounts.google.com https://content.googleapis.com https://apis.google.com");
+  res.setHeader("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.gstatic.com https://apis.google.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com; frame-src " + FRAME_SOURCES.join(" "));
   if (IS_PRODUCTION) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 }
 

@@ -2,9 +2,16 @@
 const crypto = require("crypto");
 const { uid, now } = require("./db");
 /* Sessions are per-device and renewed while the member is active. This keeps a
-   trusted work device signed in without making a lost device permanent. */
-const SESSION_HOURS = Math.max(1, +(process.env.COS_SESSION_HOURS || 720));
+   trusted work device signed in without making a lost device permanent.
+   A session lasts SESSION_HOURS (60 days) from the last time it was used, not from sign-in: using
+   the app pushes the end back. It used to be pushed back only when someone happened to use the app
+   in the last day before it ran out, so a member who worked every week but not on day 29 was signed
+   out at day 30 anyway. Now any use extends it, at most once per SESSION_RENEW_HOURS so an active
+   tab does not write to the database on every request. */
+const SESSION_HOURS = Math.max(1, +(process.env.COS_SESSION_HOURS || 1440));
 const SESSION_RENEW_HOURS = Math.max(1, +(process.env.COS_SESSION_RENEW_HOURS || 24));
+/* how long after its end was last set a session is pushed back again (never more than half its life) */
+const RENEW_AFTER_MS = Math.min(SESSION_RENEW_HOURS, SESSION_HOURS / 2) * 3600000;
 function hashPassword(pw, salt) { salt = salt || crypto.randomBytes(16).toString("hex"); return { salt, hash: crypto.scryptSync(String(pw), salt, 64, { N: 16384 }).toString("hex") }; }
 function verifyPassword(pw, salt, hash) { if (!salt || !hash) return false; const h = crypto.scryptSync(String(pw), salt, 64, { N: 16384 }); const b = Buffer.from(hash, "hex"); return h.length === b.length && crypto.timingSafeEqual(h, b); }
 function setPassword(db, userId, pw) { const { salt, hash } = hashPassword(pw); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(hash, salt, userId); }
@@ -14,7 +21,7 @@ function readSession(db, token) { if (!token) return null; const id = sessionId(
      hash (from a leaked database or backup) be replayed directly as a session cookie. */
   if (!/^[a-f0-9]{64}$/.test(String(token))) return null;
   const s = db.prepare("SELECT s.*, u.is_active FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=?").get(id); if (!s || s.expires_at < now() || !s.is_active) return null; return s; }
-function renewSession(db, token, session) { if (!session || !token) return null; const remaining = new Date(session.expires_at).getTime() - Date.now(); if (remaining > SESSION_RENEW_HOURS * 3600000) return null; const exp = new Date(Date.now() + SESSION_HOURS * 3600000).toISOString(); db.prepare("UPDATE sessions SET expires_at=? WHERE id=?").run(exp, sessionId(token)); return exp; }
+function renewSession(db, token, session) { if (!session || !token) return null; const remaining = new Date(session.expires_at).getTime() - Date.now(); if (remaining > SESSION_HOURS * 3600000 - RENEW_AFTER_MS) return null; const exp = new Date(Date.now() + SESSION_HOURS * 3600000).toISOString(); db.prepare("UPDATE sessions SET expires_at=? WHERE id=?").run(exp, sessionId(token)); return exp; }
 function destroySession(db, token) { if (token) db.prepare("DELETE FROM sessions WHERE id=?").run(sessionId(token)); }
 function cookies(req) { const out = {}; (req.headers.cookie || "").split(";").forEach(p => { const i = p.indexOf("="); if (i > 0) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); }); return out; }
 function cookieHeader(token, expires) { const secure = process.env.COS_SECURE_COOKIE === "1" || process.env.NODE_ENV === "production"; return "cos_session=" + (token || "") + "; Path=/; HttpOnly; SameSite=Lax" + (secure ? "; Secure" : "") + "; Expires=" + new Date(token ? expires : 0).toUTCString() + (token ? "; Max-Age=" + Math.max(0, Math.floor((new Date(expires).getTime() - Date.now()) / 1000)) : "; Max-Age=0"); }

@@ -73,8 +73,8 @@ test("the title still saves the ordinary way", async ({ page }) => {
   await page.keyboard.type(" (renamed)");
   await page.keyboard.press("Enter");   /* Enter blurs the field, which saves it */
   await expect.poll(() => page.evaluate(i => task(i).title, id)).toBe("Keep me A (renamed)");
-  const saved = await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i), id);
-  expect(saved.title).toBe("Keep me A (renamed)");
+  /* the page shows the new title before its save has reached the server */
+  await expect.poll(() => page.evaluate(i => apiFetch("GET", "/api/tasks/" + i).then(t => t.title), id), { timeout: 10000 }).toBe("Keep me A (renamed)");
 });
 
 /* Clicking from the title into the comment box blurred the title, which saved it even unchanged; the

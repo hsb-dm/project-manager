@@ -44,21 +44,28 @@ function driveLinkName(url){
   return DRIVE_NAME_JOBS[url];
 }
 /* A Drive link in written text becomes a chip: the Drive mark and the name. */
-function driveChipHtml(url){
-  var known=driveLinkKnown(url);
+/* name: the one written with the link ([name](url), see link-tab.js); without it the chip shows
+   the remembered name, or what kind of link it is and looks the name up */
+function driveChipHtml(url,name){
+  var known=!!name||driveLinkKnown(url);
   return '<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" class="rich-link drive-chip"'+(known?'':' data-drive-pending="1"')
     + ' title="'+attr(url)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.href)">'
-    + (typeof driveIcon==="function"?driveIcon():"")+'<span>'+esc(driveLinkLabel(url))+'</span></a>';
+    + (typeof driveIcon==="function"?driveIcon():"")+'<span>'+esc(name||driveLinkLabel(url))+'</span></a>';
 }
 /* richLinkText draws every external link the same way, as its raw URL. A Drive link is drawn as a
    chip instead — in comments, and wherever else written text shows one. */
 (function(){
   if(typeof richLinkText!=="function") return;
   var base=richLinkText;
-  richLinkText=function(){
-    return base.apply(this,arguments).replace(/<a href="([^"]+)" target="_blank" rel="noopener nofollow" class="rich-link"[^>]*>[^<]*<\/a>/g,function(whole,href){
-      var url=typeof pasteUnesc==="function"?pasteUnesc(href):href;
-      return isGoogleLink(url)?driveChipHtml(url):whole;
+  richLinkText=function(text){
+    /* a link written as [name](url) reads as its name */
+    var names=typeof mdLinkNames==="function"?mdLinkNames(text):{};
+    var args=Array.prototype.slice.call(arguments);
+    if(Object.keys(names).length) args[0]=mdLinkStrip(text);
+    return base.apply(this,args).replace(/<a href="([^"]+)" target="_blank" rel="noopener nofollow" class="rich-link"([^>]*)>([^<]*)<\/a>/g,function(whole,href,rest){
+      var url=typeof pasteUnesc==="function"?pasteUnesc(href):href, name=names[url];
+      if(isGoogleLink(url)) return driveChipHtml(url,name);
+      return name?'<a href="'+href+'" target="_blank" rel="noopener nofollow" class="rich-link"'+rest+'>'+esc(name)+'</a>':whole;
     });
   };
 })();
@@ -123,20 +130,32 @@ function cmtLinkModal(kind){
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
   setTimeout(function(){ var i=document.getElementById("cmt_url"); if(i) i.focus(); },40);
 }
-var CMT_NAME_T=null;
-function cmtLinkNameSoon(kind){
-  clearTimeout(CMT_NAME_T);
-  CMT_NAME_T=setTimeout(function(){
-    var url=normalizedAttachUrl(val("cmt_url")), hint=document.getElementById("cmt_name_hint"), nameEl=document.getElementById("cmt_name");
+/* Any dialog with a link field and a name field: once a Google link is pasted, the name fills in
+   from Drive. A name somebody typed is never replaced; one filled in from Drive is (data-auto),
+   so pasting a different link updates it. The hint says what happened when it cannot be read. */
+var LINK_NAME_T={};
+function linkNameSoon(urlId,nameId,hintId){
+  clearTimeout(LINK_NAME_T[urlId]);
+  LINK_NAME_T[urlId]=setTimeout(function(){
+    var url=normalizedAttachUrl(val(urlId)), hint=document.getElementById(hintId), nameEl=document.getElementById(nameId);
     if(!url||!isGoogleLink(url)||!nameEl){ if(hint) hint.textContent=""; return; }
     if(hint) hint.textContent=tr("Reading the name from Google Drive…");
     driveLinkName(url).then(function(name){
-      var h=document.getElementById("cmt_name_hint"), n=document.getElementById("cmt_name"); if(!n) return;
+      var h=document.getElementById(hintId), n=document.getElementById(nameId); if(!n) return;
       if(name){ if(!n.value.trim()||n.value===n.getAttribute("data-auto")){ n.value=name; n.setAttribute("data-auto",name); } if(h) h.textContent=""; }
       else if(h) h.textContent=tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+driveLinkLabel(url)+"”.";
     });
   },350);
 }
+/* The name to save under: the one typed, else Drive's — waited for briefly if it is still on its
+   way, so a quick Save does not file the link as "Google Drive Folder" — else what kind of link it is. */
+function linkNameFor(url,typed){
+  if(typed) return Promise.resolve(typed);
+  if(!isGoogleLink(url)) return Promise.resolve("");
+  var wait=new Promise(function(r){ setTimeout(function(){ r(""); },2500); });
+  return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||driveLinkLabel(url); });
+}
+function cmtLinkNameSoon(kind){ linkNameSoon("cmt_url","cmt_name","cmt_name_hint"); }
 function cmtLinkSave(kind){
   var url=normalizedAttachUrl(val("cmt_url"));
   if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
@@ -175,7 +194,8 @@ function cmtAssetsFrom(att,text){
   (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){
     var url=normalizedAttachUrl(x.url); if(!url||!isGoogleLink(url)) return;
     if(out.some(function(a){ return a.url===url; })) return;
-    out.push({name:driveLinkLabel(url),url:url,type:"link",kind:"link",source:"gdrive",size:tr("Link")});
+    var written=typeof mdLinkNames==="function"?mdLinkNames(text)[url]:"";
+    out.push({name:written||driveLinkLabel(url),url:url,type:"link",kind:"link",source:"gdrive",size:tr("Link")});
   });
   return out;
 }
@@ -233,6 +253,7 @@ Object.assign(UI_ID,{
   "Optional":"Opsional",
   "Reading the name from Google Drive…":"Membaca nama dari Google Drive…",
   "The name could not be read — the link is probably not shared with anyone who has it. It will show as":"Namanya tidak bisa dibaca — kemungkinan tautan tidak dibagikan ke siapa pun yang memilikinya. Akan tampil sebagai",
-  "The asset library is empty":"Pustaka aset masih kosong"
+  "The asset library is empty":"Pustaka aset masih kosong",
+  "Use a Google Drive, Docs, Sheets, or Slides share link":"Gunakan tautan berbagi Google Drive, Docs, Sheets, atau Slides"
 });
 </script>

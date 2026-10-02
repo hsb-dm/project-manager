@@ -87,10 +87,36 @@ module.exports = function (db, ws, route, deps) {
      Only Google's two hosts are fetched, so this is not a general fetch-any-URL endpoint, and the
      same guarded fetch, cache and rate limit as message previews apply. */
   const GOOGLE_LINK_HOSTS = new Set(['drive.google.com', 'docs.google.com']);
+  /* Google names its own product after the dash, in the reader's language ("- Google Drive",
+     "- Google Spreadsheet", "- Google Dokumen"), so any " - Google …" ending is dropped. */
   const googleName = raw => {
-    const t = String(raw || '').replace(/\s+[-–]\s+Google\s+(Drive|Docs|Sheets|Slides|Forms)\s*$/i, '').trim();
-    if (!t || /^(sign[\s-]?in|masuk|google\s+accounts?|google\s+drive:\s*sign)/i.test(t) || /^Google\s+(Drive|Docs|Sheets|Slides|Forms)$/i.test(t)) return '';
+    const t = String(raw || '').replace(/\s+[-–—]\s+Google(\s+[^-–—]{1,40})?\s*$/i, '').trim();
+    if (!t || /^(sign[\s-]?in|masuk|google\s+accounts?|google\s+drive:\s*sign)/i.test(t) || /^Google(\s+\S+)?$/i.test(t)) return '';
     return t.slice(0, 160);
+  };
+  /* Only the top of the page: Google's pages run to 250 KB and more, which the general preview
+     fetcher refuses outright (its cap is 256 KB), while the name sits in the first few kilobytes.
+     Reading stops at </head> or 128 KB, whichever comes first. Same guards as fetchPreview: the
+     address is checked before every request and redirect, nothing is sent but a plain GET. */
+  const fetchHeadTitle = async normalized => {
+    let target = await safeTarget(normalized); if (!target) return null;
+    let res;
+    for (let redirects = 0; redirects <= 3; redirects++) {
+      const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 3500);
+      try { res = await pinnedFetch(target, ac.signal, { Accept: 'text/html,application/xhtml+xml;q=0.9', 'User-Agent': 'ZenCrevia-LinkPreview/1.0' }); } finally { clearTimeout(timer); }
+      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { target = await safeTarget(new URL(res.headers.get('location'), target).toString()); if (!target) return null; continue; }
+      break;
+    }
+    if (!res || !res.ok || !/^text\/html\b/i.test(res.headers.get('content-type') || '') || !res.body) return null;
+    const reader = res.body.getReader(); const chunks = []; let size = 0, head = '';
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      chunks.push(Buffer.from(value)); size += value.byteLength;
+      head = Buffer.concat(chunks).toString('utf8');
+      if (size > 131072 || /<\/head>/i.test(head)) { reader.cancel().catch(() => {}); break; }
+    }
+    const title = metaTag(head, 'og:title') || htmlText((head.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
+    return { hostname: target.hostname, title: String(title || '').slice(0, 200) };
   };
   route('GET', '/api/links/title', async (u, p, q) => {
     const url = normalizeUrl(q.url);
@@ -102,7 +128,7 @@ module.exports = function (db, ws, route, deps) {
     if (previewRate.at !== minute) { previewRate.at = minute; previewRate.n = 0; }
     if (previewRate.n >= 20) return { title: '' };
     previewRate.n++;
-    let meta = null; try { meta = await fetchPreview(url); } catch (e) {}
+    let meta = null; try { meta = await fetchHeadTitle(url); } catch (e) {}
     /* A redirect that ends anywhere but Google's own pages (the sign-in host, say) is not the link's page. */
     const ok = !!(meta && GOOGLE_LINK_HOSTS.has(String(meta.hostname || '').toLowerCase()));
     const name = ok ? googleName(meta.title) : '';

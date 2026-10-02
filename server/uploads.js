@@ -53,7 +53,10 @@ function externalize(db, value, userId, field) {
 }
 function externalizeTask(db, doc, userId) {
   (doc.files || []).forEach(f => { if (f && f.preview) f.preview = externalize(db, f.preview, userId, "File preview"); });
-  (doc.versions || []).forEach(v => { if (v && v.img) v.img = externalize(db, v.img, userId, "Version preview"); });
+  (doc.versions || []).forEach(v => {
+    if (v && v.img) v.img = externalize(db, v.img, userId, "Version preview");
+    (v && Array.isArray(v.annots) ? v.annots : []).forEach(a => { if (a && a.img) a.img = externalize(db, a.img, userId, "Note picture"); });
+  });
   (doc.comments || []).forEach(c => (c && c.attachments || []).forEach(a => { if (a && a.preview) a.preview = externalize(db, a.preview, userId, "Comment preview"); }));
   return doc;
 }

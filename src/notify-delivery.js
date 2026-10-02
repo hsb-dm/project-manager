@@ -32,7 +32,7 @@ function notifPrePrompt(source,force){ var pf=notifPrefs(); if(notifPermission()
   openModal(tr("Stay updated with ZenCrevia"),'<div class="notif-preprompt"><div class="notif-preprompt-icon">'+I.bell+'</div><p>'+tr("Get notified when:")+'</p><ul><li>'+tr("someone messages you")+'</li><li>'+tr("you are mentioned")+'</li><li>'+tr("a task needs approval")+'</li><li>'+tr("a blocker changes")+'</li><li>'+tr("a project update requires attention")+'</li></ul><p class="hint">'+tr("Your browser will ask once. You can change this any time in Settings → Notifications.")+'</p></div>','<button class="btn" onclick="closeModal()">'+tr("Not now")+'</button><span class="spacer"></span><button class="btn primary" onclick="closeModal();notifRequestPermission()">'+I.bell+tr("Enable notifications")+'</button>'); }
 function notifRequestPermission(){ if(notifPermission()==="unsupported") return toast(tr("This browser does not support notifications"),"bad"); zenSoundUnlock(); Notification.requestPermission().then(function(res){ setNotifPref("browser",res==="granted"); if(res==="granted"){ toast(tr("Browser notifications enabled")); zenSoundPlay(true); } else toast(tr(res==="denied"?"Notifications are blocked in the browser settings":"Notifications not enabled"),"bad"); if(S.screen==="settings") renderScreen(false); }); }
 function notifBrowserAllowed(){ return notifPermission()==="granted"&&notifPref("browser"); }
-function notifShowBrowser(evt){ if(!notifBrowserAllowed()) return false; try{ var n=new Notification(evt.title||"ZenCrevia",{body:evt.body||"",tag:evt.tag||(evt.conversationId||"")+":"+(evt.messageId||evt.type),silent:true,icon:WS.favicon||WS.logoImg||undefined}); n.onclick=function(){ try{ window.focus(); }catch(e){} n.close(); notifOpenTarget(evt); }; setTimeout(function(){ try{ n.close(); }catch(e){} },8000); return true; }catch(e){ return false; } }
+function notifShowBrowser(evt){ if(!notifBrowserAllowed()) return false; try{ var n=new Notification(evt.title||"ZenCrevia",{body:evt.body||"",tag:evt.tag||(evt.conversationId||"")+":"+(evt.messageId||evt.type),silent:true,icon:WS.favicon||WS.logoImg||undefined}); n.onclick=function(){ try{ window.focus(); }catch(e){} n.close(); notifOpenTarget(evt); }; setTimeout(function(){ try{ n.close(); }catch(e){} },NOTIF_POP_MS*2); return true; }catch(e){ return false; } }
 function notifOpenTarget(evt){ if(evt.conversationId&&typeof openConversation==="function"){ if(S.screen!=="messages") go("messages"); openConversation(evt.conversationId,evt.messageId); } else if(evt.target&&evt.target.taskId){ openTask(evt.target.taskId); } else if(evt.target&&evt.target.screen){ go(evt.target.screen,evt.target.sub); } }
 /* ---------- §142 the pipeline ---------- */
 /* evt: {type, priority, title, body, actor, conversationId, messageId, target, inApp, push, sound, prefKey, notifKey} */
@@ -51,6 +51,26 @@ function deliverNotification(evt){ if(!evt) return; if(!notifEventAllowed(evt)) 
   return out; }
 /* Existing task/comment events (notify() in core.js) flow through the same
    pipeline in standalone mode so they reach the browser and the chime too. */
-function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:n.k==="mention"?"chat_mention":undefined,title:"ZenCrevia",body:fmt(NTEXT[n.k]||n.k,{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
+function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); return deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:n.k==="mention"?"chat_mention":undefined,title:"ZenCrevia",body:fmt(ntext(n.k),{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
+/* ---------- pop-ups that stay long enough to read ----------
+   A notification that pops up inside the app stays for NOTIF_POP_MS, waits while the pointer is on
+   it, and has its own close button; a click opens what it is about. The browser's own notification
+   stays twice as long. A task notification pops up the same way a chat message does, when the
+   browser did not already show it. */
+var NOTIF_POP_MS=10000;
+function notifPopShow(el){ var box=document.getElementById("toasts"); if(!box) return; el.classList.add("notif-pop");
+  var x=document.createElement("button"); x.type="button"; x.className="notif-pop-x"; x.setAttribute("aria-label",tr("Close")); x.innerHTML=I.x;
+  var gone=false, timer=null, left=NOTIF_POP_MS, since=0;
+  var close=function(){ if(gone) return; gone=true; clearTimeout(timer); el.style.transition="opacity .25s"; el.style.opacity="0"; setTimeout(function(){ el.remove(); },260); };
+  var run=function(){ since=Date.now(); clearTimeout(timer); timer=setTimeout(close,left); };
+  x.onclick=function(e){ e.stopPropagation(); close(); };
+  el.addEventListener("mouseenter",function(){ clearTimeout(timer); left=Math.max(2000,left-(Date.now()-since)); });
+  el.addEventListener("mouseleave",run);
+  el.appendChild(x); while(box.children.length>3) box.firstChild.remove(); box.appendChild(el); run(); }
+function notifToast(n){ if(!n||document.body.classList.contains("auth")) return; var tk=task(n.t), title=tk?tk.title:n.t, el=document.createElement("div");
+  el.className="toast ok msg-toast notif-toast";
+  el.innerHTML=(n.who?av(n.who):'<span class="av" style="background:var(--color-primary)">!</span>')+'<div><span>'+fmt(ntext(n.k),{who:n.who?esc(first(n.who)):"",t:esc(title)})+'</span></div>';
+  el.onclick=function(){ el.remove(); if(tk){ markRead(n.t); openTask(tk.id); } else if(typeof openPop==="function"){ var b=document.getElementById("notifBtn"); if(b) openPop("notifPop",b); } };
+  notifPopShow(el); }
 Object.assign(UI_ID,{"Stay updated with ZenCrevia":"Tetap terhubung dengan ZenCrevia","Get notified when:":"Dapatkan notifikasi saat:","someone messages you":"seseorang mengirimimu pesan","you are mentioned":"kamu disebut (@mention)","a task needs approval":"task memerlukan persetujuan","a blocker changes":"ada perubahan blocker","a project update requires attention":"ada update project yang perlu perhatian","Your browser will ask once. You can change this any time in Settings → Notifications.":"Browser akan bertanya sekali. Ubah kapan saja di Pengaturan → Notifikasi.","Not now":"Nanti saja","Enable notifications":"Aktifkan notifikasi","Browser notifications enabled":"Notifikasi browser aktif","Notifications are blocked in the browser settings":"Notifikasi diblokir di pengaturan browser","Notifications not enabled":"Notifikasi belum diaktifkan","This browser does not support notifications":"Browser ini tidak mendukung notifikasi","Allowed":"Diizinkan","Blocked":"Diblokir","Not enabled":"Belum aktif","Not supported":"Tidak didukung"});
 </script>

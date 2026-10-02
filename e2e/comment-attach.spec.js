@@ -14,6 +14,7 @@ const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
 const SHARED = "https://drive.google.com/drive/folders/Q4SHAREDFOLDER";
 const PRIVATE = "https://drive.google.com/drive/folders/PRIVATEFOLDER";
 let taskId = null;
+let storageBefore;   /* what storage was set to before this spec changed it */
 
 async function signIn(page) {
   await page.route("**/api/links/title**", route => {
@@ -39,6 +40,7 @@ async function post(page, text) {
 
 test("a task to comment on", async ({ page }) => {
   await signIn(page);
+  storageBefore = await page.evaluate(() => (typeof stoCfg === "function" ? stoCfg().storage || null : null));
   await page.evaluate(() => { if (typeof stoSet === "function" && storageMode() !== "server") stoSet("server"); });
   await page.goto("/projects"); await ready(page);
   await page.getByRole("button", { name: "New project" }).first().click();
@@ -158,5 +160,8 @@ test("Upload images from the comment box lands in Assets", async ({ page }) => {
 
 test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
-  try { await signIn(page); if (taskId) await page.evaluate(id => apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}), taskId); } catch {} finally { await page.close(); }
+  try { await signIn(page);
+    /* leave storage as it was found: the storage spec starts from the workspace default */
+    await page.evaluate(m => { if (typeof stoCfg !== "function" || m === undefined) return; const c = stoCfg(); if ((c.storage || null) === m) return; if (m) c.storage = m; else delete c.storage; return persistWS(); }, storageBefore);
+    if (taskId) await page.evaluate(id => apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}), taskId); } catch {} finally { await page.close(); }
 });

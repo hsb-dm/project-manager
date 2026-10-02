@@ -73,8 +73,13 @@ Kamu bisa mencari dengan task ID, tag, nama orang, nama tim, nama file, atau jud
 
 ### Notifications
 
-Ikon lonceng dengan titik kalau ada yang belum dibaca. Popover-nya punya **Mark all read**;
+Ikon lonceng menampilkan jumlah notifikasi yang belum dibaca (di atas 99 tampil **99+**); angkanya
+berdenyut sekali saat ada notifikasi baru. Popover-nya punya **Mark all read**;
 mengklik satu baris menandainya terbaca dan langsung membuka task terkait.
+
+Notifikasi baru juga muncul sebagai pop-up di bawah layar selama 10 detik — tetap tampil selama
+kursor berada di atasnya, bisa ditutup dengan tombol ×, dan diklik untuk membuka task atau
+percakapannya. Kalau notifikasi browser aktif, notifikasi browser yang dipakai (tampil 20 detik).
 Halaman penuh punya tombol **Preferences** yang mengarah ke pengaturan notifikasi.
 
 Yang memicu notifikasi: penugasan, mention, approval, request, dan deadline.
@@ -228,17 +233,33 @@ Kalau belum ada brief, pilih salah satu template (Social Media, Banner, Presenta
 Branding, Video, Print, General Creative Request). Header brief menunjukkan **Complete**
 atau **n required fields missing**.
 
-**Assets & versions** — tiga blok:
+**Assets & versions** — dibaca dari atas ke bawah:
 
-1. **Assets** — jumlah aset yang diproduksi, tautan aset, dan **Open final asset**.
-2. **Versions & approval** — unggah versi baru atau tautkan dari Google Drive.
-   Klik di mana saja pada preview untuk **menaruh pin anotasi**; klik pin untuk menandainya selesai.
-   Status versi: **Approved**, **Revision requested**, **Pending review**.
-   Kalau kamu reviewer dan task sedang di stage review, muncul tombol **Approve** dan
-   **Request revision**. Form revisi meminta **Reason**, **Specific feedback**, dan
-   **Revision priority** — mengirimnya juga memposting komentar dan memindahkan task ke stage revisi.
-3. **Files & references** — **Upload images**, **Upload file**, **Link Google Drive**,
-   **Attach from library**.
+1. **Versi** — satu kotak, selalu versi terbaru. Versi bisa berupa gambar yang diunggah,
+   file/folder Google Drive, atau tautan apa pun (**Upload new version**, **Link from Google Drive**,
+   **Attach link**). Preview tampil langsung di task lewat embed resmi layanannya: folder Drive
+   menampilkan daftar isinya, Docs/Sheets/Slides, PDF, Figma, Canva, YouTube, Vimeo, Loom, dan Miro.
+   Tautan dari situs lain tampil sebagai kartu dengan tombol untuk membukanya.
+   - **Catatan** — di bawah preview, tulis apa yang perlu diubah (Enter untuk menyimpan). Tempel
+     atau lampirkan screenshot untuk menunjukkannya. Catatan dicentang saat sudah dikerjakan.
+   - **Minta revisi** (reviewer, saat task di stage review) — mengirim catatan yang belum selesai
+     ke assignee, memilih prioritas revisi, memposting catatan itu ke Comments sebagai satu pesan,
+     dan memindahkan task ke stage revisi. Tanpa catatan, tombol ini meminta catatan dulu.
+   - **Sudah direvisi → V2** (assignee) — kotak yang sama berubah menjadi versi berikutnya dengan
+     tautan yang sama (atau tautan baru). Simpan file versi lama di subfolder tautan itu. Versi
+     baru belum masuk review: klik **Kirim untuk review** saat sudah siap, baru reviewer bisa
+     menyetujui atau meminta revisi lagi.
+   - **Posisi versi** — baris di bawah catatan menunjukkan tahapnya: *Versi siap* → *Dikirim untuk
+     review* → *Keputusan reviewer* (disetujui atau perlu revisi). Badge di samping nomor versi
+     ikut berubah: **Belum dikirim**, **Dalam review**, **Disetujui**, **Perlu revisi**.
+   - Jumlah putaran tidak dibatasi (V2, V3, … V12). Catatan versi sebelumnya dibuka lewat
+     **Lihat catatan V1**; setelah lebih dari tiga versi, tombol **Semua versi** membuka daftar
+     lengkapnya.
+2. **File final** — hasil kerja yang diserahkan: **Upload images**, **Upload file**,
+   **Link Google Drive**, **Attach link**, **Attach from library**.
+3. **Dari komentar** — screenshot dan tautan yang dibagikan di komentar. Bukan hasil kerja sampai
+   ditandai **Tandai final**. Tombol **Jadikan versi baru** menjadikan tautan atau screenshot itu
+   versi berikutnya apa adanya, tanpa mengunggah ulang; barisnya lalu bertanda **Versi N**.
 
 **Comments** — pilih audiens: **Internal** (hanya tim kreatif) atau **Stakeholder-visible**
 (bisa dilihat requester seperti Marketing). Ketik `@nama` untuk mention.
@@ -344,7 +365,10 @@ Satu kartu per tim dengan ikon, nama, deskripsi, statistik, bar utilisasi, dan c
 - **Seret chip anggota ke kartu tim lain** untuk memindahkannya.
 - **Seret kartu** untuk mengurutkan.
 
-Panel **Workload by person** dan **Stakeholders** ada di bawahnya.
+Panel **Workload by person** dan **Stakeholders** ada di bawahnya. Di samping jam tiap orang
+ada jumlah **aset yang dihasilkan bulan ini** (arahkan kursor untuk total keseluruhan). Aset
+dikreditkan ke orang yang mengunggah versinya; kalau sebuah task tidak punya versi, aset
+diperkirakan dari assignee dan angkanya diberi tanda \*.
 
 ### Halaman tim
 
@@ -354,7 +378,8 @@ KPI Utilization / Open tasks / In review / Overdue, lalu panel **Members** (deng
 ### Halaman anggota
 
 Foto (klik untuk mengganti), nama, jabatan, badge role dan tim, angka **Capacity** (jam/minggu),
-serta KPI Utilization / Open tasks / To review / Overdue.
+serta KPI Utilization / Open tasks / To review / Overdue / **Assets produced** (bulan ini, dengan
+total keseluruhan di bawahnya).
 
 ---
 
@@ -581,6 +606,10 @@ Everything in the period / Open tasks only / Completed tasks only.
   Workload by person, Performance by person, Needs attention, AI recommendations.
   Slide sampul selalu ikut.
 - XLSX: Summary, Tasks, Task assets, Projects, Teams, Workload, Weekly, Pipeline, Asset library.
+  Sheet **Workload** memuat **Assets produced**, **Assets delivered** (task selesai), dan
+  **Asset credit** (dari unggahan versi, atau perkiraan dari assignee) untuk tiap orang. Slide
+  **Workload by person** menulis jumlah aset di bawah nama, dan **Performance by person**
+  menampilkannya sebagai salah satu angka.
 - CSV: selalu satu tabel task dengan seluruh kolom.
 
 Kotak jumlah baris memperbarui diri saat kamu mengubah scope.

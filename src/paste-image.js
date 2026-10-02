@@ -450,6 +450,7 @@ Object.assign(UI_ID,{
   "Remove this image?":"Hapus gambar ini?",
   "It is taken out of the brief and out of Comments. Files in Assets & versions are not touched.":"Gambar ini dikeluarkan dari brief dan dari Komentar. File di Aset & versi tidak tersentuh.",
   "Image removed":"Gambar dihapus",
+  "Image attached":"Gambar terlampir",
   "Image":"Gambar",
   "Drag to resize — tap to step through sizes":"Tarik untuk mengubah ukuran — ketuk untuk berganti ukuran",
   "Hide the task details so the tab has room":"Sembunyikan detail task agar isi tab lebih lega",

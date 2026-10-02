@@ -816,7 +816,7 @@ Token = `randomBytes(32).toString("hex")` dikirim ke browser; **id yang disimpan
 (jalur kompatibilitas untuk row lama).
 
 Cookie `cos_session`: `Path=/; HttpOnly; SameSite=Lax`, plus `Secure` bila
-`COS_SECURE_COOKIE=1` atau `NODE_ENV=production`. TTL `COS_SESSION_HOURS` (default 12, minimal 1).
+`COS_SECURE_COOKIE=1` atau `NODE_ENV=production`. TTL `COS_SESSION_HOURS` (default 1440 = 60 hari, minimal 1), dihitung dari terakhir kali sesi dipakai; diperpanjang paling sering sekali per `COS_SESSION_RENEW_HOURS` (default 24).
 
 Session dihapus saat: ganti password sendiri (semua session lain), reset password oleh admin
 (semua session target), deaktivasi (semua session target).
@@ -892,7 +892,15 @@ font-src 'self' https://fonts.gstatic.com data:;
 img-src 'self' data: blob: https:;
 connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;
 frame-src https://drive.google.com https://docs.google.com https://accounts.google.com
+          https://content.googleapis.com https://apis.google.com https://www.figma.com
+          https://embed.figma.com https://www.canva.com https://www.youtube-nocookie.com
+          https://player.vimeo.com https://www.loom.com https://miro.com
 ```
+
+`frame-src` hanya berisi host embed resmi (daftar `FRAME_SOURCES` di `server/security.js`), sama
+dengan yang dipakai preview versi (`embedFor` di `src/version-preview.js`). Jangan tambahkan
+`https:` atau situs sembarang: halaman dari mana pun yang dibingkai di dalam aplikasi bisa meniru
+halaman login. Iframe embed memakai `sandbox` tanpa `allow-top-navigation`.
 
 **Security log** — JSON-lines, mode `0o600`, di `COS_SECURITY_LOG` atau `<DATA_DIR>/security.log`.
 `clean()` memotong string ke 500 karakter, membuang CR/LF, membatasi array 20 elemen dan

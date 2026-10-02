@@ -2,6 +2,13 @@
 const { uid, now, J, S } = require("./db");
 const secrets = require("./secrets");
 
+/* A version's notes are matched by id when a task is saved (sanitizeNotes in server.js). The pins
+   stored before notes had ids get one here, made from the version's id and their place, so the same
+   pin has the same id on every read until a save writes the ids down. */
+function noteIds(versionId, list) {
+  return (Array.isArray(list) ? list : []).filter(a => a && typeof a === "object").map((a, i) => a.id ? a : Object.assign({ id: String(versionId) + "_n" + i }, a));
+}
+
 /* API keys are write-only: the client can set one but never reads one back. */
 /* v18: non-secret AI settings that round-trip as-is. v17 added `policy` and
    `models` on the client but never listed them here, so they silently reset
@@ -240,7 +247,7 @@ function buildTask(t, R) {
     tags: (R.tags.get(id) || []).map(r => r.name),
     dependencies: (R.deps.get(id) || []).map(r => ({ taskId: r.taskId, type: r.type, createdBy: r.createdBy, createdAt: r.createdAt })),
     brief: brief ? Object.assign({ tpl: brief.template_id }, J(brief.fields, {})) : null, custom, meta: J(t.meta, {}),
-    versions: (R.versions.get(id) || []).map(v => ({ id: v.id, n: v.version_number, by: v.uploaded_by, createdAt: v.created_at, state: v.approval_status, color: v.preview_color, img: v.preview_data, note: v.note || "", annots: J(v.annotations, []), decidedBy: v.decided_by, decidedAt: v.decided_at, reason: v.decision_reason, driveUrl: v.drive_url || "", driveId: v.drive_id || null })),
+    versions: (R.versions.get(id) || []).map(v => ({ id: v.id, n: v.version_number, by: v.uploaded_by, createdAt: v.created_at, state: v.approval_status, color: v.preview_color, img: v.preview_data, note: v.note || "", annots: noteIds(v.id, J(v.annotations, [])), decidedBy: v.decided_by, decidedAt: v.decided_at, reason: v.decision_reason, driveUrl: v.drive_url || "", driveId: v.drive_id || null })),
     files: (R.files.get(id) || []).map(f => ({ id: f.id, name: f.filename, type: f.file_type, source: f.storage_provider, size: f.size_label, createdAt: f.created_at, url: f.external_url || "", preview: f.preview_data || null, driveId: f.drive_id || null })),
     comments: (R.comments.get(id) || []).map(c => ({ id: c.id, by: c.author_id, createdAt: c.created_at, vis: c.visibility, text: c.body, parent: c.parent_id, attachments: J(c.attachments, []) })),
     activity: (R.activity.get(id) || []).map(a => ({ id: a.id, who: a.actor_id, k: a.action, createdAt: a.created_at, a: J(a.payload, {}) })),

@@ -676,7 +676,7 @@ karena server punya riwayat contoh tambahan.
 |---|---|---|
 | `COS_ALLOW_REGISTRATION` | `0` | `1` membuka self-registration |
 | `COS_INVITE_CODE` | acak | join code awal |
-| `COS_SESSION_HOURS` | `12` | umur sesi |
+| `COS_SESSION_HOURS` | `1440` | umur sesi sejak terakhir dipakai (1440 jam = 60 hari) |
 | `COS_SECURE_COOKIE` | — | `1` memaksa flag `Secure` |
 | `COS_TRUST_PROXY` | — | `1` mempercayai `X-Forwarded-For` |
 | `COS_ALLOW_IMPERSONATION` | `0` di production | `1` menyalakan act-as di production |

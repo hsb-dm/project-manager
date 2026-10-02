@@ -230,3 +230,157 @@ body.paste-resizing .desc-img{pointer-events:none}
 .drive-chip .drive-logo{width:13px;height:13px;flex:none}
 .drive-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cmt-drive{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+
+/* @mentions in the comment box: the text is drawn by a layer behind the transparent textarea, as in
+   chat. Mentions keep the textarea's own weight — chat's bold is wider than the letters above it,
+   which walks the caret off the text after a mention. */
+#drawer .composer .cmt-ta-wrap{position:relative}
+#drawer .composer .cmt-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;box-sizing:border-box;border-style:solid;border-color:transparent;color:var(--color-text-primary)}
+#drawer .composer .cmt-ta-wrap textarea{position:relative;z-index:1;display:block;box-sizing:border-box}
+#drawer .composer textarea.cmt-mirrored{color:transparent;caret-color:var(--color-text-primary)}
+#drawer .composer textarea.cmt-mirrored::placeholder{color:var(--color-text-tertiary)}
+#drawer .composer textarea.cmt-mirrored::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
+#drawer .composer .cmt-ta-mirror .msg-mention{font-weight:inherit;padding:0 2px;margin:0 -2px;border-radius:4px}
+#drawer .composer .cmt-at svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
+/* In a posted comment the whole name is the mention. */
+#drawer .cmt .body .msg-mention{padding:0 3px;border-radius:4px}
+
+/* ---- Assets & versions, simplified (src/assets-tab.js) ---- */
+.av-sec{margin:0 0 18px}
+.av-sec+.av-sec{padding-top:16px;border-top:1px solid var(--color-border)}
+.av-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.av-head h3{margin:0;font-size:14px;font-weight:750}
+.av-head .cnt{font-size:11px;font-weight:700;color:var(--color-text-tertiary);background:var(--color-surface-sunken);border-radius:var(--pill);padding:1px 8px}
+.av-decision{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken);font-size:13px}
+.av-decision svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2.5}
+.av-decision.ok{border-color:color-mix(in srgb,var(--color-success) 40%,transparent);background:color-mix(in srgb,var(--color-success) 9%,var(--color-surface));color:var(--color-text-primary)}
+.av-decision.ok>svg{color:var(--color-success)}
+.av-decision.rev{border-color:color-mix(in srgb,var(--color-danger) 35%,transparent);background:color-mix(in srgb,var(--color-danger) 7%,var(--color-surface))}
+.av-decision.ask{border-color:color-mix(in srgb,var(--color-primary) 40%,transparent);background:var(--color-primary-soft)}
+.av-reason{min-width:0;flex:1 1 220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av-rev-ic{color:var(--color-danger);font-weight:800}
+.av-tools{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.av-tools .btn{gap:5px}
+.av-tools .drive-logo,.av-tools svg{width:13px;height:13px}
+.av-empty{margin:4px 0 0;color:var(--color-text-tertiary);font-size:12.5px}
+.av-hint{margin:-4px 0 10px;color:var(--color-text-tertiary);font-size:12px}
+.av-from-comments .file{background:var(--color-surface-sunken)}
+.file-acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.av-count{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;padding:10px 12px;border:1px dashed var(--color-border);border-radius:12px;font-size:12.5px;font-weight:650}
+.av-count .hint{font-weight:500}
+.av-count input{width:64px;border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;background:var(--color-surface);font:inherit;font-weight:700;text-align:right}
+/* the comment a file came from, found again */
+#drawer .cmt.cmt-flash{animation:cmtFlash 1.8s ease}
+@keyframes cmtFlash{0%,40%{background:var(--color-primary-soft)}100%{background:transparent}}
+@media(prefers-reduced-motion:reduce){#drawer .cmt.cmt-flash{animation:none;outline:2px solid var(--color-primary)}}
+/* a version's preview: the service's own embed (src/version-preview.js). Nothing is clicked onto
+   the picture any more, so it is not a crosshair. */
+.preview .canvas{cursor:default}
+/* a fixed, modest height: the embed scrolls inside it, and the notes and the decision stay in view */
+.vp-frame{height:340px;background:var(--color-surface)}
+.vp-frame.vp-video{height:auto;aspect-ratio:16/9;max-height:340px;margin:0 auto}
+.vp-frame.full{height:72vh}
+.vp-frame.vp-video.full{height:auto;max-height:72vh}
+.vp-frame iframe{display:block;width:100%;height:100%;border:0;background:var(--color-surface)}
+.drawer.expanded .vp-frame:not(.vp-video){height:400px}
+.drawer.expanded .vp-frame.vp-video:not(.full){max-height:400px}
+/* an uploaded picture in the version box scrolls inside the same height */
+.av-version .preview .annot-scroll{max-height:360px}
+.av-version .preview.zoom-fit .canvas.canvas-img>img{max-height:340px}
+@media (max-width:600px){.vp-frame{height:280px}.av-version .preview .annot-scroll{max-height:300px}}
+.vp-hint{margin:0;padding:6px 12px;border-top:1px solid var(--color-border);font-size:11.5px;color:var(--color-text-tertiary)}
+.vp-nopreview{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:11.5px;opacity:.85}
+.vp-image{text-align:center;background:var(--color-surface-sunken);border-radius:var(--radius);padding:8px}
+.vp-image img{max-width:100%;max-height:72vh;border-radius:8px}
+/* the notes on a version: what to change, ticked off as it is done */
+.vn{margin-top:12px;border:1px solid var(--color-border);border-radius:12px;padding:10px 12px;background:var(--color-surface)}
+.vn-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13px}
+.vn-count{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:650;color:var(--color-text-secondary)}
+.vn-count svg{width:12px;height:12px;stroke:var(--color-success);fill:none;stroke-width:2.5}
+.vn-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-top:1px solid var(--color-border)}
+.vn-head+.vn-row{border-top:0}
+.vn-tick{flex:none;width:20px;height:20px;margin-top:1px;border:1.5px solid var(--color-border-strong,var(--color-border));border-radius:6px;background:var(--color-surface);display:grid;place-items:center;cursor:pointer;padding:0;color:transparent}
+.vn-tick svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:3}
+.vn-tick:disabled{cursor:default}
+.vn-row.done .vn-tick{background:var(--color-success);border-color:var(--color-success);color:#fff}
+.vn-num{flex:none;min-width:16px;font-size:12px;font-weight:750;color:var(--color-text-tertiary);line-height:22px}
+.vn-body{flex:1;min-width:0}
+.vn-text{font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.vn-row.done .vn-text{text-decoration:line-through;color:var(--color-text-tertiary)}
+.vn-img{display:block;max-width:min(100%,280px);max-height:180px;margin-top:6px;border-radius:8px;border:1px solid var(--color-border);cursor:zoom-in;object-fit:contain;background:var(--color-surface-sunken)}
+.vn-meta{margin-top:3px;font-size:11px;color:var(--color-text-tertiary)}
+.vn-x{flex:none;width:24px;height:24px}
+.vn-empty{margin:2px 0 8px;font-size:12.5px;color:var(--color-text-tertiary)}
+.vn-add{margin-top:6px}
+.vn-add-row{display:flex;align-items:flex-end;gap:6px}
+.vn-add textarea{flex:1;min-width:0;min-height:34px;max-height:160px;resize:none;border:1px solid var(--color-border);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px;line-height:1.4;background:var(--color-surface);color:var(--color-text-primary)}
+.vn-add textarea:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft)}
+.vn-pic{flex:none;width:34px;height:34px}
+.vn-pending{position:relative;display:inline-block;margin-top:6px}
+.vn-pending img{display:block;max-width:160px;max-height:100px;border-radius:8px;border:1px solid var(--color-border)}
+.vn-pending-x{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:0;background:var(--color-ink,#111);color:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+.vn-pending-x svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5}
+.vn-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;border-radius:var(--pill);background:color-mix(in srgb,currentColor 16%,transparent);font-size:10.5px;font-weight:800}
+.vn-sum{margin:0 0 12px 18px;padding:0;font-size:13px;line-height:1.5}
+.vn-sum li{margin:2px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.vn-sum-pic svg{width:13px;height:13px;vertical-align:-2px;opacity:.7}
+.vn-warn{margin:0 0 10px}
+.av-earlier{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:10px}
+.av-earlier .hint{font-size:12px}
+.vn-ver{margin:0 0 10px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--color-text-secondary)}
+.vn-ver-meta,.vn-ver-dec{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vn-read{margin-top:0}
+
+/* a Drive link's row shows the Drive mark rather than a cut-off "DOCUMEN" */
+.ficon.ficon-drive{display:grid;place-items:center;background:var(--color-surface);border:1px solid var(--color-border)}
+.ficon.ficon-drive .drive-logo{width:18px;height:18px}
+/* the version's state is already beside its number; the preview bar does not need to repeat it */
+.av-sec .pbar-foot>.badge{display:none}
+
+/* a Google link shown by its name while writing (src/link-tab.js): colour only, so the letters keep their width and the caret stays on them */
+.msg-linkname{color:var(--color-primary);background:var(--color-primary-soft);border-radius:4px;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--color-primary) 45%,transparent)}
+
+/* the bell carries the number of unread notifications (syncNotifDot in src/core.js) */
+#notifDot.notif-count{position:absolute;top:-6px;right:-7px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:10px;border:2px solid var(--color-surface);background:var(--color-danger);color:#fff;font:800 10.5px/16px var(--font-ui);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:0;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+#notifDot.notif-count.bump{animation:notifBump .55s ease 2}
+@keyframes notifBump{0%,100%{transform:scale(1)}35%{transform:scale(1.3)}}
+@media (prefers-reduced-motion:reduce){#notifDot.notif-count.bump{animation:none}}
+/* a notification pop-up: stays a while, has its own close button */
+.toast.notif-pop{padding-right:6px}
+.notif-pop-x{flex:none;width:24px;height:24px;margin-left:4px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.65;display:grid;place-items:center;cursor:pointer;padding:0}
+.notif-pop-x:hover{opacity:1;background:rgba(255,255,255,.12)}
+.notif-pop-x svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5}
+.toast.notif-toast>div span{font-size:12.5px;font-weight:600;line-height:1.35}
+
+/* where the version is in its round: ready → submitted for review → the reviewer's decision */
+.av-steps{list-style:none;display:flex;align-items:center;gap:0;margin:12px 0 0;padding:0;font-size:11.5px;font-weight:650;color:var(--color-text-tertiary);flex-wrap:wrap;row-gap:6px}
+.av-steps li{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.av-steps li+li::before{content:"";width:22px;height:2px;margin:0 8px;border-radius:2px;background:var(--color-border)}
+.av-steps li.done+li::before{background:var(--color-success)}
+.av-steps i{width:10px;height:10px;border-radius:50%;border:2px solid var(--color-border);background:var(--color-surface);flex:none;box-sizing:border-box}
+.av-steps li.done{color:var(--color-text-secondary)}
+.av-steps li.done i{border-color:var(--color-success);background:var(--color-success)}
+.av-steps li.bad i{border-color:var(--color-danger);background:var(--color-danger)}
+.av-steps li.now{color:var(--color-primary)}
+.av-steps li.now i{border-color:var(--color-primary);box-shadow:0 0 0 3px var(--color-primary-soft)}
+.badge.av-not-sent{background:var(--color-surface-sunken);color:var(--color-text-secondary);border:1px dashed var(--color-border)}
+.av-decision.ready{border-color:color-mix(in srgb,var(--color-primary) 30%,transparent)}
+.av-decision .av-reason{white-space:normal;line-height:1.4}
+.av-sub{font-size:11.5px;font-weight:500;color:var(--color-text-secondary)}
+/* a file from the comments, used as the next version */
+.badge.av-is-ver{background:var(--color-primary-soft);color:var(--color-primary)}
+.av-use-src{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface-sunken);min-width:0}
+.av-use-src>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.av-use-src b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av-use-src .mono{font-size:11px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* every version, for the many-round tasks */
+.vh-list{display:flex;flex-direction:column;gap:6px}
+.vh-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;padding:9px 12px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface);font:inherit;font-size:12.5px;text-align:left;cursor:pointer;color:var(--color-text-primary)}
+.vh-row:hover{background:var(--color-surface-sunken)}
+.vh-meta{color:var(--color-text-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vh-notes{font-size:11.5px;color:var(--color-text-tertiary)}
+
+/* a person's assets produced this month, beside their hours (memberAssetsChip in src/teams.js) */
+.wl-assets{display:inline-flex;align-items:center;gap:3px;margin-right:8px;padding:1px 7px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:11px;font-weight:750;vertical-align:1px}
+.wl-assets svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+.wl-assets.zero{background:var(--color-surface-sunken);color:var(--color-text-tertiary)}

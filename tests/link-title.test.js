@@ -38,6 +38,19 @@ test('Docs, Sheets and Slides lose their suffix too', async () => {
   for (const [url, raw, want] of cases) { seed(url, raw); assert.deepEqual(await call(url), { title: want }, raw); }
 });
 
+/* Google writes its own product name after the dash in the reader's language — these two are what
+   it actually returned to a request from Indonesia. */
+test('the "- Google …" ending is dropped in any language', async () => {
+  const { call, seed } = setup();
+  const cases = [
+    ['https://docs.google.com/spreadsheets/d/2a', 'Example Spreadsheet - Google Spreadsheet', 'Example Spreadsheet'],
+    ['https://docs.google.com/document/d/2b', 'Docs API Quickstart - Google Dokumen', 'Docs API Quickstart'],
+    ['https://drive.google.com/drive/folders/2c', 'datasets - Google Drive', 'datasets'],
+    ['https://drive.google.com/drive/folders/2d', 'Q4 – Final banners - Google Drive', 'Q4 – Final banners']
+  ];
+  for (const [url, raw, want] of cases) { seed(url, raw); assert.deepEqual(await call(url), { title: want }, raw); }
+});
+
 test('a private link answers with no name, never "Sign in"', async () => {
   const { call, seed } = setup();
   for (const [i, raw] of ['Sign in - Google Accounts', 'Google Drive: Sign-in', 'Google Drive', 'Masuk - Akun Google'].entries()) {
