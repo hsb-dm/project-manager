@@ -270,6 +270,10 @@ atau **n required fields missing**.
 
 **Comments** — pilih audiens: **Internal** (hanya tim kreatif) atau **Stakeholder-visible**
 (bisa dilihat requester seperti Marketing). Ketik `@nama` untuk mention.
+Tautan Google (Drive, Docs, Sheets, Slides) yang di-**paste** langsung berubah menjadi nama file atau
+foldernya — di kotak komentar, di chat, dan di editor deskripsi (sebagai chip dengan logo Drive).
+Tautan yang diketik manual berubah dengan menekan **Tab**. Arahkan kursor ke chip untuk kartu kecil
+**Buka pratinjau**, **Buka tautan**, dan **Salin tautan**.
 **⌘/Ctrl + Enter** mengirim. Bisa membalas komentar dan melampirkan file.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.

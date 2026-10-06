@@ -192,6 +192,21 @@ function versionFilesChosen(files){ if(!document.getElementById("uv_file")) retu
 /* ---------- #17 description: formatting toolbar, Markdown source, preview ---------- */
 function descDriveLabel(u){ try{ var p=typeof detectProvider==="function"?detectProvider(u):null; if(p&&/^GOOGLE_/.test(p.provider)) return p.resourceType==="folder"?tr("Google Drive Folder"):tr("Google Drive"); }catch(e){} return /^https?:\/\/(?:drive|docs)\.google\.com\//i.test(u)?tr("Google Drive"):""; }
 function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return ""; if(/^(?:www\.)/i.test(u)||/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(u)) u="https://"+u; try{ var x=new URL(u); return /^(https?|ftp):$/i.test(x.protocol)?x.href:""; }catch(e){ return ""; } }
+/* A Google link reads as the file's own name, the way comments draw it (driveChipHtml in
+   src/comment-attach.js): the Drive mark and the name, looked up when it is not known yet. A name
+   written with the link is kept. The URL itself, or a stand-in such as "Google Drive" — which every
+   save used to write into the text, as [Google Drive](url), so the real name never showed — is
+   replaced by the real name, and marked data-auto so the next save writes the bare link back. */
+var DESC_STAND_INS=["Google Drive","Google Drive Folder","Google Drive File","Google Docs","Google Sheets","Google Slides"];
+function descStandIn(t){ return DESC_STAND_INS.some(function(x){ return t===x||t===tr(x); }); }
+function descLinkHtml(u,t){ /* u and t are escaped */
+  var raw=typeof pasteUnesc==="function"?pasteUnesc(u):u;
+  if(typeof isGoogleLink==="function"&&typeof driveChipHtml==="function"&&isGoogleLink(raw)){
+    var auto=!t||t===u||/^(?:https?|ftp):/i.test(t)||descStandIn(t);
+    return driveChipHtml(raw,auto?"":(typeof pasteUnesc==="function"?pasteUnesc(t):t)).replace("<a ",'<a data-auto="'+(auto?1:0)+'" contenteditable="false" ');
+  }
+  return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(t||descDriveLabel(u)||u)+'</a>';
+}
 function descMdInline(s){ /* s is already escaped */
   /* An image placed in the writing: ![name](zc-att:ID). The marker carries the attachment id, never
      the picture, so the task record stays free of data URLs (server/uploads.js) and a Drive-hosted
@@ -201,11 +216,11 @@ function descMdInline(s){ /* s is already escaped */
      size. The space before the "=" is what keeps it apart from a link whose query string has one. */
   s=s.replace(/!\[([^\]\n]*)\]\((zc-att:[A-Za-z0-9_.:-]{1,80}|https?:\/\/[^\s)]+)(?:\s+=\s*(\d{1,3})%)?\)/g,function(_,alt,ref,w){ return typeof descImgHtml==="function"?descImgHtml(ref,alt,"",w):alt; });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ var drive=descDriveLabel(u); return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(drive&&(t===u||/^(?:https?|ftp):/i.test(t))?drive:t)+'</a>'; });
+  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ return descLinkHtml(u,t); });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
   s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>').replace(/(^|[\s(])_([^_\n]+)_/g,'$1<em>$2</em>');
   s=s.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
-  s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+'<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(u)||u)+'</a>'; });
+  s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+descLinkHtml(u,""); });
   s=s.replace(/(^|[\s(>])((?:www\.)[^ -\s<]+[^\s<.,;:!?)])/gi,function(_,p,u){ var url=descNormalizeUrl(u); return url?p+'<a href="'+url+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(url)||u)+'</a>':p+u; });
   return s; }
 function descMdHtml(src){ var lines=esc(String(src||"")).split(/\r?\n/), out=[], list=null, code=null;
@@ -232,7 +247,7 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="i"||t==="em"||ital&&t==="span") inner=inner.trim()?"*"+inner.trim()+"*":inner;
     if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
     if(t==="code") return "`"+inner+"`";
-    if(t==="a"){ var h=n.getAttribute("href")||""; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
+    if(t==="a"){ var h=n.getAttribute("href")||""; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
     /* An image in the writing serialises back to its marker, so moving it in the editor moves it in
        the text. An image pasted from elsewhere as a data URL is dropped rather than inlined — that
        is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
@@ -264,7 +279,7 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
-function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
+function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
 function descSaveNow(){ descWysiwygSave(); }
@@ -287,7 +302,7 @@ function descSaveNow(){ descWysiwygSave(); }
 })();
 function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
 function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
-function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
+function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,(typeof isGoogleLink==="function"&&isGoogleLink(url)&&!val("desc_link_text").trim())?descLinkHtml(esc(url),"")+" ":'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
 function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; if(act==="link") return descLinkModal(); el.focus(); var command={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock",code:"formatBlock"}[act]; if(!command) return; if(act==="h"||act==="quote"||act==="code") document.execCommand(command,false,act==="h"?"<h3>":act==="quote"?"<blockquote>":"<pre>"); else document.execCommand(command,false,null); descWysiwygInput(); }
 
 /* ---------- #18 live updates for everything that is not a task ---------- */

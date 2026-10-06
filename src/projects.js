@@ -17,7 +17,7 @@ function renderProjects(){ if (S.projectId) return renderProject(S.projectId);
   document.getElementById("content").innerHTML=h; }
 var PDRAG=null; function pStart(e,id){ PDRAG=id; e.dataTransfer.effectAllowed="move"; }
 function pDrop(e,targetId){ e.preventDefault(); document.querySelectorAll(".drop-before").forEach(function(x){ x.classList.remove("drop-before"); }); var id=PDRAG; PDRAG=null; if (!id||id===targetId) return; var order=PROJECTS.slice().sort(function(a,b){ return (a.sort||0)-(b.sort||0); }); var mv=byId(order,id); order.splice(order.indexOf(mv),1); order.splice(order.findIndex(function(p){ return p.id===targetId; }),0,mv); order.forEach(function(p,i){ p.sort=i+1; }); renderScreen(false); if (API.on) apiFetch("POST","/api/projects/reorder",{ids:order.map(function(p){ return p.id; })}).catch(function(e){ fail(e); reloadAll(); }); }
-function beginProjectTextEdit(id){ S.projectTextEdit=id; renderScreen(false); setTimeout(function(){ var el=document.getElementById("pj_desc"); if(el)el.focus(); },0); }
+function beginProjectTextEdit(id){ S.projectTextEdit=id; renderScreen(false); focusSoon("pj_desc",0); }
 function cancelProjectTextEdit(){ S.projectTextEdit=null; renderScreen(false); }
 function projectProgressBreakdown(info){ var parts=[]; if(info.taskPct!=null)parts.push(tr("Tasks")+" "+info.taskPct+"% · "+info.taskDone+"/"+info.taskTotal+(info.totalEffort?" · "+info.doneEffort+"/"+info.totalEffort+"h":"")); if(info.milestonePct!=null)parts.push(tr("Milestones")+" "+info.milestonePct+"% · "+info.milestoneDone+"/"+info.milestoneTotal); return parts.length?parts.join("<span>+</span>"):tr("Progress starts when tasks or milestones are added"); }
 function projectDescriptionPanel(p,ed){ var editing=ed&&S.projectTextEdit===p.id, body="", action="", progress=projectProgressInfo(p);
@@ -91,7 +91,7 @@ function quickProjectModal(){
     fieldHtml("qp_name","Project name",'<input id="qp_name" placeholder="e.g. Q4 Retention Campaign" onkeydown="if(event.key===\'Enter\')quickCreateProject()">')
     + '<p class="hint">Just the title for now. Owner, deadline, teams and milestones can be filled in later from the project page.</p>',
     '<button class="btn primary" onclick="quickCreateProject()">'+I.plus+'Create &amp; use</button>');
-  setTimeout(function(){ var el=document.getElementById("qp_name"); if (el) el.focus(); },60);
+  focusSoon("qp_name",60);
 }
 function quickCreateProject(){
   if (!require(["qp_name"])) return;

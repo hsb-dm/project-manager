@@ -1,8 +1,9 @@
 <script>
-/* A GOOGLE LINK, PRESS TAB, AND IT READS AS ITS NAME — in a chat message and in a task comment.
+/* A GOOGLE LINK READS AS ITS NAME — in a chat message and in a task comment.
 
-   A Drive link is a hundred characters nobody can read. With the caret just after one, Tab swaps it
-   for the folder's or file's name ("Q4 Campaign"), shown in the link colour while writing. When the
+   A Drive link is a hundred characters nobody can read. Pasted, it turns into the folder's or file's
+   name ("Q4 Campaign") as soon as the name is read; a link typed by hand turns with Tab, the caret
+   just after it. The name shows in the link colour while writing. When the
    message is sent, the name is stored as a link to the address — [Q4 Campaign](https://…) — so it
    is read as the name and still opens the folder. It works like an @mention: the box holds what
    is read, a list on the side holds where it points.
@@ -48,33 +49,53 @@ function linkAtCaret(ta){
   });
   return hit;
 }
+/* Swap one Google link in the box for its name. The name is read first (at most 4 s); meanwhile the
+   person may go on typing, so the link is found again by its text, and the caret — or a selection —
+   keeps its place relative to the text around it. The box is never focused from here: someone who
+   moved on to another field keeps it. */
+function linkNameSwap(ta,x,o){
+  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, known=driveLinkKnown(url);
+  if(!known&&o.tell) toast(tr("Reading the name from Google Drive…"));
+  var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
+  return Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
+    var live=document.getElementById(id); if(!live) return;
+    var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
+    var display=name||driveLinkLabel(url), d=display.length-raw.length, end=at+raw.length;
+    var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
+    live.value=live.value.slice(0,at)+display+live.value.slice(end);
+    var b=linkTabBox(live);
+    if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
+    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+display.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
+    live.dispatchEvent(new Event("input",{bubbles:true}));
+    if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
+  });
+}
 document.addEventListener("keydown",function(e){
   if(e.key!=="Tab"||e.shiftKey||e.ctrlKey||e.metaKey||e.altKey) return;
   var ta=e.target, box=linkTabBox(ta); if(!box||box.picker()) return;
   var x=linkAtCaret(ta); if(!x) return;
   e.preventDefault(); e.stopPropagation();
-  var url=x.url, raw=x.raw, known=driveLinkKnown(url);
-  if(!known) toast(tr("Reading the name from Google Drive…"));
-  var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
-  Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
-    var live=document.getElementById(ta.id); if(!live) return;
-    var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
-    var display=name||driveLinkLabel(url);
-    var caretAfter=live.selectionStart>=at+raw.length;
-    live.value=live.value.slice(0,at)+display+live.value.slice(at+raw.length);
-    var b=linkTabBox(live);
-    if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
-    if(caretAfter){ var p=at+display.length+(live.value.charAt(at+display.length)===" "?1:0); live.setSelectionRange(p,p); }
-    live.focus();
-    live.dispatchEvent(new Event("input",{bubbles:true}));
-    if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
-  });
+  linkNameSwap(ta,x,{tell:true});
 },true);
+/* Pasted: every Google link in what was pasted, once the paste is in the box. */
+var LINK_PASTED_AT=0;
+document.addEventListener("paste",function(e){
+  var ta=e.target, box=linkTabBox(ta); if(!box) return;
+  var text=(e.clipboardData&&e.clipboardData.getData("text/plain"))||"";
+  if(!/https?:\/\//i.test(text)) return;
+  LINK_PASTED_AT=Date.now();
+  setTimeout(function(){
+    var live=document.getElementById(ta.id); if(!live) return;
+    (typeof messageUrls==="function"?messageUrls(live.value):[]).forEach(function(x){
+      if(isGoogleLink(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
+    });
+  },0);
+});
 
 /* A hint the first time a Google link lands in either box, since nothing on screen says Tab can do this. */
 var LINK_TAB_HINTED=false;
 document.addEventListener("input",function(e){
-  if(LINK_TAB_HINTED) return;
+  if(LINK_TAB_HINTED||Date.now()-LINK_PASTED_AT<1500) return;
   var ta=e.target; if(!linkTabBox(ta)) return;
   if((typeof messageUrls==="function"?messageUrls(ta.value):[]).some(function(x){ return isGoogleLink(x.url); })){
     LINK_TAB_HINTED=true; toast(tr("Tip: press Tab after a Google Drive link to show it by its name"));

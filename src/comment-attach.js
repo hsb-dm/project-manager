@@ -128,7 +128,7 @@ function cmtLinkModal(kind){
     + fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')
     + '<p class="hint" id="cmt_name_hint" style="min-height:1.3em"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
-  setTimeout(function(){ var i=document.getElementById("cmt_url"); if(i) i.focus(); },40);
+  focusSoon("cmt_url",40);
 }
 /* Any dialog with a link field and a name field: once a Google link is pasted, the name fills in
    from Drive. A name somebody typed is never replaced; one filled in from Drive is (data-auto),

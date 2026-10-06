@@ -390,3 +390,27 @@ body.paste-resizing .desc-img{pointer-events:none}
 .brief-opt-head{display:flex;align-items:center;gap:8px}
 .brief-opt-head .eyebrow{margin:0}
 .brief-opt.collapsed{padding-bottom:4px}
+
+/* ONE ORDER FOR WHAT FLOATS. Each layer picked its own number, file by file, and the tag list (180)
+   and the small popovers (190) ended up under the dialogs (.modal-wrap, 200) they can be opened
+   from — the tag list of New project opened behind it and could not be clicked. Everything that
+   pops out of something sits above the dialogs; a dialog closes whatever was open when it opens
+   (openModal). The order, bottom to top: overlay 100 · task panel 110 · dialog 200 · popovers and
+   menus 260 · person picker 270 · toasts 300 · command palette 400. e2e/layers.spec.js keeps it. */
+.pop,.menu,.tag-picker-pop{z-index:260}
+#entityPicker.menu{z-index:270}
+
+/* a Google link chip in the description editor is one piece (src/link-chips.js) */
+#descSrc .drive-chip{cursor:pointer;vertical-align:baseline;user-select:none}
+#descSrc .drive-chip:focus{outline:2px solid var(--color-primary);outline-offset:1px}
+/* the card on a chip: name, kind, Open preview · Open link · Copy link — a floating layer, so above dialogs (260) */
+.link-card{position:fixed;z-index:260;display:none;min-width:240px;max-width:340px;padding:12px 12px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg)}
+.link-card.open{display:block}
+.lc-head{display:flex;align-items:center;gap:8px;font-size:13.5px;line-height:1.3}
+.lc-head .drive-logo{width:18px;height:18px;flex:none}
+.lc-head b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lc-kind{margin:3px 0 6px 26px;font-size:11.5px;color:var(--color-text-tertiary)}
+.lc-acts{display:flex;flex-direction:column;margin:0 -6px;padding-top:4px;border-top:1px solid var(--color-border)}
+.lc-acts button{display:flex;align-items:center;gap:9px;padding:7px 8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13px;color:var(--color-text-primary);cursor:pointer;text-align:left}
+.lc-acts button:hover{background:var(--color-surface-sunken)}
+.lc-acts svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}

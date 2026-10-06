@@ -162,7 +162,7 @@ function tagPickerOpen(id,anchor){
   tagPickerRender();
   place(pop,anchor);
   if(anchor) anchor.setAttribute("aria-expanded","true");
-  setTimeout(function(){ var s=document.getElementById("tagPickSearch"); if(s) s.focus(); },30);
+  focusSoon("tagPickSearch",30);
 }
 function tagPickerPop(){
   var pop=document.getElementById("tagPickPop");

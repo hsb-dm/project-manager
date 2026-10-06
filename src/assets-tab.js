@@ -206,7 +206,7 @@ function addVerNote(){
     (x.annots=x.annots||[]).push(note); log(t,"note",{v:n});
   }).then(function(saved){
     if(saved===false){ VN_DRAFT.text=text; VN_DRAFT.img=img; renderDrawer(); return false; }
-    setTimeout(function(){ var f=document.getElementById("verNoteText"); if(f) f.focus(); },30);
+    focusSoon("verNoteText",30);
   });
 }
 /* a screenshot pasted into the note box goes with the note (src/clipboard.js routes pastes) */
@@ -317,7 +317,7 @@ function revisedModal(){
     + fieldHtml("rvd_url","Link",'<input id="rvd_url" inputmode="url" placeholder="https://" value="'+attr(link)+'">')
     + fieldHtml("rvd_note","What changed (optional)",'<input id="rvd_note" placeholder="'+attr(tr("e.g. Bigger headline, logo moved"))+'">'),
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn" onclick="closeModal();uploadVersion()">'+I.up+tr("Upload a file instead")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveRevised()">'+tr("Create Version")+' '+n+'</button>');
-  setTimeout(function(){ var i=document.getElementById(link?"rvd_note":"rvd_url"); if(i) i.focus(); },40);
+  focusSoon(link?"rvd_note":"rvd_url",40);
 }
 function saveRevised(){
   var tk=task(S.drawerTask), v=lastVer(tk); if(!v) return;
@@ -425,7 +425,7 @@ function linkVersionModal(){
     + fieldHtml("lv_note",tr("Version note (optional)"),'<input id="lv_note" placeholder="'+attr(tr("What changed in this version?"))+'">')
     + '<p class="hint" id="lv_hint" style="min-height:1.3em;margin:-6px 0 0"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="saveLinkVersion()">'+I.link+tr("Attach as a version")+'</button>');
-  setTimeout(function(){ var i=document.getElementById("lv_url"); if(i) i.focus(); },40);
+  focusSoon("lv_url",40);
 }
 function saveLinkVersion(){
   var url=normalizedAttachUrl(val("lv_url"));

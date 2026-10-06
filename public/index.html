@@ -4572,6 +4572,30 @@ body.paste-resizing .desc-img{pointer-events:none}
 .brief-opt-head .eyebrow{margin:0}
 .brief-opt.collapsed{padding-bottom:4px}
 
+/* ONE ORDER FOR WHAT FLOATS. Each layer picked its own number, file by file, and the tag list (180)
+   and the small popovers (190) ended up under the dialogs (.modal-wrap, 200) they can be opened
+   from — the tag list of New project opened behind it and could not be clicked. Everything that
+   pops out of something sits above the dialogs; a dialog closes whatever was open when it opens
+   (openModal). The order, bottom to top: overlay 100 · task panel 110 · dialog 200 · popovers and
+   menus 260 · person picker 270 · toasts 300 · command palette 400. e2e/layers.spec.js keeps it. */
+.pop,.menu,.tag-picker-pop{z-index:260}
+#entityPicker.menu{z-index:270}
+
+/* a Google link chip in the description editor is one piece (src/link-chips.js) */
+#descSrc .drive-chip{cursor:pointer;vertical-align:baseline;user-select:none}
+#descSrc .drive-chip:focus{outline:2px solid var(--color-primary);outline-offset:1px}
+/* the card on a chip: name, kind, Open preview · Open link · Copy link — a floating layer, so above dialogs (260) */
+.link-card{position:fixed;z-index:260;display:none;min-width:240px;max-width:340px;padding:12px 12px 8px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg)}
+.link-card.open{display:block}
+.lc-head{display:flex;align-items:center;gap:8px;font-size:13.5px;line-height:1.3}
+.lc-head .drive-logo{width:18px;height:18px;flex:none}
+.lc-head b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lc-kind{margin:3px 0 6px 26px;font-size:11.5px;color:var(--color-text-tertiary)}
+.lc-acts{display:flex;flex-direction:column;margin:0 -6px;padding-top:4px;border-top:1px solid var(--color-border)}
+.lc-acts button{display:flex;align-items:center;gap:9px;padding:7px 8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13px;color:var(--color-text-primary);cursor:pointer;text-align:left}
+.lc-acts button:hover{background:var(--color-surface-sunken)}
+.lc-acts svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
+
 </style>
 </head>
 <body>
@@ -4892,7 +4916,7 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
 var TODAY=new Date(); TODAY.setHours(0,0,0,0);
 var ME="zein";
 var WS={}, TEAMS=[], PEOPLE={}, PROJECTS=[], TASKS=[], REQUESTS=[], ASSET_FOLDERS=[], ASSETS=[], KNOWLEDGE=[], KNOWLEDGE_FOLDERS=[], NOTIFS=[], ACTIVITY=[], VIEWS=[], ROLES=[], AN=null;
-var API={ on:false, base:"", features:{} }; var CAPS=[];
+var API={ on:false, base:"", features:{}, serving:false, demo:false }; var CAPS=[];
 var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workflow, brand"],["manage_members","Add/remove members, change roles, reset passwords"],["manage_teams","Create teams, colors, icons, membership"],["manage_roles","Create and edit roles"],["create_project","Create projects"],["edit_any_project","Edit any project"],["delete_project","Delete projects"],["create_task","Create tasks for anyone"],["create_own_task","Create tasks assigned to themselves"],["edit_any_task","Edit any task"],["edit_team_tasks","Edit/assign/review tasks of teams they lead or belong to"],["edit_own_task","Edit tasks where they are assignee or reviewer"],["assign_task","Assign tasks to anyone"],["review_any","Approve / send back any task"],["delete_task","Delete tasks"],["upload_file","Upload files and versions"],["decide_request","Triage, accept, reject and convert creative requests"],["manage_assets","Add/edit assets and folders"],["manage_knowledge","Write knowledge pages"],["view_analytics","See analytics"],["view_all","See all projects and tasks"],["submit_request","Submit a request: an unassigned task in the first stage for the creative team to triage"],["use_ai_hub","Open AI Hub and generate visuals"],["view_ai_gallery","Browse the shared AI Gallery"],["publish_ai_gallery","Publish their own designs to the AI Gallery"],["duplicate_ai_gallery","Duplicate someone else's gallery design"],["manage_own_ai_gallery","Rename, archive and delete their own designs"],["manage_all_ai_gallery","Manage any member's gallery design"],["view_messages","Open Messages and read conversations they belong to"],["send_message","Send messages"],["create_group_chat","Create small group conversations"],["manage_group_chat","Rename any group and manage its members"],["create_team_channel","Create extra channels for their team"],["manage_team_channel","Edit or archive team channels"],["mention_everyone","Use @everyone in team channels"],["pin_message","Pin messages and resources in team channels"],["manage_any_message","Edit or delete any member's message"]];
 var DEMO_CAPS={admin:DEMO_CAP_LIST.map(function(c){ return c[0]; }),creative_lead:["view_messages","send_message","create_group_chat","manage_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","manage_any_message","create_project","edit_any_project","delete_project","create_task","create_own_task","edit_any_task","assign_task","review_any","delete_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],team_lead:["view_messages","send_message","create_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","submit_request","create_task","create_own_task","edit_team_tasks","edit_own_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],member:["view_messages","send_message","create_group_chat","pin_message","submit_request","create_own_task","edit_own_task","upload_file","manage_assets","manage_knowledge","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],viewer:["view_messages","send_message","view_all","submit_request","view_ai_gallery"]};
 var S={ screen:"home", sub:null, railFilter:null, taskView:"kanban", taskScope:"mine", sort:"manual", sortDir:1, group:"", filters:{status:"",kind:"",assignee:"",reviewer:"",proj:"",prio:"",team:"",tag:"",dependency:"",due:"",archived:"",hidden:""}, activeView:null, actScope:"mine", gridFields:["status","team","assignee","prio","start","due","effort","tags"],
@@ -5208,10 +5232,10 @@ function setConn(){ var el=document.getElementById("conn"); el.className="conn"+
    whenever /api/auth/session took longer than 4 s. Demo mode is now used only for the
    standalone file (file:) or a static host with no API (404 / non-JSON). While the
    session loads, demo identity and counters stay hidden (html.zc-booting). */
-function boot(){ var served=/^https?:$/.test(location.protocol); if(served) document.documentElement.classList.add("zc-booting");
-  loadDemo(); applyTheme(); applyShell(); renderScreen(true);
+function boot(){ var served=/^https?:$/.test(location.protocol); API.serving=served; API.demo=!served; if(served) document.documentElement.classList.add("zc-booting");
+  loadDemo(); if(served) dropDemoRecords(); applyTheme(); applyShell(); renderScreen(true);
   var ctrl=new AbortController(); var timer=setTimeout(function(){ ctrl.abort(); },served?20000:4000);
-  fetch("/api/auth/session",{credentials:"same-origin",signal:ctrl.signal}).then(function(r){ clearTimeout(timer); if (!r.ok){ var e=new Error("session "+r.status); e.demo=r.status===404; throw e; } return r.json().catch(function(){ var e=new Error("not an API"); e.demo=true; throw e; }); }).then(function(s){ document.documentElement.classList.remove("zc-booting"); API.on=true; SESSION.user=s.user; SESSION.ws=s.workspace; SESSION.canRegister=s.canRegister; if (s.workspace){ WS.name=s.workspace.name; WS.logo=s.workspace.logo; WS.logoImg=s.workspace.logoImg; } if (!s.user) return showLogin(); ME=s.user.id; var act=null; try { act=localStorage.getItem("cos.actAs"); } catch(e){} if (act&&s.user.perm==="admin") ME=act; return afterLogin(); }).catch(function(e){ clearTimeout(timer); if (served&&!(e&&e.demo)&&!API.on) return bootUnreachable(e); document.documentElement.classList.remove("zc-booting"); API.on=false; SESSION.user=null; setConn(); showLogin(); }); }
+  fetch("/api/auth/session",{credentials:"same-origin",signal:ctrl.signal}).then(function(r){ clearTimeout(timer); if (!r.ok){ var e=new Error("session "+r.status); e.demo=r.status===404; throw e; } return r.json().catch(function(){ var e=new Error("not an API"); e.demo=true; throw e; }); }).then(function(s){ API.on=true; API.serving=false; SESSION.user=s.user; SESSION.ws=s.workspace; SESSION.canRegister=s.canRegister; if (s.workspace){ WS.name=s.workspace.name; WS.logo=s.workspace.logo; WS.logoImg=s.workspace.logoImg; } if (!s.user){ document.documentElement.classList.remove("zc-booting"); return showLogin(); } ME=s.user.id; var act=null; try { act=localStorage.getItem("cos.actAs"); } catch(e){} if (act&&s.user.perm==="admin") ME=act; return afterLogin(); }).catch(function(e){ clearTimeout(timer); if (served&&!(e&&e.demo)&&!API.on) return bootUnreachable(e); document.documentElement.classList.remove("zc-booting"); API.on=false; API.serving=false; API.demo=true; if(served){ loadDemo(); applyTheme(); applyShell(); } SESSION.user=null; setConn(); showLogin(); }); }
 var BOOT_RETRY={n:0,t:null};
 function bootUnreachable(e){ document.documentElement.classList.add("zc-booting"); document.body.classList.add("auth"); var wait=Math.min(30,5*Math.pow(2,BOOT_RETRY.n));
   document.getElementById("content").innerHTML='<div class="authwrap"><div class="authcard" role="alert"><h2 class="auth-title">'+tr("Can't reach the ZenCrevia server")+'</h2><p class="hint" style="margin:0 0 14px">'+tr("Check your connection. Nothing has been lost; the app will try again automatically.")+'</p><p class="hint" id="bootRetryIn" style="margin:0 0 14px"></p><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="bootRetryNow()">'+tr("Try again now")+'</button></div></div>';
@@ -5220,12 +5244,12 @@ function bootUnreachable(e){ document.documentElement.classList.add("zc-booting"
 function bootRetryNow(){ clearInterval(BOOT_RETRY.t); BOOT_RETRY.n++; document.body.classList.remove("auth"); boot(); }
 /* Set by the router when the URL names a screen it is about to render itself. */
 var BOOT_SKIP_RENDER=false;
-function afterLogin(){ return apiFetch("GET","/api/bootstrap").then(function(d){ loadBootstrap(d); restoreLanguagePreference(); document.body.classList.remove("auth"); setConn(); applyTheme(); applyShell(); S.screen="home";
+function afterLogin(){ return apiFetch("GET","/api/bootstrap").then(function(d){ loadBootstrap(d); restoreLanguagePreference(); document.body.classList.remove("auth"); setConn(); applyTheme(); applyShell(); document.documentElement.classList.remove("zc-booting"); S.screen="home";
     /* Refreshing on any other screen used to paint Home first and replace it a moment later — a
        whole dashboard's worth of flicker. The router knows from the URL where we are going before
        this runs, so it asks to skip this first paint and renders once. */
     if(!BOOT_SKIP_RENDER) renderScreen(false);
-    BOOT_SKIP_RENDER=false; setTimeout(showOnboardingIfNeeded,180); }).catch(function(e){ if (SESSION.user&&ME!==SESSION.user.id&&/act as|Unknown/i.test(e.message)) { ME=SESSION.user.id; try { localStorage.removeItem("cos.actAs"); } catch(x){} return afterLogin(); } fail(e,"Couldn't load the workspace: "+e.message); throw e; }); }
+    BOOT_SKIP_RENDER=false; setTimeout(showOnboardingIfNeeded,180); }).catch(function(e){ if (SESSION.user&&ME!==SESSION.user.id&&/act as|Unknown/i.test(e.message)) { ME=SESSION.user.id; try { localStorage.removeItem("cos.actAs"); } catch(x){} return afterLogin(); } document.documentElement.classList.remove("zc-booting"); fail(e,"Couldn't load the workspace: "+e.message); throw e; }); }
 function reloadAll(){ if (!API.on) return Promise.resolve(); return apiFetch("GET","/api/bootstrap").then(function(d){ loadBootstrap(d); applyTheme(); applyShell(); refresh(); }); }
 function actAs(id){ if (API.on&&!(API.features&&API.features.impersonation)) return toast("User switching is disabled on this server","bad"); if (API.on&&!(SESSION.user&&SESSION.user.perm==="admin")) return toast("Only admins can act as another member","bad"); ME=id; try { localStorage.setItem("cos.actAs",id); } catch(e){} closePops(); if (API.on){ reloadAll().then(function(saved){ if(saved===false)return false; if(typeof wqSurfaces==="function")wqSurfaces(); toast(ME===SESSION.user.id?"Back to your own account":"Now acting as "+person(ME).name+" — permissions are checked by the server"); }); } else { applyShell(); refresh(); if(typeof wqSurfaces==="function")wqSurfaces(); toast("Now acting as "+person(ME).name); } }
 function signOut(){ closePops(); if (!API.on){ SESSION.user=null; return showLogin(); } apiFetch("POST","/api/auth/logout",{}).then(function(saved){ if(saved===false)return false; SESSION.user=null; try { localStorage.removeItem("cos.actAs"); } catch(e){} showLogin(); }).catch(function(e){ fail(e); }); }
@@ -5287,7 +5311,15 @@ function closePops(){ var ps=document.querySelectorAll(".pop.open,.menu.open"); 
    the menu the instant a layout was chosen. Ignore clicks whose target is gone. */
 document.addEventListener("click",function(e){ if (e.target&&e.target.isConnected===false) return; if (!e.target.closest(".pop") && !e.target.closest(".menu") && !e.target.closest(".iconbtn") && !e.target.closest("[data-menu]") && !e.target.closest("#meBtn")) closePops(); });
 document.addEventListener("keydown",function(e){ if (e.key==="Escape"){ if (document.getElementById("modalWrap").classList.contains("open")){ closePops(); closeModal(); } else if (typeof AI_CHAT!=="undefined"&&AI_CHAT.open){ closePops(); aiChatToggle(false); } else { closePops(); closeDrawer(); } } if ((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); if(window.innerWidth<=980)toggleSearchBar(true); else document.getElementById("searchInput").focus(); } });
-function openModal(title,body,foot,lg){ var m=document.getElementById("modal"); m.className="modal"+(lg?" lg":""); m.innerHTML='<div class="modal-head"><h3>'+tr(title)+'</h3><span class="spacer"></span><button class="iconbtn" onclick="closeModal()" aria-label="'+attr(tr("Close"))+'">'+I.x+'</button></div><div class="modal-body">'+body+'</div>'+(foot?'<div class="modal-foot">'+foot+'</div>':''); localizeVisibleText(m); document.getElementById("modalWrap").classList.add("open"); var f=m.querySelector("input,textarea,select"); if (f) setTimeout(function(){ f.focus(); },50); }
+/* Put the cursor in a field once a dialog or panel has drawn — unless the person already went to
+   another field in the meantime. A delayed focus used to pull the cursor back, and what was typed
+   or pasted landed in the wrong field (a version's note ended up inside its link). el: an element
+   or an id. */
+function focusSoon(el,ms){ var before=document.activeElement; setTimeout(function(){ var t=typeof el==="string"?document.getElementById(el):el; if(!t||!t.isConnected) return; var a=document.activeElement;
+  if(a&&a!==before&&a!==t&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+  t.focus(); },ms||40); }
+/* menus and popovers float above dialogs (src/v38.css), so a dialog closes any left open */
+function openModal(title,body,foot,lg){ closePops(); if(typeof tagPickerClose==="function") tagPickerClose(); var m=document.getElementById("modal"); m.className="modal"+(lg?" lg":""); m.innerHTML='<div class="modal-head"><h3>'+tr(title)+'</h3><span class="spacer"></span><button class="iconbtn" onclick="closeModal()" aria-label="'+attr(tr("Close"))+'">'+I.x+'</button></div><div class="modal-body">'+body+'</div>'+(foot?'<div class="modal-foot">'+foot+'</div>':''); localizeVisibleText(m); document.getElementById("modalWrap").classList.add("open"); var f=m.querySelector("input,textarea,select"); if (f) focusSoon(f,50); }
 function closeModal(){ document.getElementById("modalWrap").classList.remove("open"); }
 function confirmModal(title,text,onok,danger){ window._confirmCb=onok; openModal(title,'<p>'+text+'</p>','<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn '+(danger?"danger":"primary")+'" onclick="closeModal();window._confirmCb()">'+tr(danger?"Delete":"Confirm")+'</button>'); }
 function val(id){ var el=document.getElementById(id); return el?el.value.trim():""; }
@@ -5577,6 +5609,14 @@ function go(screen,sub,navOpts){
 /* Nobody is signed in until a session says so. In the standalone demo this becomes true the moment
    a demo user is chosen, so that mode is unaffected. */
 function signedIn(){ return !!(typeof SESSION!=="undefined"&&SESSION&&SESSION.user); }
+/* Loaded from a ZenCrevia server, the bundled demo is only the shape of a workspace (stages, theme,
+   brief templates) to draw the first frame with. Its people, work and notifications are dropped
+   before anything is drawn: they used to show until the real workspace arrived — demo accounts on
+   the sign-in screen, a demo name on the account button, demo counts beside the bell. */
+function dropDemoRecords(){
+  TASKS=[]; PROJECTS=[]; REQUESTS=[]; ASSETS=[]; ASSET_FOLDERS=[]; KNOWLEDGE=[]; KNOWLEDGE_FOLDERS=[];
+  VIEWS=[]; NOTIFS=[]; ACTIVITY=[]; TEAMS=[]; PEOPLE={}; WS.people=PEOPLE; ME="";
+}
 /* Empties the workspace held in this page. Called when the session ends, so a 401 does not leave a
    dashboard's worth of someone else's work sitting in memory for the next person at the keyboard.
    In standalone demo mode the bundled data is the product, so it stays. */
@@ -5965,7 +6005,7 @@ function showLogin(msg){ document.body.classList.add("auth"); closeDrawer(); clo
     '<div class="field-row"><div class="field"><label>Full name</label><input id="au_name" placeholder="Dian Sastro" autocomplete="name"></div><div class="field"><label>Job title</label><input id="au_title" placeholder="Designer"></div></div><div class="field"><label>Email</label><input id="au_email" type="email" placeholder="you@company.com" autocomplete="username"></div><div class="field-row"><div class="field"><label>Password (min 8)</label><input id="au_pw" type="password" autocomplete="new-password"></div><div class="field"><label>Team</label>'+selectHtml("au_team",[["","Choose later"]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),"")+'</div></div>'+(ws.joinCodeRequired!==false?'<div class="field"><label>Workspace join code</label><input id="au_code" placeholder="Ask your admin" onkeydown="if(event.key===\'Enter\')doRegister()"><div class="hint" style="margin-top:4px">An admin can change your role after registration.</div></div>':'')+'<div class="err" id="au_err"></div><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doRegister()">Create account</button>';
   document.getElementById("content").innerHTML='<div class="authwrap"><div class="authcard"><div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="ws-logo" style="width:44px;height:44px;border-radius:14px;font-size:16px">'+(ws.logoImg?'<img src="'+ws.logoImg+'">':esc(ws.logo||"ZC"))+'</div><div><div style="font-weight:800;font-size:18px;letter-spacing:-.02em">'+esc(ws.name||"ZenCrevia")+'</div><div class="hint">ZenCrevia · '+tr("Brand Mode")+'</div></div></div><div class="auth-language"><span>'+tr("Language")+'</span>'+lang+'</div>'+
     (API.on?(SESSION.canRegister&&(AUTH.tab==="login"||AUTH.tab==="register")?'<div class="seg" style="margin-bottom:18px;width:100%"><button style="flex:1" class="'+(AUTH.tab==="login"?"on":"")+'" onclick="AUTH.tab=\'login\';showLogin()">Log in</button><button style="flex:1" class="'+(AUTH.tab==="register"?"on":"")+'" onclick="AUTH.tab=\'register\';showLogin()">Register</button></div>':'')+(msg&&msg!=="Please sign in"?'<div class="errbox" style="margin-bottom:14px">'+esc(msg)+'</div>':'')+'<div class="authform">'+form+'</div>':
-    '<div class="errbox" style="margin-bottom:14px;background:var(--color-warning-soft);color:var(--color-warning)">Demo mode. Choose a user to try the dashboard. Changes are not saved.</div><div class="demo-user-list">'+demoUsers+'</div>')+
+    (API.demo?'<div class="errbox" style="margin-bottom:14px;background:var(--color-warning-soft);color:var(--color-warning)">Demo mode. Choose a user to try the dashboard. Changes are not saved.</div><div class="demo-user-list">'+demoUsers+'</div>':'<p class="hint auth-connecting" role="status" style="margin:4px 0 0">'+tr("Connecting…")+'</p>'))+
     '<p class="hint auth-legal" style="margin-top:16px;text-align:center"><a href="/privacy">'+tr("Privacy Policy")+'</a> · <a href="/terms">'+tr("Terms of Service")+'</a></p>'+
     '</div></div>'; localizeVisibleText(document.getElementById("content")); }
 function demoLogin(id){ ME=id; SESSION.user={id:id,perm:person(id).perm,name:person(id).name}; restoreLanguagePreference(); document.body.classList.remove("auth"); setConn(); applyShell(); S.screen="home"; renderScreen(false); setTimeout(showOnboardingIfNeeded,180); }
@@ -7117,7 +7157,7 @@ function renderProjects(){ if (S.projectId) return renderProject(S.projectId);
   document.getElementById("content").innerHTML=h; }
 var PDRAG=null; function pStart(e,id){ PDRAG=id; e.dataTransfer.effectAllowed="move"; }
 function pDrop(e,targetId){ e.preventDefault(); document.querySelectorAll(".drop-before").forEach(function(x){ x.classList.remove("drop-before"); }); var id=PDRAG; PDRAG=null; if (!id||id===targetId) return; var order=PROJECTS.slice().sort(function(a,b){ return (a.sort||0)-(b.sort||0); }); var mv=byId(order,id); order.splice(order.indexOf(mv),1); order.splice(order.findIndex(function(p){ return p.id===targetId; }),0,mv); order.forEach(function(p,i){ p.sort=i+1; }); renderScreen(false); if (API.on) apiFetch("POST","/api/projects/reorder",{ids:order.map(function(p){ return p.id; })}).catch(function(e){ fail(e); reloadAll(); }); }
-function beginProjectTextEdit(id){ S.projectTextEdit=id; renderScreen(false); setTimeout(function(){ var el=document.getElementById("pj_desc"); if(el)el.focus(); },0); }
+function beginProjectTextEdit(id){ S.projectTextEdit=id; renderScreen(false); focusSoon("pj_desc",0); }
 function cancelProjectTextEdit(){ S.projectTextEdit=null; renderScreen(false); }
 function projectProgressBreakdown(info){ var parts=[]; if(info.taskPct!=null)parts.push(tr("Tasks")+" "+info.taskPct+"% · "+info.taskDone+"/"+info.taskTotal+(info.totalEffort?" · "+info.doneEffort+"/"+info.totalEffort+"h":"")); if(info.milestonePct!=null)parts.push(tr("Milestones")+" "+info.milestonePct+"% · "+info.milestoneDone+"/"+info.milestoneTotal); return parts.length?parts.join("<span>+</span>"):tr("Progress starts when tasks or milestones are added"); }
 function projectDescriptionPanel(p,ed){ var editing=ed&&S.projectTextEdit===p.id, body="", action="", progress=projectProgressInfo(p);
@@ -7191,7 +7231,7 @@ function quickProjectModal(){
     fieldHtml("qp_name","Project name",'<input id="qp_name" placeholder="e.g. Q4 Retention Campaign" onkeydown="if(event.key===\'Enter\')quickCreateProject()">')
     + '<p class="hint">Just the title for now. Owner, deadline, teams and milestones can be filled in later from the project page.</p>',
     '<button class="btn primary" onclick="quickCreateProject()">'+I.plus+'Create &amp; use</button>');
-  setTimeout(function(){ var el=document.getElementById("qp_name"); if (el) el.focus(); },60);
+  focusSoon("qp_name",60);
 }
 function quickCreateProject(){
   if (!require(["qp_name"])) return;
@@ -9581,6 +9621,8 @@ function msgStoreKey(){ return "cos.messages."+(WS.id||"ws"); }
    early, it found the conversation in the link missing, the screen fell back to another one, and
    nothing opened the right one when the list arrived — a link to one chat opened a different chat. */
 function msgLoad(){ if(CHAT_RUNTIME.loaded) return CHAT_RUNTIME.loadPromise||Promise.resolve(); CHAT_RUNTIME.loaded=true;
+  /* the bundled demo chats are for demo mode only, never while a server is being reached */
+  if(!API.on&&API.serving){ CHAT_RUNTIME.loaded=false; return Promise.resolve(); }
   if(API.on){ return (CHAT_RUNTIME.loadPromise=apiFetch("GET","/api/messages/conversations").then(function(list){ CONVERSATIONS=list; MESSAGES={}; messagesBadgeSync(); msgStream(); }).catch(function(e){ toast(e.message,"bad"); })); }
   var D=CREATIVE_OS_DEMO, now=Date.now(), at=function(ago){ return new Date(now-ago*60000).toISOString(); };
   CONVERSATIONS=clone(D.conversations||[]).map(function(c){ c.createdAt=at(c.ago||0); delete c.ago; c.pins=c.pins||[]; c.starredBy=c.starredBy||[]; c.readState=c.readState||{}; c.notificationLevel=c.notificationLevel||{}; return c; });
@@ -9701,7 +9743,7 @@ function renderMsgMain(keepScroll){ var el=document.getElementById("msgMain"); i
   var newChatIcon='<svg class="i msg-new-chat-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v6M9 11h6"/></svg>';
   var body=S.messageTab==="messages"?'<div class="msg-timeline-wrap"><div class="msg-timeline" id="msgTimeline" role="region" aria-label="'+attr(tr("Messages"))+'" onscroll="msgOnScroll(this)"></div><button class="msg-new-floating" aria-label="'+attr(tr("New conversation"))+'" title="'+attr(tr("New conversation"))+'" onclick="newConversationModal()">'+newChatIcon+'</button></div>'+msgComposerHtml(c):'<div class="msg-derived" id="msgDerived">'+msgDerivedHtml(c,S.messageTab,"main")+'</div>';
   el.innerHTML=head+body; localizeVisibleText(el); if(S.messageTab==="messages"){ renderMsgTimeline(keepScroll); msgComposerBind(c); } }
-function msgToggleSearch(){ CHAT_RUNTIME.searchOpen=!CHAT_RUNTIME.searchOpen; if(!CHAT_RUNTIME.searchOpen) S.messageSearch=""; renderMsgMain(true); if(CHAT_RUNTIME.searchOpen) setTimeout(function(){ var i=document.getElementById("msgSearchInput"); if(i) i.focus(); },30); }
+function msgToggleSearch(){ CHAT_RUNTIME.searchOpen=!CHAT_RUNTIME.searchOpen; if(!CHAT_RUNTIME.searchOpen) S.messageSearch=""; renderMsgMain(true); if(CHAT_RUNTIME.searchOpen) focusSoon("msgSearchInput",30); }
 function msgConvMenu(a){ var c=conv(S.messageConversationId), isTeam=c.type==="TEAM_DEFAULT"||c.type==="TEAM_CHANNEL"; ctxMenu(a,'<button onclick="closePops();convToggleStar(\''+c.id+'\')">'+I.star+tr(convStarred(c)?"Unstar":"Star")+'</button><button onclick="closePops();msgMarkRead(conv(\''+c.id+'\'));renderMessages()">'+I.check+tr("Mark as read")+'</button>'+(msgDetailToggleable()?'<button onclick="closePops();S.messageDetailOpen=!S.messageDetailOpen;renderMessages()">'+I.eye+tr(S.messageDetailOpen?"Hide details":"Show details")+'</button>':'')+(innerWidth<=760?'<div class="gear-divider"></div><button onclick="closePops();msgMarkAllRead()">'+I.check+tr("Mark all conversations read")+'</button><button onclick="closePops();go(\'settings\',\'notifications\')">'+I.settings+tr("Notification settings")+'</button>':'')+''+(c.type==="GROUP"&&(c.createdBy===ME||has("manage_group_chat"))?'<button onclick="closePops();groupModal(\''+c.id+'\')">'+I.edit+tr("Rename / members")+'</button>':'')+(c.type==="TEAM_CHANNEL"&&(has("manage_team_channel")||has("manage_teams"))?'<button onclick="closePops();editChannelModal(\''+c.id+'\')">'+I.edit+tr("Edit channel")+'</button>':'')+(c.type!=="TEAM_DEFAULT"&&c.type!=="DM"?'<button class="danger" style="color:var(--color-danger)" onclick="closePops();convLeave(\''+c.id+'\')">'+I.x+tr("Leave channel")+'</button>':'')+(convCanArchive(c)?'<button onclick="closePops();convArchive(\''+c.id+'\','+(!c.archivedAt)+')">'+I.trash+tr(c.archivedAt?"Unarchive":"Archive")+'</button>':'')); }
 function msgOnScroll(box){ if(box.scrollTop<40&&!CHAT_RUNTIME.loadingOlder){ var id=S.messageConversationId, total=convMsgs(id).length, shown=(CHAT_RUNTIME.shown||{})[id]||MSG_PAGE; if(API.on?CHAT_RUNTIME.cursor[id]:total>shown){ CHAT_RUNTIME.loadingOlder=true; var h=box.scrollHeight; msgLoadOlder(); setTimeout(function(){ var b=document.getElementById("msgTimeline"); if(b) b.scrollTop=b.scrollHeight-h+b.scrollTop; CHAT_RUNTIME.loadingOlder=false; },60); } } }
 function msgBodyHtml(m){ var body=m.body||"", urls=messageUrls(body), pos=0, t=""; urls.forEach(function(x){ t+=esc(body.slice(pos,x.start)); var ie=internalEntityFromUrl(x.url), tk=ie&&ie.type==="TASK"?task(ie.id):null, pj=ie&&ie.type==="PROJECT"?project(ie.id):null;
@@ -10038,7 +10080,7 @@ function tagPickerOpen(id,anchor){
   tagPickerRender();
   place(pop,anchor);
   if(anchor) anchor.setAttribute("aria-expanded","true");
-  setTimeout(function(){ var s=document.getElementById("tagPickSearch"); if(s) s.focus(); },30);
+  focusSoon("tagPickSearch",30);
 }
 function tagPickerPop(){
   var pop=document.getElementById("tagPickPop");
@@ -15501,6 +15543,21 @@ function versionFilesChosen(files){ if(!document.getElementById("uv_file")) retu
 /* ---------- #17 description: formatting toolbar, Markdown source, preview ---------- */
 function descDriveLabel(u){ try{ var p=typeof detectProvider==="function"?detectProvider(u):null; if(p&&/^GOOGLE_/.test(p.provider)) return p.resourceType==="folder"?tr("Google Drive Folder"):tr("Google Drive"); }catch(e){} return /^https?:\/\/(?:drive|docs)\.google\.com\//i.test(u)?tr("Google Drive"):""; }
 function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return ""; if(/^(?:www\.)/i.test(u)||/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(u)) u="https://"+u; try{ var x=new URL(u); return /^(https?|ftp):$/i.test(x.protocol)?x.href:""; }catch(e){ return ""; } }
+/* A Google link reads as the file's own name, the way comments draw it (driveChipHtml in
+   src/comment-attach.js): the Drive mark and the name, looked up when it is not known yet. A name
+   written with the link is kept. The URL itself, or a stand-in such as "Google Drive" — which every
+   save used to write into the text, as [Google Drive](url), so the real name never showed — is
+   replaced by the real name, and marked data-auto so the next save writes the bare link back. */
+var DESC_STAND_INS=["Google Drive","Google Drive Folder","Google Drive File","Google Docs","Google Sheets","Google Slides"];
+function descStandIn(t){ return DESC_STAND_INS.some(function(x){ return t===x||t===tr(x); }); }
+function descLinkHtml(u,t){ /* u and t are escaped */
+  var raw=typeof pasteUnesc==="function"?pasteUnesc(u):u;
+  if(typeof isGoogleLink==="function"&&typeof driveChipHtml==="function"&&isGoogleLink(raw)){
+    var auto=!t||t===u||/^(?:https?|ftp):/i.test(t)||descStandIn(t);
+    return driveChipHtml(raw,auto?"":(typeof pasteUnesc==="function"?pasteUnesc(t):t)).replace("<a ",'<a data-auto="'+(auto?1:0)+'" contenteditable="false" ');
+  }
+  return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(t||descDriveLabel(u)||u)+'</a>';
+}
 function descMdInline(s){ /* s is already escaped */
   /* An image placed in the writing: ![name](zc-att:ID). The marker carries the attachment id, never
      the picture, so the task record stays free of data URLs (server/uploads.js) and a Drive-hosted
@@ -15510,11 +15567,11 @@ function descMdInline(s){ /* s is already escaped */
      size. The space before the "=" is what keeps it apart from a link whose query string has one. */
   s=s.replace(/!\[([^\]\n]*)\]\((zc-att:[A-Za-z0-9_.:-]{1,80}|https?:\/\/[^\s)]+)(?:\s+=\s*(\d{1,3})%)?\)/g,function(_,alt,ref,w){ return typeof descImgHtml==="function"?descImgHtml(ref,alt,"",w):alt; });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ var drive=descDriveLabel(u); return '<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(drive&&(t===u||/^(?:https?|ftp):/i.test(t))?drive:t)+'</a>'; });
+  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ return descLinkHtml(u,t); });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
   s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>').replace(/(^|[\s(])_([^_\n]+)_/g,'$1<em>$2</em>');
   s=s.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
-  s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+'<a href="'+u+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(u)||u)+'</a>'; });
+  s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+descLinkHtml(u,""); });
   s=s.replace(/(^|[\s(>])((?:www\.)[^ -\s<]+[^\s<.,;:!?)])/gi,function(_,p,u){ var url=descNormalizeUrl(u); return url?p+'<a href="'+url+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(url)||u)+'</a>':p+u; });
   return s; }
 function descMdHtml(src){ var lines=esc(String(src||"")).split(/\r?\n/), out=[], list=null, code=null;
@@ -15541,7 +15598,7 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="i"||t==="em"||ital&&t==="span") inner=inner.trim()?"*"+inner.trim()+"*":inner;
     if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
     if(t==="code") return "`"+inner+"`";
-    if(t==="a"){ var h=n.getAttribute("href")||""; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
+    if(t==="a"){ var h=n.getAttribute("href")||""; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
     /* An image in the writing serialises back to its marker, so moving it in the editor moves it in
        the text. An image pasted from elsewhere as a data URL is dropped rather than inlined — that
        is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
@@ -15573,7 +15630,7 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
-function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
+function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
 function descSaveNow(){ descWysiwygSave(); }
@@ -15596,7 +15653,7 @@ function descSaveNow(){ descWysiwygSave(); }
 })();
 function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
 function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
-function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
+function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,(typeof isGoogleLink==="function"&&isGoogleLink(url)&&!val("desc_link_text").trim())?descLinkHtml(esc(url),"")+" ":'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
 function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; if(act==="link") return descLinkModal(); el.focus(); var command={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock",code:"formatBlock"}[act]; if(!command) return; if(act==="h"||act==="quote"||act==="code") document.execCommand(command,false,act==="h"?"<h3>":act==="quote"?"<blockquote>":"<pre>"); else document.execCommand(command,false,null); descWysiwygInput(); }
 
 /* ---------- #18 live updates for everything that is not a task ---------- */
@@ -16347,7 +16404,7 @@ function cmtLinkModal(kind){
     + fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')
     + '<p class="hint" id="cmt_name_hint" style="min-height:1.3em"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
-  setTimeout(function(){ var i=document.getElementById("cmt_url"); if(i) i.focus(); },40);
+  focusSoon("cmt_url",40);
 }
 /* Any dialog with a link field and a name field: once a Google link is pasted, the name fills in
    from Drive. A name somebody typed is never replaced; one filled in from Drive is (data-auto),
@@ -16683,10 +16740,11 @@ Object.assign(UI_ID,{
 });
 </script>
 <script>
-/* A GOOGLE LINK, PRESS TAB, AND IT READS AS ITS NAME — in a chat message and in a task comment.
+/* A GOOGLE LINK READS AS ITS NAME — in a chat message and in a task comment.
 
-   A Drive link is a hundred characters nobody can read. With the caret just after one, Tab swaps it
-   for the folder's or file's name ("Q4 Campaign"), shown in the link colour while writing. When the
+   A Drive link is a hundred characters nobody can read. Pasted, it turns into the folder's or file's
+   name ("Q4 Campaign") as soon as the name is read; a link typed by hand turns with Tab, the caret
+   just after it. The name shows in the link colour while writing. When the
    message is sent, the name is stored as a link to the address — [Q4 Campaign](https://…) — so it
    is read as the name and still opens the folder. It works like an @mention: the box holds what
    is read, a list on the side holds where it points.
@@ -16732,33 +16790,53 @@ function linkAtCaret(ta){
   });
   return hit;
 }
+/* Swap one Google link in the box for its name. The name is read first (at most 4 s); meanwhile the
+   person may go on typing, so the link is found again by its text, and the caret — or a selection —
+   keeps its place relative to the text around it. The box is never focused from here: someone who
+   moved on to another field keeps it. */
+function linkNameSwap(ta,x,o){
+  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, known=driveLinkKnown(url);
+  if(!known&&o.tell) toast(tr("Reading the name from Google Drive…"));
+  var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
+  return Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
+    var live=document.getElementById(id); if(!live) return;
+    var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
+    var display=name||driveLinkLabel(url), d=display.length-raw.length, end=at+raw.length;
+    var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
+    live.value=live.value.slice(0,at)+display+live.value.slice(end);
+    var b=linkTabBox(live);
+    if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
+    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+display.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
+    live.dispatchEvent(new Event("input",{bubbles:true}));
+    if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
+  });
+}
 document.addEventListener("keydown",function(e){
   if(e.key!=="Tab"||e.shiftKey||e.ctrlKey||e.metaKey||e.altKey) return;
   var ta=e.target, box=linkTabBox(ta); if(!box||box.picker()) return;
   var x=linkAtCaret(ta); if(!x) return;
   e.preventDefault(); e.stopPropagation();
-  var url=x.url, raw=x.raw, known=driveLinkKnown(url);
-  if(!known) toast(tr("Reading the name from Google Drive…"));
-  var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
-  Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
-    var live=document.getElementById(ta.id); if(!live) return;
-    var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
-    var display=name||driveLinkLabel(url);
-    var caretAfter=live.selectionStart>=at+raw.length;
-    live.value=live.value.slice(0,at)+display+live.value.slice(at+raw.length);
-    var b=linkTabBox(live);
-    if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
-    if(caretAfter){ var p=at+display.length+(live.value.charAt(at+display.length)===" "?1:0); live.setSelectionRange(p,p); }
-    live.focus();
-    live.dispatchEvent(new Event("input",{bubbles:true}));
-    if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
-  });
+  linkNameSwap(ta,x,{tell:true});
 },true);
+/* Pasted: every Google link in what was pasted, once the paste is in the box. */
+var LINK_PASTED_AT=0;
+document.addEventListener("paste",function(e){
+  var ta=e.target, box=linkTabBox(ta); if(!box) return;
+  var text=(e.clipboardData&&e.clipboardData.getData("text/plain"))||"";
+  if(!/https?:\/\//i.test(text)) return;
+  LINK_PASTED_AT=Date.now();
+  setTimeout(function(){
+    var live=document.getElementById(ta.id); if(!live) return;
+    (typeof messageUrls==="function"?messageUrls(live.value):[]).forEach(function(x){
+      if(isGoogleLink(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
+    });
+  },0);
+});
 
 /* A hint the first time a Google link lands in either box, since nothing on screen says Tab can do this. */
 var LINK_TAB_HINTED=false;
 document.addEventListener("input",function(e){
-  if(LINK_TAB_HINTED) return;
+  if(LINK_TAB_HINTED||Date.now()-LINK_PASTED_AT<1500) return;
   var ta=e.target; if(!linkTabBox(ta)) return;
   if((typeof messageUrls==="function"?messageUrls(ta.value):[]).some(function(x){ return isGoogleLink(x.url); })){
     LINK_TAB_HINTED=true; toast(tr("Tip: press Tab after a Google Drive link to show it by its name"));
@@ -16903,6 +16981,114 @@ Object.assign(UI_ID,{
   "The folder's files show here when it is shared with you, or with anyone who has the link.":"File di folder ini tampil di sini bila folder dibagikan kepada Anda, atau kepada siapa saja yang memiliki tautannya.",
   "open the link to see it":"buka tautannya untuk melihat"
 });
+</script>
+<script>
+/* GOOGLE LINKS AS CHIPS, WHILE WRITING TOO.
+
+   A Google link shows as a chip — the Drive mark and the file's or folder's own name (driveChipHtml
+   in comment-attach.js) — in comments, chat and the description. In the comment and chat boxes a
+   pasted link turns into its name at once (link-tab.js). In the description editor it turns into
+   the chip itself, right where it was pasted, the way Trello does it: the chip is one piece, so
+   Backspace takes it away whole and the caret steps over it, and the name fills in once read.
+   Saving writes the link back (descHtmlToMd, data-auto), never the name that was looked up.
+
+   Hovering a chip — anywhere — opens a small card: the name, what it is, and Open preview (for what
+   has an official embed, src/version-preview.js), Open link and Copy link. */
+
+/* ---------- the description editor ---------- */
+function lcGoogleUrls(text){ var re=/https:\/\/(?:drive|docs)\.google\.com\/[^\s<>"']+/g, out=[], m; while((m=re.exec(text))){ var u=m[0].replace(/[.,;:!?)\]]+$/,""); if(isGoogleLink(u)) out.push({url:u,index:m.index}); } return out; }
+function lcChipNode(url){ var t=document.createElement("span"); t.innerHTML=descLinkHtml(esc(url),""); return t.firstChild; }
+/* Turn the Google links in the editor into chips: a bare link in the text, or a link whose text is
+   its own address or a stand-in like "Google Drive". The caret, if it was in or after a link that
+   turned, lands just after its chip. Returns whether anything turned. */
+function descChipify(root){
+  if(!root||typeof descLinkHtml!=="function"||typeof isGoogleLink!=="function") return false;
+  var sel=window.getSelection(), caret=sel&&sel.rangeCount&&root.contains(sel.anchorNode)?{node:sel.anchorNode,off:sel.anchorOffset}:null, after=null, changed=false;
+  Array.prototype.forEach.call(root.querySelectorAll("a[href]:not(.drive-chip)"),function(a){
+    var href=a.getAttribute("href"), t=a.textContent.trim();
+    if(!isGoogleLink(href)||!(t===href||/^https?:/i.test(t)||descStandIn(t))) return;
+    var chip=lcChipNode(href); a.parentNode.replaceChild(chip,a); changed=true;
+    if(caret&&(caret.node===a||a.contains(caret.node))) after=chip;
+  });
+  var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), nodes=[], n;
+  while((n=walker.nextNode())) if(!(n.parentNode&&n.parentNode.closest&&n.parentNode.closest("a"))&&lcGoogleUrls(n.nodeValue).length) nodes.push(n);
+  nodes.forEach(function(node){
+    var text=node.nodeValue, frag=document.createDocumentFragment(), last=0;
+    lcGoogleUrls(text).forEach(function(x){
+      if(x.index>last) frag.appendChild(document.createTextNode(text.slice(last,x.index)));
+      var chip=lcChipNode(x.url); frag.appendChild(chip);
+      var end=x.index+x.url.length;
+      if(caret&&caret.node===node&&caret.off>x.index&&caret.off>=end) after=chip;
+      last=end;
+    });
+    var tail=text.slice(last);
+    /* something to put the caret in after the chip */
+    frag.appendChild(document.createTextNode(tail||" "));
+    node.parentNode.replaceChild(frag,node); changed=true;
+  });
+  if(after&&after.isConnected){
+    var next=after.nextSibling; if(!next||next.nodeType!==3){ next=document.createTextNode(" "); after.parentNode.insertBefore(next,after.nextSibling); }
+    var r=document.createRange(); r.setStart(next,Math.min(1,next.nodeValue.length)); r.collapse(true);
+    if(!/^\s/.test(next.nodeValue)) r.setStart(next,0);
+    sel.removeAllRanges(); sel.addRange(r);
+  }
+  return changed;
+}
+document.addEventListener("paste",function(e){
+  var el=e.target&&e.target.closest?e.target.closest("#descSrc"):null; if(!el) return;
+  var text=(e.clipboardData&&(e.clipboardData.getData("text/plain")||e.clipboardData.getData("text/html")))||"";
+  if(!/(?:drive|docs)\.google\.com\//i.test(text)) return;
+  setTimeout(function(){ var live=document.getElementById("descSrc"); if(live&&descChipify(live)&&typeof descWysiwygInput==="function") descWysiwygInput(); },0);
+});
+
+/* ---------- the card on a chip ---------- */
+var LINK_CARD={el:null,chip:null,show:null,hide:null};
+function linkCardClose(){ clearTimeout(LINK_CARD.show); clearTimeout(LINK_CARD.hide); if(LINK_CARD.el) LINK_CARD.el.classList.remove("open"); LINK_CARD.chip=null; }
+function linkCardOpen(chip){
+  var url=chip.getAttribute("href"); if(!url) return;
+  var p=typeof detectProvider==="function"?detectProvider(url):null, s=chip.querySelector("span"), name=(s?s.textContent:chip.textContent).trim();
+  var kind=p&&typeof smartSubtitle==="function"?tr(smartSubtitle(p)):"", e=typeof embedFor==="function"?embedFor(url):null;
+  var el=LINK_CARD.el;
+  if(!el){
+    el=LINK_CARD.el=document.createElement("div"); el.className="link-card"; el.setAttribute("role","dialog");
+    el.addEventListener("mouseenter",function(){ clearTimeout(LINK_CARD.hide); });
+    el.addEventListener("mouseleave",function(){ LINK_CARD.hide=setTimeout(linkCardClose,220); });
+    document.body.appendChild(el);
+  }
+  el.setAttribute("aria-label",name);
+  el.innerHTML='<div class="lc-head">'+(typeof driveIcon==="function"?driveIcon():I.link)+'<b>'+esc(name)+'</b></div>'+(kind?'<div class="lc-kind">'+esc(kind)+'</div>':'')
+    + '<div class="lc-acts">'
+    + (e?'<button type="button" data-act="preview">'+I.eye+tr("Open preview")+'</button>':'')
+    + '<button type="button" data-act="open">'+I.ext+tr("Open link")+'</button>'
+    + '<button type="button" data-act="copy">'+I.link+tr("Copy link")+'</button></div>';
+  el.onclick=function(ev){
+    var b=ev.target.closest&&ev.target.closest("button[data-act]"); if(!b) return;
+    var act=b.getAttribute("data-act"); linkCardClose();
+    if(act==="preview") previewModal({title:name,name:name,url:url});
+    else if(act==="open") openExternal(url);
+    else (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(function(){ toast(tr("Link copied")); },function(){ prompt(tr("Copy link"),url); });
+  };
+  LINK_CARD.chip=chip; el.classList.add("open");
+  if(typeof place==="function") place(el,chip);
+}
+/* hover only where there is hover; a tap on a phone opens the link as before */
+if(window.matchMedia&&window.matchMedia("(hover: hover)").matches){
+  document.addEventListener("mouseover",function(ev){
+    var chip=ev.target&&ev.target.closest?ev.target.closest(".drive-chip"):null;
+    if(!chip){ return; }
+    clearTimeout(LINK_CARD.hide);
+    if(LINK_CARD.chip===chip) return;
+    clearTimeout(LINK_CARD.show); LINK_CARD.show=setTimeout(function(){ if(chip.isConnected&&chip.matches(":hover")) linkCardOpen(chip); },350);
+  });
+  document.addEventListener("mouseout",function(ev){
+    var chip=ev.target&&ev.target.closest?ev.target.closest(".drive-chip"):null; if(!chip) return;
+    if(ev.relatedTarget&&chip.contains(ev.relatedTarget)) return;
+    clearTimeout(LINK_CARD.show); LINK_CARD.hide=setTimeout(linkCardClose,220);
+  });
+  document.addEventListener("scroll",function(){ if(LINK_CARD.chip) linkCardClose(); },true);
+}
+
+Object.assign(UI_ID,{"Open preview":"Buka pratinjau"});
 </script>
 <script>
 /* ASSETS & VERSIONS, SIMPLIFIED.
@@ -17112,7 +17298,7 @@ function addVerNote(){
     (x.annots=x.annots||[]).push(note); log(t,"note",{v:n});
   }).then(function(saved){
     if(saved===false){ VN_DRAFT.text=text; VN_DRAFT.img=img; renderDrawer(); return false; }
-    setTimeout(function(){ var f=document.getElementById("verNoteText"); if(f) f.focus(); },30);
+    focusSoon("verNoteText",30);
   });
 }
 /* a screenshot pasted into the note box goes with the note (src/clipboard.js routes pastes) */
@@ -17223,7 +17409,7 @@ function revisedModal(){
     + fieldHtml("rvd_url","Link",'<input id="rvd_url" inputmode="url" placeholder="https://" value="'+attr(link)+'">')
     + fieldHtml("rvd_note","What changed (optional)",'<input id="rvd_note" placeholder="'+attr(tr("e.g. Bigger headline, logo moved"))+'">'),
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn" onclick="closeModal();uploadVersion()">'+I.up+tr("Upload a file instead")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveRevised()">'+tr("Create Version")+' '+n+'</button>');
-  setTimeout(function(){ var i=document.getElementById(link?"rvd_note":"rvd_url"); if(i) i.focus(); },40);
+  focusSoon(link?"rvd_note":"rvd_url",40);
 }
 function saveRevised(){
   var tk=task(S.drawerTask), v=lastVer(tk); if(!v) return;
@@ -17331,7 +17517,7 @@ function linkVersionModal(){
     + fieldHtml("lv_note",tr("Version note (optional)"),'<input id="lv_note" placeholder="'+attr(tr("What changed in this version?"))+'">')
     + '<p class="hint" id="lv_hint" style="min-height:1.3em;margin:-6px 0 0"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="saveLinkVersion()">'+I.link+tr("Attach as a version")+'</button>');
-  setTimeout(function(){ var i=document.getElementById("lv_url"); if(i) i.focus(); },40);
+  focusSoon("lv_url",40);
 }
 function saveLinkVersion(){
   var url=normalizedAttachUrl(val("lv_url"));
