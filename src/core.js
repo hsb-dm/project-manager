@@ -328,6 +328,7 @@ function setConn(){ var el=document.getElementById("conn"); el.className="conn"+
    standalone file (file:) or a static host with no API (404 / non-JSON). While the
    session loads, demo identity and counters stay hidden (html.zc-booting). */
 function boot(){ var served=/^https?:$/.test(location.protocol); API.serving=served; API.demo=!served; if(served) document.documentElement.classList.add("zc-booting");
+  var coverLabel=document.querySelector("#bootCover .boot-loader-label"); if(coverLabel) coverLabel.textContent=tr("Loading…");
   loadDemo(); if(served) dropDemoRecords(); applyTheme(); applyShell(); renderScreen(true);
   var ctrl=new AbortController(); var timer=setTimeout(function(){ ctrl.abort(); },served?20000:4000);
   fetch("/api/auth/session",{credentials:"same-origin",signal:ctrl.signal}).then(function(r){ clearTimeout(timer); if (!r.ok){ var e=new Error("session "+r.status); e.demo=r.status===404; throw e; } return r.json().catch(function(){ var e=new Error("not an API"); e.demo=true; throw e; }); }).then(function(s){ API.on=true; API.serving=false; SESSION.user=s.user; SESSION.ws=s.workspace; SESSION.canRegister=s.canRegister; if (s.workspace){ WS.name=s.workspace.name; WS.logo=s.workspace.logo; WS.logoImg=s.workspace.logoImg; } if (!s.user){ document.documentElement.classList.remove("zc-booting"); return showLogin(); } ME=s.user.id; var act=null; try { act=localStorage.getItem("cos.actAs"); } catch(e){} if (act&&s.user.perm==="admin") ME=act; return afterLogin(); }).catch(function(e){ clearTimeout(timer); if (served&&!(e&&e.demo)&&!API.on) return bootUnreachable(e); document.documentElement.classList.remove("zc-booting"); API.on=false; API.serving=false; API.demo=true; if(served){ loadDemo(); applyTheme(); applyShell(); } SESSION.user=null; setConn(); showLogin(); }); }
@@ -335,6 +336,7 @@ var BOOT_RETRY={n:0,t:null};
 function bootUnreachable(e){ document.documentElement.classList.add("zc-booting"); document.body.classList.add("auth"); var wait=Math.min(30,5*Math.pow(2,BOOT_RETRY.n));
   document.getElementById("content").innerHTML='<div class="authwrap"><div class="authcard" role="alert"><h2 class="auth-title">'+tr("Can't reach the ZenCrevia server")+'</h2><p class="hint" style="margin:0 0 14px">'+tr("Check your connection. Nothing has been lost; the app will try again automatically.")+'</p><p class="hint" id="bootRetryIn" style="margin:0 0 14px"></p><button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="bootRetryNow()">'+tr("Try again now")+'</button></div></div>';
   var left=wait, el=document.getElementById("bootRetryIn"); clearInterval(BOOT_RETRY.t);
+  bootCoverDone();
   BOOT_RETRY.t=setInterval(function(){ left--; if(el) el.textContent=tr("Retrying in")+" "+left+" s"; if(left<=0) bootRetryNow(); },1000); if(el) el.textContent=tr("Retrying in")+" "+left+" s"; }
 function bootRetryNow(){ clearInterval(BOOT_RETRY.t); BOOT_RETRY.n++; document.body.classList.remove("auth"); boot(); }
 /* Set by the router when the URL names a screen it is about to render itself. */
@@ -344,7 +346,7 @@ function afterLogin(){ return apiFetch("GET","/api/bootstrap").then(function(d){
        whole dashboard's worth of flicker. The router knows from the URL where we are going before
        this runs, so it asks to skip this first paint and renders once. */
     if(!BOOT_SKIP_RENDER) renderScreen(false);
-    BOOT_SKIP_RENDER=false; setTimeout(showOnboardingIfNeeded,180); }).catch(function(e){ if (SESSION.user&&ME!==SESSION.user.id&&/act as|Unknown/i.test(e.message)) { ME=SESSION.user.id; try { localStorage.removeItem("cos.actAs"); } catch(x){} return afterLogin(); } document.documentElement.classList.remove("zc-booting"); fail(e,"Couldn't load the workspace: "+e.message); throw e; }); }
+    BOOT_SKIP_RENDER=false; requestAnimationFrame(function(){ requestAnimationFrame(bootCoverDone); }); setTimeout(showOnboardingIfNeeded,180); }).catch(function(e){ if (SESSION.user&&ME!==SESSION.user.id&&/act as|Unknown/i.test(e.message)) { ME=SESSION.user.id; try { localStorage.removeItem("cos.actAs"); } catch(x){} return afterLogin(); } document.documentElement.classList.remove("zc-booting"); bootCoverDone(); fail(e,"Couldn't load the workspace: "+e.message); throw e; }); }
 function reloadAll(){ if (!API.on) return Promise.resolve(); return apiFetch("GET","/api/bootstrap").then(function(d){ loadBootstrap(d); applyTheme(); applyShell(); refresh(); }); }
 function actAs(id){ if (API.on&&!(API.features&&API.features.impersonation)) return toast("User switching is disabled on this server","bad"); if (API.on&&!(SESSION.user&&SESSION.user.perm==="admin")) return toast("Only admins can act as another member","bad"); ME=id; try { localStorage.setItem("cos.actAs",id); } catch(e){} closePops(); if (API.on){ reloadAll().then(function(saved){ if(saved===false)return false; if(typeof wqSurfaces==="function")wqSurfaces(); toast(ME===SESSION.user.id?"Back to your own account":"Now acting as "+person(ME).name+" — permissions are checked by the server"); }); } else { applyShell(); refresh(); if(typeof wqSurfaces==="function")wqSurfaces(); toast("Now acting as "+person(ME).name); } }
 function signOut(){ closePops(); if (!API.on){ SESSION.user=null; return showLogin(); } apiFetch("POST","/api/auth/logout",{}).then(function(saved){ if(saved===false)return false; SESSION.user=null; try { localStorage.removeItem("cos.actAs"); } catch(e){} showLogin(); }).catch(function(e){ fail(e); }); }
@@ -704,6 +706,10 @@ function go(screen,sub,navOpts){
 /* Nobody is signed in until a session says so. In the standalone demo this becomes true the moment
    a demo user is chosen, so that mode is unaffected. */
 function signedIn(){ return !!(typeof SESSION!=="undefined"&&SESSION&&SESSION.user); }
+/* The cover over the whole page while the app starts (body.html). It goes once there is something
+   real to show — the sign-in form, the workspace, or the "can't reach the server" card — so the
+   header, the empty shell and the swap between them are never seen. */
+function bootCoverDone(){ var c=document.getElementById("bootCover"); if(!c||c.classList.contains("gone")) return; c.classList.add("gone"); setTimeout(function(){ if(c.parentNode) c.parentNode.removeChild(c); },200); }
 /* Loaded from a ZenCrevia server, the bundled demo is only the shape of a workspace (stages, theme,
    brief templates) to draw the first frame with. Its people, work and notifications are dropped
    before anything is drawn: they used to show until the real workspace arrived — demo accounts on

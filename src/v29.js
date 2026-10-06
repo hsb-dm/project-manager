@@ -60,7 +60,8 @@ function toggleMemberActive(id){
    and tapping a day opens that day's full agenda instead of a cramped chip. */
 document.addEventListener("click",function(e){
   if(window.innerWidth>760) return;
-  if(typeof S==="undefined"||S.screen!=="calendar"||S.calMode!=="month") return;
+  /* every month calendar: the Calendar screen, the calendar view in Tasks, a project's calendar */
+  if(typeof S==="undefined"||S.calMode!=="month") return;
   var cell=e.target.closest&&e.target.closest(".cal-grid .cal-day");
   if(!cell||e.target.closest(".task-check,.checkbox,button")) return;
   var off=+cell.getAttribute("data-off"); if(isNaN(off)||typeof calAgenda!=="function") return;

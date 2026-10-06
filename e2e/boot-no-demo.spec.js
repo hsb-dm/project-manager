@@ -11,6 +11,8 @@ const { pathToFileURL } = require("url");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
 const DEMO_IDS = ["zein", "sarah", "laura", "rizky", "maya", "dian", "andi"];
+/* the element where the header is drawn is the cover */
+const coverOnTop = page => page.evaluate(() => { const r = document.querySelector(".topbar").getBoundingClientRect(); const hit = document.elementFromPoint(r.left + 40, r.top + r.height / 2); const c = document.getElementById("bootCover"); return !!(c && hit && c.contains(hit)); });
 const slow = (page, pattern, ms) => page.route(pattern, async r => { await new Promise(x => setTimeout(x, ms)); await r.continue(); });
 
 test("while the session is checked, the first screen shows no demo accounts", async ({ page }) => {
@@ -19,12 +21,15 @@ test("while the session is checked, the first screen shows no demo accounts", as
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".boot-loader .sk-flow")).toBeVisible();
   await expect(page.locator(".authcard"), "no card that turns into another a moment later").toHaveCount(0);
+  /* the whole screen is covered: not even the header shows */
+  expect(await coverOnTop(page)).toBe(true);
   await expect(page.locator(".demo-user-card")).toHaveCount(0);
   await expect(page.locator("#content")).not.toContainText("Demo mode");
   const people = await page.evaluate(() => Object.keys(PEOPLE));
   for (const id of DEMO_IDS) expect(people, "no demo account in the page").not.toContain(id);
-  /* and then the sign-in form */
+  /* and then the sign-in form, uncovered */
   await expect(page.locator("#au_email")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator("#bootCover")).toHaveCount(0);
   await expect(page.locator(".demo-user-card")).toHaveCount(0);
 });
 
@@ -43,13 +48,14 @@ test("signed in, nothing of the demo shows before the workspace arrives", async 
   for (const id of DEMO_IDS) expect(early.people).not.toContain(id);
   expect(early.notifs).toBe(0);
   expect(early.meHidden).toBe("hidden");
-  await expect(page.locator(".boot-loader .sk-flow"), "the loader, until the workspace is in").toHaveCount(1);
+  expect(await coverOnTop(page), "covered until the workspace is in").toBe(true);
   for (const id of DEMO_IDS) expect(early.me.toLowerCase()).not.toContain(id);
   /* then the real workspace, shown */
   await ready(page);
   await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("zc-booting"))).toBe(false);
   await expect(page.locator("#meBtn")).toBeVisible();
   await expect(page.locator("#meBtn")).toContainText("Admin");
+  await expect(page.locator("#bootCover")).toHaveCount(0);
 });
 
 test("the standalone file still opens in demo mode", async ({ page }) => {
