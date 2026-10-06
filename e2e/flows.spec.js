@@ -148,10 +148,18 @@ test("8 · self-registration: admin turns it on, a colleague signs up at /regist
   await page.locator("#ws_code").fill("HSB2026");
   await page.locator("#ws_allowreg").locator("xpath=ancestor::section[1]").getByRole("button", { name: "Save" }).click();
   await expect.poll(() => api(page, "GET", "/api/bootstrap").then(d => d.ws.allowRegistration)).toBe(true);
+  /* a team to join, from this server */
+  const teams = await api(page, "POST", "/api/teams", { name: "Signup Studio", color: "blue", icon: "star", members: [] });
+  const team = teams.find(t => t.name === "Signup Studio");
 
   const ctx = await browser.newContext(); const p = await ctx.newPage();
   await p.goto("/register");
   await expect(p.getByRole("button", { name: "Create account" })).toBeVisible();
+  /* the newcomer picks from the workspace's own teams, not only "Choose later" */
+  const options = await p.locator("#au_team option").allInnerTexts();
+  expect(options[0]).toBe("Choose later");
+  expect(options, "this server's teams").toContain("Signup Studio");
+  await p.locator("#au_team").selectOption(team.id);
   await p.locator("#au_name").fill("Budi Santoso");
   await p.locator("#au_email").fill("budi@e2e.test");
   await p.locator("#au_pw").fill("Budi!Passw0rd-2026");
@@ -161,6 +169,10 @@ test("8 · self-registration: admin turns it on, a colleague signs up at /regist
   await expect(p.locator("body")).not.toHaveClass(/\bauth\b/);
   await expect(p).toHaveURL(/\/$/);
   await ctx.close();
+  /* and is in that team */
+  const people = (await api(page, "GET", "/api/bootstrap")).people;
+  const budi = Object.keys(people).find(id => people[id].email === "budi@e2e.test");
+  expect((people[budi].teams || []).map(x => x[0])).toContain(team.id);
 });
 
 test("extra · appearance is personal: admin dark does not make Rina dark", async ({ browser, page }) => {

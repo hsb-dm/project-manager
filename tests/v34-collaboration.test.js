@@ -42,6 +42,8 @@ test('every signed-in client is told when a task changes', { timeout: 30000 }, a
   const s = await start(t); const sarah = await s.as('sarah');
   const events = [];
   const stream = http.get({ host: '127.0.0.1', port: s.port, path: '/api/messages/stream', headers: { cookie: sarah, origin: s.base } }, res => { res.setEncoding('utf8'); res.on('data', d => d.split('\n').filter(l => l.startsWith('data: ')).forEach(l => { try { events.push(JSON.parse(l.slice(6))); } catch {} })); });
+  /* the server is stopped first at the end, which resets this connection: that is not a failure */
+  stream.on("error", () => {});
   t.after(() => stream.destroy());
   await new Promise(r => setTimeout(r, 300));
   const cur = await s.get('T-119');

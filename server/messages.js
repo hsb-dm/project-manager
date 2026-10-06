@@ -58,6 +58,12 @@ module.exports = function (db, ws, route, deps) {
   const getConv = (u, id) => { const c = db.prepare('SELECT * FROM conversations WHERE workspace_id=? AND id=?').get(ws, id); if (!c || !isMember(c, u.id)) error(404, 'Conversation not found.'); return c; };
   /* ---------- realtime: one SSE connection per session, logical subscriptions (§58) ---------- */
   const clients = new Map(); /* sessionKey -> {res, userId, active} */
+  /* Presence. Someone is online while one of their pages holds the stream open. A page that opens
+     is told at once who is online (it used to learn only of people who came or went after it), and
+     "offline" waits a few seconds, so a reload does not flash someone offline and back. */
+  const OFFLINE_GRACE_MS = Math.max(0, +process.env.COS_PRESENCE_GRACE_MS || 5000);
+  const offlineTimers = new Map();
+  const onlineIds = () => new Set(Array.from(clients.values()).map(c => c.userId));
   const send = (client, ev) => { try { client.res.write('data: ' + JSON.stringify(ev) + '\n\n'); } catch (e) { clients.delete(client.key); } };
   const publishToUsers = (userIds, ev) => { for (const c of clients.values()) if (userIds.includes(c.userId)) send(c, ev); };
   const publishToConversation = (conv, ev, onlyActive) => { const ids = memberIds(conv); for (const c of clients.values()) if (ids.includes(c.userId) && (!onlyActive || c.active === conv.id)) send(c, ev); };
@@ -141,11 +147,22 @@ module.exports = function (db, ws, route, deps) {
     if (!canView(u)) error(403, 'Your role cannot view Messages.');
     if (!res || !res.writeHead) error(500, 'Stream needs the raw response.');
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+    /* already shown online: another page of theirs is open, or they left a moment ago and "offline" has not been said yet */
+    const known = onlineIds().has(u.id) || offlineTimers.has(u.id);
+    clearTimeout(offlineTimers.get(u.id)); offlineTimers.delete(u.id);
     const key = uid('sse'); const client = { key, res, userId: u.id, active: null }; clients.set(key, client);
     res.write('data: ' + JSON.stringify({ type: 'connected' }) + '\n\n');
-    const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 25000);
-    publishToUsers(Array.from(new Set(Array.from(clients.values()).map(c => c.userId))), { type: 'presence', userId: u.id, state: 'online' });
-    req.on('close', () => { clearInterval(ping); clients.delete(key); const still = Array.from(clients.values()).some(c => c.userId === u.id); if (!still) publishToUsers(Array.from(new Set(Array.from(clients.values()).map(c => c.userId))), { type: 'presence', userId: u.id, state: 'offline' }); });
+    res.write('data: ' + JSON.stringify({ type: 'presence_snapshot', online: Array.from(onlineIds()) }) + '\n\n');
+    let ping = null;
+    const drop = () => {
+      if (!clients.has(key)) return; clearInterval(ping); clients.delete(key);
+      if (onlineIds().has(u.id)) return;
+      offlineTimers.set(u.id, setTimeout(() => { offlineTimers.delete(u.id); if (!onlineIds().has(u.id)) publishToUsers(Array.from(onlineIds()), { type: 'presence', userId: u.id, state: 'offline' }); }, OFFLINE_GRACE_MS));
+    };
+    /* a connection a proxy kept open after the page went away fails here, and is dropped */
+    ping = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) { drop(); } }, 25000);
+    if (!known) publishToUsers(Array.from(onlineIds()), { type: 'presence', userId: u.id, state: 'online' });
+    req.on('close', drop); res.on('error', drop);
     return { __raw: true };
   });
   route('POST', '/api/messages/subscribe', (u, p, q, b) => { const c = getConv(u, String(b.conversationId || '')); for (const cl of clients.values()) if (cl.userId === u.id) cl.active = c.id; return { ok: true }; });
