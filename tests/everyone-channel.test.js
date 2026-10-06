@@ -1,7 +1,9 @@
-/* #everyone: one channel with every active member of the workspace, beside the team channels.
+/* Everyone: a group of channels with every active member of the workspace, beside the teams' —
+   its #general, and the channels an admin adds.
 
-   Its members are worked out, not stored: whoever is active in the workspace is in it. It cannot be
-   left, archived, renamed or given a member list; an admin can change its description. */
+   Their members are worked out, not stored: whoever is active in the workspace is in them. None can
+   be left or given a member list; #general cannot be archived or renamed. Only an admin adds,
+   renames, archives or describes them. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -23,12 +25,13 @@ async function start(t) {
   return { req, admin, as };
 }
 
-test('#everyone holds every active member, and stays that way', { timeout: 30000 }, async t => {
+test("Everyone's #general holds every active member, and stays that way", { timeout: 30000 }, async t => {
   const s = await start(t); const sarah = await s.as('sarah'); const zein = await s.as('zein');
   const list = async c => (await s.req('GET', '/api/messages/conversations', undefined, c)).json();
-  const everyone = (await list(sarah)).filter(c => c.type === 'WORKSPACE');
-  assert.equal(everyone.length, 1, 'one #everyone in the workspace');
-  const id = everyone[0].id;
+  const general = (await list(sarah)).filter(c => c.type === 'WORKSPACE');
+  assert.equal(general.length, 1, 'one #general for the workspace');
+  assert.equal(general[0].name, 'general');
+  const id = general[0].id;
   assert.ok((await list(zein)).some(c => c.id === id), 'the same channel for someone in another team');
   assert.ok((await list(s.admin)).some(c => c.id === id));
 
@@ -42,6 +45,7 @@ test('#everyone holds every active member, and stays that way', { timeout: 30000
   assert.equal((await s.req('POST', '/api/messages/conversations/' + id + '/leave', {}, sarah)).status, 400);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { archived: true }, s.admin)).status, 400);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { name: 'random' }, s.admin)).status, 400);
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { members: ['sarah'] }, s.admin)).status, 400);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { description: 'Mine now' }, sarah)).status, 403);
   r = await s.req('PATCH', '/api/messages/conversations/' + id, { description: 'Company news' }, s.admin);
   assert.equal(r.status, 200, await r.clone().text());
@@ -53,5 +57,41 @@ test('#everyone holds every active member, and stays that way', { timeout: 30000
   const people = (await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json()).people;
   const nid = Object.keys(people).find(k => people[k].email === 'newjoiner@zencrevia.demo');
   const joiner = await (async () => { await s.req('POST', '/api/members/' + nid + '/password', { password: 'Member!Pass2345' }, s.admin); return (await s.req('POST', '/api/auth/login', { email: 'newjoiner@zencrevia.demo', password: 'Member!Pass2345' })).headers.get('set-cookie').split(';')[0]; })();
-  assert.ok((await list(joiner)).some(c => c.id === id), 'a new member is in #everyone');
+  assert.ok((await list(joiner)).some(c => c.id === id), 'a new member is in it');
+});
+
+test('an admin adds channels for everyone; everyone is in them', { timeout: 30000 }, async t => {
+  const s = await start(t); const sarah = await s.as('sarah'); const zein = await s.as('zein');
+  const list = async c => (await s.req('GET', '/api/messages/conversations', undefined, c)).json();
+  const add = (b, c) => s.req('POST', '/api/messages/conversations', Object.assign({ type: 'WORKSPACE_CHANNEL' }, b), c);
+
+  /* only an admin adds one, and not a second #general or a name already used */
+  assert.equal((await add({ name: 'announcements' }, sarah)).status, 403);
+  let r = await add({ name: '#Announcements', description: 'News for all' }, s.admin);
+  assert.equal(r.status, 200, await r.clone().text());
+  const ch = await r.json();
+  assert.equal(ch.type, 'WORKSPACE_CHANNEL'); assert.equal(ch.name, 'announcements');
+  assert.equal((await add({ name: 'general' }, s.admin)).status, 400);
+  assert.equal((await add({ name: 'announcements' }, s.admin)).status, 400);
+
+  /* everyone is in it, whatever their team */
+  for (const c of [sarah, zein, s.admin]) assert.ok((await list(c)).some(x => x.id === ch.id));
+  r = await s.req('POST', '/api/messages/conversations/' + ch.id + '/messages', { body: 'Office closed Friday' }, s.admin);
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.ok(JSON.stringify(await (await s.req('GET', '/api/messages/conversations/' + ch.id + '/messages', undefined, zein)).json()).includes('Office closed Friday'));
+
+  /* not left or given members; an admin renames and archives it, nobody else */
+  assert.equal((await s.req('POST', '/api/messages/conversations/' + ch.id + '/leave', {}, sarah)).status, 400);
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + ch.id, { members: ['sarah'] }, s.admin)).status, 400);
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + ch.id, { name: 'mine' }, sarah)).status, 403);
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + ch.id, { name: 'general' }, s.admin)).status, 400);
+  r = await s.req('PATCH', '/api/messages/conversations/' + ch.id, { name: 'News Desk' }, s.admin);
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.equal((await r.json()).name, 'news-desk');
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + ch.id, { archived: true }, sarah)).status, 403);
+  r = await s.req('PATCH', '/api/messages/conversations/' + ch.id, { archived: true }, s.admin);
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.ok((await r.json()).archivedAt);
+  /* its name is free again once it is archived */
+  assert.equal((await add({ name: 'news-desk' }, s.admin)).status, 200);
 });
