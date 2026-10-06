@@ -373,7 +373,7 @@ function useAsVersionModal(fid){
   var n=nextVersionNo(tk), drive=!!(src.url&&typeof isGoogleLink==="function"&&isGoogleLink(src.url)&&typeof driveIcon==="function");
   openModal(tr("Use as Version")+" "+n,
     '<p class="hint" style="margin-bottom:10px">'+tr("It becomes the next version as it is — nothing is uploaded again. You submit it for review in the next step.")+'</p>'
-    + '<div class="av-use-src">'+(src.img&&!src.url?'<span class="fthumb" style="background-image:url('+attr(src.img)+')"></span>':'<span class="ficon ficon-drive">'+(drive?driveIcon():I.link)+'</span>')+'<div><b>'+esc(f.name)+'</b>'+(src.url?'<span class="mono">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(src.url):src.url)+'</span>':'')+'</div></div>'
+    + '<div class="av-use-src">'+(src.img&&!src.url?'<span class="fthumb" style="background-image:url('+attr(src.img)+')"></span>':'<span class="ficon ficon-drive">'+(drive?googleIcon(src.url):I.link)+'</span>')+'<div><b>'+esc(f.name)+'</b>'+(src.url?'<span class="mono">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(src.url):src.url)+'</span>':'')+'</div></div>'
     + fieldHtml("uav_note","What changed (optional)",'<input id="uav_note" placeholder="'+attr(tr("e.g. Bigger headline, logo moved"))+'">'),
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveUseAsVersion(\''+attr(fid)+'\')">'+tr("Create Version")+' '+n+'</button>');
 }

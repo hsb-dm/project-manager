@@ -17,7 +17,8 @@ test("while the session is checked, the first screen shows no demo accounts", as
   /* held long enough to outlast loading the page itself */
   await slow(page, "**/api/auth/session", 4000);
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".auth-connecting")).toBeVisible();
+  await expect(page.locator(".boot-loader .sk-flow")).toBeVisible();
+  await expect(page.locator(".authcard"), "no card that turns into another a moment later").toHaveCount(0);
   await expect(page.locator(".demo-user-card")).toHaveCount(0);
   await expect(page.locator("#content")).not.toContainText("Demo mode");
   const people = await page.evaluate(() => Object.keys(PEOPLE));
@@ -42,6 +43,7 @@ test("signed in, nothing of the demo shows before the workspace arrives", async 
   for (const id of DEMO_IDS) expect(early.people).not.toContain(id);
   expect(early.notifs).toBe(0);
   expect(early.meHidden).toBe("hidden");
+  await expect(page.locator(".boot-loader .sk-flow"), "the loader, until the workspace is in").toHaveCount(1);
   for (const id of DEMO_IDS) expect(early.me.toLowerCase()).not.toContain(id);
   /* then the real workspace, shown */
   await ready(page);

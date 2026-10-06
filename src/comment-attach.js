@@ -50,7 +50,7 @@ function driveChipHtml(url,name){
   var known=!!name||driveLinkKnown(url);
   return '<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" class="rich-link drive-chip"'+(known?'':' data-drive-pending="1"')
     + ' title="'+attr(url)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.href)">'
-    + (typeof driveIcon==="function"?driveIcon():"")+'<span>'+esc(name||driveLinkLabel(url))+'</span></a>';
+    + (typeof googleIcon==="function"?googleIcon(url):"")+'<span>'+esc(name||driveLinkLabel(url))+'</span></a>';
 }
 /* richLinkText draws every external link the same way, as its raw URL. A Drive link is drawn as a
    chip instead — in comments, and wherever else written text shows one. */

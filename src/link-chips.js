@@ -72,7 +72,7 @@ function linkCardOpen(chip){
     document.body.appendChild(el);
   }
   el.setAttribute("aria-label",name);
-  el.innerHTML='<div class="lc-head">'+(typeof driveIcon==="function"?driveIcon():I.link)+'<b>'+esc(name)+'</b></div>'+(kind?'<div class="lc-kind">'+esc(kind)+'</div>':'')
+  el.innerHTML='<div class="lc-head">'+(typeof googleIcon==="function"?googleIcon(url):I.link)+'<b>'+esc(name)+'</b></div>'+(kind?'<div class="lc-kind">'+esc(kind)+'</div>':'')
     + '<div class="lc-acts">'
     + (e?'<button type="button" data-act="preview">'+I.eye+tr("Open preview")+'</button>':'')
     + '<button type="button" data-act="open">'+I.ext+tr("Open link")+'</button>'
