@@ -268,6 +268,8 @@ function recordTaskChanges(user, cur, next) {
       if ((v.annots || []).some(a => a && !had.has(a.id))) recOnce("note", { v: v.n });
     }
   });
+  const newV = by(next.versions, "n");
+  (cur.versions || []).forEach(o => { if (!newV.has(o.n)) rec("version_deleted", { v: o.n }); });
   /* a link is a file record that points somewhere and carries no file of its own */
   const isLink = f => /^https?:/i.test(String(f.url || "")) && !f.driveId && !f.preview;
   const oldF = by(cur.files, "id"), newF = by(next.files, "id");
@@ -982,6 +984,10 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   const decided = (b.versions || []).filter(v => { const o = cur.versions.find(x => x.n === v.n); return o && o.state !== v.state && (v.state === "approved" || v.state === "revision"); });
   if (decided.length) forbid(can.approveTask(u, cur), "approve or send back this task");
   if ((b.versions || []).length > cur.versions.length || (b.files || []).length > cur.files.length) forbid(can.uploadFile(u, cur), "upload files to this task");
+  /* A version leaves the task only by someone who can add versions or decide on them, and never
+     once it is approved — its approval is part of the record (deleting the row would take it along). */
+  { const kept = new Set((b.versions || []).map(v => v.n)); const gone = (cur.versions || []).filter(v => !kept.has(v.n));
+    if (gone.length) { forbid(can.uploadFile(u, cur) || can.approveTask(u, cur), "remove versions from this task"); if (gone.some(v => v.state === "approved")) throw new HttpError(400, "An approved version cannot be removed."); } }
   /* v32: comments, activity, and version authorship/decision metadata are server-owned.
      Take them from the stored task; only genuinely new comments by this user are added,
      and a version's decision fields are only what the authz checks above allowed. */

@@ -17236,13 +17236,37 @@ function avVersionSection(tk,ed){
   S.drawerVer=v.n; /* versionsView draws curVer(), and the box only ever shows the latest */
   var acts=ed?'<button class="btn sm" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link from Google Drive")+'</button><button class="btn sm" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button><button class="btn sm primary" onclick="uploadVersion()">'+I.up+tr("Upload new version")+'</button>':'';
   return '<section class="av-sec av-version">'
-    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+'</div>'
+    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
     + versionsView(tk,{onlyPreview:true})
     + verNotesHtml(tk,v)
     + avSteps(tk,v)
     + avDecision(tk,v,ed)
     + avEarlierNotes(tk)
     + '</section>';
+}
+/* A version made by mistake can be deleted: the newest one, while nobody has decided on it (an
+   approved or sent-back version is part of the task's history). Whoever can add versions to the task
+   can, and so can its reviewers; the server holds the same rule. The file uploaded with it goes too —
+   not one that came from a comment, is marked final, or is another version as well. */
+function verCanDelete(tk,v){ return !!tk&&!!v&&v===lastVer(tk)&&v.state!=="approved"&&v.state!=="revision"&&((has("upload_file")&&(has("edit_any_task")||teamScoped(tk)||isAssignee(tk,ME)||isReviewer(tk,ME)))||canI.reviewTask(tk)); }
+function verOwnFiles(tk,v){ return (tk.files||[]).filter(function(f){ var l=typeof fileLinkedVersions==="function"?fileLinkedVersions(tk,f):[]; return l.length===1&&l[0]===v&&!f.final&&!(typeof fileFromComment==="function"&&fileFromComment(tk,f)); }); }
+function verDeletedText(n){ return UI_LANG==="id"?"Versi "+n+" dihapus":"Version "+n+" deleted"; }
+function deleteVersion(){
+  var tk=task(S.drawerTask), v=lastVer(tk); if(!verCanDelete(tk,v)) return;
+  var n=v.n, notes=verNotesOf(v).length, own=verOwnFiles(tk,v);
+  confirmModal(tr("Delete Version")+" "+n+"?",tr("Use this when it was made by mistake.")+" "
+    + (notes?notes+" "+tr(notes===1?"note on it is deleted too.":"notes on it are deleted too.")+" ":"")
+    + (own.length?tr("Its file is removed from Files too:")+" <b>"+own.map(function(f){ return esc(f.name); }).join(", ")+"</b>. ":"")
+    + tr("Earlier versions stay as they are."),function(){
+    editTaskWith(tk,function(t){
+      var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x) return;
+      var gone=verOwnFiles(t,x);
+      t.files=t.files.filter(function(f){ return gone.indexOf(f)<0; });
+      t.versions=t.versions.filter(function(y){ return y!==x; });
+      S.drawerVer=t.versions.length?t.versions[t.versions.length-1].n:null;
+      log(t,"version_deleted",{v:n});
+    }).then(function(saved){ if(saved!==false) toast(verDeletedText(n)); });
+  },true);
 }
 /* Where the version is in its round, so nobody has to guess: ready → submitted for review → the
    reviewer's decision. A version made after a revision is not in review until it is submitted. */
@@ -17686,6 +17710,8 @@ function avCountRow(tk,ed){
 /* notes in the history */
 ATEXT.note="<b>{who}</b> added notes on Version {v}";
 ATEXT_ID.note="<b>{who}</b> menambahkan catatan di Versi {v}";
+ATEXT.version_deleted="<b>{who}</b> deleted Version {v}";
+ATEXT_ID.version_deleted="<b>{who}</b> menghapus Versi {v}";
 
 Object.assign(UI_ID,{
   "Versions":"Versi",
@@ -17771,6 +17797,13 @@ Object.assign(UI_ID,{
   "Use as Version":"Jadikan Versi",
   "It becomes the next version as it is — nothing is uploaded again. You submit it for review in the next step.":"Tautan ini langsung menjadi versi berikutnya — tidak perlu diunggah ulang. Setelah itu, kirim untuk review.",
   "All versions":"Semua versi",
+  "Delete version":"Hapus versi",
+  "Delete Version":"Hapus Versi",
+  "Use this when it was made by mistake.":"Pakai ini kalau versi ini tidak sengaja dibuat.",
+  "note on it is deleted too.":"catatan di versi ini ikut terhapus.",
+  "notes on it are deleted too.":"catatan di versi ini ikut terhapus.",
+  "Its file is removed from Files too:":"File-nya juga dihapus dari File:",
+  "Earlier versions stay as they are.":"Versi sebelumnya tetap seperti semula.",
   "notes":"catatan",
   "Earlier versions":"Versi sebelumnya",
   "Approved versions stay approved — this is set in Settings → Automation":"Versi yang sudah disetujui tidak bisa dikembalikan — diatur di Pengaturan → Otomatisasi",
