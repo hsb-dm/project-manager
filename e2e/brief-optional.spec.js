@@ -1,5 +1,5 @@
 /* The creative brief is optional: many teams write it into the description. The empty section says
-   "Optional" and folds away, and stays folded for that person. A new task's files tab has no
+   "Optional" and opens folded on every task; Show unfolds it. A new task's files tab has no
    "Upload reference images" any more — reference images go into the description. */
 const { test, expect } = require("@playwright/test");
 test.describe.configure({ mode: "serial" });
@@ -16,21 +16,28 @@ async function signIn(page) {
 }
 const openBrief = (page, id) => page.evaluate(t => { openTask(t); S.drawerTab = "brief"; renderDrawer(); }, id);
 
-test("a task without a brief says the brief is optional, and it folds away and stays folded", async ({ page }) => {
+test("a task without a brief says the brief is optional, and opens with it folded", async ({ page }) => {
   await signIn(page);
   taskId = await page.evaluate(() => apiFetch("POST", "/api/tasks", { title: "Brief optional target", status: WS.workflow[0].id, assignee: ME, description: "The brief is right here in the description." }).then(d => { TASKS.push(hTask(d)); return d.id; }));
   await openBrief(page, taskId);
   const sec = page.locator("#drBody .brief-opt");
   await expect(sec.locator(".brief-opt-head")).toContainText("Creative brief");
   await expect(sec.locator(".brief-opt-head .badge")).toHaveText("Optional");
-  await expect(sec.locator(".empty .btn").first()).toBeVisible();   /* the templates */
-  await sec.locator(".brief-opt-toggle").click();
+  /* folded to begin with */
   await expect(page.locator("#drBody .brief-opt.collapsed")).toBeVisible();
   await expect(page.locator("#drBody .brief-opt .empty")).toHaveCount(0);
   await expect(page.locator("#drBody .brief-opt-toggle")).toHaveText("Show");
   await expect(page.locator("#drBody .brief-opt-toggle")).toHaveAttribute("aria-expanded", "false");
+  /* Show unfolds it, with the templates */
+  await page.locator("#drBody .brief-opt-toggle").click();
+  await expect(page.locator("#drBody .brief-opt .empty .btn").first()).toBeVisible();
+  await expect(page.locator("#drBody .brief-opt-toggle")).toHaveText("Hide");
+  await expect(page.locator("#drBody .brief-opt-toggle")).toHaveAttribute("aria-expanded", "true");
 
-  /* still folded after a reload, on another task too */
+  /* folded again the next time a task opens, and after a reload */
+  await page.evaluate(() => closeDrawer());
+  await openBrief(page, taskId);
+  await expect(page.locator("#drBody .brief-opt.collapsed")).toBeVisible();
   await page.reload(); await ready(page);
   await openBrief(page, taskId);
   await expect(page.locator("#drBody .brief-opt.collapsed")).toBeVisible();

@@ -304,7 +304,13 @@ function descSaveNow(){ descWysiwygSave(); }
         else { clearTimeout(_descT); descSaveMd(tk,live); }   /* the task just left keeps what was typed in it */
       }
     }
-    return base.apply(this,arguments);
+    /* Brief fields being edited keep what was typed through a redraw — a colleague's update or a posted
+       comment redraws the panel, and used to empty them. Only for the same task, still in edit. */
+    var bt=S.briefEdit&&S.drawerTask&&typeof briefInputs==="function"?task(S.drawerTask):null, keep=null;
+    if(bt){ var ins=briefInputs(bt); if(ins.length){ keep={}; for(var i=0;i<ins.length;i++) keep[ins[i].getAttribute("data-bf")]=ins[i].value; } }
+    var out=base.apply(this,arguments);
+    if(keep&&S.briefEdit&&bt.id===S.drawerTask){ var now=briefInputs(bt); for(var j=0;j<now.length;j++){ var k=now[j].getAttribute("data-bf"); if(keep[k]!==undefined) now[j].value=keep[k]; } }
+    return out;
   };
 })();
 function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }

@@ -42,6 +42,10 @@ function pasteFindImage(tk,ref){
 }
 function pasteImgSrc(a){ return a?(a.preview||(/^\/files\//.test(a.url||"")?a.url:"")):""; }
 function pasteCurrentTask(){ return S.drawerTask?task(S.drawerTask):null; }
+/* The description editor, if it is this task's. An upload can finish after the person has moved to
+   another task and opened its editor: that editor is not this task's, and nothing may be read from
+   it into this task or written into it from this one (it used to be, both ways). */
+function pasteDescEl(tk){ var el=document.getElementById("descSrc"); return el&&tk&&el.getAttribute("data-for")===tk.id?el:null; }
 
 /* ---------- the picture in the writing ---------- */
 /* Called by descMdInline for every ![…](…) it finds, in the editor and the read-only view alike. */
@@ -162,7 +166,7 @@ function briefPasteImage(file,opts){
     if(inline){
       att.inlineIn="description";
       delete PASTE_INFLIGHT[attId];
-      var el=document.getElementById("descSrc");
+      var el=pasteDescEl(tk);
       var slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
       if(slot){ slot.classList.remove("uploading"); slot.src=pasteImgSrc(att); }
       /* No slot: either the marker is already in the saved text and will draw itself, or the
@@ -183,7 +187,7 @@ function briefPasteImage(file,opts){
   },function(err){
     delete PASTE_INFLIGHT[attId];
     if(inline){
-      var el=document.getElementById("descSrc"), slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
+      var el=pasteDescEl(tk), slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
       if(slot) slot.remove();
       /* A save may already have written the marker; nothing will ever resolve it now. */
       if((tk.description||"").indexOf("zc-att:"+attId)>=0) editTaskWith(tk,function(t){ t.description=pasteStripMarker(t.description,attId); });
@@ -214,7 +218,7 @@ function pasteRemoveImage(attId){
   var a=pasteFindImage(tk,attId);
   confirmModal(tr("Remove this image?"),tr("It is taken out of the brief and out of Comments. Files in Assets & versions are not touched."),function(){
     /* Out of the writing first, so the editor and the saved text agree. */
-    var el=document.getElementById("descSrc"), md=null;
+    var el=pasteDescEl(tk), md=null;
     if(el){
       Array.prototype.forEach.call(el.querySelectorAll('img[data-zc-att="'+attId+'"]'),function(n){ n.remove(); });
       if(typeof descHtmlToMd==="function") md=descHtmlToMd(el.innerHTML);
