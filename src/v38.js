@@ -61,7 +61,13 @@ function defaultReviewerFor(assignee,teamId){ var t=teamId?team(teamId):null; if
    the hash: #/tasks/kanban?task=T-101. Old links (#/…, #task=…, #conv=…) keep working. */
 var ROUTER={applying:false,ready:false,mode:/^https?:$/.test(location.protocol)?"path":"hash",screens:["home","tasks","calendar","projects","teams","team","assets","knowledge","aihub","aigallery","messages","analytics","notifications","settings"]};
 function routeSub(){ switch(S.screen){ case "projects": return S.projectId; case "teams": return S.teamId; case "team": return S.memberId; case "settings": return S.settingsTab; case "tasks": return S.taskView; case "calendar": return S.calMode; case "knowledge": return S.kbPage; case "messages": return S.messageConversationId; default: return null; } }
-function routeBuild(screen,sub,taskId){ var p=(screen&&screen!=="home"?"/"+screen+(sub?"/"+encodeURIComponent(sub):""):"/")+(taskId?"?task="+encodeURIComponent(taskId):""); return ROUTER.mode==="path"?p:"#"+(p==="/"?"/home":p); }
+/* Links read like what they point at: /projects/p1-ramadan-campaign, ?task=T-101-banner-ramadan. The id
+   leads, so a link made before a rename still opens the task, and so does a link with the id alone. */
+function routeSlug(s){ s=String(s||""); try{ s=s.normalize("NFD"); }catch(e){} return s.replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60).replace(/-+$/,""); }
+function routeKey(kind,id){ var it=kind==="task"?task(id):project(id), s=it?routeSlug(kind==="task"?it.title:it.name):""; return s?id+"-"+s:id; }
+/* the id a link names: itself when it is one, else the longest id it starts with (followed by "-") */
+function routeIdFrom(kind,key){ if(!key) return key; key=String(key); var list=(kind==="task"?TASKS:PROJECTS)||[], best=null; for(var i=0;i<list.length;i++){ var id=list[i]&&list[i].id; if(!id) continue; if(id===key) return key; if(key.indexOf(id+"-")===0&&(!best||id.length>best.length)) best=id; } return best||key; }
+function routeBuild(screen,sub,taskId){ if(screen==="projects"&&sub){ var pid=routeIdFrom("project",sub); if(project(pid)) sub=routeKey("project",pid); } if(taskId){ var tid=routeIdFrom("task",taskId); if(task(tid)) taskId=routeKey("task",tid); } var p=(screen&&screen!=="home"?"/"+screen+(sub?"/"+encodeURIComponent(sub):""):"/")+(taskId?"?task="+encodeURIComponent(taskId):""); return ROUTER.mode==="path"?p:"#"+(p==="/"?"/home":p); }
 function routeCurrent(){ var t=S.drawerTask&&S.drawerTask!=="T-new"?S.drawerTask:null; return routeBuild(S.screen||"home",routeSub(),t); }
 function routeHere(){ return ROUTER.mode==="path"?location.pathname+location.search:location.hash; }
 /* accepts "/tasks/kanban?task=T-1", "#/tasks/kanban?task=T-1" or a full URL */
@@ -71,9 +77,11 @@ function routeParse(h){ if(h==null) h=routeHere(); h=String(h); if(/^https?:/i.t
   return {screen:(m[1]||"home").toLowerCase(),sub:sub||null,task:q.task||null,query:q}; }
 function routeWrite(url,push){ var full=ROUTER.mode==="path"?url+location.hash.replace(/^#\/.*$/,""):location.pathname+location.search+url; try{ history[push?"pushState":"replaceState"](null,"",full); }catch(e){} }
 function routeSync(){ if(ROUTER.applying||!ROUTER.ready||document.body.classList.contains("auth")) return; var h=routeCurrent(); if(h===routeHere()) return; var cur=routeParse(routeHere()), nx=routeParse(h);
-  var push=!cur||cur.screen!==nx.screen||cur.sub!==nx.sub||(!!nx.task&&cur.task!==nx.task);
+  /* the same task or project under a new name is the same page: the address is replaced, not stacked */
+  var same=function(a,b,kind){ return routeIdFrom(kind,a)===routeIdFrom(kind,b); };
+  var push=!cur||cur.screen!==nx.screen||(nx.screen==="projects"?!same(cur.sub,nx.sub,"project"):cur.sub!==nx.sub)||(!!nx.task&&!same(cur.task,nx.task,"task"));
   routeWrite(h,push); }
-function routeApply(r){ if(!r) return false; if(ROUTER.screens.indexOf(r.screen)<0) r={screen:"home",sub:null,task:r.task};
+function routeApply(r){ if(!r) return false; if(r.task) r.task=routeIdFrom("task",r.task); if(r.screen==="projects"&&r.sub) r.sub=routeIdFrom("project",r.sub);if(ROUTER.screens.indexOf(r.screen)<0) r={screen:"home",sub:null,task:r.task};
   ROUTER.applying=true;
   try{
     if(r.screen==="settings"&&r.sub) S.settingsTab=r.sub;
@@ -116,7 +124,7 @@ function routeWanted(){ var h=location.hash||"";
 /* the chat/link parser understands router links (both forms) as well as the old ones */
 (function(){ var base=internalEntityFromUrl; internalEntityFromUrl=function(url){ var hit=base(url); if(hit) return hit; var u; try{ u=new URL(url,location.href); }catch(e){ return null; }
   var r=/^#\//.test(u.hash)?routeParse(u.hash):(u.origin===location.origin?routeParse(u.pathname+u.search):null); if(!r) return null;
-  var type=r.task?"TASK":(r.screen==="projects"&&r.sub?"PROJECT":null); if(!type) return null; var id=r.task||r.sub;
+  var type=r.task?"TASK":(r.screen==="projects"&&r.sub?"PROJECT":null); if(!type) return null; var id=r.task?routeIdFrom("task",r.task):routeIdFrom("project",r.sub);
   var exists=type==="TASK"?!!task(id):!!project(id); if(u.origin!==location.origin&&!exists) return null; return {type:type,id:id,url:u.href}; }; })();
 /* copied links: /tasks?task=T-101 and /projects/p1; other link types keep their one-shot hash */
 (function(){ var base=deepLinkBase; deepLinkBase=function(){ return ROUTER.mode==="path"?location.origin+"/":base.apply(this,arguments); };
@@ -330,8 +338,20 @@ function descSaveNow(){ descWysiwygSave(); }
        comment redraws the panel, and used to empty them. Only for the same task, still in edit. */
     var bt=S.briefEdit&&S.drawerTask&&typeof briefInputs==="function"?task(S.drawerTask):null, keep=null;
     if(bt){ var ins=briefInputs(bt); if(ins.length){ keep={}; for(var i=0;i<ins.length;i++) keep[ins[i].getAttribute("data-bf")]=ins[i].value; } }
+    /* Whoever is typing keeps typing through a redraw — the description's own save a beat after a pause,
+       an upload finishing, a colleague's update. The description being written in is put back as the
+       very same element (caret, selection and undo intact); a field focused elsewhere in the panel gets
+       its focus and caret back. Before, the next keystrokes after a pause went nowhere. */
+    var ae=document.activeElement, dr=document.getElementById("drawer"), hold=null, range=null, focusId=null, selA=0, selB=0;
+    /* the caret is kept as node + offset: a Range would follow the editor out of the page and end up nowhere */
+    if(el&&tk&&ae&&el.contains(ae)){ hold=el; var sl=window.getSelection(), r0=sl&&sl.rangeCount?sl.getRangeAt(0):null; range=r0&&el.contains(r0.startContainer)&&el.contains(r0.endContainer)?{sc:r0.startContainer,so:r0.startOffset,ec:r0.endContainer,eo:r0.endOffset}:null; }
+    else if(ae&&ae.id&&dr&&dr.contains(ae)&&/^(TEXTAREA|INPUT)$/.test(ae.tagName)&&!/^(file|checkbox|radio|button|submit)$/.test(ae.type)){ focusId=ae.id; try{ selA=ae.selectionStart; selB=ae.selectionEnd; }catch(x){} }
     var out=base.apply(this,arguments);
     if(keep&&S.briefEdit&&bt.id===S.drawerTask){ var now=briefInputs(bt); for(var j=0;j<now.length;j++){ var k=now[j].getAttribute("data-bf"); if(keep[k]!==undefined) now[j].value=keep[k]; } }
+    if(hold){ var fresh=document.getElementById("descSrc"); if(fresh&&fresh!==hold&&fresh.getAttribute("data-for")===hold.getAttribute("data-for")){ fresh.replaceWith(hold); try{ hold.focus({preventScroll:true}); }catch(x){ hold.focus(); } if(range&&hold.contains(range.sc)&&hold.contains(range.ec)){ try{ var r2=document.createRange(); r2.setStart(range.sc,range.so); r2.setEnd(range.ec,range.eo); var s2=window.getSelection(); s2.removeAllRanges(); s2.addRange(r2); }catch(x){} } } }
+    else if(focusId){ var refocus=function(){ var f=document.getElementById(focusId); if(f&&f!==document.activeElement&&dr.contains(f)){ try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } try{ if(selA!=null) f.setSelectionRange(selA,selB); }catch(x){} } };
+      /* again once every later wrapper is done — the comment box is moved into its mention layer after this */
+      refocus(); Promise.resolve().then(refocus); }
     return out;
   };
 })();
@@ -355,7 +375,7 @@ function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) ret
   }
   function flush(){ timer=null; if(busy()){ timer=setTimeout(flush,2000); return; } var kinds=Object.keys(pending); pending={};
     Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; refresh(); }); }
-  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.by===ME) return; pending[ev.kind]=1; if(!timer) timer=setTimeout(flush,400); }
+  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.by===ME||ev.kind==="emoji") return; /* emoji: custom-emoji.js, at once */ pending[ev.kind]=1; if(!timer) timer=setTimeout(flush,400); }
   var ES=window.EventSource; if(typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
   window.EventSource.prototype=ES.prototype; ["CONNECTING","OPEN","CLOSED"].forEach(function(k){ window.EventSource[k]=ES[k]; });

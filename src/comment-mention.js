@@ -193,7 +193,7 @@ function cmtMentionsHtml(html){
     });
     /* the old way, "@id", for comments written before names could be chosen */
     part=part.replace(/(^|[\s(])@(\w+)/g,function(m,lead,id){ return PEOPLE[id.toLowerCase()]?lead+"\u0000"+id.toLowerCase()+"\u0001":m; });
-    return part.replace(/\u0000([^\u0001]+)\u0001/g,function(m,id){ return '<span class="msg-mention'+(id===ME?" self":"")+'" data-no-translate>@'+esc(person(id).name)+'</span>'; });
+    return part.replace(/\u0000([^\u0001]+)\u0001/g,function(m,id){ return '<span class="msg-mention'+(id===ME?" self":"")+'" data-uid="'+attr(id)+'" role="button" tabindex="0" data-no-translate>@'+esc(person(id).name)+'</span>'; });
   }).join("");
 }
 

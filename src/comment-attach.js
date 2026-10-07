@@ -100,8 +100,7 @@ function cmtStage(a){
   window._cmtAtt=window._cmtAtt||[];
   if(cmtRoom()<=0) return toast(tr("Up to 10 attachments per comment"),"bad");
   if(a.url&&window._cmtAtt.some(function(x){ return x.url===a.url; })) return toast(tr("That link is already attached"));
-  var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value;
-  window._cmtAtt.push(a); renderDrawer();
+  window._cmtAtt.push(a); cmtRedraw();
 }
 /* Upload images / Upload file: the same path as the comment box's own attach, filtered by kind. */
 function cmtUpload(imagesOnly){

@@ -62,10 +62,10 @@ test("an admin adds a channel for everyone from the group's +, and edits #genera
   await expect(page.locator(".toast").last()).toContainText("A channel with that name already exists");
   await page.evaluate(() => closeModal());
 
-  /* #general keeps its name; its description saves without the server refusing it */
+  /* #general's description saves without the server refusing it (its name can change too: people-status.spec.js) */
   const gid = await page.evaluate(() => CONVERSATIONS.find(c => c.type === "WORKSPACE").id);
   await page.evaluate(id => editChannelModal(id), gid);
-  await expect(page.locator("#chName")).toBeDisabled();
+  await expect(page.locator("#chName")).toHaveValue("general");
   const desc = "Company news " + Date.now().toString(36);
   await page.locator("#chDesc").fill(desc);
   await page.getByRole("button", { name: "Save", exact: true }).click();

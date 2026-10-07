@@ -41,10 +41,13 @@ test("Everyone's #general holds every active member, and stays that way", { time
   const seen = await (await s.req('GET', '/api/messages/conversations/' + id + '/messages', undefined, zein)).json();
   assert.ok(JSON.stringify(seen).includes('Hello all'));
 
-  /* not left, archived, renamed or given members; only an admin changes the description */
+  /* not left, archived or given members; only an admin renames it or changes the description */
   assert.equal((await s.req('POST', '/api/messages/conversations/' + id + '/leave', {}, sarah)).status, 400);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { archived: true }, s.admin)).status, 400);
-  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { name: 'random' }, s.admin)).status, 400);
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { name: 'random' }, sarah)).status, 403);
+  r = await s.req('PATCH', '/api/messages/conversations/' + id, { name: 'random' }, s.admin);
+  assert.equal(r.status, 200, await r.clone().text()); assert.equal((await r.json()).name, 'random');
+  assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { name: 'general' }, s.admin)).status, 200);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { members: ['sarah'] }, s.admin)).status, 400);
   assert.equal((await s.req('PATCH', '/api/messages/conversations/' + id, { description: 'Mine now' }, sarah)).status, 403);
   r = await s.req('PATCH', '/api/messages/conversations/' + id, { description: 'Company news' }, s.admin);

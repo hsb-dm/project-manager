@@ -479,3 +479,38 @@ body.paste-resizing .desc-img{pointer-events:none}
 
 /* "Select project later" in the project picker */
 .ep-none{font-weight:700;color:var(--color-text-secondary)}
+
+/* an @mention opens its person's card; the card's photo opens large */
+.msg-mention[data-uid]{cursor:pointer}
+.msg-mention[data-uid]:hover{text-decoration:underline}
+.pp .pp-top .av.img{cursor:zoom-in}
+.mp-avatar-view{cursor:zoom-in}
+/* cropping a profile photo */
+.avcrop{display:grid;justify-items:center;gap:12px}
+.avcrop-view{position:relative;overflow:hidden;border-radius:14px;background:#111;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.avcrop-view.dragging{cursor:grabbing}
+.avcrop-view img{position:absolute;left:0;top:0;max-width:none;max-height:none;transform-origin:0 0;pointer-events:none}
+.avcrop-ring{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 999px rgba(0,0,0,.55);outline:2px solid rgba(255,255,255,.9);outline-offset:-2px;pointer-events:none}
+.avcrop-zoom{display:flex;align-items:center;gap:8px;width:min(280px,100%)}
+.avcrop-zoom input{flex:1}
+.avcrop .hint{text-align:center;max-width:300px;margin:0}
+
+/* custom emoji: their shape kept inside the usual emoji box */
+img.emj.custom{object-fit:contain}
+.emoji-grid .ce-add{border:1.5px dashed var(--color-border);color:var(--color-text-secondary)}
+.emoji-grid .ce-add svg{width:16px;height:16px}
+.emoji-grid .ce-add:hover{border-color:var(--color-primary);color:var(--color-primary)}
+.ce-new{display:grid;gap:14px}
+.ce-prev{display:flex;align-items:center;gap:16px;padding:12px;border-radius:var(--radius);background:var(--color-surface-sunken)}
+.ce-prev img.lg{width:64px;height:64px;object-fit:contain}
+.ce-in-text{font-size:13px;color:var(--color-text-secondary)}
+.ce-name{display:flex;align-items:center;gap:4px}
+.ce-name>span{font-weight:600;color:var(--color-text-secondary)}
+.ce-name input{flex:1}
+#ceHint.bad{color:var(--color-danger)}
+.ce-list{display:grid;gap:4px;max-height:50vh;overflow-y:auto}
+.ce-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px}
+.ce-row:hover{background:var(--color-surface-sunken)}
+.ce-row img.emj{width:28px;height:28px;object-fit:contain}
+.ce-row b{font-size:13.5px}
+.ce-row .ce-by{flex:1;font-size:12px;color:var(--color-text-secondary);text-align:right}

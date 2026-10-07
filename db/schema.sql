@@ -198,3 +198,9 @@ CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_files_task ON files(task_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_notif_recipient_time ON notifications(recipient_id, created_at);
+
+-- custom emoji: a workspace's own, made from a PNG or JPG and stored like any file (/files/d/...).
+CREATE TABLE IF NOT EXISTS custom_emoji (
+  workspace_id TEXT NOT NULL, name TEXT NOT NULL, url TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL,
+  PRIMARY KEY (workspace_id, name)
+);
