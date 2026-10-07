@@ -505,7 +505,7 @@ var DESC_FILE_ACCEPT=Object.keys(DESC_FILE_EXT).map(function(e){ return "."+e; }
 function descFileExt(name){ var m=String(name||"").match(/\.([a-z0-9]{1,6})$/i); return m&&DESC_FILE_EXT[m[1].toLowerCase()]?m[1].toLowerCase():""; }
 function descFileChipHtml(u,t){ /* both escaped */
   var name=typeof pasteUnesc==="function"?pasteUnesc(t):t, e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
-  return '<a href="'+u+'" class="drive-chip file-chip" data-auto="0" data-name="'+attr(name)+'" contenteditable="false" target="_blank" rel="noopener nofollow" title="'+attr(name)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'))"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></a>'; }
+  return '<a href="'+u+'" class="drive-chip file-chip" data-auto="0" data-name="'+attr(name)+'" contenteditable="false" target="_blank" rel="noopener nofollow" title="'+attr(name)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),this.getAttribute(\'data-name\'))"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></a>'; }
 function descPickFile(){ var inp=document.createElement("input"); inp.type="file"; inp.accept=DESC_FILE_ACCEPT; inp.style.display="none"; inp.onchange=function(){ var f=inp.files&&inp.files[0]; inp.remove(); if(f) descAttachFile(f); }; document.body.appendChild(inp); inp.click(); }
 /* inline, where the caret was (kept across the file dialog by descKeepCaret) */
 /* Placed by hand: insertHTML put a chip at the end of a line after that line's block, on a line of its own. */
