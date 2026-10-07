@@ -45,7 +45,7 @@ function pasteCurrentTask(){ return S.drawerTask?task(S.drawerTask):null; }
 /* The description editor, if it is this task's. An upload can finish after the person has moved to
    another task and opened its editor: that editor is not this task's, and nothing may be read from
    it into this task or written into it from this one (it used to be, both ways). */
-function pasteDescEl(tk){ var el=document.getElementById("descSrc"); return el&&tk&&el.getAttribute("data-for")===tk.id?el:null; }
+function pasteDescEl(tk){ var el=document.getElementById("descSrc"); return el&&tk&&el.getAttribute("data-for")===drawerKey(tk)?el:null; }
 
 /* ---------- the picture in the writing ---------- */
 /* Called by descMdInline for every ![…](…) it finds, in the editor and the read-only view alike. */

@@ -7086,12 +7086,12 @@ function briefOptionalHtml(tk,ed){ var hid=briefOptHidden();
   return '<div class="brief-opt">'+head+'<div class="empty" style="padding:20px 20px 26px"><div class="ico">'+I.knowledge+'</div><div class="h">'+tr("No creative brief yet")+'</div><p>'+tr("A structured brief is optional — use one of these, or keep the brief in the description above.")+'</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center">'+WS.briefTemplates.map(function(t){ return '<button class="btn sm" onclick="addBrief(\''+t.id+'\')">'+esc(t.name)+'</button>'; }).join("")+'</div>':'')+'</div></div>'; }
 function briefView(tk){ var ed=canI.editTask(tk); if (!tk.brief) return briefOptionalHtml(tk,ed);
   var b=tk.brief; var tpl=byId(WS.briefTemplates,b.tpl)||{name:"Custom",fields:WS.briefFields.map(function(f){ return f[0]; }),required:[]}; var fields=WS.briefFields.filter(function(f){ return tpl.fields.indexOf(f[0])>=0; }); var req=tpl.required||[]; var missing=req.filter(function(f){ return !b[f]; });
-  var h='<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Creative brief</span><span class="tpl">'+esc(tpl.name)+'</span>'+(missing.length?'<span class="badge bad">'+missing.length+' required field'+(missing.length>1?"s":"")+' missing</span>':'<span class="badge ok">Complete</span>')+'<span class="spacer"></span>'+(tk._draft?'':'<button class="btn xs" onclick="closeDrawer();go(\'assets\');S.assetTab=\'brand\';renderScreen(false)">'+I.assets.replace('class="i"','')+'Brand library</button>')+(ed?(S.briefEdit?'<button class="btn sm" onclick="S.briefEdit=false;renderDrawer()">Cancel</button><button class="btn sm primary" onclick="saveBrief()">Save brief</button>':'<button class="btn sm" onclick="S.briefEdit=true;renderDrawer()">'+I.edit+'Edit</button>'):'')+'</div><div class="brief" data-for="'+attr(tk.id)+'"'+(ed&&!S.briefEdit?' ondblclick="briefStartEdit(event)" title="'+attr(tr("Double-click a field to edit it"))+'"':'')+'>';
+  var h='<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="eyebrow">Creative brief</span><span class="tpl">'+esc(tpl.name)+'</span>'+(missing.length?'<span class="badge bad">'+missing.length+' required field'+(missing.length>1?"s":"")+' missing</span>':'<span class="badge ok">Complete</span>')+'<span class="spacer"></span>'+(tk._draft?'':'<button class="btn xs" onclick="closeDrawer();go(\'assets\');S.assetTab=\'brand\';renderScreen(false)">'+I.assets.replace('class="i"','')+'Brand library</button>')+(ed?(S.briefEdit?'<button class="btn sm" onclick="S.briefEdit=false;renderDrawer()">Cancel</button><button class="btn sm primary" onclick="saveBrief()">Save brief</button>':'<button class="btn sm" onclick="S.briefEdit=true;renderDrawer()">'+I.edit+'Edit</button>'):'')+'</div><div class="brief" data-for="'+attr(drawerKey(tk))+'"'+(ed&&!S.briefEdit?' ondblclick="briefStartEdit(event)" title="'+attr(tr("Double-click a field to edit it"))+'"':'')+'>';
   fields.forEach(function(f){ var v=b[f[0]]; h+='<div class="k'+(req.indexOf(f[0])>=0?" req":"")+'" data-k="'+attr(f[0])+'">'+f[1]+'</div><div class="v'+(!v&&!S.briefEdit?" empty-v":"")+'" data-k="'+attr(f[0])+'">'+(S.briefEdit?'<textarea data-bf="'+f[0]+'">'+esc(v||"")+'</textarea>':(v?(typeof pasteMarkersToThumbs==="function"?pasteMarkersToThumbs(esc(v),tk):esc(v)):"Not set"))+(typeof pasteFieldImagesHtml==="function"?pasteFieldImagesHtml(tk,f[0]):"")+'</div>'; });
   return h+'</div>'; }
 function addBrief(tplId){ var tk=task(S.drawerTask); var tpl=byId(WS.briefTemplates,tplId); editTaskWith(tk,function(t){ t.brief={tpl:tplId}; tpl.fields.forEach(function(f){ t.brief[f]=""; }); if (t.description) t.brief.objective=t.description; log(t,"brief"); }); S.briefEdit=true; renderDrawer(); }
 /* The brief fields drawn for this task (not any others still in the page). */
-function briefInputs(tk){ var box=Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return tk&&b.getAttribute("data-for")===tk.id; })[0]; return box?box.querySelectorAll("[data-bf]"):[]; }
+function briefInputs(tk){ var box=Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return tk&&b.getAttribute("data-for")===drawerKey(tk); })[0]; return box?box.querySelectorAll("[data-bf]"):[]; }
 /* Brief fields left open in edit are kept when the person moves to another task or closes the panel —
    they used to vanish — and saved to the task they were typed in. */
 function briefFlush(tk){ if(!tk||!tk.brief) return false; var tas=briefInputs(tk), vals={}, changed=false; for(var i=0;i<tas.length;i++){ var k=tas[i].getAttribute("data-bf"), v=tas[i].value.trim(); vals[k]=v; if((tk.brief[k]||"")!==v) changed=true; } if(!changed) return false; if(tk._draft){ Object.assign(tk.brief,vals); return true; } editTaskWith(tk,function(t){ Object.assign(t.brief,vals); log(t,"edited",{what:"the brief"}); }); toast(tr("Brief saved")); return true; }
@@ -15800,13 +15800,16 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
     +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'<button type="button" class="md-btn md-attach" title="'+attr(tr("Attach file"))+'" aria-label="'+attr(tr("Attach file"))+'" onmousedown="descKeepCaret()" onclick="descPickFile()">'+DESC_CLIP+'</button>'+'</div>'
-    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
+    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(drawerKey(tk))+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
 function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
 /* The editor's text belongs to the task it was drawn for (data-for), not to whichever task is open
    by the time it is read: opening another task used to copy one task's description into the next. */
-function descEditorTask(el){ return el&&typeof task==="function"?task(el.getAttribute("data-for")||""):null; }
+/* by the key the editor was drawn for: a task's id, or a new task's own draft key — every new task is
+   "T-new", and the editor of the one just created stays in the page (the next one took its text) */
+function taskByDrawerKey(key){ if(!key) return null; for(var i=0;i<TASKS.length;i++) if(drawerKey(TASKS[i])===key) return TASKS[i]; return null; }
+function descEditorTask(el){ return el&&typeof drawerKey==="function"?taskByDrawerKey(el.getAttribute("data-for")||""):null; }
 function descSaveMd(tk,md){ if(tk._draft){ tk.description=md; return; } if((tk._descDraft||tk.description||"")!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } }
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=descEditorTask(el); if(!el||!tk) return; descSaveMd(tk,descHtmlToMd(el.innerHTML)); descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
@@ -15825,7 +15828,7 @@ function descSaveNow(){ descWysiwygSave(); }
     if(el&&tk){
       var live=descHtmlToMd(el.innerHTML);
       if(live!==(tk._descDraft||tk.description||"")){
-        if(tk.id===S.drawerTask){ tk.description=live; descSaveSoon(); }
+        if(tk===task(S.drawerTask)){ tk.description=live; descSaveSoon(); }
         else { clearTimeout(_descT); descSaveMd(tk,live); }   /* the task just left keeps what was typed in it */
       }
     }
@@ -15981,7 +15984,7 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
   var NOT_OUTSIDE="#modalWrap,.pop,.menu,#entityPicker,.tag-picker,#toasts,.link-card,.emoji-pop,input[type=file],#descImgSize,#descImgX,.desc-img-size,.desc-img-x";
   var downDesc=false, downBrief=false;
   var descBox=function(){ var el=document.getElementById("descSrc"); return el&&el.closest?el.closest(".md-editor"):null; };
-  var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===tk.id; })[0]||null; };
+  var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===drawerKey(tk); })[0]||null; };
   document.addEventListener("mousedown",function(e){ var d=descBox(), b=briefBox(), onHandle=!!(e.target&&e.target.closest&&e.target.closest(NOT_OUTSIDE)); downDesc=!!(d&&(d.contains(e.target)||onHandle)); downBrief=!!(b&&b.contains(e.target)); },true);
   /* after the click has done its own work (bubbling, so its handler ran first) */
   document.addEventListener("click",function(e){
@@ -15989,7 +15992,7 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
     /* a click whose own handler redrew the panel (an Edit button, a template, a tab) is not a click outside */
     if(!document.documentElement.contains(t)) return;
     var d=descBox(), el=document.getElementById("descSrc"), tk=el?descEditorTask(el):null;
-    if(d&&S.descMode==="editor"&&!downDesc&&!d.contains(t)&&tk&&!tk._draft&&tk.id===S.drawerTask){ descSaveNow(); S.descMode="viewer"; renderDrawer(); }
+    if(d&&S.descMode==="editor"&&!downDesc&&!d.contains(t)&&tk&&!tk._draft&&tk===task(S.drawerTask)){ descSaveNow(); S.descMode="viewer"; renderDrawer(); }
     var b=briefBox(), bt=S.drawerTask?task(S.drawerTask):null;
     if(b&&S.briefEdit&&!downBrief&&!b.contains(t)&&bt&&!bt._draft){ briefFlush(bt); S.briefEdit=false; renderDrawer(); }
     downDesc=downBrief=false;
@@ -16028,7 +16031,7 @@ function descInsertInline(html){ var el=document.getElementById("descSrc"); if(!
 function descAttachFile(file){
   var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!file) return;
   var name=String(file.name||"file").replace(/[\[\]\n]/g," ").trim()||"file", upId=uid("up"), e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
-  var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===tk.id?el:null; };
+  var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===drawerKey(tk)?el:null; };
   if(mine()) descInsertInline('<span class="drive-chip file-chip uploading" data-up="'+upId+'" contenteditable="false"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></span>');
   toast(tr("Uploading")+" "+name+"…");
   uploadAny(file,{forceDrive:true,name:name}).then(function(up){
@@ -16092,7 +16095,7 @@ function pasteCurrentTask(){ return S.drawerTask?task(S.drawerTask):null; }
 /* The description editor, if it is this task's. An upload can finish after the person has moved to
    another task and opened its editor: that editor is not this task's, and nothing may be read from
    it into this task or written into it from this one (it used to be, both ways). */
-function pasteDescEl(tk){ var el=document.getElementById("descSrc"); return el&&tk&&el.getAttribute("data-for")===tk.id?el:null; }
+function pasteDescEl(tk){ var el=document.getElementById("descSrc"); return el&&tk&&el.getAttribute("data-for")===drawerKey(tk)?el:null; }
 
 /* ---------- the picture in the writing ---------- */
 /* Called by descMdInline for every ![…](…) it finds, in the editor and the read-only view alike. */

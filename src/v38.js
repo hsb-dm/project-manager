@@ -294,13 +294,16 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
     +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'<button type="button" class="md-btn md-attach" title="'+attr(tr("Attach file"))+'" aria-label="'+attr(tr("Attach file"))+'" onmousedown="descKeepCaret()" onclick="descPickFile()">'+DESC_CLIP+'</button>'+'</div>'
-    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
+    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(drawerKey(tk))+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
 function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
 /* The editor's text belongs to the task it was drawn for (data-for), not to whichever task is open
    by the time it is read: opening another task used to copy one task's description into the next. */
-function descEditorTask(el){ return el&&typeof task==="function"?task(el.getAttribute("data-for")||""):null; }
+/* by the key the editor was drawn for: a task's id, or a new task's own draft key — every new task is
+   "T-new", and the editor of the one just created stays in the page (the next one took its text) */
+function taskByDrawerKey(key){ if(!key) return null; for(var i=0;i<TASKS.length;i++) if(drawerKey(TASKS[i])===key) return TASKS[i]; return null; }
+function descEditorTask(el){ return el&&typeof drawerKey==="function"?taskByDrawerKey(el.getAttribute("data-for")||""):null; }
 function descSaveMd(tk,md){ if(tk._draft){ tk.description=md; return; } if((tk._descDraft||tk.description||"")!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } }
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=descEditorTask(el); if(!el||!tk) return; descSaveMd(tk,descHtmlToMd(el.innerHTML)); descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
@@ -319,7 +322,7 @@ function descSaveNow(){ descWysiwygSave(); }
     if(el&&tk){
       var live=descHtmlToMd(el.innerHTML);
       if(live!==(tk._descDraft||tk.description||"")){
-        if(tk.id===S.drawerTask){ tk.description=live; descSaveSoon(); }
+        if(tk===task(S.drawerTask)){ tk.description=live; descSaveSoon(); }
         else { clearTimeout(_descT); descSaveMd(tk,live); }   /* the task just left keeps what was typed in it */
       }
     }
@@ -475,7 +478,7 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
   var NOT_OUTSIDE="#modalWrap,.pop,.menu,#entityPicker,.tag-picker,#toasts,.link-card,.emoji-pop,input[type=file],#descImgSize,#descImgX,.desc-img-size,.desc-img-x";
   var downDesc=false, downBrief=false;
   var descBox=function(){ var el=document.getElementById("descSrc"); return el&&el.closest?el.closest(".md-editor"):null; };
-  var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===tk.id; })[0]||null; };
+  var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===drawerKey(tk); })[0]||null; };
   document.addEventListener("mousedown",function(e){ var d=descBox(), b=briefBox(), onHandle=!!(e.target&&e.target.closest&&e.target.closest(NOT_OUTSIDE)); downDesc=!!(d&&(d.contains(e.target)||onHandle)); downBrief=!!(b&&b.contains(e.target)); },true);
   /* after the click has done its own work (bubbling, so its handler ran first) */
   document.addEventListener("click",function(e){
@@ -483,7 +486,7 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
     /* a click whose own handler redrew the panel (an Edit button, a template, a tab) is not a click outside */
     if(!document.documentElement.contains(t)) return;
     var d=descBox(), el=document.getElementById("descSrc"), tk=el?descEditorTask(el):null;
-    if(d&&S.descMode==="editor"&&!downDesc&&!d.contains(t)&&tk&&!tk._draft&&tk.id===S.drawerTask){ descSaveNow(); S.descMode="viewer"; renderDrawer(); }
+    if(d&&S.descMode==="editor"&&!downDesc&&!d.contains(t)&&tk&&!tk._draft&&tk===task(S.drawerTask)){ descSaveNow(); S.descMode="viewer"; renderDrawer(); }
     var b=briefBox(), bt=S.drawerTask?task(S.drawerTask):null;
     if(b&&S.briefEdit&&!downBrief&&!b.contains(t)&&bt&&!bt._draft){ briefFlush(bt); S.briefEdit=false; renderDrawer(); }
     downDesc=downBrief=false;
@@ -522,7 +525,7 @@ function descInsertInline(html){ var el=document.getElementById("descSrc"); if(!
 function descAttachFile(file){
   var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!file) return;
   var name=String(file.name||"file").replace(/[\[\]\n]/g," ").trim()||"file", upId=uid("up"), e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
-  var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===tk.id?el:null; };
+  var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===drawerKey(tk)?el:null; };
   if(mine()) descInsertInline('<span class="drive-chip file-chip uploading" data-up="'+upId+'" contenteditable="false"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></span>');
   toast(tr("Uploading")+" "+name+"…");
   uploadAny(file,{forceDrive:true,name:name}).then(function(up){
