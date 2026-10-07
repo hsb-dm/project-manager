@@ -141,7 +141,7 @@ function tagPickerField(id){
   var st=tagPickerState(id); if(!st) return "";
   var full=st.values.length>=st.limit, near=st.values.length>=Math.max(1,st.limit-2);
   return '<div class="tag-picker-field'+(st.readonly?" readonly":"")+'" role="group">'
-    + st.values.map(function(v){ return tagChip(v,st.readonly?null:"tagPickerRemove('"+id+"','"+attr(v).replace(/'/g,"\\'")+"')"); }).join("")
+    + st.values.map(function(v){ return tagChip(v,st.readonly?null:"tagPickerRemove("+jsq(id)+","+jsq(v)+")"); }).join("")
     + (st.readonly?(st.values.length?"":'<span class="hint">'+tr("No tags")+'</span>')
         : '<button type="button" class="tag-picker-add" aria-haspopup="listbox" aria-expanded="false"'
           + (full?' disabled title="'+attr(tr("Tag limit reached"))+'"':'')

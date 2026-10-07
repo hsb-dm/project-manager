@@ -44,7 +44,7 @@ function aiAttachChips(){
   var list=aiAttachList(); if(!list.length) return "";
   return '<div class="aichat-attach">'+list.map(function(a){
     return '<span class="aichip" title="'+attr(aiAttachLabel(a))+'">'+esc(aiAttachLabel(a).slice(0,42))
-      + '<button type="button" aria-label="'+attr(tr("Remove"))+'" onclick="aiAttachRemove(\''+attr(aiAttachKey(a))+'\')">&times;</button></span>';
+      + '<button type="button" aria-label="'+attr(tr("Remove"))+'" onclick="aiAttachRemove('+jsq(aiAttachKey(a))+')">&times;</button></span>';
   }).join("")+'</div>';
 }
 function aiAttachMenu(anchor){

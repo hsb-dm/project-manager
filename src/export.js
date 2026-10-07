@@ -342,7 +342,7 @@ function exportModal(kind){
     + fieldHtml("ex_to","To",'<input id="ex_to" type="date" value="'+iso(0)+'" onchange="exUpdateCount()">')+'</div>';
 
   var chips=function(group,items){ return '<div class="chips">'+items.map(function(it){
-    return '<button class="chipx" data-no-translate data-scope onclick="exToggle(\''+group+'\',\''+attr(it[0])+'\',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>'; };
+    return '<button class="chipx" data-no-translate data-scope onclick="exToggle(\''+group+'\','+jsq(it[0])+',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>'; };
 
   var scope='<div class="field"><label>Teams <span class="hint" style="font-weight:400">\u00b7 none selected means every team</span></label>'
     + chips("teams",activeTeams().map(function(t){ return [t.id,t.name]; }))+'</div>'

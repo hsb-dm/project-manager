@@ -38,11 +38,11 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
   function flush(){
     timer=null; var ids=Object.keys(pending); var evs=pending; pending={};
     ids.forEach(function(id){
-      var ev=evs[id], cur=task(id);
+      var ev=evs[id], cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];   /* one being created carries a proposed number, not this task */
       if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } refresh(); } return; }
       if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
       apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
-        var t=hTask(d), now=task(id);
+        var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
         if (now){ if (now._draft) return; replaceInto(now,t); } else TASKS.push(t);
         AN=null; refresh();
         if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
@@ -69,7 +69,7 @@ Object.assign(UI_ID,{"Updated by":"Diperbarui oleh","This task was deleted by":"
     var label=ok+" "+tr(ok===1?"task moved to":"tasks moved to")+" "+st.name+(blocked?" · "+blocked+" "+tr("not moved (reviewer rule)"):"");
     bulkApply(label,function(t){ if(!zcStageBlock(t,sid)) t.status=sid; });
   };
-  bulkStatus=function(a){ ctxMenu(a,'<div class="mh">'+tr("Status")+'</div>'+localStages().map(function(s){ return '<button onclick="closePops();zcBulkStatus(\''+attr(s.id)+'\')">'+statusBadge(s.id)+'</button>'; }).join(""),"left"); };
+  bulkStatus=function(a){ ctxMenu(a,'<div class="mh">'+tr("Status")+'</div>'+localStages().map(function(s){ return '<button onclick="closePops();zcBulkStatus('+jsq(s.id)+')">'+statusBadge(s.id)+'</button>'; }).join(""),"left"); };
   Object.assign(UI_ID,{"None of the selected tasks can be moved to":"Tidak ada task terpilih yang bisa dipindahkan ke","they need a reviewer, or a reviewer's decision.":"task tersebut butuh reviewer, atau keputusan reviewer.","task moved to":"task dipindahkan ke","tasks moved to":"task dipindahkan ke","not moved (reviewer rule)":"tidak dipindahkan (aturan reviewer)"});
 })();
 </script>

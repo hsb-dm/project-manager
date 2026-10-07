@@ -172,7 +172,7 @@ function cmtLinkSave(kind){
 function cmtLibraryModal(){
   if(!ASSETS.length) return toast(tr("The asset library is empty"),"bad");
   openModal(tr("Attach from library"),'<div class="agenda">'+ASSETS.map(function(a){
-    return '<div class="row" onclick="cmtLibraryPick(\''+a.id+'\')"><span class="ficon" style="background:'+a.color+'">'+typeExt(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(srcOf(a))+' <span>'+esc(a.size)+'</span></div></div><span class="btn xs">'+tr("Attach")+'</span></div>';
+    return '<div class="row" onclick="cmtLibraryPick(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+typeExt(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(srcOf(a))+' <span>'+esc(a.size)+'</span></div></div><span class="btn xs">'+tr("Attach")+'</span></div>';
   }).join("")+'</div>',null,true);
 }
 function cmtLibraryPick(id){

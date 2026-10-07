@@ -225,9 +225,9 @@ function bkHistory(){
       + (b.tables?' · '+b.tables+' '+tr("tables"):'')
       + (b.createdBy?' · '+esc((person(b.createdBy)||{}).name||b.createdBy):'')
       + (b.reason?' · '+esc(b.reason):'')+'</span></div>'
-      + '<button class="btn xs ghost" onclick="bkVerify(\''+attr(b.name)+'\')">'+tr("Verify")+'</button>'
-      + '<button class="btn xs" onclick="bkDetail(\''+attr(b.name)+'\')">'+tr("Details")+'</button>'
-      + '<button class="btn sm" onclick="bkRestoreModal(\''+attr(b.name)+'\')">'+I.sync+tr("Restore")+'</button>'
+      + '<button class="btn xs ghost" onclick="bkVerify('+jsq(b.name)+')">'+tr("Verify")+'</button>'
+      + '<button class="btn xs" onclick="bkDetail('+jsq(b.name)+')">'+tr("Details")+'</button>'
+      + '<button class="btn sm" onclick="bkRestoreModal('+jsq(b.name)+')">'+I.sync+tr("Restore")+'</button>'
       + '</div>'; }).join("")
     : emptyBox("No backups yet","Create one now so this workspace can be recovered.");
   var audit=(BK.data.audit||[]).slice(0,8);
@@ -257,7 +257,7 @@ function bkDetail(name){
       + '<div class="pref"><div class="pl"><b>'+tr("Size")+'</b><span>'+esc(bytesLabel(m.bytes))+(m.tables?' · '+m.tables+' '+tr("tables"):'')+'</span></div></div>'
       + '<div class="pref"><div class="pl"><b>'+tr("Checksum (SHA-256)")+'</b><span class="mono" style="word-break:break-all">'+esc(m.checksum||"—")+'</span></div></div>'
       + '<div class="pref"><div class="pl"><b>'+tr("Integrity")+'</b><span>'+bkIntegrityBadge(m.integrity&&m.integrity.status)+' '+esc((m.integrity&&m.integrity.detail)||"")+'</span></div></div>',
-      '<button class="btn" onclick="closeModal()">'+tr("Close")+'</button><button class="btn primary" onclick="closeModal();bkRestoreModal(\''+attr(m.name)+'\')">'+tr("Restore this backup")+'</button>',true);
+      '<button class="btn" onclick="closeModal()">'+tr("Close")+'</button><button class="btn primary" onclick="closeModal();bkRestoreModal('+jsq(m.name)+')">'+tr("Restore this backup")+'</button>',true);
   }).catch(function(e){ toast(e.message,"bad"); });
 }
 /* §P1-5 restore is explicit: the admin types the file name, and the flow that

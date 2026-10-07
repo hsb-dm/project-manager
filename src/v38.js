@@ -48,8 +48,8 @@ function richLinkText(text,o){ o=o||{}; text=String(text||""); var urls=typeof m
   return out.replace(/\n/g,"<br>"); }
 function commentAttachmentsHtml(c){ var list=(c.attachments||[]).filter(Boolean); if(!list.length) return "";
   var imgs=list.filter(function(a){ return a.preview; }), rest=list.filter(function(a){ return !a.preview; });
-  return (imgs.length?'<div class="cmt-images">'+imgs.map(function(a){ return '<button type="button" class="cmt-img" title="'+attr(a.name||"")+'" onclick="previewModal({name:\''+attr(a.name||"")+'\',title:\''+attr(a.name||tr("Preview"))+'\',img:\''+attr(a.preview)+'\'})"><img src="'+attr(a.preview)+'" alt="'+attr(a.name||"")+'" loading="lazy"></button>'; }).join("")+'</div>':"")
-    +rest.map(function(a){ var nm=typeof a==="string"?a:(a.name||a.url||""); return a.url?'<a class="att" href="'+attr(a.url)+'" onclick="event.preventDefault();openExternal(\''+attr(a.url)+'\')">'+I.link+esc(nm)+'</a>':'<span class="att att-missing" title="'+attr(tr("Attached before v38 without the file itself"))+'">'+I.link+esc(nm)+'</span>'; }).join(""); }
+  return (imgs.length?'<div class="cmt-images">'+imgs.map(function(a){ return '<button type="button" class="cmt-img" title="'+attr(a.name||"")+'" onclick="previewModal({name:'+jsq(a.name||"")+',title:'+jsq(a.name||tr("Preview"))+',img:'+jsq(a.preview)+'})"><img src="'+attr(a.preview)+'" alt="'+attr(a.name||"")+'" loading="lazy"></button>'; }).join("")+'</div>':"")
+    +rest.map(function(a){ var nm=typeof a==="string"?a:(a.name||a.url||""); return a.url?'<a class="att" href="'+attr(a.url)+'" onclick="event.preventDefault();openExternal('+jsq(a.url)+')">'+I.link+esc(nm)+'</a>':'<span class="att att-missing" title="'+attr(tr("Attached before v38 without the file itself"))+'">'+I.link+esc(nm)+'</span>'; }).join(""); }
 
 /* ---------- #4/#5 default reviewer: the lead of the assignee's team, never demo ids ---------- */
 function defaultReviewerFor(assignee,teamId){ var t=teamId?team(teamId):null; if(t&&t.lead&&t.lead!==assignee&&PEOPLE[t.lead]) return t.lead; return null; }
@@ -267,20 +267,24 @@ function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=ht
     if(t==="p"||t==="div"||t==="tr") return "\n"+inner.trim()+"\n";
     return inner; };
   return walk(d,"").replace(/\*\*\s*\*\*/g,"").replace(/\n{3,}/g,"\n\n").trim(); }
-function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.description||"", mode=S.descMode||(txt?"viewer":"editor");
+function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.description||"", mode=S.descMode||(tk._draft?"editor":"viewer");
   if(!ed) return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">'+tr("Description")+'</div><div class="md-view">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("No description.")+'</span>')+'</div></div>';
-  if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("Nothing to preview yet.")+'</span>')+'</div></div>';
+  if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("No description yet.")+'</span>')+'</div></div>';
   var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="descFormat(\''+act+'\')">'+html+'</button>'; };
   return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
     +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
     +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'</div>'
-    +'<div class="md-src md-wysiwyg" id="descSrc" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.")+'</div></div>'; }
+    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
 function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
-function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=task(S.drawerTask); if(!el||!tk) return; var md=descHtmlToMd(el.innerHTML); if(tk._draft){ tk.description=md; descResolveDriveNames(); return; } if((tk._descDraft||tk.description)!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } descResolveDriveNames(); }
+/* The editor's text belongs to the task it was drawn for (data-for), not to whichever task is open
+   by the time it is read: opening another task used to copy one task's description into the next. */
+function descEditorTask(el){ return el&&typeof task==="function"?task(el.getAttribute("data-for")||""):null; }
+function descSaveMd(tk,md){ if(tk._draft){ tk.description=md; return; } if((tk._descDraft||tk.description||"")!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } }
+function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=descEditorTask(el); if(!el||!tk) return; descSaveMd(tk,descHtmlToMd(el.innerHTML)); descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
 function descSaveNow(){ descWysiwygSave(); }
 /* Writing is only saved a beat after the typing stops, and the drawer is redrawn by anything that
@@ -292,10 +296,13 @@ function descSaveNow(){ descWysiwygSave(); }
   if(typeof renderDrawer!=="function") return;
   var base=renderDrawer;
   renderDrawer=function(){
-    var el=document.getElementById("descSrc"), tk=typeof task==="function"&&S.drawerTask?task(S.drawerTask):null;
+    var el=document.getElementById("descSrc"), tk=descEditorTask(el);
     if(el&&tk){
       var live=descHtmlToMd(el.innerHTML);
-      if(live!==(tk.description||"")){ tk.description=live; descSaveSoon(); }
+      if(live!==(tk._descDraft||tk.description||"")){
+        if(tk.id===S.drawerTask){ tk.description=live; descSaveSoon(); }
+        else { clearTimeout(_descT); descSaveMd(tk,live); }   /* the task just left keeps what was typed in it */
+      }
     }
     return base.apply(this,arguments);
   };
@@ -311,7 +318,7 @@ function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) ret
   function busy(){ var a=document.activeElement; return (a&&(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a.isContentEditable)&&!a.closest("#msgComposer,.msg-composer"))||document.getElementById("modalWrap")&&document.getElementById("modalWrap").classList.contains("open"); }
   function apply(kind,d){
     if(kind==="projects") PROJECTS=d.projects.map(hProject);
-    else if(kind==="teams"){ TEAMS=d.teams; PEOPLE=d.people; WS.people=PEOPLE; }
+    else if(kind==="teams"){ TEAMS=d.teams; PEOPLE=d.people; WS.people=PEOPLE; if(typeof msgRefreshConversations==="function") msgRefreshConversations(); }
     else if(kind==="people"){ var mine=PEOPLE[ME]&&PEOPLE[ME].prefs; PEOPLE=d.people; if(mine&&PEOPLE[ME]) PEOPLE[ME].prefs=mine; WS.people=PEOPLE; }
     else if(kind==="assets"){ ASSETS=d.assets.map(hAsset); ASSET_FOLDERS=d.folders; }
     else if(kind==="knowledge"){ KNOWLEDGE=d.knowledge.map(hPage); KNOWLEDGE_FOLDERS=(d.knowledgeFolders||[]).slice(); }

@@ -140,8 +140,9 @@ test("unsaved brief edits survive the paste", async ({ page }) => {
 
 test("pasting into the description works the same way", async ({ page }) => {
   await signIn(page);
-  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; renderDrawer(); }, taskId);
-  if (!(await page.locator("#descSrc").count())) test.skip(true, "no description editor here");
+  /* the description opens read-only now: Edit first */
+  await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; S.briefEdit = false; S.descMode = "editor"; renderDrawer(); }, taskId);
+  await expect(page.locator("#descSrc")).toHaveCount(1);
   const before = await page.evaluate(id => task(id).comments.length, taskId);
   await pasteImage(page, "#descSrc", "from-description.png");
   await expect.poll(() => page.evaluate(id => task(id).comments.length, taskId), { timeout: 15000 }).toBe(before + 1);

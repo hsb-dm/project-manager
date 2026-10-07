@@ -415,7 +415,7 @@ function pasteFieldImagesHtml(tk,key){
   var list=pasteFieldImages(tk,key), edit=!!S.briefEdit&&key!==PASTE_DESC_KEY&&(tk._draft||canI.editTask(tk));
   if(!list.length&&!edit) return "";
   return '<div class="paste-strip">'+list.map(pasteThumbHtml).join("")
-    + (edit?'<button type="button" class="paste-add" onclick="pastePickImage(\''+attr(key)+'\')">'+I.image+'<span>'+esc(tr("Add image"))+'</span></button>':"")
+    + (edit?'<button type="button" class="paste-add" onclick="pastePickImage('+jsq(key)+')">'+I.image+'<span>'+esc(tr("Add image"))+'</span></button>':"")
     + '</div>';
 }
 /* Images pasted into the description before it could hold them are still filed against it. They

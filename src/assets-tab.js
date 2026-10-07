@@ -79,10 +79,11 @@ function verDeletedText(n){ return UI_LANG==="id"?"Versi "+n+" dihapus":"Version
 function deleteVersion(){
   var tk=task(S.drawerTask), v=lastVer(tk); if(!verCanDelete(tk,v)) return;
   var n=v.n, notes=verNotesOf(v).length, own=verOwnFiles(tk,v);
-  confirmModal(tr("Delete Version")+" "+n+"?",tr("Use this when it was made by mistake.")+" "
+  confirmModal(tr("Delete Version")+" "+esc(n)+"?",tr("Use this when it was made by mistake.")+" "
     + (notes?notes+" "+tr(notes===1?"note on it is deleted too.":"notes on it are deleted too.")+" ":"")
     + (own.length?tr("Its file is removed from Files too:")+" <b>"+own.map(function(f){ return esc(f.name); }).join(", ")+"</b>. ":"")
     + tr("Earlier versions stay as they are."),function(){
+    var now=lastVer(tk); if(!now||now.n!==n||!verCanDelete(tk,now)) return toast(tr("This version changed in the meantime — nothing was deleted."),"bad");
     editTaskWith(tk,function(t){
       var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x) return;
       var gone=verOwnFiles(t,x);
@@ -125,7 +126,7 @@ function avDecision(tk,v,ed){
   if(v.state==="approved"){
     var fin=typeof finalAssetLink==="function"?finalAssetLink(tk):null;
     return '<div class="av-decision ok">'+I.check+'<span>'+tr("Approved by")+' <b>'+esc(person(v.decidedBy||tk.reviewer).name)+'</b> · '+ago(v.decidedAgo!=null?v.decidedAgo:v.ago,v.decidedAt||(v.decidedAgo!=null?null:v.createdAt))+'</span><span class="spacer"></span>'
-      + (fin&&fin.url?'<button class="btn sm" onclick="openExternal(\''+attr(fin.url)+'\')">'+I.ext+tr("Open final")+'</button>':'')
+      + (fin&&fin.url?'<button class="btn sm" onclick="openExternal('+jsq(fin.url)+')">'+I.ext+tr("Open final")+'</button>':'')
       + (canI.reviewTask(tk)&&reviewFlow().reopen?'<button class="btn danger-soft sm" title="'+attr(tr("Something changed? It can still go back for revision."))+'" onclick="startRevision()">'+tr("Request revision")+(verNotesOpen(v).length?' <span class="vn-badge">'+verNotesOpen(v).length+'</span>':'')+'</button>':'')+'</div>';
   }
   if(v.state==="revision"){
@@ -166,12 +167,12 @@ function verNotesHtml(tk,v){
 function verNoteRow(n,i,can){
   var mine=can&&(n.by===ME||canI.manageWorkspace());
   return '<div class="vn-row'+(n.done?' done':'')+'" data-nid="'+attr(n.id)+'">'
-    + '<button type="button" class="vn-tick" role="checkbox" aria-checked="'+(n.done?"true":"false")+'" aria-label="'+attr(tr(n.done?"Mark as not done":"Mark as done"))+'"'+(can?' onclick="toggleVerNote(\''+attr(n.id)+'\')"':' disabled')+'>'+I.check+'</button>'
+    + '<button type="button" class="vn-tick" role="checkbox" aria-checked="'+(n.done?"true":"false")+'" aria-label="'+attr(tr(n.done?"Mark as not done":"Mark as done"))+'"'+(can?' onclick="toggleVerNote('+jsq(n.id)+')"':' disabled')+'>'+I.check+'</button>'
     + '<span class="vn-num">'+(i+1)+'</span>'
     + '<div class="vn-body">'+(n.text?'<div class="vn-text">'+esc(n.text)+'</div>':'')
-    + (n.img?'<img class="vn-img" src="'+attr(n.img)+'" alt="'+attr(tr("Screenshot"))+'" onclick="verNoteZoom(\''+attr(n.id)+'\')">':'')
+    + (n.img?'<img class="vn-img" src="'+attr(n.img)+'" alt="'+attr(tr("Screenshot"))+'" onclick="verNoteZoom('+jsq(n.id)+')">':'')
     + '<div class="vn-meta">'+esc(first(n.by))+(n.at?' · '+ago(null,n.at):'')+(n.done&&n.doneBy?' · '+tr("done by")+' '+esc(first(n.doneBy)):'')+'</div></div>'
-    + (mine?'<button type="button" class="iconbtn flat vn-x" aria-label="'+attr(tr("Remove note"))+'" onclick="removeVerNote(\''+attr(n.id)+'\')">'+I.x+'</button>':'')
+    + (mine?'<button type="button" class="iconbtn flat vn-x" aria-label="'+attr(tr("Remove note"))+'" onclick="removeVerNote('+jsq(n.id)+')">'+I.x+'</button>':'')
     + '</div>';
 }
 /* The notes of a version, to read: Full view, and an earlier version's notes. */
@@ -390,7 +391,7 @@ function useAsVersionHtml(tk,f){
   var as=typeof fileLinkedVersions==="function"?fileLinkedVersions(tk,f):[];
   if(as.length) return '<span class="badge av-is-ver">'+tr("Version")+' '+as.map(function(v){ return v.n; }).join(", ")+'</span>';
   if(!fileVersionSource(f)||!canI.editTask(tk)) return '';
-  return '<button class="btn xs av-use-ver" onclick="useAsVersionModal(\''+attr(f.id)+'\')">'+I.up+tr("Use as new version")+'</button>';
+  return '<button class="btn xs av-use-ver" onclick="useAsVersionModal('+jsq(f.id)+')">'+I.up+tr("Use as new version")+'</button>';
 }
 function useAsVersionModal(fid){
   var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); if(!src) return;
@@ -399,7 +400,7 @@ function useAsVersionModal(fid){
     '<p class="hint" style="margin-bottom:10px">'+tr("It becomes the next version as it is — nothing is uploaded again. You submit it for review in the next step.")+'</p>'
     + '<div class="av-use-src">'+(src.img&&!src.url?'<span class="fthumb" style="background-image:url('+attr(src.img)+')"></span>':'<span class="ficon ficon-drive">'+(drive?googleIcon(src.url):I.link)+'</span>')+'<div><b>'+esc(f.name)+'</b>'+(src.url?'<span class="mono">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(src.url):src.url)+'</span>':'')+'</div></div>'
     + fieldHtml("uav_note","What changed (optional)",'<input id="uav_note" placeholder="'+attr(tr("e.g. Bigger headline, logo moved"))+'">'),
-    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveUseAsVersion(\''+attr(fid)+'\')">'+tr("Create Version")+' '+n+'</button>');
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveUseAsVersion('+jsq(fid)+')">'+tr("Create Version")+' '+n+'</button>');
 }
 function saveUseAsVersion(fid){
   var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); if(!src) return closeModal();
@@ -435,7 +436,7 @@ function showVersionNotes(n,fromList){
     '<div class="vn-ver"><div class="vn-ver-meta">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago,v.createdAt)+(v.note?' · '+esc(v.note):'')+'</span></div>'
     + (dec?'<div class="vn-ver-dec">'+verBadge(v)+'<span>'+dec+(v.decidedAt?' · '+ago(null,v.decidedAt):'')+'</span></div>':'')+'</div>'
     + verNotesReadHtml(v),
-    (fromList?'<button class="btn ghost" onclick="versionHistoryModal()">← '+tr("All versions")+'</button>':'')+(v.driveUrl?'<button class="btn" onclick="openExternal(\''+attr(v.driveUrl)+'\')">'+I.ext+origLabel(v.driveUrl)+'</button>':'')+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">'+tr("Close")+'</button>');
+    (fromList?'<button class="btn ghost" onclick="versionHistoryModal()">← '+tr("All versions")+'</button>':'')+(v.driveUrl?'<button class="btn" onclick="openExternal('+jsq(v.driveUrl)+')">'+I.ext+origLabel(v.driveUrl)+'</button>':'')+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">'+tr("Close")+'</button>');
 }
 
 /* A version can be any HTTPS link — a Figma frame, a Canva design, a Dropbox file — not only a Drive
@@ -479,7 +480,7 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsVersionHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal(\''+attr(f.id)+'\',false)">'+tr("Not final")+'</button>':'')}:null);
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsVersionHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:null);
   }).join("")+'</section>';
 }
 
@@ -501,8 +502,8 @@ function avCommentFiles(tk,ed){
     + rows.map(function(r){
       var f=r[0], c=avFileComment(tk,f);
       var meta=c?'<span>·</span><span>'+esc(first(c.by))+' '+tr("in a comment")+'</span>':'';
-      var btns=useAsVersionHtml(tk,f)+(c?'<button class="btn xs ghost" onclick="avShowComment(\''+attr(c.id)+'\')">'+tr("View comment")+'</button>':'')
-        + (ed?'<button class="btn xs" onclick="markFileFinal(\''+attr(f.id)+'\',true)">'+I.check+tr("Mark as final")+'</button>':'');
+      var btns=useAsVersionHtml(tk,f)+(c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'')
+        + (ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
       return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns});
     }).join("")+'</section>';
 }
@@ -536,6 +537,8 @@ function avCountRow(tk,ed){
 ATEXT.note="<b>{who}</b> added notes on Version {v}";
 ATEXT_ID.note="<b>{who}</b> menambahkan catatan di Versi {v}";
 ATEXT.version_deleted="<b>{who}</b> deleted Version {v}";
+ATEXT.restored="<b>{who}</b> went back to an earlier point";
+ATEXT_ID.restored="<b>{who}</b> mengembalikan ke titik sebelumnya";
 ATEXT_ID.version_deleted="<b>{who}</b> menghapus Versi {v}";
 
 Object.assign(UI_ID,{
@@ -623,6 +626,7 @@ Object.assign(UI_ID,{
   "It becomes the next version as it is — nothing is uploaded again. You submit it for review in the next step.":"Tautan ini langsung menjadi versi berikutnya — tidak perlu diunggah ulang. Setelah itu, kirim untuk review.",
   "All versions":"Semua versi",
   "Delete version":"Hapus versi",
+  "This version changed in the meantime — nothing was deleted.":"Versi ini berubah sementara itu — tidak ada yang dihapus.",
   "Delete Version":"Hapus Versi",
   "Use this when it was made by mistake.":"Pakai ini kalau versi ini tidak sengaja dibuat.",
   "note on it is deleted too.":"catatan di versi ini ikut terhapus.",
@@ -657,4 +661,56 @@ Object.assign(UI_ID,{
   "Write what changed — then send it back with Request revision":"Tulis apa yang berubah — lalu kirim lewat Minta revisi",
   "The version and its notes will be removed too.":"Versi dan catatannya juga akan dihapus."
 });
+</script>
+
+<script>
+/* ---------- going back to a point in the history (admins) ----------
+   Each entry in a task's Activity (and a project's, in the workspace feed) that the server saved a copy
+   for can be gone back to: the admin sees what would change, then the task or project is put back.
+   Comments and the history stay; the restore is itself an entry, so it can be undone the same way. */
+function canRestoreHistory(){ return API.on&&has("manage_workspace"); }
+function restoreButtonHtml(type,id,a){ if(!canRestoreHistory()||!a||!a.id||!a.a||!a.a.snap) return ""; return '<button type="button" class="btn xs ghost act-restore" title="'+attr(tr("Go back to this point"))+'" aria-label="'+attr(tr("Go back to this point"))+'" onclick="event.stopPropagation();restoreFromActivity('+jsq(type)+','+jsq(id)+','+jsq(a.id)+')">↺<span>'+tr("Go back")+'</span></button>'; }
+function restoreWhen(iso){ try{ return new Date(iso).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }catch(e){ return iso||""; } }
+function restoreNames(ids){ return (ids||[]).filter(Boolean).map(function(x){ return person(x).name; }).join(", ")||"—"; }
+function restoreVers(vs){ return (vs||[]).map(function(v){ return "V"+v.n+(v.state==="approved"?" ✓":v.state==="revision"?" ↺":""); }).join(", ")||"—"; }
+function restoreDiff(type,cur,doc){
+  var out=[], row=function(label,now,then){ if(String(now)===String(then)) return; out.push('<li><b>'+esc(tr(label))+'</b><span class="was">'+esc(now)+'</span><span class="arrow">→</span><span class="becomes">'+esc(then)+'</span></li>'); }, changed=function(label,a,b){ if(JSON.stringify(a||null)!==JSON.stringify(b||null)) out.push('<li><b>'+esc(tr(label))+'</b><span class="becomes">'+esc(tr("goes back to how it was"))+'</span></li>'); };
+  if(!doc) return out;
+  if(type==="task"){ var c=dTask(cur);
+    row("Title",c.title,doc.title); row("Stage",stageName(c.status),stageName(doc.status)); row("Priority",prioL(c.prio),prioL(doc.prio));
+    row("Assignees",restoreNames(assigneesOf(c)),restoreNames(doc.assignees&&doc.assignees.length?doc.assignees:[doc.assignee])); row("Reviewers",restoreNames(reviewersOf(c)),restoreNames(doc.reviewers&&doc.reviewers.length?doc.reviewers:[doc.reviewer]));
+    /* the stored dates, not the page's day offsets (a task with no due date shows today here) */
+    var same=cur._dates&&cur._dates[1]===cur.due&&cur._dates[2]===cur.span;
+    row("Due date",(same?cur.dueDate:c.dueDate)||"—",doc.dueDate||"—"); row("Start date",(same?cur._dates[0]:c.startDate)||"—",doc.startDate||"—");
+    row("Versions",restoreVers(c.versions),restoreVers(doc.versions)); row("Files",(c.files||[]).length,(doc.files||[]).length);
+    changed("Description",c.description,doc.description); changed("Creative brief",c.brief,doc.brief); changed("Tags",c.tags,doc.tags); changed("Labels",c.labels,doc.labels);
+  } else {
+    row("Name",cur.name,doc.name); row("Status",tr(cur.status||""),tr(doc.status||"")); row("Due date",cur.dueDate||"—",doc.dueDate||"—"); row("Start date",cur.startDate||"—",doc.startDate||"—");
+    row("Teams",(cur.teams||[]).map(teamName).join(", ")||"—",(doc.teams||[]).map(teamName).join(", ")||"—");
+    changed("Description",cur.description,doc.description); changed("Creative brief",cur.brief,doc.brief); changed("Tags",cur.tags,doc.tags);
+  }
+  return out;
+}
+function restoreFromActivity(type,id,actId){
+  if(!canRestoreHistory()) return;
+  apiFetch("GET","/api/restore/"+type+"/"+encodeURIComponent(id)+"?activity="+encodeURIComponent(actId)).then(function(s){
+    var cur=type==="task"?task(id):(typeof project==="function"?project(id):null); if(!cur) return;
+    var lines=restoreDiff(type,cur,s.doc);
+    openModal(tr("Go back to this point?"),
+      '<p class="hint" style="margin-bottom:10px">'+esc(tr(type==="task"?"The task is put back to how it was on":"The project is put back to how it was on"))+' <b>'+esc(restoreWhen(s.takenAt))+'</b>'+(s.by?' · '+esc(person(s.by).name):'')+'</p>'
+      +(lines.length?'<div class="restore-head"><span>'+tr("Now")+'</span><span>'+tr("After going back")+'</span></div><ul class="restore-diff">'+lines.join("")+'</ul>':'<p>'+tr("Nothing would change — it is already like this.")+'</p>')
+      +'<p class="hint" style="margin-top:10px">'+tr("Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.")+'</p>',
+      '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary"'+(lines.length?'':' disabled')+' onclick="restoreDo('+jsq(type)+','+jsq(id)+','+jsq(actId)+')">↺ '+tr("Go back")+'</button>');
+  }).catch(function(e){ toast(e.message,"bad"); });
+}
+function restoreDo(type,id,actId){
+  closeModal();
+  apiFetch("POST","/api/restore/"+type+"/"+encodeURIComponent(id),{activityId:actId}).then(function(d){
+    if(type==="task"){ var tk=task(id); if(tk) replaceInto(tk,hTask(d)); if(S.drawerTask===id) renderDrawer(); }
+    else { if(d.projects) PROJECTS=d.projects.map(hProject); if(d.activity) ACTIVITY=d.activity.map(hAct); }
+    AN=null; refresh(); toast(tr("Gone back to the earlier point"));
+  }).catch(function(e){ toast(e.message,"bad"); });
+}
+/* only words not translated already: a common word keeps the translation it has elsewhere */
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Go back":"Kembalikan","Go back to this point":"Kembalikan ke titik ini","Go back to this point?":"Kembalikan ke titik ini?","The task is put back to how it was on":"Task dikembalikan seperti keadaannya pada","The project is put back to how it was on":"Project dikembalikan seperti keadaannya pada","Now":"Sekarang","After going back":"Setelah dikembalikan","Nothing would change — it is already like this.":"Tidak ada yang berubah — keadaannya sudah seperti ini.","Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.":"Komentar dan riwayat tetap seperti sekarang. Pengembalian juga tercatat, jadi bisa dibatalkan dengan cara yang sama.","Gone back to the earlier point":"Sudah dikembalikan ke titik sebelumnya","goes back to how it was":"kembali seperti semula","Stage":"Tahap","Assignees":"Assignee","Reviewers":"Reviewer","Due date":"Tenggat","Start date":"Tanggal mulai","Versions":"Versi","Files":"File","Description":"Deskripsi","Creative brief":"Creative brief","Tags":"Tag","Labels":"Label","Name":"Nama","Status":"Status","Teams":"Tim","Title":"Judul","Priority":"Prioritas"});
 </script>

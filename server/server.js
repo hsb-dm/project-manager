@@ -130,7 +130,7 @@ function checkTextLimits(pathname, b) {
    people work at once. Bulk bootstrap is not re-sent. */
 function announceTaskChange(method, pathname, out, user) {
   try {
-    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden))?$/.exec(pathname); if (!m) return;
+    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
     const id = m[1] || (out && out.id); if (!id || id === "bulk") return;
     const deleted = method === "DELETE";
     const row = deleted ? null : db.prepare("SELECT updated_at FROM tasks WHERE id=?").get(id);
@@ -181,7 +181,26 @@ function userContext(id) {
 }
 const MAX_BODY_BYTES = Math.max(1_000_000, +(process.env.COS_MAX_BODY_BYTES || 12_000_000));
 const readBody = (req) => new Promise((res, rej) => { let b = "", rejected = false; const declared = +(req.headers["content-length"] || 0); if (declared > MAX_BODY_BYTES) return rej(new HttpError(413, "Body too large")); req.on("data", c => { if (rejected) return; b += c; if (Buffer.byteLength(b) > MAX_BODY_BYTES) { rejected = true; rej(new HttpError(413, "Body too large")); } }); req.on("end", () => { if (rejected) return; try { res(b ? JSON.parse(b) : {}); } catch { rej(new HttpError(400, "Invalid JSON")); } }); });
-const act = (user, k, entityType, entityId, a) => sz.appendActivity(db, WS_ID, { who: user.id, k, a: a || {} }, entityType, entityId);
+/* ---------- going back to a point in the history (tasks and projects) ----------
+   A write that adds to a task's or a project's history keeps a copy of how it looked right after,
+   and the history entries it wrote name that copy (a.snap). An admin can put the task or project
+   back to any such point (POST /api/restore/...). Comments and the history itself stay as they are;
+   the restore is a point in the history too, so it can be undone the same way. The last
+   SNAP_KEEP copies of each are kept. */
+const SNAP_KEEP = 300;
+let SNAP_NOW = null;
+function snapTable() { if (snapTable.ready === db) return; db.exec("CREATE TABLE IF NOT EXISTS entity_snapshots (id TEXT PRIMARY KEY, workspace_id TEXT, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, taken_at TEXT NOT NULL, actor_id TEXT, doc TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_entity_snapshots ON entity_snapshots(entity_type, entity_id, taken_at);"); snapTable.ready = db; }
+function snapshotDoc(type, id) {
+  if (type === "task") { const t = sz.readTask(db, id); if (!t) return null; const c = Object.assign({}, t); delete c.comments; delete c.activity; return c; }
+  return sz.readProjects(db, WS_ID).find(x => x.id === id) || null;
+}
+function withSnapshot(user, type, id, fn) {
+  const prev = SNAP_NOW, mine = { type, id, snap: uid("snap"), used: false }; SNAP_NOW = mine;
+  let out; try { out = fn(); } finally { SNAP_NOW = prev; }
+  if (mine.used) { try { const doc = snapshotDoc(type, id); if (doc) { snapTable(); db.prepare("INSERT INTO entity_snapshots (id,workspace_id,entity_type,entity_id,taken_at,actor_id,doc) VALUES (?,?,?,?,?,?,?)").run(mine.snap, WS_ID, type, id, now(), user && user.id || null, JSON.stringify(doc)); db.prepare("DELETE FROM entity_snapshots WHERE entity_type=? AND entity_id=? AND id NOT IN (SELECT id FROM entity_snapshots WHERE entity_type=? AND entity_id=? ORDER BY taken_at DESC LIMIT " + SNAP_KEEP + ")").run(type, id, type, id); } } catch (e) { /* history copies are best effort: the write itself stands */ } }
+  return out;
+}
+const act = (user, k, entityType, entityId, a) => { a = a || {}; if (SNAP_NOW && SNAP_NOW.type === entityType && SNAP_NOW.id === entityId) { a = Object.assign({}, a, { snap: SNAP_NOW.snap }); SNAP_NOW.used = true; } return sz.appendActivity(db, WS_ID, { who: user.id, k, a }, entityType, entityId); };
 
 /* ---------- drag-and-drop mutations (§39, §76, §77) ---------- */
 // afterTaskId = the neighbour the moved task lands AFTER (predecessor); beforeTaskId = the neighbour it lands BEFORE (successor). Fractional ranks (§77).
@@ -307,7 +326,7 @@ function moveTask(user, id, op) {
       case "MOVE_TASK_PROJECT": db.prepare("UPDATE tasks SET project_id=?, updated_at=? WHERE id=?").run(op.projectId, now(), id); act(user, "edited", "task", id, { task: id, what: "project" }); break;
       case "MOVE_TASK_TEAM": db.prepare("UPDATE tasks SET team_id=?, updated_at=? WHERE id=?").run(op.teamId || null, now(), id); act(user, "team", "task", id, { task: id, to: op.teamId }); break;
       case "MOVE_TASK_ASSIGNEE": { forbid(can.assignTask(user, doc), "assign this task"); const list = (doc.assignees || []).filter(x => x !== doc.assignee); if (op.assigneeId) list.unshift(op.assigneeId); db.prepare("UPDATE tasks SET assignee_id=?, assignees=?, updated_at=? WHERE id=?").run(op.assigneeId || null, S(list), now(), id); } act(user, "assigned", "task", id, { task: id, to: op.assigneeId }); break;
-      case "MOVE_TASK_PRIORITY": db.prepare("UPDATE tasks SET priority=?, updated_at=? WHERE id=?").run(op.priority, now(), id); act(user, "edited", "task", id, { task: id, what: "priority" }); break;
+      case "MOVE_TASK_PRIORITY": if (!PRIOS.has(op.priority)) throw new HttpError(400, "Unknown priority"); db.prepare("UPDATE tasks SET priority=?, updated_at=? WHERE id=?").run(op.priority, now(), id); act(user, "edited", "task", id, { task: id, what: "priority" }); break;
       default: throw new HttpError(400, "Unknown drag operation " + op.type);
     }
     return sz.readTask(db, id);
@@ -341,7 +360,7 @@ route("POST", "/api/auth/login", (u, p, q, b, ctx) => { const email = String(b.e
 route("POST", "/api/auth/register", (u, p, q, b, ctx) => { const name = String(b.name || "").trim(), email = String(b.email || "").trim().toLowerCase(); const gate = security.loginStatus(ctx.ip, "register:" + email); if (!gate.allowed) throw new HttpError(429, "Too many registration attempts. Try again later."); if (name.length < 2 || name.length > 120) throw new HttpError(400, "Name is required"); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) throw new HttpError(400, "A valid email is required"); passwordError(b.password);
   const ws = db.prepare("SELECT invite_code AS join_code, default_role_id, allow_registration FROM workspaces WHERE id=?").get(WS_ID); if (!ws.allow_registration) { security.loginResult(ctx.ip, "register:" + email, false); throw new HttpError(403, "Registration is closed — ask an admin to create your account"); } if (ws.join_code && String(b.joinCode || "").trim().toUpperCase() !== ws.join_code.toUpperCase()) { security.loginResult(ctx.ip, "register:" + email, false); security.log("registration_rejected", { ip: ctx.ip, email }); throw new HttpError(403, "Invalid workspace join code — ask your admin"); }
   if (db.prepare("SELECT 1 FROM users WHERE lower(email)=?").get(email)) throw new HttpError(409, "An account with this email already exists — sign in instead");
-  const id = auth.userIdFor(name, db); const pw = auth.hashPassword(b.password); const ini = name.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase(); const roleId = db.prepare("SELECT 1 FROM roles WHERE id=?").get(ws.default_role_id || "member") ? (ws.default_role_id || "member") : "member";
+  const id = auth.userIdFor(name, db); const pw = auth.hashPassword(b.password); const ini = name.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase(); const roleId = ws.default_role_id !== "admin" && db.prepare("SELECT 1 FROM roles WHERE id=?").get(ws.default_role_id || "member") ? (ws.default_role_id || "member") : "member";
   tx(db, () => { sz.writePerson(db, WS_ID, id, { name, email, ini, c: db.prepare("SELECT count(*) n FROM users").get().n % 7, role: String(b.jobTitle || "").trim(), perm: roleId, cap: 40, teams: b.teamId && db.prepare("SELECT 1 FROM teams WHERE id=?").get(b.teamId) ? [[b.teamId, true]] : [] }); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, id); });
   sz.appendActivity(db, WS_ID, { who: id, k: "member_added", a: { what: name + " registered" } }, "user", id);
   security.loginResult(ctx.ip, "register:" + email, true); const sess = auth.createSession(db, id, ctx.ua); ctx.setCookie = auth.cookie(sess.id, sess.exp); security.log("account_registered", { ip: ctx.ip, userId: id }); return { user: publicUser(id) }; });
@@ -402,7 +421,7 @@ route("POST", "/api/auth/reset", (u, p, q, b, ctx) => {
 });
 route("POST", "/api/auth/logout", (u, p, q, b, ctx) => { auth.destroySession(db, ctx.token); ctx.setCookie = auth.cookie(null); if (u) security.log("logout", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/auth/password", (u, p, q, b, ctx) => { const row = db.prepare("SELECT password_hash, password_salt FROM users WHERE id=?").get(u.id); if (row.password_hash && !auth.verifyPassword(b.current || "", row.password_salt, row.password_hash)) throw new HttpError(400, "Current password is incorrect"); passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, u.id); db.prepare("DELETE FROM sessions WHERE user_id=? AND id!=?").run(u.id, auth.sessionId(ctx.token)); security.log("password_changed", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
-route("POST", "/api/members/:id/password", (u, p, q, b, ctx) => { forbid(can.manageMembers(u), "reset passwords"); passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, p.id); db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); act(u, "edited", "user", p.id, { what: "password reset" }); security.log("password_reset_by_admin", { adminId: u.id, userId: p.id, ip: ctx.ip }); return { ok: true }; });
+route("POST", "/api/members/:id/password", (u, p, q, b, ctx) => { forbid(can.manageMembers(u), "reset passwords"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) forbidAboveMe(u, t.perm, "reset this member's password"); } passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, p.id); db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); act(u, "edited", "user", p.id, { what: "password reset" }); security.log("password_reset_by_admin", { adminId: u.id, userId: p.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/members/:id/active", (u, p, q, b) => { forbid(can.manageMembers(u), "deactivate members"); if (p.id === u.id) throw new HttpError(400, "You cannot deactivate yourself"); db.prepare("UPDATE users SET is_active=? WHERE id=?").run(b.active ? 1 : 0, p.id); if (!b.active) db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); return sz.readPeople(db, WS_ID); });
 /* roles (customizable) */
 route("GET", "/api/roles", () => ({ roles: readRoles(), caps: CAPS }));
@@ -444,10 +463,10 @@ function bootstrapTasksFresh() {
   const tasks = hot.concat(cold).sort((a, b) => (a.sort || 0) - (b.sort || 0));
   return { tasks, taskWindow: { hotDays: HOT_DAYS, slim: cold.length, full: hot.length } };
 }
-route("GET", "/api/tasks/:id", (u, p) => { const t = sz.readTask(db, p.id); if (!t || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found"); return t; });
+route("GET", "/api/tasks/:id", (u, p) => { const t = sz.readTask(db, p.id); if (!t || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found"); return forViewer(u, t); });
 route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
-  ...bootstrapTasks(),
+  ...((bt) => u.stakeholder ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
   savedViews: sz.readViews(db, WS_ID, u.id), notifs: sz.readNotifs(db, WS_ID, u.id), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
 }));
@@ -757,7 +776,7 @@ route("POST", "/api/ai/expand", async (u, p, q, b) => {
   return { imageUrl: url };
 });
 
-route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
+route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */
@@ -852,19 +871,39 @@ route("PUT", "/api/teams/:id", (u, p, q, b) => { forbid(can.manageTeams(u), "edi
 route("DELETE", "/api/teams/:id", (u, p) => { forbid(can.manageTeams(u), "archive teams"); tx(db, () => { db.prepare("UPDATE teams SET is_archived=1 WHERE id=?").run(p.id); db.prepare("UPDATE tasks SET team_id=NULL WHERE team_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE team_id=?").run(p.id); }); return sz.readTeams(db, WS_ID); });
 route("POST", "/api/teams/reorder", (u, p, q, b) => { forbid(can.manageTeams(u), "reorder teams"); tx(db, () => (b.ids || []).forEach((id, i) => db.prepare("UPDATE teams SET sort_order=? WHERE id=? AND workspace_id=?").run(i + 1, id, WS_ID))); return sz.readTeams(db, WS_ID); });
 /* members */
-route("POST", "/api/members", (u, p, q, b) => { forbid(can.manageMembers(u), "add members"); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); if (db.prepare("SELECT 1 FROM users WHERE lower(email)=?").get(b.email)) throw new HttpError(409, "That email is already used by another member"); } if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (b.id != null && !/^[A-Za-z0-9_-]{1,60}$/.test(String(b.id))) throw new HttpError(400, "Invalid member id"); let id = b.id || uid("u"); /* v38: never reuse the id of a removed account (it would bring back its old password) */ if (db.prepare("SELECT 1 FROM users WHERE id=?").get(id)) id = auth.userIdFor(b.name, db); tx(db, () => { sz.writePerson(db, WS_ID, id, b); db.prepare("UPDATE users SET is_active=1 WHERE id=?").run(id); }); act(u, "member_added", "user", id, { what: b.name }); return { id, people: sz.readPeople(db, WS_ID) }; });
-route("PUT", "/api/members/:id", (u, p, q, b) => { forbid(can.manageMembers(u) || u.id === p.id, "edit members"); const existing = sz.readPeople(db, WS_ID)[p.id]; if (!existing) throw new HttpError(404, "Member not found"); b = Object.assign({}, existing, b || {}); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (!can.manageMembers(u)) { const cur = existing; b.perm = cur.perm; b.teams = cur.teams; b.stakeholder = cur.stakeholder; b.cap = cur.cap; b.active = cur.active; } /* v34: never leave the workspace without an admin (the last admin demoting themselves locked everyone out of members, backups and settings). */ if (existing.perm === "admin" && b.perm !== "admin" && !db.prepare("SELECT 1 FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND x.is_active=1 AND m.user_id<>?").get(WS_ID, p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); const other = db.prepare("SELECT id FROM users WHERE lower(email)=? AND id!=?").get(b.email, p.id); if (other) throw new HttpError(409, "That email is already used by another member"); } if (b.avatar && String(b.avatar).length > 300000) throw new HttpError(413, "Profile photo too large"); if (b.avatar && !/^data:image\/(png|jpeg|webp);base64,/.test(b.avatar)) throw new HttpError(400, "Photo must be PNG/JPEG/WebP"); tx(db, () => sz.writePerson(db, WS_ID, p.id, b)); return sz.readPeople(db, WS_ID); });
-route("DELETE", "/api/members/:id", (u, p) => { forbid(can.manageMembers(u), "remove members"); if (p.id === u.id) throw new HttpError(400, "You cannot remove yourself"); tx(db, () => { db.prepare("UPDATE tasks SET assignee_id=? WHERE assignee_id=?").run(u.id, p.id); db.prepare("UPDATE tasks SET reviewer_id=? WHERE reviewer_id=?").run(u.id, p.id); db.prepare("UPDATE projects SET owner_id=? WHERE owner_id=?").run(u.id, p.id); db.prepare("UPDATE teams SET team_lead_id=NULL WHERE team_lead_id=?").run(p.id); db.prepare("DELETE FROM project_members WHERE user_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID); releaseAccount(p.id); }); security.log("member_removed", { adminId: u.id, userId: p.id }); return sz.readPeople(db, WS_ID); });
+route("POST", "/api/members", (u, p, q, b) => { forbid(can.manageMembers(u), "add members"); if (b && b.perm) forbidAboveMe(u, b.perm, "give that role"); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); if (db.prepare("SELECT 1 FROM users WHERE lower(email)=?").get(b.email)) throw new HttpError(409, "That email is already used by another member"); } if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (b.id != null && !/^[A-Za-z0-9_-]{1,60}$/.test(String(b.id))) throw new HttpError(400, "Invalid member id"); let id = b.id || uid("u"); /* v38: never reuse the id of a removed account (it would bring back its old password) */ if (db.prepare("SELECT 1 FROM users WHERE id=?").get(id)) id = auth.userIdFor(b.name, db); tx(db, () => { sz.writePerson(db, WS_ID, id, b); db.prepare("UPDATE users SET is_active=1 WHERE id=?").run(id); }); act(u, "member_added", "user", id, { what: b.name }); return { id, people: sz.readPeople(db, WS_ID) }; });
+route("PUT", "/api/members/:id", (u, p, q, b) => { forbid(can.manageMembers(u) || u.id === p.id, "edit members"); const existing = sz.readPeople(db, WS_ID)[p.id]; if (!existing) throw new HttpError(404, "Member not found"); b = Object.assign({}, existing, b || {}); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (!can.manageMembers(u)) { const cur = existing; b.perm = cur.perm; b.teams = cur.teams; b.stakeholder = cur.stakeholder; b.cap = cur.cap; b.active = cur.active; } else if (u.id !== p.id || b.perm !== existing.perm) { forbidAboveMe(u, existing.perm, "change this member"); forbidAboveMe(u, b.perm, "give that role"); }
+  /* deactivating the last admin locks everyone out just as demoting them did */
+  if (existing.perm === "admin" && existing.active !== false && b.active === false && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); /* v34: never leave the workspace without an admin (the last admin demoting themselves locked everyone out of members, backups and settings). */ if (existing.perm === "admin" && b.perm !== "admin" && !db.prepare("SELECT 1 FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND x.is_active=1 AND m.user_id<>?").get(WS_ID, p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); const other = db.prepare("SELECT id FROM users WHERE lower(email)=? AND id!=?").get(b.email, p.id); if (other) throw new HttpError(409, "That email is already used by another member"); } if (b.avatar && String(b.avatar).length > 300000) throw new HttpError(413, "Profile photo too large"); if (b.avatar && !/^data:image\/(png|jpeg|webp);base64,/.test(b.avatar)) throw new HttpError(400, "Photo must be PNG/JPEG/WebP"); tx(db, () => sz.writePerson(db, WS_ID, p.id, b)); return sz.readPeople(db, WS_ID); });
+route("DELETE", "/api/members/:id", (u, p) => { forbid(can.manageMembers(u), "remove members"); if (p.id === u.id) throw new HttpError(400, "You cannot remove yourself"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) { forbidAboveMe(u, t.perm, "remove this member"); if (t.perm === "admin" && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); } } tx(db, () => { db.prepare("UPDATE tasks SET assignee_id=? WHERE assignee_id=?").run(u.id, p.id); db.prepare("UPDATE tasks SET reviewer_id=? WHERE reviewer_id=?").run(u.id, p.id); db.prepare("UPDATE projects SET owner_id=? WHERE owner_id=?").run(u.id, p.id); db.prepare("UPDATE teams SET team_lead_id=NULL WHERE team_lead_id=?").run(p.id); db.prepare("DELETE FROM project_members WHERE user_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID); releaseAccount(p.id); }); security.log("member_removed", { adminId: u.id, userId: p.id }); return sz.readPeople(db, WS_ID); });
 route("POST", "/api/members/:id/team", (u, p, q, b) => { forbid(can.manageTeams(u), "change team membership"); tx(db, () => { if (b.isPrimary) db.prepare("UPDATE team_memberships SET is_primary=0 WHERE user_id=?").run(p.id); if (b.fromTeamId) db.prepare("DELETE FROM team_memberships WHERE user_id=? AND team_id=?").run(p.id, b.fromTeamId); db.prepare("INSERT INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,?) ON CONFLICT(team_id,user_id) DO UPDATE SET is_primary=excluded.is_primary").run("tm_" + b.teamId + "_" + p.id, b.teamId, p.id, b.isPrimary ? 1 : 0); if (!db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND is_primary=1").get(p.id)) db.prepare("UPDATE team_memberships SET is_primary=1 WHERE id=(SELECT id FROM team_memberships WHERE user_id=? LIMIT 1)").run(p.id); }); act(u, "member_team", "user", p.id, { team: b.teamId, user: p.id }); return sz.readPeople(db, WS_ID); });
 route("DELETE", "/api/members/:id/team/:teamId", (u, p) => { forbid(can.manageTeams(u), "change team membership"); tx(db, () => { db.prepare("DELETE FROM team_memberships WHERE user_id=? AND team_id=?").run(p.id, p.teamId); if (!db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND is_primary=1").get(p.id)) db.prepare("UPDATE team_memberships SET is_primary=1 WHERE id=(SELECT id FROM team_memberships WHERE user_id=? LIMIT 1)").run(p.id); }); return sz.readPeople(db, WS_ID); });
 /* projects */
 /* v32: a POST (create) must not silently overwrite an existing row of the same id — that
    turns a create-only permission into edit-any. Callers pass the table to check. */
-function rejectExistingId(table, id) { if (id != null && db.prepare("SELECT 1 FROM " + table + " WHERE id=?").get(id)) throw new HttpError(409, "An item with this ID already exists"); }
-route("POST", "/api/projects", (u, p, q, b) => { forbid(can.createProject(u), "create projects"); b.id = b.id || uid("p"); rejectExistingId("projects", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM projects WHERE workspace_id=?").get(WS_ID).s; tx(db, () => sz.writeProject(db, WS_ID, b)); act(u, "project_created", "project", b.id, { project: b.id, what: b.name }); return sz.readProjects(db, WS_ID); });
-route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "edit this project"); b.id = p.id; tx(db, () => sz.writeProject(db, WS_ID, b)); return sz.readProjects(db, WS_ID); });
+/* Someone who manages members without being an admin hands out no role above their own and does not
+   act on an account above their own — so a member manager cannot make anyone an admin, or reset an
+   admin's password and sign in as them. An admin is unlimited. */
+const roleRank = id => id === "admin" ? 1e6 : ((db.prepare("SELECT rank FROM roles WHERE id=?").get(id) || {}).rank || 0);
+function forbidAboveMe(u, roleId, what) { if (u.role === "admin") return; if (roleRank(roleId) > (u.rank || 0)) throw new HttpError(403, "You don't have permission to " + what + "."); }
+const otherActiveAdmin = id => !!db.prepare("SELECT 1 FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND x.is_active=1 AND m.user_id<>?").get(WS_ID, id);
+function rejectExistingId(table, id) { if (id != null && !/^[A-Za-z0-9_-]{1,80}$/.test(String(id))) throw new HttpError(400, "An ID may use letters, digits, - and _ only"); if (id != null && db.prepare("SELECT 1 FROM " + table + " WHERE id=?").get(id)) throw new HttpError(409, "An item with this ID already exists"); }
+/* A priority is one of four words and a colour is a colour: both are written into the page as they are. */
+const PRIOS = new Set(["urgent", "high", "medium", "low"]);
+const cleanColor = (c, fallback) => (typeof c === "string" && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^var\(--[\w-]{1,40}\)$/.test(c) || /^[a-zA-Z]{3,20}$/.test(c))) ? c : (fallback || "#64748B");
+/* Version numbers are whole numbers, each once: the checks below match versions by number, and the
+   database stores "2" as 2 — a "2" slipped past them and overwrote version 2, approved or not. */
+function checkVersionNumbers(list) { const seen = new Set(); (Array.isArray(list) ? list : []).forEach(v => { if (!v || !Number.isInteger(v.n) || v.n < 1 || v.n > 9999 || seen.has(v.n)) throw new HttpError(400, "Each version needs its own whole number"); seen.add(v.n); }); }
+/* A stakeholder sees the comments meant for them, and nothing marked team or internal — the page
+   hid the others, but they were in what the server sent. */
+const forViewer = (u, t) => (!t || !u || !u.stakeholder || !Array.isArray(t.comments)) ? t : Object.assign({}, t, { comments: t.comments.filter(c => c && c.vis === "client") });
+route("POST", "/api/projects", (u, p, q, b) => { forbid(can.createProject(u), "create projects"); b.id = b.id || uid("p"); rejectExistingId("projects", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM projects WHERE workspace_id=?").get(WS_ID).s; withSnapshot(u, "project", b.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); act(u, "project_created", "project", b.id, { project: b.id, what: b.name }); }); return sz.readProjects(db, WS_ID); });
+route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "edit this project"); b.id = p.id;
+  const changed = ["name", "description", "brief", "owner", "status", "startDate", "dueDate", "tags", "teams"].some(k => b[k] !== undefined && JSON.stringify(b[k]) !== JSON.stringify(cur[k]));
+  withSnapshot(u, "project", p.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); if (changed) act(u, "edited", "project", p.id, { project: p.id, what: b.name || cur.name }); });
+  return sz.readProjects(db, WS_ID); });
 route("DELETE", "/api/projects/:id", (u, p) => { forbid(can.deleteProject(u), "delete projects"); tx(db, () => db.prepare("DELETE FROM projects WHERE id=? AND workspace_id=?").run(p.id, WS_ID)); act(u, "deleted", "project", p.id, { what: "project " + p.id }); return sz.readProjects(db, WS_ID); });
-route("POST", "/api/projects/:id/archive", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "archive this project"); cur.status = b.restore ? "done" : "archived"; if (b.restore) cur.archivedAt = null; tx(db, () => sz.writeProject(db, WS_ID, cur)); act(u, b.restore ? "project_restored" : "project_archived", "project", p.id, { project: p.id, what: cur.name }); return sz.readProjects(db, WS_ID); });
+route("POST", "/api/projects/:id/archive", (u, p, q, b) => withSnapshot(u, "project", p.id, () => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "archive this project"); cur.status = b.restore ? "done" : "archived"; if (b.restore) cur.archivedAt = null; tx(db, () => sz.writeProject(db, WS_ID, cur)); act(u, b.restore ? "project_restored" : "project_archived", "project", p.id, { project: p.id, what: cur.name }); return sz.readProjects(db, WS_ID); }));
 route("POST", "/api/projects/reorder", (u, p, q, b) => { forbid(can.createProject(u), "reorder projects"); tx(db, () => (b.ids || []).forEach((id, i) => db.prepare("UPDATE projects SET sort_order=? WHERE id=? AND workspace_id=?").run(i + 1, id, WS_ID))); return sz.readProjects(db, WS_ID); });
 /* tasks */
 /* ---- v32 task write integrity ---------------------------------------------------------
@@ -889,12 +928,13 @@ function sanitizeComments(prevComments, bodyComments, u) {
       out.push(Object.assign({}, old, { text: mine ? String(c.text != null ? c.text : old.text) : old.text, vis: old.vis, attachments }));
       prev.delete(c.id);
     }
-    else out.push({ id: /^[-\w]{1,40}$/.test(String(c.id || "")) ? c.id : uid("cm"), by: u.id, createdAt: now(), vis: c.vis === "internal" ? "internal" : c.vis === "client" ? "client" : "team", text: String(c.text || ""), parent: c.parent || null, attachments: Array.isArray(c.attachments) ? c.attachments.slice(0, 10) : [] });
+    else out.push({ id: /^[-\w]{1,40}$/.test(String(c.id || "")) ? c.id : uid("cm"), by: u.id, createdAt: now(), vis: u.stakeholder ? "client" : c.vis === "internal" ? "internal" : c.vis === "client" ? "client" : "team", text: String(c.text || ""), parent: c.parent || null, attachments: Array.isArray(c.attachments) ? c.attachments.slice(0, 10) : [] });
   });
   /* keep other people's comments even if the client dropped them; only the author or an
      admin may delete, and that path is a dedicated route, not a task PUT. */
   prev.forEach(old => { if (!(old.by === u.id || old.author_id === u.id || can.manageWorkspace(u))) out.push(old); });
-  return out;
+  const ids = new Set(out.map(c => c.id));
+  return out.map(c => c.parent && !ids.has(c.parent) ? Object.assign({}, c, { parent: null }) : c);
 }
 /* A version's notes say what has to change (they replaced the pins dropped on the preview). Like
    comments they belong to the server: a new note is stamped with who wrote it and when; an existing
@@ -931,11 +971,12 @@ function sanitizeNotes(prevNotes, bodyNotes, u) {
   return out;
 }
 function sanitizeVersions(prevVersions, bodyVersions, u, decided) {
+  checkVersionNumbers(bodyVersions);
   const prev = new Map((prevVersions || []).map(v => [v.n, v]));
   const okDecision = new Set(decided.map(v => v.n));
   return (Array.isArray(bodyVersions) ? bodyVersions : []).map(v => {
     const old = prev.get(v.n);
-    if (!old) return Object.assign({}, v, { by: u.id, decidedBy: v.state === "pending" || !v.state ? null : (okDecision.has(v.n) ? u.id : null), decidedAt: okDecision.has(v.n) ? now() : null, annots: sanitizeNotes([], v.annots, u) });
+    if (!old) return Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null, reason: null, color: cleanColor(v.color), annots: sanitizeNotes([], v.annots, u) });
     const stateChanged = old.state !== v.state;
     const annots = sanitizeNotes(old.annots, v.annots, u);
     if (stateChanged && okDecision.has(v.n)) return Object.assign({}, old, { state: v.state, note: v.note != null ? v.note : old.note, reason: v.reason, decidedBy: u.id, decidedAt: now(), annots });
@@ -943,26 +984,45 @@ function sanitizeVersions(prevVersions, bodyVersions, u, decided) {
   });
 }
 function sanitizeTaskWrite(cur, b, u, decided) {
+  if (!PRIOS.has(b.prio)) b.prio = PRIOS.has(cur.prio) ? cur.prio : "medium";
+  b.requestId = cur.requestId || null;
   b.comments = sanitizeComments(cur.comments, b.comments, u);
   b.versions = sanitizeVersions(cur.versions, b.versions, u, decided);
   b.activity = cur.activity; /* activity is append-only, written server-side elsewhere */
   return b;
 }
-function nextTaskNumber() { const r = db.prepare("SELECT max(CAST(substr(id,3) AS INTEGER)) n FROM tasks WHERE id GLOB 'T-[0-9]*'").get(); return "T-" + Math.max(101, (r && r.n || 100) + 1); }
+/* A task number is never given out twice. The next number used to be the highest *existing* one
+   plus one, so deleting the newest task and creating another gave the new task the same id — and
+   with it the deleted task's history (kept after a delete), and on databases from before the
+   cascading deletes its brief, comments and files too. The history remembers every number ever
+   used, so it counts as well. */
+function taskNumberUsed(id) { return !!db.prepare("SELECT 1 FROM tasks WHERE id=?").get(id) || !!db.prepare("SELECT 1 FROM activity_logs WHERE entity_type='task' AND entity_id=? LIMIT 1").get(id); }
+function nextTaskNumber() { const top = sql => (db.prepare(sql).get() || {}).n || 0; const n = Math.max(top("SELECT max(CAST(substr(id,3) AS INTEGER)) n FROM tasks WHERE id GLOB 'T-[0-9]*'"), top("SELECT max(CAST(substr(entity_id,3) AS INTEGER)) n FROM activity_logs WHERE entity_type='task' AND entity_id GLOB 'T-[0-9]*'")); return "T-" + Math.max(101, n + 1); }
+/* What hangs off a task by its id. The schema deletes it with the task, but a database created
+   before those constraints keeps it — so it is cleared explicitly on delete, and before a new task
+   is written under an id, which must start empty. */
+function clearTaskRows(id) {
+  ["approvals", "revision_requests", "file_versions", "briefs", "comments", "files", "task_tags", "custom_field_values"].forEach(t => { try { db.prepare("DELETE FROM " + t + " WHERE task_id=?").run(id); } catch (e) { /* a table this database does not have */ } });
+  try { db.prepare("DELETE FROM task_dependencies WHERE task_id=? OR depends_on_task_id=?").run(id, id); } catch (e) {}
+  try { snapTable(); db.prepare("DELETE FROM entity_snapshots WHERE entity_type='task' AND entity_id=?").run(id); } catch (e) {}
+}
 function sanitizeNewTask(b, u) {
   b.comments = (Array.isArray(b.comments) ? b.comments : []).map(c => ({ id: uid("cm"), by: u.id, createdAt: now(), vis: c && c.vis === "internal" ? "internal" : "team", text: String((c && c.text) || ""), parent: null, attachments: [] })).filter(c => c.text);
-  b.versions = (Array.isArray(b.versions) ? b.versions : []).map(v => Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null, annots: sanitizeNotes([], v.annots, u) }));
+  if (!PRIOS.has(b.prio)) b.prio = "medium";
+  if (b.requestId && !(can.decideRequest(u) && db.prepare("SELECT 1 FROM creative_requests WHERE id=? AND workspace_id=?").get(b.requestId, WS_ID))) b.requestId = null;
+  checkVersionNumbers(b.versions);
+  b.versions = (Array.isArray(b.versions) ? b.versions : []).map(v => Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null, color: cleanColor(v.color), annots: sanitizeNotes([], v.annots, u) }));
   b.activity = [];
   return b;
 }
 route("POST", "/api/tasks", (u, p, q, b) => { const firstStage = db.prepare("SELECT id FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order LIMIT 1").get(WS_ID); const isRequest = can.submitRequest(u) && firstStage && b.status === firstStage.id && !b.assignee; forbid(can.createTask(u, b) || isRequest, "create tasks"); if (isRequest && !can.createTask(u, b)) { b.createdBy = u.id; b.tags = (b.tags || []).concat(["request"]); } if (!b.title || String(b.title).length > 240) throw new HttpError(400, "A title under 240 characters is required"); if (b.id != null && !security.validTaskId(b.id)) throw new HttpError(400, "Task ID contains unsupported characters"); /* v39: the server owns task numbers. Browsers still propose T-<n> (their best guess from what
      they have loaded); when two people create at the same moment the second gets the next free
      number instead of a 409 — an existing task is still never overwritten. */
-  if (!b.id || /^T-\d+$/.test(b.id)) { const want = b.id; if (!want || db.prepare("SELECT 1 FROM tasks WHERE id=?").get(want)) b.id = nextTaskNumber(); }
+  if (!b.id || /^T-\d+$/.test(b.id)) { const want = b.id; if (!want || taskNumberUsed(want)) b.id = nextTaskNumber(); }
   if (db.prepare("SELECT 1 FROM tasks WHERE id=?").get(b.id)) throw new HttpError(409, "A task with this ID already exists"); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1000 s FROM tasks WHERE workspace_id=?").get(WS_ID).s;
   /* v32: creation never carries server-owned history or decisions from the client. */
   gateStatusChange(u, null, Object.assign({}, b, { assignee: b.assignee, assignees: b.assignees }), b.status);
-  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, null, b); }); return sz.readTask(db, b.id); });
+  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); withSnapshot(u, "task", b.id, () => tx(db, () => { clearTaskRows(b.id); sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, null, b); })); return forViewer(u, sz.readTask(db, b.id)); });
 route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found");
   if (b && b._slim) b = sz.mergeSlimTask(cur, b); /* never wipe history from a slim copy */
@@ -975,7 +1035,9 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
     if (!Array.isArray(b._changed)) { const e = new HttpError(409, "Someone else changed this task while you were editing. Reload it and try again."); throw e; }
     const allowed = new Set(["title","description","proj","team","status","prio","assignee","reviewer","assignees","reviewers","hidden","startDate","dueDate","effort","assetCount","labels","parent","tags","dependencies","brief","custom","meta","versions","files","comments"]);
     const fields = b._changed.filter(k => allowed.has(k));
-    const next = JSON.parse(JSON.stringify(cur)); fields.forEach(k => { next[k] = b[k]; });
+    const next = JSON.parse(JSON.stringify(cur));
+    const mergeBy = (key, mine, theirs) => { const out = (theirs || []).slice(), at = new Map(out.map((x, i) => [x && x[key], i])); (Array.isArray(mine) ? mine : []).forEach(x => { if (!x) return; const i = at.get(x[key]); if (i === undefined) out.push(x); else out[i] = x; }); return out; };
+    fields.forEach(k => { next[k] = k === "versions" ? mergeBy("n", b.versions, cur.versions).sort((x, y) => x.n - y.n) : k === "files" ? mergeBy("id", b.files, cur.files) : b[k]; });
     merged = fields; b = next;
   }
   forbid(can.editTask(u, cur), "edit this task");
@@ -994,19 +1056,67 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   gateStatusChange(u, cur, b, b.status);
   b = sanitizeTaskWrite(cur, b, u, decided);
   b.id = p.id; validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []);
-  tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, cur, b); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); });
-  { const out = sz.readTask(db, p.id); if (merged) out._merged = merged; return out; }
+  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, cur, b); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); }));
+  { const out = forViewer(u, sz.readTask(db, p.id)); if (merged) out._merged = merged; return out; }
 });
-route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u), "delete tasks"); tx(db, () => db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID)); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
-route("POST", "/api/tasks/:id/move", (u, p, q, b) => moveTask(u, p.id, b));
+route("POST", "/api/tasks/:id/comments", (u, p, q, b) => {
+  const cur = sz.readTask(db, p.id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found");
+  forbid(can.comment(u) && (require("./permissions").has(u, "view_all") || can.editTask(u, cur) || can.approveTask(u, cur) || cur.createdBy === u.id || u.stakeholder), "comment on this task");
+  const text = String((b && b.text) || "").trim(); const att = Array.isArray(b && b.attachments) ? b.attachments : [];
+  if (!text && !att.length) throw new HttpError(400, "Write something first");
+  tooLong("comment", text, 10000);
+  const parent = b.parent && cur.comments.some(c => c.id === b.parent) ? b.parent : null;
+  const added = sanitizeComments([], [{ id: b.id, text, vis: b.vis, parent, attachments: att }], u)[0];
+  if (cur.comments.some(c => c.id === added.id)) added.id = uid("cm");
+  const next = Object.assign({}, cur, { comments: cur.comments.concat([added]) });
+  validateStoredFiles(next, u.id);
+  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); }));
+  return forViewer(u, sz.readTask(db, p.id));
+});
+/* The copy a history entry names, for the admin to see what going back there changes. */
+function snapshotFor(type, id, activityId) {
+  const row = db.prepare("SELECT payload, created_at FROM activity_logs WHERE id=? AND entity_type=? AND entity_id=?").get(String(activityId || ""), type, id);
+  if (!row) throw new HttpError(404, "That point in the history was not found");
+  const snap = (J(row.payload, {}) || {}).snap; if (!snap) throw new HttpError(400, "There is no saved copy for that point in the history");
+  snapTable(); const s = db.prepare("SELECT * FROM entity_snapshots WHERE id=? AND entity_type=? AND entity_id=?").get(snap, type, id);
+  if (!s) throw new HttpError(410, "The saved copy for that point is no longer kept");
+  return { doc: J(s.doc, null), takenAt: s.taken_at, by: s.actor_id };
+}
+const TASK_RESTORE = ["title", "description", "proj", "team", "status", "prio", "assignee", "reviewer", "assignees", "reviewers", "hidden", "startDate", "dueDate", "effort", "assetCount", "labels", "parent", "tags", "dependencies", "brief", "custom", "meta", "versions", "files"];
+const PROJECT_RESTORE = ["name", "description", "brief", "owner", "status", "progress", "startDate", "dueDate", "tags", "teams", "archivedAt"];
+route("GET", "/api/restore/:type/:id", (u, p, q) => { forbid(can.manageWorkspace(u), "restore history"); if (!["task", "project"].includes(p.type)) throw new HttpError(400, "Unknown kind"); return snapshotFor(p.type, p.id, q.activity); });
+route("POST", "/api/restore/:type/:id", (u, p, q, b) => {
+  forbid(can.manageWorkspace(u), "restore history");
+  const s = snapshotFor(p.type, p.id, b && b.activityId); const at = s.takenAt;
+  if (p.type === "task") {
+    const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found");
+    const next = JSON.parse(JSON.stringify(cur)); TASK_RESTORE.forEach(k => { if (s.doc && k in s.doc) next[k] = s.doc[k]; });
+    /* what no longer exists stays as it is now */
+    if (!db.prepare("SELECT 1 FROM task_statuses WHERE id=? AND workspace_id=?").get(next.status, WS_ID)) next.status = cur.status;
+    if (next.proj && !db.prepare("SELECT 1 FROM projects WHERE id=? AND workspace_id=?").get(next.proj, WS_ID)) next.proj = cur.proj;
+    if (next.team && !db.prepare("SELECT 1 FROM teams WHERE id=? AND workspace_id=?").get(next.team, WS_ID)) next.team = cur.team;
+    next.dependencies = (next.dependencies || []).filter(d => d && d.taskId !== p.id && db.prepare("SELECT 1 FROM tasks WHERE id=?").get(d.taskId));
+    withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); act(u, "restored", "task", p.id, { task: p.id, at }); }));
+    return forViewer(u, sz.readTask(db, p.id));
+  }
+  if (p.type === "project") {
+    const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found");
+    const next = Object.assign({}, cur); PROJECT_RESTORE.forEach(k => { if (s.doc && k in s.doc) next[k] = s.doc[k]; });
+    withSnapshot(u, "project", p.id, () => { tx(db, () => sz.writeProject(db, WS_ID, next)); act(u, "restored", "project", p.id, { project: p.id, what: next.name, at }); });
+    return { projects: sz.readProjects(db, WS_ID), activity: sz.readActivity(db, WS_ID, 200) };
+  }
+  throw new HttpError(400, "Unknown kind");
+});
+route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u), "delete tasks"); tx(db, () => { if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) return; clearTaskRows(p.id); db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
+route("POST", "/api/tasks/:id/move", (u, p, q, b) => forViewer(u, withSnapshot(u, "task", p.id, () => moveTask(u, p.id, b))));
 route("POST", "/api/tasks/:id/hidden", (u, p, q, b) => { const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found"); forbid(can.editTask(u, cur), "hide this task"); db.prepare("UPDATE tasks SET is_hidden=?, updated_at=? WHERE id=?").run(b.hidden ? 1 : 0, now(), p.id); act(u, b.hidden ? "hidden" : "unhidden", "task", p.id, { task: p.id }); return sz.readTask(db, p.id); });
 /* requests */
 route("POST", "/api/requests", (u, p, q, b) => { forbid(can.submitRequest(u), "submit requests"); b.id = b.id || uid("R"); rejectExistingId("creative_requests", b.id); b.by = u.id; b.status = "submitted"; tx(db, () => sz.writeRequest(db, WS_ID, b)); act(u, "request", "request", b.id, { request: b.id, what: b.title }); return sz.readRequests(db, WS_ID); });
 route("PUT", "/api/requests/:id", (u, p, q, b) => { const cur = sz.readRequests(db, WS_ID).find(r => r.id === p.id); if (!cur) throw new HttpError(404, "Request not found"); if (b.status !== cur.status || b.converted !== cur.converted) forbid(can.decideRequest(u), "decide on requests"); else forbid(can.decideRequest(u) || cur.by === u.id, "edit this request"); b.id = p.id; b.by = cur.by; b.createdAt = cur.createdAt; tx(db, () => sz.writeRequest(db, WS_ID, b)); if (b.status !== cur.status) act(u, "request_" + b.status, "request", p.id, { request: p.id, what: b.title }); return sz.readRequests(db, WS_ID); });
 route("DELETE", "/api/requests/:id", (u, p) => { forbid(can.decideRequest(u), "delete requests"); db.prepare("DELETE FROM creative_requests WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readRequests(db, WS_ID); });
 /* assets / folders */
-route("POST", "/api/assets", (u, p, q, b) => { forbid(can.manageAssets(u), "add assets"); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = b.id || uid("as"); rejectExistingId("assets", b.id); b.by = u.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); act(u, "asset", "asset", b.id, { what: b.name }); return sz.readAssets(db, WS_ID); });
-route("PUT", "/api/assets/:id", (u, p, q, b) => { forbid(can.manageAssets(u), "edit assets"); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
+route("POST", "/api/assets", (u, p, q, b) => { forbid(can.manageAssets(u), "add assets"); b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = b.id || uid("as"); rejectExistingId("assets", b.id); b.by = u.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); act(u, "asset", "asset", b.id, { what: b.name }); return sz.readAssets(db, WS_ID); });
+route("PUT", "/api/assets/:id", (u, p, q, b) => { forbid(can.manageAssets(u), "edit assets"); b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
 route("DELETE", "/api/assets/:id", (u, p) => { forbid(can.manageAssets(u), "delete assets"); db.prepare("DELETE FROM assets WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readAssets(db, WS_ID); });
 route("POST", "/api/folders", (u, p, q, b) => { forbid(can.manageAssets(u), "create folders"); b.id = b.id || uid("f"); rejectExistingId("asset_folders", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM asset_folders WHERE workspace_id=?").get(WS_ID).s; tx(db, () => sz.writeFolder(db, WS_ID, b)); return sz.readFolders(db, WS_ID); });
 route("DELETE", "/api/folders/:id", (u, p) => { forbid(can.manageAssets(u), "delete folders"); db.prepare("DELETE FROM asset_folders WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readFolders(db, WS_ID); });
@@ -1033,7 +1143,7 @@ route("POST", "/api/notifications", (u, p, q, b) => { const k = String(b.k || ""
 route("GET", "/api/mail/status", (u) => { forbid(can.manageWorkspace(u), "view email diagnostics"); return { transport: mailer.cfg.transport, from: mailer.cfg.from, outbox: mailer.cfg.transport === "log" ? mailer.cfg.outbox : null, sent: mailer.state.sent, failed: mailer.state.failed, lastError: mailer.state.lastError, lastTo: mailer.state.lastTo, lastAt: mailer.state.lastAt, pending: db.prepare("SELECT count(*) n FROM notifications WHERE emailed_at IS NULL AND email_error IS NOT NULL").get().n }; });
 route("POST", "/api/mail/test", (u) => { forbid(can.manageWorkspace(u), "send test email"); const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id); if (!me || !me.email) throw new HttpError(400, "Your user has no email address"); const ws = sz.readWorkspace(db, WS_ID); return mailer.send({ to: me.email, subject: "[" + ws.name + "] Test email from ZenCrevia", text: "Hi " + me.name.split(" ")[0] + ", this is a test message. If you can read this, email notifications work.", meta: { Transport: mailer.cfg.transport }, link: mailer.link("/"), workspace: ws.name }).then(r => ({ ok: true, transport: mailer.cfg.transport, result: r && r.file ? { file: path.basename(r.file) } : r })).catch(e => { throw new HttpError(502, "Send failed: " + e.message); }); });
 route("POST", "/api/notifications/read", (u, p, q, b) => { if (b.all) db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(now(), u.id); else (b.ids || []).forEach(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(now(), id, u.id)); if (b.entityId) db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(now(), b.entityId, u.id); return sz.readNotifs(db, WS_ID, u.id); });
-route("POST", "/api/activity", (u, p, q, b) => { const allowed = new Set(["created","edited","moved","assigned","deadline","commented","mentioned","uploaded","approved","revision","file","request","request_submitted","request_approved","request_rejected","hidden","unhidden","team","asset","project_created","member_team"]); if (!allowed.has(String(b.k || ""))) throw new HttpError(400, "Unknown activity type"); const entityType = ["workspace","task","project","asset","request"].includes(b.entityType) ? b.entityType : "workspace"; act(u, b.k, entityType, String(b.entityId || WS_ID).slice(0, 100), b.a || {}); return sz.readActivity(db, WS_ID, 200); });
+route("POST", "/api/activity", (u, p, q, b) => { const allowed = new Set(["created","edited","moved","assigned","deadline","commented","mentioned","uploaded","approved","revision","file","request","request_submitted","request_approved","request_rejected","hidden","unhidden","team","asset","project_created","member_team"]); if (!allowed.has(String(b.k || ""))) throw new HttpError(400, "Unknown activity type"); if (b.entityType === "task") throw new HttpError(400, "A task's history is written by the server"); const entityType = ["workspace","project","asset","request"].includes(b.entityType) ? b.entityType : "workspace"; const a = {}; Object.keys(b.a && typeof b.a === "object" ? b.a : {}).slice(0, 8).forEach(k => { const v = b.a[k]; if (typeof v === "string") a[String(k).slice(0, 30)] = v.slice(0, 200); else if (typeof v === "number" || typeof v === "boolean") a[String(k).slice(0, 30)] = v; }); act(u, b.k, entityType, String(b.entityId || WS_ID).slice(0, 100), a); return sz.readActivity(db, WS_ID, 200); });
 /* ============================================================
    v17 §P1-4 — SMTP setup from the Admin dashboard
    Credentials are stored server-side, encrypted, and never returned after

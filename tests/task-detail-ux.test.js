@@ -54,12 +54,13 @@ test('Priority and Team menus resolve options internally without serialized oncl
   assert.match(css,/\.task-read-value svg\{[^}]*opacity:\.62/);
   assert.doesNotMatch(drawer,/taskSelectMenu\(this,[^\n]+JSON\.stringify\(opts\)/);
   const source=drawer.match(/function taskSelectOptions[\s\S]*?(?=function taskProjectPicker)/)[0],seen=[];
-  const context={PRIOS:[["low","Low"],["high","High"]],WS:{workflow:[],customFields:[]},teamOpts:()=>[["","No team"],["design","Design"]],byId:()=>null,tr:x=>x,fieldLabel:x=>x,ctxMenu:(a,h)=>seen.push(h),esc:x=>String(x),attr:x=>String(x)};
+  const context={PRIOS:[["low","Low"],["high","High"]],WS:{workflow:[],customFields:[]},teamOpts:()=>[["","No team"],["design","Design"]],byId:()=>null,tr:x=>x,fieldLabel:x=>x,ctxMenu:(a,h)=>seen.push(h),esc:x=>String(x),attr:x=>String(x),jsq:x=>JSON.stringify(String(x)).replace(/"/g,"&quot;")};
   vm.runInNewContext(source,context);
   context.taskSelectMenu({},'prio','high');
   context.taskSelectMenu({},'team','design');
-  assert.match(seen[0],/taskSelectCommit\('prio','high'\)/);
-  assert.match(seen[1],/taskSelectCommit\('team','design'\)/);
+  /* a JSON string escaped for the attribute (jsq): a quote in a value cannot end it */
+  assert.match(seen[0],/taskSelectCommit\(&quot;prio&quot;,&quot;high&quot;\)/);
+  assert.match(seen[1],/taskSelectCommit\(&quot;team&quot;,&quot;design&quot;\)/);
 });
 
 test('Task footer merges successful closed stages without changing stored historical status values',()=>{

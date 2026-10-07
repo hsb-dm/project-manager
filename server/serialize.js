@@ -306,7 +306,8 @@ function writeTask(db, wsId, d, actorId) {
   // Keep stable version rows so ordinary edits preserve approval/revision history.
   const versionNumbers = new Set((d.versions || []).map(v => +v.n));
   db.prepare("SELECT id,version_number FROM file_versions WHERE task_id=?").all(d.id).forEach(v => {
-    if (!versionNumbers.has(v.version_number)) db.prepare("DELETE FROM file_versions WHERE id=?").run(v.id);
+    /* the decision on a removed version stays on record (the cascade would take it along) */
+    if (!versionNumbers.has(v.version_number)) { db.prepare("UPDATE approvals SET version_id=NULL WHERE version_id=?").run(v.id); db.prepare("UPDATE revision_requests SET version_id=NULL WHERE version_id=?").run(v.id); db.prepare("DELETE FROM file_versions WHERE id=?").run(v.id); }
   });
   (d.versions || []).forEach(v => db.prepare("INSERT INTO file_versions (id,task_id,version_number,note,preview_color,preview_data,uploaded_by,approval_status,decided_by,decided_at,decision_reason,drive_url,drive_id,annotations,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(task_id,version_number) DO UPDATE SET note=excluded.note,preview_color=excluded.preview_color,preview_data=excluded.preview_data,approval_status=excluded.approval_status,decided_by=excluded.decided_by,decided_at=excluded.decided_at,decision_reason=excluded.decision_reason,drive_url=excluded.drive_url,drive_id=excluded.drive_id,annotations=excluded.annotations").run(v.id || uid("ver"), d.id, v.n, v.note || "", v.color || null, v.img || null, v.by || actorId, v.state || "pending", v.decidedBy || null, v.decidedAt || null, v.reason || null, v.driveUrl || null, v.driveId || null, S(v.annots || []), v.createdAt || now()));
   db.prepare("DELETE FROM files WHERE task_id=?").run(d.id);
