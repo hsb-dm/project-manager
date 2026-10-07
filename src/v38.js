@@ -223,6 +223,10 @@ function descMdInline(s){ /* s is already escaped */
   s=s.replace(/(^|[\s(>])((?:https?|ftp):\/\/[^\s<]+[^\s<.,;:!?)])/g,function(_,p,u){ return p+descLinkHtml(u,""); });
   s=s.replace(/(^|[\s(>])((?:www\.)[^ -\s<]+[^\s<.,;:!?)])/gi,function(_,p,u){ var url=descNormalizeUrl(u); return url?p+'<a href="'+url+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+(descDriveLabel(url)||u)+'</a>':p+u; });
   return s; }
+/* The description is kept as lines, the way it was written: one Enter or Shift+Enter is one line
+   break, an empty line stays an empty line, and spaces stay. It used to be read as Markdown
+   paragraphs — a line break inside a paragraph became a space and empty lines vanished, so the
+   writing closed up. Headings, lists, quotes, code and images keep their Markdown forms. */
 function descMdHtml(src){ var lines=esc(String(src||"")).split(/\r?\n/), out=[], list=null, code=null;
   var close=function(){ if(list){ out.push("</"+list+">"); list=null; } };
   lines.forEach(function(l){
@@ -235,48 +239,60 @@ function descMdHtml(src){ var lines=esc(String(src||"")).split(/\r?\n/), out=[],
     close();
     if((m=l.match(/^&gt;\s?(.*)$/))){ out.push("<blockquote>"+descMdInline(m[1])+"</blockquote>"); return; }
     if(/^(-{3,}|\*{3,})$/.test(l.trim())){ out.push("<hr>"); return; }
-    out.push(l.trim()?"<p>"+descMdInline(l)+"</p>":"");
+    /* a line as the editor makes one: a block per line, an empty line holding a <br> */
+    out.push(l.trim()?"<div>"+descMdInline(l)+"</div>":"<div><br></div>");
   });
   if(code!==null) out.push('<pre><code>'+code.join("\n")+'</code></pre>'); close();
   return out.join(""); }
-/* pasted rich text (Docs, Word, web pages) keeps bold/italic/headings/lists as Markdown */
-function descHtmlToMd(html){ var d=document.createElement("div"); d.innerHTML=html; d.querySelectorAll("script,style,meta,title").forEach(function(n){ n.remove(); });
-  var walk=function(n,ctx){ if(n.nodeType===3) return n.nodeValue.replace(/\s+/g," "); if(n.nodeType!==1) return ""; var t=n.tagName.toLowerCase(), inner=Array.prototype.map.call(n.childNodes,function(c){ return walk(c,t==="ol"||t==="ul"?t:ctx); }).join(""), st=(n.getAttribute("style")||"").toLowerCase();
-    var bold=/font-weight:\s*(bold|[6-9]00)/.test(st), ital=/font-style:\s*italic/.test(st);
-    if(t==="b"||t==="strong"||bold&&t==="span") inner=inner.trim()?"**"+inner.trim()+"**":inner;
-    if(t==="i"||t==="em"||ital&&t==="span") inner=inner.trim()?"*"+inner.trim()+"*":inner;
-    if(t==="s"||t==="del"||t==="strike") return "~~"+inner+"~~";
-    if(t==="code") return "`"+inner+"`";
-    if(t==="a"){ var h=n.getAttribute("href")||""; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return /^(?:https?|ftp):/i.test(h)?"["+inner.trim()+"]("+h+")":inner; }
-    /* An image in the writing serialises back to its marker, so moving it in the editor moves it in
-       the text. An image pasted from elsewhere as a data URL is dropped rather than inlined — that
-       is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
+/* The editor's writing back to text, line for line (see descMdHtml): every block starts a line, a
+   <br> or a typed line break (the editor keeps white space as written) is a line break, spaces stay.
+   Rich text pasted from elsewhere (Docs, Word, web pages — opts.paste) keeps bold, italic, headings
+   and lists, and its source line breaks are only spacing there. */
+function descHtmlToMd(html,opts){ var paste=!!(opts&&opts.paste), d=document.createElement("div"); d.innerHTML=html; d.querySelectorAll("script,style,meta,title").forEach(function(n){ n.remove(); });
+  var OPEN="\u0002", CLOSE="\u0003", block=function(s){ return OPEN+s+CLOSE; };
+  var flat=function(s){ return !/[\n\u0002\u0003]/.test(s); }, oneLine=function(s){ return s.replace(/[\u0002\u0003\n]+/g," ").replace(/\s+/g," ").trim(); };
+  var walk=function(n,ctx){ if(n.nodeType===3) return paste?n.nodeValue.replace(/\s+/g," "):n.nodeValue.replace(/ /g," ").replace(/\r/g,""); if(n.nodeType!==1) return ""; var t=n.tagName.toLowerCase(), inner=Array.prototype.map.call(n.childNodes,function(c){ return walk(c,t==="ol"||t==="ul"?t:ctx); }).join(""), st=(n.getAttribute("style")||"").toLowerCase();
+    var bold=/font-weight:\s*(bold|[6-9]00)/.test(st), ital=/font-style:\s*italic/.test(st), notBold=/font-weight:\s*(normal|[1-5]00)/.test(st);
+    /* Docs wraps a whole paste in <b style="font-weight:normal">: that is not bold */
+    if(((t==="b"||t==="strong")&&!notBold||bold&&t==="span")&&flat(inner)) inner=inner.trim()?"**"+inner.trim()+"**":inner;
+    if((t==="i"||t==="em"||ital&&t==="span")&&flat(inner)) inner=inner.trim()?"*"+inner.trim()+"*":inner;
+    if(t==="s"||t==="del"||t==="strike") return flat(inner)?"~~"+inner+"~~":inner;
+    if(t==="code") return flat(inner)?"`"+inner+"`":inner;
+    if(t==="a"){ var h=n.getAttribute("href")||""; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return /^(?:https?|ftp):/i.test(h)?"["+oneLine(inner)+"]("+h+")":inner; }
+    /* An image in the writing serialises back to its marker, on a line of its own, so moving it in
+       the editor moves it in the text. An image pasted from elsewhere as a data URL is dropped rather
+       than inlined — that is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
     if(t==="img"){ var aid=n.getAttribute("data-zc-att")||"", alt=(n.getAttribute("alt")||"").replace(/[\[\]]/g,""), srcAttr=n.getAttribute("src")||"";
       /* A width the reader set by dragging the corner. Full width is the default, so it is written
          only when it is something else — the Markdown of an untouched picture stays plain. */
       var w=parseInt(n.getAttribute("data-zc-w")||(/%$/.test((n.style&&n.style.width)||"")?n.style.width:""),10);
       var size=(w>0&&w<100)?" ="+w+"%":"";
-      if(aid) return "\n\n!["+alt+"](zc-att:"+aid+size+")\n\n";
-      return /^(?:https?):/i.test(srcAttr)?"\n\n!["+alt+"]("+srcAttr+size+")\n\n":""; }
-    if(/^h[1-3]$/.test(t)) return "\n"+"#".repeat(+t[1])+" "+inner.trim()+"\n";
-    if(/^h[4-6]$/.test(t)) return "\n### "+inner.trim()+"\n";
-    if(t==="li") return "\n"+(ctx==="ol"?"1. ":"- ")+inner.trim();
-    if(t==="ul"||t==="ol") return inner+"\n";
-    if(t==="blockquote") return "\n> "+inner.trim()+"\n";
+      if(aid) return block("!["+alt+"](zc-att:"+aid+size+")");
+      return /^(?:https?):/i.test(srcAttr)?block("!["+alt+"]("+srcAttr+size+")"):""; }
+    /* headings go back to the level they came from: the view draws #, ##, ### as h3, h4, h5 (the
+       toolbar's H is h3), so h3 is # again — it used to be ###, and a heading shrank on every edit.
+       Pasted pages use h1, h2, h3 for the same three levels. */
+    if(/^h[1-6]$/.test(t)){ var lv=+t[1], md=paste?Math.min(lv,3):Math.max(1,Math.min(lv-2,3)); return block("#".repeat(md)+" "+oneLine(inner)); }
+    if(t==="li") return block((ctx==="ol"?"1. ":"- ")+oneLine(inner));
+    if(t==="blockquote") return block("> "+oneLine(inner));
     if(t==="br") return "\n";
-    if(t==="p"||t==="div"||t==="tr") return "\n"+inner.trim()+"\n";
+    if(/^(p|div|tr|ul|ol|pre|table|section|article|header|footer|figure)$/.test(t)) return block(inner);
     return inner; };
-  return walk(d,"").replace(/\*\*\s*\*\*/g,"").replace(/\n{3,}/g,"\n\n").trim(); }
+  /* a block begins and ends a line: a line break goes in unless the line already ended */
+  var raw=walk(d,""), out="";
+  for(var i=0;i<raw.length;i++){ var ch=raw[i]; if(ch===OPEN||ch===CLOSE){ if(out&&out.charAt(out.length-1)!=="\n") out+="\n"; } else out+=ch; }
+  out=out.replace(/\*\*\s*\*\*/g,"").replace(/^\n+|\s+$/g,"");
+  return paste?out.replace(/\n{3,}/g,"\n\n"):out; }
 function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.description||"", mode=S.descMode||(tk._draft?"editor":"viewer");
   if(!ed) return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">'+tr("Description")+'</div><div class="md-view">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("No description.")+'</span>')+'</div></div>';
-  if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview">'+(txt?descMdHtml(txt):'<span class="hint">'+tr("No description yet.")+'</span>')+'</div></div>';
+  if(mode==="viewer") return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs" onclick="S.descMode=\'editor\';renderDrawer()">'+I.edit+tr("Edit")+'</button></div><div class="md-view md-preview" ondblclick="descStartEdit(event)" title="'+attr(tr("Double-click to edit"))+'">'+(txt?descMdHtml(txt):'<span class="hint md-empty-edit" role="button" tabindex="0" onclick="descStartEdit(event)" onkeydown="if(event.key===\'Enter\')descStartEdit(event)">'+tr("No description yet.")+' '+tr("Click to write one.")+'</span>')+'</div></div>';
   var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="descFormat(\''+act+'\')">'+html+'</button>'; };
-  return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
+  return '<div class="md-editor" style="margin-bottom:16px"><div class="md-head"><span class="eyebrow">'+tr("Description")+'</span><span class="spacer"></span><button class="btn xs primary" onmousedown="event.preventDefault()" onclick="descSaveNow();S.descMode=\'viewer\';renderDrawer()">'+I.check+tr("Done")+'</button></div>'
     +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
     +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'</div>'
-    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descWysiwygSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
+    +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
 function descResolveDriveNames(){ var el=document.getElementById("descSrc"); if(!el||typeof resolveSmartLink!=="function") return; Array.prototype.forEach.call(el.querySelectorAll("a[href]:not(.drive-chip)"),function(a){ var p=typeof detectProvider==="function"?detectProvider(a.href):null; if(!p||!/^GOOGLE_/.test(p.provider)) return; resolveSmartLink(a.href).then(function(ref){ var live=document.getElementById("descSrc"), liveLink=live&&Array.prototype.slice.call(live.querySelectorAll("a[href]")).filter(function(x){ return x.href===a.href; })[0]; if(ref&&ref.title&&liveLink&&liveLink.textContent!==ref.title){ liveLink.textContent=ref.title; descWysiwygSave(); } }); }); }
@@ -286,6 +302,7 @@ function descEditorTask(el){ return el&&typeof task==="function"?task(el.getAttr
 function descSaveMd(tk,md){ if(tk._draft){ tk.description=md; return; } if((tk._descDraft||tk.description||"")!==md){ tk._descDraft=md; editTaskWith(tk,function(t){ t.description=md; delete t._descDraft; log(t,"edited",{what:"the description"}); }); } }
 function descWysiwygSave(){ clearTimeout(_descT); var el=document.getElementById("descSrc"), tk=descEditorTask(el); if(!el||!tk) return; descSaveMd(tk,descHtmlToMd(el.innerHTML)); descResolveDriveNames(); }
 function descSaveSoon(){ descWysiwygInput(); }
+function descBlurSave(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,350); }
 function descSaveNow(){ descWysiwygSave(); }
 /* Writing is only saved a beat after the typing stops, and the drawer is redrawn by anything that
    touches the task — a comment arriving, a status change, an upload finishing. Redrawing rebuilds
@@ -313,7 +330,7 @@ function descSaveNow(){ descWysiwygSave(); }
     return out;
   };
 })();
-function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
+function descPaste(e){ var cd=e.clipboardData; if(!cd) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html,{paste:true}):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); descWysiwygInput(); }
 function descLinkModal(){ var sel=window.getSelection(), range=sel&&sel.rangeCount?sel.getRangeAt(0).cloneRange():null, selected=sel&&!sel.isCollapsed?sel.toString():""; window._descLinkRange=range; openModal(tr("Add link"),fieldHtml("desc_link_text",tr("Link text"),'<input id="desc_link_text" value="'+attr(selected)+'" placeholder="'+attr(tr("Link text"))+'">')+fieldHtml("desc_link_url",tr("Link URL"),'<input id="desc_link_url" placeholder="www.example.com or any web link">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="descInsertLink()">'+tr("Add link")+'</button>'); }
 function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormalizeUrl(raw), text=val("desc_link_text").trim()||descDriveLabel(url)||raw; if(!url) return toast(tr("Enter a valid web link"),"bad"); var el=document.getElementById("descSrc"), range=window._descLinkRange; if(!el||!range) return closeModal(); el.focus(); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); if(sel.isCollapsed) document.execCommand("insertHTML",false,(typeof isGoogleLink==="function"&&isGoogleLink(url)&&!val("desc_link_text").trim())?descLinkHtml(esc(url),"")+" ":'<a href="'+attr(url)+'" target="_blank" rel="noopener nofollow" onclick="event.preventDefault();openExternal(this.href)">'+esc(text)+'</a>'); else document.execCommand("createLink",false,url); closeModal(); window._descLinkRange=null; descWysiwygInput(); }
 function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; if(act==="link") return descLinkModal(); el.focus(); var command={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock",code:"formatBlock"}[act]; if(!command) return; if(act==="h"||act==="quote"||act==="code") document.execCommand(command,false,act==="h"?"<h3>":act==="quote"?"<blockquote>":"<pre>"); else document.execCommand(command,false,null); descWysiwygInput(); }
@@ -434,4 +451,41 @@ function demoPurgeRun(content){ confirmModal(tr("Remove demo data"),tr("Demo acc
 (function(){ var base=saveFile; saveFile=function(o){ o=o||{}; var src=o.img||o.preview||o.url||"";
   if(/^\/files\/[a-f0-9]{64}\./.test(src)&&!o.driveId){ toast(tr("Downloading…")); return fetch(src,{credentials:"same-origin"}).then(function(r){ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(function(b){ triggerDownload(b,saveFileName(o.name||"image",b.type)); }).catch(function(){ toast(tr("Nothing to save"),"bad"); }); }
   return base.apply(this,arguments); }; })();
+</script>
+
+<script>
+/* ---------- edit in place, like Trello ----------
+   Double-click the description (or a brief field) to edit it right there; click anywhere outside it
+   and it is saved and closed. Edit, Done, Save and Cancel still work. A click inside a dialog, a menu
+   or a picker opened from the editor is not "outside", nor is a text selection that ends outside. */
+/* the click that opens an editor is not a click outside it */
+var EDIT_OPENING=false;
+function editOpening(){ EDIT_OPENING=true; setTimeout(function(){ EDIT_OPENING=false; },0); }
+function descStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!(tk._draft||canI.editTask(tk))) return; if(e&&e.target&&e.target.closest&&e.target.closest("a,button:not(.md-empty-edit),.desc-img-x")) return;
+  editOpening(); S.descMode="editor"; renderDrawer(); var el=document.getElementById("descSrc"); if(!el) return; el.focus();
+  try{ var r=document.createRange(); r.selectNodeContents(el); r.collapse(false); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }catch(x){} }
+function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!tk.brief||S.briefEdit||!(tk._draft||canI.editTask(tk))) return; if(e&&e.target&&e.target.closest&&e.target.closest("a,button,img")) return;
+  var cell=e&&e.target&&e.target.closest?e.target.closest("[data-k]"):null, k=cell?cell.getAttribute("data-k"):null;
+  editOpening(); S.briefEdit=true; renderDrawer(); var ins=briefInputs(tk), ta=null; for(var i=0;i<ins.length;i++) if(!k||ins[i].getAttribute("data-bf")===k){ ta=ins[i]; break; }
+  if(ta){ ta.focus(); try{ ta.setSelectionRange(ta.value.length,ta.value.length); }catch(x){} } }
+(function(){
+  /* the picture handles (resize, remove) float over the editor but live outside it */
+  var NOT_OUTSIDE="#modalWrap,.pop,.menu,#entityPicker,.tag-picker,#toasts,.link-card,.emoji-pop,input[type=file],#descImgSize,#descImgX,.desc-img-size,.desc-img-x";
+  var downDesc=false, downBrief=false;
+  var descBox=function(){ var el=document.getElementById("descSrc"); return el&&el.closest?el.closest(".md-editor"):null; };
+  var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===tk.id; })[0]||null; };
+  document.addEventListener("mousedown",function(e){ var d=descBox(), b=briefBox(), onHandle=!!(e.target&&e.target.closest&&e.target.closest(NOT_OUTSIDE)); downDesc=!!(d&&(d.contains(e.target)||onHandle)); downBrief=!!(b&&b.contains(e.target)); },true);
+  /* after the click has done its own work (bubbling, so its handler ran first) */
+  document.addEventListener("click",function(e){
+    var t=e.target; if(EDIT_OPENING||!t||!t.closest||t.closest(NOT_OUTSIDE)) return;
+    /* a click whose own handler redrew the panel (an Edit button, a template, a tab) is not a click outside */
+    if(!document.documentElement.contains(t)) return;
+    var d=descBox(), el=document.getElementById("descSrc"), tk=el?descEditorTask(el):null;
+    if(d&&S.descMode==="editor"&&!downDesc&&!d.contains(t)&&tk&&!tk._draft&&tk.id===S.drawerTask){ descSaveNow(); S.descMode="viewer"; renderDrawer(); }
+    var b=briefBox(), bt=S.drawerTask?task(S.drawerTask):null;
+    if(b&&S.briefEdit&&!downBrief&&!b.contains(t)&&bt&&!bt._draft){ briefFlush(bt); S.briefEdit=false; renderDrawer(); }
+    downDesc=downBrief=false;
+  });
+})();
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Double-click to edit":"Klik dua kali untuk mengedit","Click to write one.":"Klik untuk menulis.","Double-click a field to edit it":"Klik dua kali kolom untuk mengedit"});
 </script>
