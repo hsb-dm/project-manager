@@ -25,7 +25,8 @@ test('Automatic project progress weighs effort at 60 percent and milestones at 4
   const core=read('src/core.js');
   const start=core.indexOf('function isSuccessfulTask');
   const end=core.indexOf('function person(',start);
-  const context={TASKS:[],stageKind:id=>['approved','delivered','done','declined'].includes(id)?'closed':'work'};
+  /* inProject: a task can be in more than one project (src/core.js) */
+  const context={TASKS:[],stageKind:id=>['approved','delivered','done','declined'].includes(id)?'closed':'work',inProject:(t,pid)=>!!t&&!!pid&&(t.proj===pid||(t.alsoIn||[]).indexOf(pid)>=0)};
   vm.createContext(context); vm.runInContext(core.slice(start,end),context);
   const project={id:'p1',status:'active',milestones:[{done:true},{done:false}]};
   const tasks=[

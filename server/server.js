@@ -902,7 +902,12 @@ route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(
   const changed = ["name", "description", "brief", "owner", "status", "startDate", "dueDate", "tags", "teams"].some(k => b[k] !== undefined && JSON.stringify(b[k]) !== JSON.stringify(cur[k]));
   withSnapshot(u, "project", p.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); if (changed) act(u, "edited", "project", p.id, { project: p.id, what: b.name || cur.name }); });
   return sz.readProjects(db, WS_ID); });
-route("DELETE", "/api/projects/:id", (u, p) => { forbid(can.deleteProject(u), "delete projects"); tx(db, () => db.prepare("DELETE FROM projects WHERE id=? AND workspace_id=?").run(p.id, WS_ID)); act(u, "deleted", "project", p.id, { what: "project " + p.id }); return sz.readProjects(db, WS_ID); });
+route("DELETE", "/api/projects/:id", (u, p) => { forbid(can.deleteProject(u), "delete projects");
+  /* a task that is also in another project moves there instead of going with this one */
+  tx(db, () => {
+    db.prepare("SELECT id, extra_projects FROM tasks WHERE workspace_id=? AND project_id=?").all(WS_ID, p.id).forEach(t => { const ex = (J(t.extra_projects, []) || []).filter(x => x !== p.id); if (ex.length) db.prepare("UPDATE tasks SET project_id=?, extra_projects=? WHERE id=?").run(ex[0], S(ex.slice(1)), t.id); });
+    db.prepare("SELECT id, extra_projects FROM tasks WHERE workspace_id=? AND instr(coalesce(extra_projects,''), ?)>0").all(WS_ID, '"' + p.id + '"').forEach(t => db.prepare("UPDATE tasks SET extra_projects=? WHERE id=?").run(S((J(t.extra_projects, []) || []).filter(x => x !== p.id)), t.id));
+  }); tx(db, () => db.prepare("DELETE FROM projects WHERE id=? AND workspace_id=?").run(p.id, WS_ID)); act(u, "deleted", "project", p.id, { what: "project " + p.id }); return sz.readProjects(db, WS_ID); });
 route("POST", "/api/projects/:id/archive", (u, p, q, b) => withSnapshot(u, "project", p.id, () => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "archive this project"); cur.status = b.restore ? "done" : "archived"; if (b.restore) cur.archivedAt = null; tx(db, () => sz.writeProject(db, WS_ID, cur)); act(u, b.restore ? "project_restored" : "project_archived", "project", p.id, { project: p.id, what: cur.name }); return sz.readProjects(db, WS_ID); }));
 route("POST", "/api/projects/reorder", (u, p, q, b) => { forbid(can.createProject(u), "reorder projects"); tx(db, () => (b.ids || []).forEach((id, i) => db.prepare("UPDATE projects SET sort_order=? WHERE id=? AND workspace_id=?").run(i + 1, id, WS_ID))); return sz.readProjects(db, WS_ID); });
 /* tasks */
@@ -1033,7 +1038,7 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   let merged = null;
   if (b && b._rev && cur.updatedAt && b._rev !== cur.updatedAt) {
     if (!Array.isArray(b._changed)) { const e = new HttpError(409, "Someone else changed this task while you were editing. Reload it and try again."); throw e; }
-    const allowed = new Set(["title","description","proj","team","status","prio","assignee","reviewer","assignees","reviewers","hidden","startDate","dueDate","effort","assetCount","labels","parent","tags","dependencies","brief","custom","meta","versions","files","comments"]);
+    const allowed = new Set(["title","description","proj","alsoIn","team","status","prio","assignee","reviewer","assignees","reviewers","hidden","startDate","dueDate","effort","assetCount","labels","parent","tags","dependencies","brief","custom","meta","versions","files","comments"]);
     const fields = b._changed.filter(k => allowed.has(k));
     const next = JSON.parse(JSON.stringify(cur));
     const mergeBy = (key, mine, theirs) => { const out = (theirs || []).slice(), at = new Map(out.map((x, i) => [x && x[key], i])); (Array.isArray(mine) ? mine : []).forEach(x => { if (!x) return; const i = at.get(x[key]); if (i === undefined) out.push(x); else out[i] = x; }); return out; };

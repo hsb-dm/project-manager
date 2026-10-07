@@ -186,6 +186,8 @@ ALTER TABLE ai_gallery ADD COLUMN IF NOT EXISTS creator_role_id TEXT; ALTER TABL
 -- v19
 CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), project_id TEXT REFERENCES projects(id) ON DELETE CASCADE, title TEXT NOT NULL, note TEXT DEFAULT '', source_type TEXT, source_id TEXT, task_id TEXT, message_id TEXT, created_by TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS meta JSONB DEFAULT '{}';
+-- the other projects a task is in (one task can serve two campaigns)
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS extra_projects JSONB DEFAULT '[]';
 
 -- v29 self-service password reset. Only a SHA-256 of the emailed token is stored.
 CREATE TABLE IF NOT EXISTS password_resets (

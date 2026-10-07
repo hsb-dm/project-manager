@@ -19,6 +19,8 @@ function open() {
   [
     "ALTER TABLE tasks ADD COLUMN asset_count INTEGER DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN labels TEXT",
+    /* the other projects a task is in — one task can serve two campaigns (JSON list of ids) */
+    "ALTER TABLE tasks ADD COLUMN extra_projects TEXT DEFAULT '[]'",
     "ALTER TABLE workspaces ADD COLUMN labels TEXT DEFAULT '[]'",
     "ALTER TABLE workspaces ADD COLUMN task_fields TEXT DEFAULT '[]'",
     "ALTER TABLE workspaces ADD COLUMN auto_hide TEXT DEFAULT '{}'",

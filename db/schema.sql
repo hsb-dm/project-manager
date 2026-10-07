@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL, description TEXT, status_id TEXT NOT NULL REFERENCES task_statuses(id), priority TEXT DEFAULT 'medium',
   assignee_id TEXT REFERENCES users(id), reviewer_id TEXT REFERENCES users(id), assignees TEXT DEFAULT '[]', reviewers TEXT DEFAULT '[]', is_hidden INTEGER DEFAULT 0, start_date TEXT, due_date TEXT,
   estimated_minutes INTEGER DEFAULT 0, asset_count INTEGER DEFAULT 0, labels TEXT, sort_order REAL DEFAULT 0, completed_at TEXT, created_by TEXT REFERENCES users(id),
-  created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), meta TEXT DEFAULT '{}'
+  created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), meta TEXT DEFAULT '{}',
+  extra_projects TEXT DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS task_dependencies (
   task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

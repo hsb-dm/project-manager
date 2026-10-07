@@ -476,3 +476,6 @@ body.paste-resizing .desc-img{pointer-events:none}
 .file-chip.uploading{opacity:.65;cursor:progress}
 .file-chip.uploading .file-chip-ico{animation:fileChipPulse 1s ease-in-out infinite}
 @keyframes fileChipPulse{50%{opacity:.45}}
+
+/* "Select project later" in the project picker */
+.ep-none{font-weight:700;color:var(--color-text-secondary)}

@@ -323,10 +323,18 @@ document.addEventListener("scroll",function(){ if(PASTE_TOOLS) pastePlaceTools()
 window.addEventListener("resize",function(){ if(PASTE_TOOLS) pastePlaceTools(); });
 /* Redrawing the drawer can swap the editor for the read-only view, where there is nothing to
    remove or resize. */
+/* A picture still under a pointer that has not moved keeps its handles through the redraw — a save
+   answering a moment after a tap redrew the panel and took the handle away until the mouse moved. */
+var PASTE_PTR={x:-1,y:-1};
+document.addEventListener("mousemove",function(e){ PASTE_PTR.x=e.clientX; PASTE_PTR.y=e.clientY; },true);
 (function(){
   if(typeof renderDrawer!=="function") return;
   var base=renderDrawer;
-  renderDrawer=function(){ pasteHideImageX(); return base.apply(this,arguments); };
+  renderDrawer=function(){ pasteHideImageX(); var out=base.apply(this,arguments);
+    if(PASTE_PTR.x>=0&&!PASTE_SIZING){ var el=document.elementFromPoint(PASTE_PTR.x,PASTE_PTR.y), img=el&&el.closest?el.closest('#descSrc img.desc-img'):null;
+      if(!img&&el&&el.closest&&el.closest(".desc-img-size,.desc-img-x")){ var all=document.querySelectorAll("#descSrc img.desc-img"); for(var i=0;i<all.length;i++){ var r=all[i].getBoundingClientRect(); if(PASTE_PTR.x>=r.left-4&&PASTE_PTR.x<=r.right+4&&PASTE_PTR.y>=r.top-4&&PASTE_PTR.y<=r.bottom+4){ img=all[i]; break; } } }
+      if(img) pasteShowImageX(img,img.getAttribute("data-zc-att")); }
+    return out; };
 })();
 
 /* ---------- how big the picture is ----------

@@ -28,7 +28,8 @@ test('Task Detail keeps one responsive status control and compact dependencies',
 test('Task people/project fields reuse the shared searchable entity picker and dates are localized',()=>{
   const drawer=read('src/drawer.js'),picker=read('src/entity-picker.js');
   assert.match(drawer,/entityPicker\(\{kind:"person"/);
-  assert.match(drawer,/entityPicker\(\{kind:"project"/);
+  /* the project picker chooses several (a task can be in more than one project), through the same picker */
+  assert.match(drawer,/function taskProjectPicker[\s\S]{0,400}kind:"project"[\s\S]{0,1200}entityPicker\(o\)/);
   assert.match(picker,/teamText/);
   assert.match(drawer,/toLocaleDateString\(UI_LANG==="id"\?"id-ID":"en-US"/);
   assert.match(drawer,/name:"Deliverables"|tr\("deliverables"\)/);

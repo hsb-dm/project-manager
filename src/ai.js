@@ -857,7 +857,7 @@ function aiContext(taskLimit){
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
   lines.push("PROJECTS:");
   PROJECTS.forEach(function(p){
-    var ts = TASKS.filter(function(t){ return t.proj===p.id; });
+    var ts = TASKS.filter(function(t){ return inProject(t,p.id); });
     lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+dueTxt(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
   });
   lines.push("OPEN TASKS ("+open.length+(open.length>(+taskLimit||60)?", showing "+(+taskLimit||60):"")+"):");
@@ -982,7 +982,7 @@ function aiLocalAnswer(q){
     var rk=PROJECTS.filter(function(p){return p.status!=="archived"&&p.status!=="done"&&(p.status==="risk"||p.due<0||(projectProgress(p)<50&&p.due<=7));});
     if(!rk.length) return L("No projects are flagged at risk right now.","Tidak ada proyek yang ditandai berisiko saat ini.");
     return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** proyek berisiko:")+"\n\n"+rk.map(function(p){
-      var opn=TASKS.filter(function(t){return t.proj===p.id&&!isClosed(t);}),
+      var opn=TASKS.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}),
           od=opn.filter(function(t){return t.due<0;}).length,bk=opn.filter(isTaskBlocked).length;
       return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"%, "+dueTxt(p.due)+L(" \u2014 "+opn.length+" open, "+od+" overdue, "+bk+" blocked"," \u2014 "+opn.length+" terbuka, "+od+" terlambat, "+bk+" terhambat");
     }).join("\n");
@@ -1020,7 +1020,7 @@ function aiLocalAnswer(q){
   /* a specific project by name */
   var pj=whichProject();
   if(pj&&/project|proyek|status|progress|progres/.test(s)){
-    var pts=TASKS.filter(function(t){return t.proj===pj.id;}),popen=pts.filter(function(t){return !isClosed(t);}),
+    var pts=TASKS.filter(function(t){return inProject(t,pj.id);}),popen=pts.filter(function(t){return !isClosed(t);}),
         pod=popen.filter(function(t){return t.due<0;}),pbk=popen.filter(isTaskBlocked);
     return "**"+pj.name+"** ["+pj.status+"] \u2014 "+projectProgress(pj)+"%, "+L("owner ","pemilik ")+nm(pj.owner)+", "+L("due ","tenggat ")+dueTxt(pj.due)+"\n\n"
       + "- "+popen.length+" "+L("open of","terbuka dari")+" "+pts.length+"\n"
@@ -1031,7 +1031,7 @@ function aiLocalAnswer(q){
   /* projects overview */
   if(/project|proyek|portfolio|portofolio/.test(s))
     return L("Projects:","Proyek:")+"\n\n"+PROJECTS.map(function(p){
-      var ts=TASKS.filter(function(t){return t.proj===p.id;});
+      var ts=TASKS.filter(function(t){return inProject(t,p.id);});
       return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"% \u2014 "+ts.filter(function(t){return !isClosed(t);}).length+" "+L("open of","terbuka dari")+" "+ts.length+", "+assetsProduced(ts)+" "+L("assets, due","aset, tenggat")+" "+dueTxt(p.due);
     }).join("\n");
 

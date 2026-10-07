@@ -82,7 +82,7 @@ function aiTaskDetail(t){
 /* like aiClip but keeps line breaks, which the model reads as structure */
 function aiClip2(s,n){ s=String(s||""); return s.length>n?s.slice(0,n)+"\n  …(dipotong)":s; }
 function aiProjectDetail(p){
-  var ts=TASKS.filter(function(t){ return t.proj===p.id; }), open=ts.filter(function(t){ return !isClosed(t); });
+  var ts=TASKS.filter(function(t){ return inProject(t,p.id); }), open=ts.filter(function(t){ return !isClosed(t); });
   var L=["PROJECT \""+p.name+"\"","  status="+p.status+" progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+dueTxt(p.due)+" tasks="+ts.length+" open="+open.length];
   open.slice(0,20).forEach(function(t){ L.push("   - "+t.id+" \""+t.title+"\" "+stageName(t.status)+" owner="+person(t.assignee).name+" due="+dueTxt(t.due)); });
   return aiClip2(L.join("\n"),AI_ATTACH_BUDGET);

@@ -35,8 +35,10 @@ function compute(db, wsId, nWeeks, toDate) {
   });
   const today = localDate(new Date());
   const byProject = db.prepare("SELECT id, name, progress, due_date FROM projects WHERE workspace_id=? AND status NOT IN ('done','archived') ORDER BY sort_order").all(wsId).map(p => {
-    const open = q("SELECT count(*) n, coalesce(sum(estimated_minutes),0) m FROM tasks k JOIN task_statuses s ON s.id=k.status_id WHERE k.project_id=? AND s.is_completed=0", p.id);
-    const over = q("SELECT count(*) n FROM tasks k JOIN task_statuses s ON s.id=k.status_id WHERE k.project_id=? AND s.is_completed=0 AND due_date<?", p.id, today).n;
+    /* a task shared by two projects counts in both */
+    const inP = "(k.project_id=? OR instr(coalesce(k.extra_projects,''),'\"'||?||'\"')>0)";
+    const open = q("SELECT count(*) n, coalesce(sum(estimated_minutes),0) m FROM tasks k JOIN task_statuses s ON s.id=k.status_id WHERE " + inP + " AND s.is_completed=0", p.id, p.id);
+    const over = q("SELECT count(*) n FROM tasks k JOIN task_statuses s ON s.id=k.status_id WHERE " + inP + " AND s.is_completed=0 AND due_date<?", p.id, p.id, today).n;
     const daysLeft = p.due_date ? Math.round((new Date(p.due_date) - new Date(today)) / 86400000) : null;
     const risk = over > 0 || (daysLeft != null && daysLeft < 0) ? "high" : (daysLeft != null && daysLeft <= 7 && p.progress < 70) ? "medium" : "low";
     return { id: p.id, name: p.name, progress: p.progress, remainingHours: Math.round(open.m / 60), open: open.n, overdue: over, daysLeft, risk };

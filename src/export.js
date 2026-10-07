@@ -205,7 +205,7 @@ function resolveReportRecommendations(d){
 function reportTasks(){ return exportTasks(); }
 function reportData(){ var m=metrics(); var live=reportTasks(); var open=live.filter(function(t){ return !isClosed(t); }); var stages=localStages().map(function(s){ return {name:s.name,kind:s.kind,n:live.filter(function(t){ return t.status===s.id; }).length}; });
   var people=Object.keys(PEOPLE).filter(function(k){ return !PEOPLE[k].stakeholder&&((PEOPLE[k].cap>0&&(!EXPORT||live.some(function(t){return isAssignee(t,k);})))||personAssetCredit(k,live).count>0); }).map(function(id){ var p=person(id); var mine=live.filter(function(t){ return isAssignee(t,id)&&!isClosed(t); }); return {id:id,name:p.name,role:p.role,team:teamName(primaryTeam(id)),cap:p.cap,assigned:Math.round(mine.reduce(function(n,t){return n+(+t.effort||0)/assigneesOf(t).length;},0)*100)/100,open:mine.length,review:mine.filter(isReview).length,overdue:mine.filter(function(t){ return t.due<0; }).length}; });
-  var projects=liveProjects().filter(function(p){return !EXPORT||live.some(function(t){return t.proj===p.id;});}).map(function(p){ var o=live.filter(function(t){return t.proj===p.id&&!isClosed(t);}); return {id:p.id,name:p.name,owner:person(p.owner).name,status:p.status,progress:projectProgress(p,live),due:iso(p.due),start:iso(p.start),open:o.length,overdue:o.filter(function(t){ return t.due<0; }).length,total:live.filter(function(t){ return t.proj===p.id; }).length,team:p.team.map(function(x){ return first(x); }).join(", ")}; });
+  var projects=liveProjects().filter(function(p){return !EXPORT||live.some(function(t){return inProject(t,p.id);});}).map(function(p){ var o=live.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}); return {id:p.id,name:p.name,owner:person(p.owner).name,status:p.status,progress:projectProgress(p,live),due:iso(p.due),start:iso(p.start),open:o.length,overdue:o.filter(function(t){ return t.due<0; }).length,total:live.filter(function(t){ return inProject(t,p.id); }).length,team:p.team.map(function(x){ return first(x); }).join(", ")}; });
   /* §591 one canonical dataset — the per-person block reuses `live`, so the
      PPT, the Excel workbook and the AI slide can never disagree. */
   people.forEach(function(p){
@@ -227,7 +227,7 @@ function reportData(){ var m=metrics(); var live=reportTasks(); var open=live.fi
     p.projects=Object.keys(projIds);
     p.projectsInvolved=p.projects.length;
     p.topProjects=Object.keys(projIds).map(function(id){
-        return {name:(project(id)||{name:id}).name,n:all.filter(function(t){ return t.proj===id; }).length}; })
+        return {name:(project(id)||{name:id}).name,n:all.filter(function(t){ return inProject(t,id); }).length}; })
       .sort(function(a,b){ return b.n-a.n; }).slice(0,3);
     /* §617 review metrics are version-based: each uploaded version is one
        reviewable outcome, which is more reliable than parsing the activity log. */
@@ -379,7 +379,7 @@ function colName(n){ var s=""; n++; while (n>0){ var r=(n-1)%26; s=String.fromCh
 function buildXLSX(){ var d=reportData(), m=d.m;
   var summary=[["Metric","Value"]];
   var stages=[["Stage","Kind","Tasks"]].concat(d.stages.map(function(s){ return [s.name,s.kind,s.n]; }));
-  var projects=[["Project","Owner","Status","Progress (%)","Start","Deadline","Open tasks","Overdue","Total tasks","Assets produced","Assets delivered","Asset links","Team"]].concat(d.projects.map(function(p){ var pt=exportTasks().filter(function(t){ return t.proj===p.id; }); return [p.name,p.owner,tr(p.status==="risk"?"At risk":p.status==="done"?"Done":"Active"),p.progress,p.start,p.due,p.open,p.overdue,p.total,assetsProduced(pt),assetsProduced(pt.filter(isClosed)),assetLinks(pt).length,p.team]; }));
+  var projects=[["Project","Owner","Status","Progress (%)","Start","Deadline","Open tasks","Overdue","Total tasks","Assets produced","Assets delivered","Asset links","Team"]].concat(d.projects.map(function(p){ var pt=exportTasks().filter(function(t){ return inProject(t,p.id); }); return [p.name,p.owner,tr(p.status==="risk"?"At risk":p.status==="done"?"Done":"Active"),p.progress,p.start,p.due,p.open,p.overdue,p.total,assetsProduced(pt),assetsProduced(pt.filter(isClosed)),assetLinks(pt).length,p.team]; }));
   var workload=[["Member","Role","Team","Capacity (h)","Assigned (h)","Utilization (%)","Open tasks","In review","Overdue","Assets produced","Assets delivered","Asset credit"]].concat(d.people.map(function(p){ return [p.name,p.role,p.team,p.cap,p.assigned,p.cap?Math.round(p.assigned/p.cap*100):0,p.open,p.review,p.overdue,p.assetsProduced,p.assetsDelivered,tr(p.assetsAttributed?"Estimated from the assignee":"From version uploads")]; }));
   var weekly=[["Week","Created","Completed","Overdue","Avg completion (d)","Revision rate (%)","Approval time (h)"]].concat(m.weeks.map(function(w,i){ return [w,m.created[i],m.completed[i],m.overdue[i],m.avgDays[i],Math.round(m.revisionRate[i]*100),m.approvalHrs[i]]; }));
   var assets=[["Asset","Type","Folder","Source","Location","Size","Version","Tags","Uploaded by"]].concat(ASSETS.map(function(a){ return [a.name,a.type,(byId(ASSET_FOLDERS,a.folder)||{name:""}).name,(SRC[srcOf(a)]||SRC.local).l,a.url,a.size,a.ver,a.tags.join("; "),person(a.by).name]; }));
