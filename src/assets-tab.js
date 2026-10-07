@@ -402,6 +402,49 @@ function useAsVersionModal(fid){
     + fieldHtml("uav_note","What changed (optional)",'<input id="uav_note" placeholder="'+attr(tr("e.g. Bigger headline, logo moved"))+'">'),
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" onclick="saveUseAsVersion('+jsq(fid)+')">'+tr("Create Version")+' '+n+'</button>');
 }
+/* ---------- a final file, as the final version ----------
+   A delivered file under Final files becomes the task's final version in one step: the next version,
+   made from the file as it is (nothing is uploaded again), approved by whoever can approve the task —
+   or, for someone who cannot, sent to review for the reviewer to approve. */
+function useAsFinalHtml(tk,f){
+  var as=typeof fileLinkedVersions==="function"?fileLinkedVersions(tk,f):[];
+  if(as.length){ var fin=as.filter(function(v){ return v.state==="approved"; })[0]; return '<span class="badge av-is-ver'+(fin?' ok':'')+'">'+tr("Version")+' '+(fin||as[as.length-1]).n+(fin?' · '+tr("Final"):'')+'</span>'; }
+  if(!fileVersionSource(f)||!canI.editTask(tk)) return '';
+  return '<button class="btn xs av-make-final" onclick="finalVersionModal('+jsq(f.id)+')">'+I.check+tr("Make final version")+'</button>';
+}
+function finalVersionText(key,n,name,stage){ var id=UI_LANG==="id", q="“"+name+"”";
+  return {
+    approve:id?q+" menjadi Versi "+n+" dan disetujui sebagai versi final — tanpa upload ulang. Task pindah ke "+stage+".":q+" becomes Version "+n+" and is approved as the final version — nothing is uploaded again. The task moves to "+stage+".",
+    review:id?q+" menjadi Versi "+n+" lalu dikirim untuk review — tanpa upload ulang. Reviewer yang menyetujuinya sebagai versi final.":q+" becomes Version "+n+" and goes to review — nothing is uploaded again. The reviewer approves it as the final version.",
+    makeFinal:id?"Jadikan Versi "+n+" final":"Make Version "+n+" final",
+    addOnly:id?"Tambahkan sebagai Versi "+n+" saja":"Add as Version "+n+" only",
+    submit:id?"Buat Versi "+n+" dan kirim untuk review":"Create Version "+n+" and submit for review"
+  }[key]; }
+function finalVersionModal(fid){
+  var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); if(!src) return;
+  /* approving needs a reviewer on the task (the workflow asks for one): whoever approves becomes it,
+     if they may set one */
+  var n=nextVersionNo(tk), can=canI.reviewTask(tk)&&(reviewersOf(tk).length>0||canI.assignTask(tk)), closed=null; WS.workflow.forEach(function(s){ if(!closed&&s.kind==="closed") closed=s.id; });
+  var drive=!!(src.url&&typeof isGoogleLink==="function"&&isGoogleLink(src.url)&&typeof googleIcon==="function");
+  openModal(tr("Make this the final version?"),
+    '<div class="av-use-src">'+(src.img&&!src.url?'<span class="fthumb" style="background-image:url('+attr(src.img)+')"></span>':'<span class="ficon ficon-drive">'+(drive?googleIcon(src.url):I.link)+'</span>')+'<div><b>'+esc(f.name)+'</b>'+(src.url?'<span class="mono">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(src.url):src.url)+'</span>':'')+'</div></div>'
+    + '<p class="hint" style="margin-top:10px">'+esc(finalVersionText(can?"approve":"review",n,f.name,stageName(closed||tk.status)))+'</p>',
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span>'
+    + (can?'<button class="btn" onclick="saveFinalVersion('+jsq(fid)+',false)">'+esc(finalVersionText("addOnly",n))+'</button><button class="btn primary" onclick="saveFinalVersion('+jsq(fid)+',true)">'+I.check+esc(finalVersionText("makeFinal",n))+'</button>'
+      :'<button class="btn primary" onclick="saveFinalVersion('+jsq(fid)+',false,true)">'+esc(finalVersionText("submit",n))+'</button>'));
+}
+function saveFinalVersion(fid,approve,submit){
+  var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); closeModal(); if(!src) return;
+  pushVersionFrom(tk,src,f.name).then(function(n){
+    if(n===false) return;
+    if(approve&&canI.reviewTask(tk)){
+      if(reviewersOf(tk).length) return approveTask();
+      if(!canI.assignTask(tk)) return submitReview();
+      return editTaskWith(tk,function(t){ t.reviewer=ME; t.reviewers=[ME]; }).then(function(saved){ if(saved!==false) approveTask(); });
+    }
+    if(submit&&!isReview(tk)) submitReview();
+  });
+}
 function saveUseAsVersion(fid){
   var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); if(!src) return closeModal();
   var note=val("uav_note").trim(); closeModal();
@@ -480,7 +523,7 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsVersionHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:null);
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)});
   }).join("")+'</section>';
 }
 
@@ -626,6 +669,8 @@ Object.assign(UI_ID,{
   "It becomes the next version as it is — nothing is uploaded again. You submit it for review in the next step.":"Tautan ini langsung menjadi versi berikutnya — tidak perlu diunggah ulang. Setelah itu, kirim untuk review.",
   "All versions":"Semua versi",
   "Delete version":"Hapus versi",
+  "Make final version":"Jadikan versi final",
+  "Make this the final version?":"Jadikan versi final?",
   "This version changed in the meantime — nothing was deleted.":"Versi ini berubah sementara itu — tidak ada yang dihapus.",
   "Delete Version":"Hapus Versi",
   "Use this when it was made by mistake.":"Pakai ini kalau versi ini tidak sengaja dibuat.",

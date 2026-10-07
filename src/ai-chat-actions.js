@@ -197,10 +197,8 @@ function aiActionRun(i){
   newTaskModal(aiActionPre(r));
   var tk=task("T-new"); if(!tk) return toast(tr("Could not prepare the task"),"bad");
   tk.title=r.title;
-  var before=TASKS.length;
-  createDraft();
-  var made=TASKS.filter(function(t){ return !t._draft&&t.title===r.title; }).pop();
-  if(made){ m.done=made.id; aiChatSave(); }
+  /* done once the server has numbered it — the number the page proposed can be taken already */
+  Promise.resolve(createDraft()).then(function(made){ if(made&&made.id){ m.done=made.id; aiChatSave(); } renderAIChat(); });
   renderAIChat();
 }
 function aiActionEdit(i){

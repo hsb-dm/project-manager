@@ -1116,7 +1116,14 @@ route("PUT", "/api/requests/:id", (u, p, q, b) => { const cur = sz.readRequests(
 route("DELETE", "/api/requests/:id", (u, p) => { forbid(can.decideRequest(u), "delete requests"); db.prepare("DELETE FROM creative_requests WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readRequests(db, WS_ID); });
 /* assets / folders */
 route("POST", "/api/assets", (u, p, q, b) => { forbid(can.manageAssets(u), "add assets"); b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = b.id || uid("as"); rejectExistingId("assets", b.id); b.by = u.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); act(u, "asset", "asset", b.id, { what: b.name }); return sz.readAssets(db, WS_ID); });
-route("PUT", "/api/assets/:id", (u, p, q, b) => { forbid(can.manageAssets(u), "edit assets"); b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
+route("PUT", "/api/assets/:id", (u, p, q, b) => {
+  const cur = sz.readAssets(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Asset not found");
+  /* whoever added an asset can rename it; changing anything else is for those who manage assets */
+  forbid(can.manageAssets(u) || cur.by === u.id, "edit assets");
+  const name = String(b && b.name != null ? b.name : cur.name).trim(); if (!name) throw new HttpError(400, "The name cannot be empty");
+  if (!can.manageAssets(u)) b = Object.assign({}, cur, { name });
+  b.name = name; b.by = cur.by; b.createdAt = cur.createdAt;   /* who added it, and when, are the server's */
+  b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
 route("DELETE", "/api/assets/:id", (u, p) => { forbid(can.manageAssets(u), "delete assets"); db.prepare("DELETE FROM assets WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readAssets(db, WS_ID); });
 route("POST", "/api/folders", (u, p, q, b) => { forbid(can.manageAssets(u), "create folders"); b.id = b.id || uid("f"); rejectExistingId("asset_folders", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM asset_folders WHERE workspace_id=?").get(WS_ID).s; tx(db, () => sz.writeFolder(db, WS_ID, b)); return sz.readFolders(db, WS_ID); });
 route("DELETE", "/api/folders/:id", (u, p) => { forbid(can.manageAssets(u), "delete folders"); db.prepare("DELETE FROM asset_folders WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readFolders(db, WS_ID); });
