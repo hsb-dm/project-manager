@@ -40,7 +40,12 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
   if(where==="comment"){ var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); } }); return true; }
-  if(where==="brief"){ return briefPasteImage(files[0]); }
+  if(where==="brief"){
+    /* in the description, a file that is not a picture (a deck, a document, a PDF…) is attached as a
+       chip, the way the paperclip attaches it; a picture is placed in the writing as before */
+    var a=document.activeElement, inDesc=!!(a&&a.closest&&a.closest("#descSrc")), docs=files.filter(function(f){ return !/^image\//.test(f.type||""); });
+    if(inDesc&&docs.length&&typeof descAttachFile==="function"){ docs.forEach(descAttachFile); var pics=files.filter(function(f){ return /^image\//.test(f.type||""); }); if(pics.length) briefPasteImage(pics[0]); return true; }
+    return briefPasteImage(files[0]); }
   if(where==="version-modal"){ versionFileChosen(files[0]); return true; }
   if(where==="asset-modal"){ assetFileChosen(files[0]); if(files[0]&&/^image\//.test(files[0].type)){ var n=document.getElementById("ua_name"); if(n&&!n.value) n.value=files[0].name.replace(/\.\w+$/,""); } return true; }
   if(where==="drawer"){ if(!/^image\//.test(files[0].type)) return false; S.drawerTab="versions"; uploadVersion(); setTimeout(function(){ versionFileChosen(files[0]); },30); return true; }

@@ -38,6 +38,8 @@ const TYPES = {
   xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   key: "application/octet-stream", txt: "text/plain; charset=utf-8", csv: "text/csv; charset=utf-8",
+  /* a web page is kept as a download: served as a page from this origin it could run script here */
+  html: "application/octet-stream", htm: "application/octet-stream",
   bin: "application/octet-stream"
 };
 /* The only types a browser may render in place. None of them can run script in this origin:

@@ -470,3 +470,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 .modal-head h3:has(.asset-name-input){flex:1;min-width:0;margin-right:8px}
 .asset-name-input:hover{border-color:var(--color-border)}
 .asset-name-input:focus{outline:none;border-color:var(--color-primary);background:var(--color-surface);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+
+/* a file attached in the description: its type, then its name */
+.file-chip .file-chip-ico{display:inline-grid;place-items:center;min-width:26px;height:15px;padding:0 3px;border-radius:4px;color:#fff;font:700 8.5px/1 var(--font-mono);letter-spacing:.03em;flex:none}
+.file-chip.uploading{opacity:.65;cursor:progress}
+.file-chip.uploading .file-chip-ico{animation:fileChipPulse 1s ease-in-out infinite}
+@keyframes fileChipPulse{50%{opacity:.45}}

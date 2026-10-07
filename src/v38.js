@@ -200,6 +200,7 @@ function descNormalizeUrl(value){ var u=String(value||"").trim(); if(!u) return 
 var DESC_STAND_INS=["Google Drive","Google Drive Folder","Google Drive File","Google Docs","Google Sheets","Google Slides"];
 function descStandIn(t){ return DESC_STAND_INS.some(function(x){ return t===x||t===tr(x); }); }
 function descLinkHtml(u,t){ /* u and t are escaped */
+  if(t&&typeof descFileExt==="function"&&descFileExt(typeof pasteUnesc==="function"?pasteUnesc(t):t)) return descFileChipHtml(u,t);
   var raw=typeof pasteUnesc==="function"?pasteUnesc(u):u;
   if(typeof isGoogleLink==="function"&&typeof driveChipHtml==="function"&&isGoogleLink(raw)){
     var auto=!t||t===u||/^(?:https?|ftp):/i.test(t)||descStandIn(t);
@@ -216,7 +217,7 @@ function descMdInline(s){ /* s is already escaped */
      size. The space before the "=" is what keeps it apart from a link whose query string has one. */
   s=s.replace(/!\[([^\]\n]*)\]\((zc-att:[A-Za-z0-9_.:-]{1,80}|https?:\/\/[^\s)]+)(?:\s+=\s*(\d{1,3})%)?\)/g,function(_,alt,ref,w){ return typeof descImgHtml==="function"?descImgHtml(ref,alt,"",w):alt; });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+)\)/g,function(_,t,u){ return descLinkHtml(u,t); });
+  s=s.replace(/\[([^\]\n]+)\]\(((?:https?|ftp):\/\/[^\s)]+|\/files\/d\/[a-f0-9]{64}\.[a-z0-9]{1,6})\)/g,function(_,t,u){ return descLinkHtml(u,t); });
   s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
   s=s.replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>').replace(/(^|[\s(])_([^_\n]+)_/g,'$1<em>$2</em>');
   s=s.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
@@ -258,7 +259,8 @@ function descHtmlToMd(html,opts){ var paste=!!(opts&&opts.paste), d=document.cre
     if((t==="i"||t==="em"||ital&&t==="span")&&flat(inner)) inner=inner.trim()?"*"+inner.trim()+"*":inner;
     if(t==="s"||t==="del"||t==="strike") return flat(inner)?"~~"+inner+"~~":inner;
     if(t==="code") return flat(inner)?"`"+inner+"`":inner;
-    if(t==="a"){ var h=n.getAttribute("href")||""; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return /^(?:https?|ftp):/i.test(h)?"["+oneLine(inner)+"]("+h+")":inner; }
+    if(n.getAttribute("data-up")) return "";
+    if(t==="a"){ var h=n.getAttribute("href")||"", ok=/^(?:https?|ftp):/i.test(h)||/^\/files\/d\/[a-f0-9]{64}\.[a-z0-9]{1,6}$/.test(h); if(ok&&n.classList.contains("file-chip")) return "["+String(n.getAttribute("data-name")||oneLine(inner)).replace(/[\[\]]/g,"")+"]("+h+")"; if(n.getAttribute("data-auto")==="1"&&/^(?:https?|ftp):/i.test(h)) return h; return ok?"["+oneLine(inner)+"]("+h+")":inner; }
     /* An image in the writing serialises back to its marker, on a line of its own, so moving it in
        the editor moves it in the text. An image pasted from elsewhere as a data URL is dropped rather
        than inlined — that is the rule server/uploads.js enforces; clipboard.js uploads real pastes instead. */
@@ -291,7 +293,7 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
-    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'</div>'
+    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'<button type="button" class="md-btn md-attach" title="'+attr(tr("Attach file"))+'" aria-label="'+attr(tr("Attach file"))+'" onmousedown="descKeepCaret()" onclick="descPickFile()">'+DESC_CLIP+'</button>'+'</div>'
     +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
@@ -488,4 +490,52 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
   });
 })();
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Double-click to edit":"Klik dua kali untuk mengedit","Click to write one.":"Klik untuk menulis.","Double-click a field to edit it":"Klik dua kali kolom untuk mengedit"});
+</script>
+
+<script>
+/* ---------- files attached in the description ----------
+   A file — a deck, a document, a PDF, a web page — attached from the description's toolbar goes to the
+   workspace's storage (its Google Drive, or this server) and sits in the writing as a chip with its type
+   and name, like a Google link. In the text it is an ordinary link, [name.pptx](link). While it uploads a
+   chip shows where it will go; if the editor has closed by the time the upload answers, the link goes at
+   the end of the description of the task it was attached to. */
+var DESC_CLIP='<svg class="i" viewBox="0 0 24 24"><path d="M21 11.5l-8.6 8.6a5.2 5.2 0 0 1-7.4-7.4l8.6-8.6a3.5 3.5 0 0 1 5 5l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></svg>';
+var DESC_FILE_EXT={pdf:["PDF","#D63B3B"],doc:["DOC","#2B579A"],docx:["DOC","#2B579A"],ppt:["PPT","#C43E1C"],pptx:["PPT","#C43E1C"],key:["KEY","#C43E1C"],xls:["XLS","#217346"],xlsx:["XLS","#217346"],csv:["CSV","#217346"],html:["HTML","#E34C26"],htm:["HTML","#E34C26"],txt:["TXT","#546E7A"],zip:["ZIP","#546E7A"],rar:["RAR","#546E7A"],psd:["PSD","#1E5BB8"],ai:["AI","#E65100"],fig:["FIG","#A259FF"],sketch:["SKT","#C98A00"],mp4:["MP4","#0F766E"],mov:["MOV","#0F766E"]};
+var DESC_FILE_ACCEPT=Object.keys(DESC_FILE_EXT).map(function(e){ return "."+e; }).join(",");
+function descFileExt(name){ var m=String(name||"").match(/\.([a-z0-9]{1,6})$/i); return m&&DESC_FILE_EXT[m[1].toLowerCase()]?m[1].toLowerCase():""; }
+function descFileChipHtml(u,t){ /* both escaped */
+  var name=typeof pasteUnesc==="function"?pasteUnesc(t):t, e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
+  return '<a href="'+u+'" class="drive-chip file-chip" data-auto="0" data-name="'+attr(name)+'" contenteditable="false" target="_blank" rel="noopener nofollow" title="'+attr(name)+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'))"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></a>'; }
+function descPickFile(){ var inp=document.createElement("input"); inp.type="file"; inp.accept=DESC_FILE_ACCEPT; inp.style.display="none"; inp.onchange=function(){ var f=inp.files&&inp.files[0]; inp.remove(); if(f) descAttachFile(f); }; document.body.appendChild(inp); inp.click(); }
+/* inline, where the caret was (kept across the file dialog by descKeepCaret) */
+/* Placed by hand: insertHTML put a chip at the end of a line after that line's block, on a line of its own. */
+function descInsertInline(html){ var el=document.getElementById("descSrc"); if(!el) return false; el.focus(); var sel=window.getSelection(), r;
+  if(typeof PASTE_RANGE!=="undefined"&&PASTE_RANGE&&el.contains(PASTE_RANGE.startContainer)) r=PASTE_RANGE.cloneRange();
+  else { r=document.createRange(); var last=el.lastElementChild; if(last&&/^(DIV|P)$/.test(last.tagName)&&!(last.childNodes.length===1&&last.firstChild.nodeName==="BR")) r.selectNodeContents(last); else r.selectNodeContents(el); r.collapse(false); }
+  r.deleteContents();
+  var box=document.createElement("span"), frag=document.createDocumentFragment(), gap=document.createTextNode(" "); box.innerHTML=html;
+  /* a space before the chip unless the writing already has one there */
+  var sc=r.startContainer, before=sc.nodeType===3?sc.nodeValue.slice(0,r.startOffset):""; if(before&&!/\s$/.test(before)) frag.appendChild(document.createTextNode(" "));
+  while(box.firstChild) frag.appendChild(box.firstChild); frag.appendChild(gap); r.insertNode(frag);
+  var after=document.createRange(); after.setStartAfter(gap); after.collapse(true); sel.removeAllRanges(); sel.addRange(after);
+  if(typeof PASTE_RANGE!=="undefined") PASTE_RANGE=null; return true; }
+function descAttachFile(file){
+  var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!file) return;
+  var name=String(file.name||"file").replace(/[\[\]\n]/g," ").trim()||"file", upId=uid("up"), e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
+  var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===tk.id?el:null; };
+  if(mine()) descInsertInline('<span class="drive-chip file-chip uploading" data-up="'+upId+'" contenteditable="false"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></span>');
+  toast(tr("Uploading")+" "+name+"…");
+  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+    var url=up&&up.url||""; if(!/^https:\/\//i.test(url)&&!/^\/files\/d\//.test(url)) throw new Error(tr("The upload did not return a link"));
+    var md="["+name+"]("+url+")", el=mine(), slot=el&&el.querySelector('[data-up="'+upId+'"]');
+    if(slot){ var box=document.createElement("span"); box.innerHTML=descMdInline(esc(md)); if(box.firstChild) slot.replaceWith(box.firstChild); descWysiwygSave(); }
+    else if(tk._draft) tk.description=(tk.description?tk.description+"\n":"")+md;
+    else editTaskWith(tk,function(t){ t.description=(t.description?t.description+"\n":"")+md; log(t,"edited",{what:"the description"}); });
+    toast(tr("File attached"));
+  },function(err){ var el=mine(), slot=el&&el.querySelector('[data-up="'+upId+'"]'); if(slot) slot.remove(); toast(tr("Could not attach that file")+": "+(err&&err.message||""),"bad"); });
+}
+/* dropped on the description: files are attached, pictures placed in the writing */
+document.addEventListener("dragover",function(e){ var t=e.target; if(t&&t.closest&&t.closest("#descSrc")&&e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0) e.preventDefault(); });
+document.addEventListener("drop",function(e){ var t=e.target, el=t&&t.closest?t.closest("#descSrc"):null; if(!el||!e.dataTransfer||!e.dataTransfer.files||!e.dataTransfer.files.length) return; e.preventDefault(); var files=Array.prototype.slice.call(e.dataTransfer.files); try{ var r=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null; if(r&&el.contains(r.startContainer)){ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); if(typeof descKeepCaret==="function") descKeepCaret(); } }catch(x){} files.forEach(function(f){ if(/^image\//.test(f.type||"")){ if(typeof briefPasteImage==="function") briefPasteImage(f,{key:typeof PASTE_DESC_KEY!=="undefined"?PASTE_DESC_KEY:undefined}); } else descAttachFile(f); }); });
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Attach file":"Lampirkan file","Uploading":"Mengunggah","File attached":"File terlampir","Could not attach that file":"Gagal melampirkan file","The upload did not return a link":"Upload tidak menghasilkan link"});
 </script>
