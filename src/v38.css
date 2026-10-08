@@ -544,3 +544,18 @@ img.emj.custom{object-fit:contain}
 .pn-view{border:1px solid var(--color-border);border-radius:var(--radius);padding:12px 14px;min-height:80px;cursor:text}
 .pn-src{min-height:160px}
 .pn-old a{color:var(--color-primary)}
+/* progress note: many versions fold into one dropdown */
+.pn-pick{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--color-border);background:var(--color-surface);font-size:12.5px;cursor:pointer;color:var(--color-text-primary)}
+.pn-pick b{font-weight:800}
+.pn-pick span{color:var(--color-text-secondary);font-size:12px}
+.pn-pick .pn-pick-n{padding-left:6px;border-left:1px solid var(--color-border)}
+.pn-pick svg{width:14px;height:14px}
+.pn-pick:disabled{cursor:default;opacity:.7}
+.pn-menu{min-width:280px;max-width:360px;max-height:360px;overflow-y:auto}
+.menu .pn-menu .pn-menu-row{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;padding:8px 10px}
+.pn-menu-row b{min-width:34px;font-weight:800}
+.pn-menu-row.on{background:var(--color-primary-soft)}
+.pn-menu-main{display:grid;gap:2px;min-width:0}
+.pn-menu-meta{font-size:11.5px;color:var(--color-text-secondary)}
+.pn-menu-meta em{font-style:normal;font-weight:700;color:var(--color-primary)}
+.pn-menu-snip{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -58,6 +58,8 @@ test('progress notes: versions, permissions, privacy, activity, live', { timeout
   /* live: a colleague's open copy hears the task changed */
   await wait(300);
   assert.ok(ev.some(e => e.type === 'task_changed' && e.id === tk.id), 'task_changed for ' + tk.id + ': ' + JSON.stringify(ev.map(e => e.type)));
+  /* removing a version is a change to the task, not its deletion (it used to say "deleted" to everyone) */
+  assert.ok(!ev.some(e => e.type === 'task_changed' && e.id === tk.id && e.deleted), 'a version removed is not the task deleted: ' + JSON.stringify(ev.filter(e => e.type === 'task_changed')));
 
   /* a stakeholder: nothing to see, nothing to write */
   const stake = Object.keys(boot.people).find(id => boot.people[id].stakeholder);

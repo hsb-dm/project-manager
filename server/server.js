@@ -133,7 +133,9 @@ function announceTaskChange(method, pathname, out, user) {
   try {
     const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments|progress(?:\/\d+)?))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
     const id = m[1] || (out && out.id); if (!id || id === "bulk") return;
-    const deleted = method === "DELETE";
+    /* only DELETE /api/tasks/:id deletes the task; removing something in it (a progress note version) does not —
+       that used to tell every open copy, the remover's too, that the task itself was gone */
+    const deleted = method === "DELETE" && !m[2];
     const row = deleted ? null : db.prepare("SELECT updated_at FROM tasks WHERE id=?").get(id);
     const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id);
     if (typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers(ids, { type: "task_changed", id, deleted, updatedAt: row ? row.updated_at : null, by: user.id });

@@ -107,8 +107,11 @@ test("Excel: the latest note by default, a chosen version, or all of them; the T
     EXPORT = Object.assign({}, base, { pnVersion: 3 }); const none = taskRows([t]);
     EXPORT = Object.assign({}, base, { cols: ["title", "due", "pnText"] }); const some = taskRows([t]);
     EXPORT = null;
-    return { latest: [row(all)[col(all, "Progress note")], row(all)[col(all, "Note version")], !!row(all)[col(all, "Note updated")]], v1: row(v1)[col(v1, "Progress note")], every: every.slice(1).map(r => r[4] + ":" + r[5]), none: row(none)[col(none, "Progress note")], someHead: some[0], someDates: some.dateCols, allDates: all.dateCols.map(i => all[0][i]) };
+    return { latest: [row(all)[col(all, "Progress note")], row(all)[col(all, "Note version")], !!row(all)[col(all, "Note updated")]], v1: row(v1)[col(v1, "Progress note")], every: every.slice(1).map(r => r[col(every, "Version")] + ":" + r[col(every, "Progress note")]), everyStatus: every.slice(1).map(r => r[col(every, "Status")]), stage: stageName(t.status), noteHead: every[0], none: row(none)[col(none, "Progress note")], someHead: some[0], someDates: some.dateCols, allDates: all.dateCols.map(i => all[0][i]) };
   }, x.task);
+  /* the Progress notes sheet says where the task stands */
+  expect(out.noteHead.slice(0, 6)).toEqual(["Task ID", "Task", "Project", "Team", "Status", "Version"]);
+  expect(out.everyStatus).toEqual([out.stage, out.stage]);
   expect(out.latest).toEqual(["First draft sent to the client on Monday", "V2", true]);
   expect(out.v1).toBe("Moodboard done\nNext: first draft (Friday)");
   expect(out.every).toEqual(["V1:Moodboard done\nNext: first draft (Friday)", "V2:First draft sent to the client on Monday"]);
@@ -139,14 +142,58 @@ test("Excel: the latest note by default, a chosen version, or all of them; the T
   expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = [tr("Progress note"), tr("Latest version"), tr("Task columns")]; UI_LANG = was; return r; })).toEqual(["Catatan progres", "Versi terbaru", "Kolom task"]);
 });
 
-test("whoever wrote a version, or an admin, deletes it; the one before becomes the latest", async ({ page }) => {
+test("whoever wrote a version, or an admin, deletes it; the one before becomes the latest — and the task stays", async ({ page, browser }) => {
+  /* a colleague has the task open too */
+  const other = await (await browser.newContext()).newPage(); await signIn(other, DOER);
+  await other.evaluate(id => { openTask(id); S.drawerTab = "brief"; renderDrawer(); }, x.task);
+  const toasts = []; for (const p of [page, other]) await p.exposeFunction("__toast" + (p === page ? "A" : "B"), t => toasts.push(t)).catch(() => {});
   await signIn(page, ADMIN);
+  for (const [p, f] of [[page, "__toastA"], [other, "__toastB"]]) await p.evaluate(fn => { new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && /toast/.test(n.className || "")) window[fn](n.textContent); }))).observe(document.body, { childList: true, subtree: true }); }, f);
   await openProgress(page);
+  /* the task's other panels belong with the task, not under its progress note */
+  await expect(page.locator("#drBody .enh-blocks")).toHaveCount(0);
   await page.getByRole("button", { name: "Delete version" }).click();
   await page.locator("#modal").getByRole("button", { name: "Delete" }).click();
   await expect.poll(() => server(page)).toEqual(["V1:Moodboard done\nNext: first draft (Friday)"]);
   await expect(page.locator("#drBody .pn-chip")).toHaveText(["V1"]);
   await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
+  /* still there, for both of them; nobody is told it was deleted */
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(id => [!!task(id), S.drawerTask], x.task)).toEqual([true, x.task]);
+  expect(await other.evaluate(id => [!!task(id), S.drawerTask], x.task)).toEqual([true, x.task]);
+  expect(toasts.filter(t => /deleted/i.test(t))).toEqual([]);
+  /* the brief tab still has them */
+  await page.evaluate(() => { S.drawerTab = "brief"; renderDrawer(); });
+  await expect(page.locator("#drBody .enh-blocks")).toHaveCount(1);
+  await other.context().close();
+});
+
+test("past five versions the chips fold into one dropdown, newest first", async ({ page }) => {
+  await signIn(page, ADMIN);
+  await page.evaluate(async id => { for (let i = 2; i <= 7; i++) await apiFetch("POST", "/api/tasks/" + id + "/progress", { text: "Update number " + i + "\nmore below" }); await reloadAll(); }, x.task);
+  await openProgress(page);
+  const pick = page.locator("#drBody .pn-pick");
+  await expect(pick).toBeVisible();
+  await expect(page.locator("#drBody .pn-chip")).toHaveCount(0);
+  await expect(pick).toContainText("V7");
+  await expect(pick).toContainText("latest");
+  await expect(pick).toContainText("7 versions");
+  await pick.click();
+  const rows = page.locator("#ctxMenu.open .pn-menu-row");
+  await expect(rows).toHaveCount(7);
+  await expect(rows.first()).toContainText("V7");
+  await expect(rows.first()).toContainText("Update number 7");
+  await expect(rows.last()).toContainText("V1");
+  await page.locator("#ctxMenu.open .pn-menu-row", { hasText: "V3" }).click();
+  await expect(page.locator("#drBody .pn-view")).toContainText("Update number 3");
+  await expect(pick).toContainText("V3");
+  await expect(pick).not.toContainText("latest");
+  /* writing a new version: the dropdown waits, the new one shows beside it */
+  await page.getByRole("button", { name: "New version" }).click();
+  await expect(page.locator("#drBody .pn-pick")).toBeDisabled();
+  await expect(page.locator("#drBody .pn-chip.new")).toContainText("V8");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = [tr("latest"), tr("versions")]; UI_LANG = was; return r; })).toEqual(["terbaru", "versi"]);
 });
 
 test("cleanup", async ({ page }) => {

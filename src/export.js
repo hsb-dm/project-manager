@@ -299,8 +299,8 @@ function exPnList(t){ return typeof pnList==="function"?pnList(t):((t&&t.progres
 function exPlain(md){ return typeof pnPlain==="function"?pnPlain(md):String(md||""); }
 function exWhen(iso){ return typeof pnWhen==="function"?pnWhen(iso):String(iso||""); }
 function pnPick(t){ var c=EXPORT&&EXPORT.pnVersion, l=exPnList(t); if(typeof c==="number"){ var hit=null; l.forEach(function(p){ if(p.v===c) hit=p; }); return hit; } return l[l.length-1]||null; }
-function pnRows(list){ var rows=[["Task ID","Task","Project","Team","Version","Progress note","Written by","Written","Last edited by","Last edited"]];
-  list.forEach(function(t){ var vs=EXPORT&&EXPORT.pnVersion==="all"?exPnList(t):[pnPick(t)].filter(Boolean); vs.forEach(function(p){ rows.push([t.id,t.title,projName(t),teamName(t.team),"V"+p.v,exPlain(p.text),p.by?person(p.by).name:"",exWhen(p.at),p.editedBy?person(p.editedBy).name:"",p.editedAt?exWhen(p.editedAt):""]); }); });
+function pnRows(list){ var rows=[["Task ID","Task","Project","Team","Status","Version","Progress note","Written by","Written","Last edited by","Last edited"]];
+  list.forEach(function(t){ var vs=EXPORT&&EXPORT.pnVersion==="all"?exPnList(t):[pnPick(t)].filter(Boolean); vs.forEach(function(p){ rows.push([t.id,t.title,projName(t),teamName(t.team),stageName(t.status),"V"+p.v,exPlain(p.text),p.by?person(p.by).name:"",exWhen(p.at),p.editedBy?person(p.editedBy).name:"",p.editedAt?exWhen(p.editedAt):""]); }); });
   return rows; }
 var EXPORT=null; /* {from,to (day offsets), weeks, an} — set by exportModal, cleared after the export */
 function exportTasks(){
@@ -442,7 +442,7 @@ function buildXLSX(){ var d=reportData(), m=d.m;
     if (!ls.length){ taskAssets.push([t.id,t.title,projName(t),teamName(t.team),stageName(t.status),tr(isClosed(t)?"Yes":"No"),assetCount(t),"","","","",""]); return; }
     ls.forEach(function(l){ taskAssets.push([t.id,t.title,projName(t),teamName(t.team),stageName(t.status),tr(isClosed(t)?"Yes":"No"),assetCount(t),l.kind,l.v||"",l.name,l.url,(fin&&fin.url===l.url)?"final":""]); }); });
   summary=summary.map(function(r){return r.map(function(v){return typeof v==="string"?tr(v):v;});}); var progress=pnRows(exportTasks()), tRows=taskRows(exportTasks()); [stages,projects,workload,weekly,assets,teams,taskAssets,progress].forEach(function(rows){rows[0]=rows[0].map(tr);});
-  var allSheets=[["summary",tr("Summary"),summary,[26,22,34]],["tasks",tr("Tasks"),tRows,tRows.widths],["progress",tr("Progress notes"),progress,[9,38,22,14,9,70,18,20,18,20]],["taskassets",tr("Task assets"),taskAssets,[9,38,22,14,13,10,14,10,8,34,56,7]],["projects",tr("Projects"),projects,[26,16,10,12,12,12,11,9,11,14,14,11,30]],["teams",tr("Teams"),teams,[20,10,10,10,10,12,12,14]],["workload",tr("Workload"),workload,[20,18,16,12,12,14,11,10,9,15,15,26]],["weekly",tr("Weekly"),weekly,[10,9,10,9,16,14,16]],["pipeline",tr("Pipeline"),stages,[18,10,8]],["assets",tr("Asset library"),assets,[36,11,16,10,44,10,8,24,16]]];
+  var allSheets=[["summary",tr("Summary"),summary,[26,22,34]],["tasks",tr("Tasks"),tRows,tRows.widths],["progress",tr("Progress notes"),progress,[9,38,22,14,14,9,70,18,20,18,20]],["taskassets",tr("Task assets"),taskAssets,[9,38,22,14,13,10,14,10,8,34,56,7]],["projects",tr("Projects"),projects,[26,16,10,12,12,12,11,9,11,14,14,11,30]],["teams",tr("Teams"),teams,[20,10,10,10,10,12,12,14]],["workload",tr("Workload"),workload,[20,18,16,12,12,14,11,10,9,15,15,26]],["weekly",tr("Weekly"),weekly,[10,9,10,9,16,14,16]],["pipeline",tr("Pipeline"),stages,[18,10,8]],["assets",tr("Asset library"),assets,[36,11,16,10,44,10,8,24,16]]];
   var sheets=allSheets.filter(function(x){ return exInc(x[0]); }).map(function(x){ return [x[1],x[2],x[3],x[0]]; });
   if (!sheets.length) sheets=[[tr("Summary"),summary,[26,22,34],"summary"]];
   var summaryIndex=sheets.findIndex(function(x){return x[3]==="summary";}), summaryName=summaryIndex>=0?sheets[summaryIndex][0]:null;
