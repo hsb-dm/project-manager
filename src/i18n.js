@@ -231,6 +231,8 @@ Object.assign(UI_ID,{
   "Create tasks assigned to themselves": "Membuat tugas untuk diri sendiri",
   "Edit any task": "Mengedit semua tugas",
   "Edit/assign/review tasks of teams they lead or belong to": "Mengedit, menugaskan, dan meninjau tugas tim yang dipimpin atau diikuti",
+  "See tasks' progress notes": "Melihat catatan progres task",
+  "Write progress notes on any task they can see": "Menulis catatan progres di task mana pun yang bisa mereka lihat",
   "Edit tasks where they are assignee or reviewer": "Mengedit tugas sebagai penanggung jawab atau peninjau",
   "Assign tasks to anyone": "Menugaskan pekerjaan kepada siapa saja",
   "Approve / send back any task": "Menyetujui atau mengembalikan semua tugas",

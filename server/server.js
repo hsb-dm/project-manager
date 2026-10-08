@@ -31,6 +31,15 @@ if (!db.prepare("SELECT 1 FROM workspaces LIMIT 1").get()) {
    viewers can submit requests, which create backlog tasks. */
 try { db.prepare("UPDATE roles SET description=? WHERE id='viewer' AND is_system=1 AND description='Read-only (can submit requests and comment)'").run(DEFAULT_ROLES.find(r => r.id === "viewer").description); } catch (e) {}
 try { db.prepare("DELETE FROM sessions WHERE id NOT LIKE 'sha256:%'").run(); } catch (e) {} /* v29: drop pre-hash sessions */
+/* progress notes got their own capabilities: by default every role sees and writes them (a Viewer only sees them,
+   as it edits nothing). Once only, so a choice made later in Roles & permissions sticks. */
+try {
+  db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)");
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='caps_progress_notes'").get()) {
+    db.prepare("SELECT id, permissions FROM roles").all().forEach(r => { let p = []; try { p = JSON.parse(r.permissions || "[]"); } catch (e) {} const add = ["view_progress_notes"].concat(r.id === "viewer" ? [] : ["write_progress_notes"]).filter(c => !p.includes(c)); if (add.length) db.prepare("UPDATE roles SET permissions=? WHERE id=?").run(JSON.stringify(p.concat(add)), r.id); });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_progress_notes', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[roles] progress note capabilities: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
 /* v38: a removed member keeps their user row (history points at it) but loses everything that
    made the account usable: sign-in email, password, sessions. The email is free to be added or
@@ -471,7 +480,7 @@ function bootstrapTasksFresh() {
 route("GET", "/api/tasks/:id", (u, p) => { const t = sz.readTask(db, p.id); if (!t || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found"); return forViewer(u, t); });
 route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
-  ...((bt) => u.stakeholder ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
+  ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
   savedViews: sz.readViews(db, WS_ID, u.id), notifs: sz.readNotifs(db, WS_ID, u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
 }));
@@ -928,7 +937,8 @@ const cleanColor = (c, fallback) => (typeof c === "string" && (/^#[0-9a-fA-F]{3,
 function checkVersionNumbers(list) { const seen = new Set(); (Array.isArray(list) ? list : []).forEach(v => { if (!v || !Number.isInteger(v.n) || v.n < 1 || v.n > 9999 || seen.has(v.n)) throw new HttpError(400, "Each version needs its own whole number"); seen.add(v.n); }); }
 /* A stakeholder sees the comments meant for them, and nothing marked team or internal — the page
    hid the others, but they were in what the server sent. */
-const forViewer = (u, t) => (!t || !u || !u.stakeholder) ? t : Object.assign({}, t, { comments: Array.isArray(t.comments) ? t.comments.filter(c => c && c.vis === "client") : t.comments, progress: [] });   /* progress notes are internal */
+/* what a person may see of a task: a stakeholder only client-visible comments; progress notes only with the capability */
+const forViewer = (u, t) => { if (!t || !u) return t; const noNotes = !can.progressView(u); if (!u.stakeholder && !noNotes) return t; return Object.assign({}, t, u.stakeholder ? { comments: Array.isArray(t.comments) ? t.comments.filter(c => c && c.vis === "client") : t.comments } : {}, noNotes ? { progress: [] } : {}); };
 route("POST", "/api/projects", (u, p, q, b) => { forbid(can.createProject(u), "create projects"); b.id = b.id || uid("p"); rejectExistingId("projects", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM projects WHERE workspace_id=?").get(WS_ID).s; withSnapshot(u, "project", b.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); act(u, "project_created", "project", b.id, { project: b.id, what: b.name }); }); return sz.readProjects(db, WS_ID); });
 route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "edit this project"); b.id = p.id;
   const changed = ["name", "description", "brief", "owner", "status", "startDate", "dueDate", "tags", "teams"].some(k => b[k] !== undefined && JSON.stringify(b[k]) !== JSON.stringify(cur[k]));
@@ -1102,7 +1112,7 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
    admin, removes it. ---------- */
 function progressTask(u, id) {
   const cur = sz.readTask(db, id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(id, WS_ID)) throw new HttpError(404, "Task not found");
-  forbid(!u.stakeholder && can.editTask(u, cur), "write progress notes on this task"); return cur;
+  forbid(can.progressWrite(u, cur), "write progress notes on this task"); return cur;
 }
 const progressText = b => { const text = String((b && b.text) || ""); tooLong("progress note", text, 20000); if (!text.trim()) throw new HttpError(400, "Write something first"); return text; };
 const progressTouched = id => db.prepare("UPDATE tasks SET updated_at=? WHERE id=?").run(now(), id);   /* so open copies refetch it */

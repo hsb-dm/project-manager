@@ -10,8 +10,9 @@
 var PN={ edit:null, view:{} };   /* edit: {key, mode:"edit"|"new", v, draft}; view: task id → the version shown */
 function pnList(tk){ return ((tk&&tk.progress)||[]).slice().sort(function(a,b){ return a.v-b.v; }); }
 function pnLatest(tk){ var l=pnList(tk); return l[l.length-1]||null; }
-function pnCanSee(){ var p=PEOPLE[ME]; return !(p&&p.stakeholder); }
-function pnCanWrite(tk){ return !!tk&&!tk._draft&&pnCanSee()&&canI.editTask(tk); }
+/* who sees and writes them is set per role (Roles & permissions); the server decides, this only shapes the tab */
+function pnCanSee(){ var p=PEOPLE[ME]; return !(p&&p.stakeholder)&&(has("view_progress_notes")||has("write_progress_notes")); }
+function pnCanWrite(tk){ return !!tk&&!tk._draft&&pnCanSee()&&has("write_progress_notes"); }
 function pnWhen(iso){ if(!iso) return ""; var d=new Date(iso); if(isNaN(d)) return ""; return d.toLocaleString(UI_LANG==="id"?"id-ID":"en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
 /* the text of a note, plain: for the Excel export (links keep their address) */
 function pnPlain(md){ var d=document.createElement("div"); d.innerHTML=descMdHtml(md||"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/(p|div|li|h[1-6]|blockquote|pre)>/gi,"$&\n");

@@ -23,6 +23,9 @@ const CAPS = [
   ["view_analytics", "See analytics"],
   ["view_all", "See all projects and tasks"],
   ["submit_request", "Submit a request (a task in the first stage, unassigned) for the creative team to triage"],
+  /* progress notes: who sees them, who writes them — any role, set here */
+  ["view_progress_notes", "See tasks' progress notes"],
+  ["write_progress_notes", "Write progress notes on any task they can see"],
   /* v16 §48 — AI Hub and AI Gallery get their own capabilities. They used to
      borrow `upload_file` / `manage_assets`, which meant anyone who could
      attach a file to a task could also publish to the shared Gallery. */
@@ -36,10 +39,10 @@ const CAPS = [
 const ALL = CAPS.map(c => c[0]);
 const DEFAULT_ROLES = [
   { id: "admin", name: "Admin", description: "Full workspace access", rank: 100, permissions: ALL },
-  { id: "creative_lead", name: "Creative Lead", description: "Create projects/tasks, assign, review, approve, analytics", rank: 80, permissions: ["create_project", "edit_any_project", "delete_project", "create_task", "create_own_task", "edit_any_task", "assign_task", "review_any", "delete_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
-  { id: "team_lead", name: "Team Lead", description: "Manage team workload, assign and review team tasks", rank: 60, permissions: ["create_task", "create_own_task", "edit_team_tasks", "edit_own_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
-  { id: "member", name: "Member", description: "Work on assigned tasks, upload, comment, submit for review", rank: 40, permissions: ["create_own_task", "edit_own_task", "upload_file", "manage_assets", "manage_knowledge", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
-  { id: "viewer", name: "Viewer", description: "Views everything; can submit requests (which land in the backlog for triage) and comment. Cannot edit work.", rank: 10, permissions: ["view_all", "submit_request", "view_ai_gallery"] },
+  { id: "creative_lead", name: "Creative Lead", description: "Create projects/tasks, assign, review, approve, analytics", rank: 80, permissions: ["view_progress_notes", "write_progress_notes", "create_project", "edit_any_project", "delete_project", "create_task", "create_own_task", "edit_any_task", "assign_task", "review_any", "delete_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
+  { id: "team_lead", name: "Team Lead", description: "Manage team workload, assign and review team tasks", rank: 60, permissions: ["view_progress_notes", "write_progress_notes", "create_task", "create_own_task", "edit_team_tasks", "edit_own_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
+  { id: "member", name: "Member", description: "Work on assigned tasks, upload, comment, submit for review", rank: 40, permissions: ["view_progress_notes", "write_progress_notes", "create_own_task", "edit_own_task", "upload_file", "manage_assets", "manage_knowledge", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
+  { id: "viewer", name: "Viewer", description: "Views everything; can submit requests (which land in the backlog for triage) and comment. Cannot edit work.", rank: 10, permissions: ["view_all", "submit_request", "view_ai_gallery", "view_progress_notes"] },
 ];
 function has(u, cap) { if (!u) return false; if (u.role === "admin") return true; if (!u.caps) return false; return Array.isArray(u.caps) ? u.caps.indexOf(cap) >= 0 : !!u.caps[cap]; }
 const leadsTeam = (u, teamId) => !!teamId && u.ledTeams.includes(teamId);
@@ -73,5 +76,8 @@ const can = {
   viewAnalytics:   (u) => has(u, "view_analytics"),
   useAIHub:        (u) => has(u, "use_ai_hub"),
   saveView:        (u) => true,
+  /* progress notes: seen with the capability (writing one implies seeing them); written on any task with it */
+  progressView:    (u) => !u.stakeholder && (has(u, "view_progress_notes") || has(u, "write_progress_notes")),
+  progressWrite:   (u, t) => !u.stakeholder && has(u, "write_progress_notes"),
 };
 module.exports = { can, has, CAPS, DEFAULT_ROLES };
