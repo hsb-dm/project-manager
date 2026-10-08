@@ -51,7 +51,7 @@ function deliverNotification(evt){ if(!evt) return; if(!notifEventAllowed(evt)) 
   return out; }
 /* Existing task/comment events (notify() in core.js) flow through the same
    pipeline in standalone mode so they reach the browser and the chime too. */
-function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); return deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:n.k==="mention"?"chat_mention":undefined,title:"ZenCrevia",body:fmt(ntext(n.k),{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
+function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",reviewer:"TASK_ASSIGNED",review:"APPROVAL_REQUESTED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); return deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:n.k==="mention"?"chat_mention":undefined,title:"ZenCrevia",body:fmt(ntext(n.k),{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
 /* ---------- pop-ups that stay long enough to read ----------
    A notification that pops up inside the app stays for NOTIF_POP_MS, waits while the pointer is on
    it, and has its own close button; a click opens what it is about. The browser's own notification

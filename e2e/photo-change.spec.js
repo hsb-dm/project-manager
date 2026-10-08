@@ -63,6 +63,8 @@ test("Settings → Profile: a photo that is there can be changed, looked at and 
   await page.locator("#content .mp-avatar").first().click();
   await expect(page.locator("#ctxMenu.open").getByRole("button")).toHaveText(["Lihat foto", "Ganti foto", "Hapus foto"]);
   await page.evaluate(() => { closePops(); setLanguage("en"); });
+  /* the language is the person's preference, saved on the server: wait for it, or the next test opens in Indonesian */
+  await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => (d.people[ME].prefs || {}).language))).toBe("en");
 });
 
 test("one's own profile, and an admin on a colleague's profile", async ({ page }) => {

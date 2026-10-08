@@ -30,8 +30,10 @@ function compute(db, wsId, nWeeks, toDate) {
   const hours = id => Math.round(tasks.filter(t=>!t.is_completed).reduce((n,t)=>{const ids=assignedTo(t);return n+(ids.includes(id)?(t.estimated_minutes||0)/60/ids.length:0);},0));
   const byTeam = db.prepare("SELECT id,name,color FROM teams WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order").all(wsId).map(t=>{
     const members=Object.keys(people).filter(id=>!people[id].stakeholder&&(people[id].teams||[]).some(x=>x[0]===t.id));
-    const capacity=members.reduce((n,id)=>n+(people[id].cap||0),0),assigned=members.reduce((n,id)=>n+hours(id),0),open=tasks.filter(k=>k.team_id===t.id&&!k.is_completed);
-    return {id:t.id,name:t.name,color:t.color,open:open.length,workloadHours:open.reduce((n,k)=>n+(k.estimated_minutes||0)/60,0),completed:tasks.filter(k=>k.team_id===t.id&&k.is_completed).length,capacity,assigned,utilization:capacity?Math.round(assigned/capacity*100):0};
+    /* a team's tasks: its own, and other teams' tasks its people are assigned to (each keeps its team) */
+    const inTeam=Object.keys(people).filter(id=>(people[id].teams||[]).some(x=>x[0]===t.id)), involves=k=>k.team_id===t.id||assignedTo(k).some(id=>inTeam.includes(id));
+    const capacity=members.reduce((n,id)=>n+(people[id].cap||0),0),assigned=members.reduce((n,id)=>n+hours(id),0),open=tasks.filter(k=>involves(k)&&!k.is_completed);
+    return {id:t.id,name:t.name,color:t.color,open:open.length,workloadHours:open.reduce((n,k)=>n+(k.estimated_minutes||0)/60,0),completed:tasks.filter(k=>involves(k)&&k.is_completed).length,capacity,assigned,utilization:capacity?Math.round(assigned/capacity*100):0};
   });
   const today = localDate(new Date());
   const byProject = db.prepare("SELECT id, name, progress, due_date FROM projects WHERE workspace_id=? AND status NOT IN ('done','archived') ORDER BY sort_order").all(wsId).map(p => {

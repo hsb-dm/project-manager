@@ -294,7 +294,7 @@ function startRevision(){
     log(t,"revision",{v:n}); VN_REOPEN="";
   }).then(function(saved){
     if(saved===false) return false;
-    notify("revision",assigneesOf(tk),tk.id);
+    notifyTask("revision",tk);
     var who=assigneesOf(tk).map(first).join(", ")||"—";
     toast((approved?tr("Version")+" "+n+" "+tr("was approved — the task is open again.")+" ":"")+(open.length?tr("Revision request sent to")+" "+who:tr("Sent back for revision")+" — "+tr("add notes so they know what to change.")),"bad");
     if(!open.length) setTimeout(function(){ var f=document.getElementById("verNoteText"); if(f){ f.scrollIntoView({block:"center"}); f.focus(); } },60);
@@ -371,7 +371,7 @@ function pushVersionFrom(tk,src,note){
     if(rs&&t.status!==rs&&reviewersOf(t).length){ var from=t.status; t.status=rs; log(t,"moved",{from:from,to:rs}); sent=true; }
   }).then(function(saved){
     if(saved===false) return false;
-    if(sent){ notify("status",reviewersOf(tk),tk.id); toast(tr("Version")+" "+n+" "+tr("sent for review")); }
+    if(sent){ notifyMoved(tk); toast(tr("Version")+" "+n+" "+tr("sent for review")); }
     else toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
     return n;
   });
@@ -509,7 +509,7 @@ function saveLinkVersion(){
     v.driveUrl=url;
     if(drive){ var id=(url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) v.driveId=id; }
     t.versions.push(v); log(t,"upload",{v:n});
-  }).then(function(saved){ if(saved===false) return false; notify("upload",reviewersOf(tk),tk.id); toast(tr("Version")+" "+n+" "+tr("attached")); });
+  }).then(function(saved){ if(saved===false) return false; notifyTask("upload",tk); toast(tr("Version")+" "+n+" "+tr("attached")); });
 }
 
 /* ---------- 2. final files ---------- */

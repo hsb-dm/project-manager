@@ -266,7 +266,7 @@ function exportTasks(){
   var f=EXPORT;
   return base.filter(function(t){
     if (t.due<f.from||t.due>f.to) return false;
-    if (f.teams&&f.teams.length&&f.teams.indexOf(t.team)<0) return false;
+    if (f.teams&&f.teams.length&&!f.teams.some(function(tid){ return taskInvolvesTeam(t,tid); })) return false;
     if (f.projects&&f.projects.length&&f.projects.indexOf(t.proj)<0) return false;
     if (f.labels&&f.labels.length&&!(t.labels||[]).some(function(l){ return f.labels.indexOf(l)>=0; })) return false;
     if (f.people&&f.people.length&&!f.people.some(function(p){ return isAssignee(t,p); })) return false;

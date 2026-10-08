@@ -514,3 +514,10 @@ img.emj.custom{object-fit:contain}
 .ce-row img.emj{width:28px;height:28px;object-fit:contain}
 .ce-row b{font-size:13.5px}
 .ce-row .ce-by{flex:1;font-size:12px;color:var(--color-text-secondary);text-align:right}
+
+/* a team page shows its work as a list, a timeline or a calendar */
+.team-tasks-panel .panel-head{flex-wrap:wrap;gap:8px}
+.team-view-seg .i,.team-view-seg svg{width:14px;height:14px;margin-right:4px;vertical-align:-2px}
+.team-view-timeline .panel-body,.team-view-calendar .panel-body{overflow-x:auto}
+.team-tasks-panel .team-scope-hint{margin:0;padding:10px 16px 6px}
+.team-view-calendar .calendar-toolbar{padding:6px 12px;flex-wrap:wrap;gap:8px}
