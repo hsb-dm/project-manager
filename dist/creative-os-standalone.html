@@ -2116,7 +2116,7 @@ body.auth .nav-messages{display:none!important}
 .msg-input .msg-ta-wrap textarea::placeholder{color:var(--color-text-tertiary)}
 .msg-input .msg-ta-wrap textarea::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
 .msg-input .msg-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;color:var(--color-text-primary);box-sizing:border-box;font:inherit;font-size:13.5px;line-height:1.5;padding:7px 4px}
-.msg-input .msg-ta-mirror .msg-mention{color:var(--color-primary);background:var(--color-primary-soft);border-radius:5px;padding:0 4px;margin:0 -4px;font-weight:700}
+.msg-input .msg-ta-mirror .msg-mention{color:var(--color-primary);background:var(--color-primary-soft);border-radius:5px;padding:0 4px;margin:0 -4px;font-weight:inherit} /* same width as the textarea text under it, or the caret drifts behind every mention */
 .msg-input .msg-ta-mirror .msg-mention.self{background:var(--color-secondary);color:#111}
 /* Scheduled messages strip above the composer */
 .msg-scheduled{display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-surface-sunken)}
@@ -4733,6 +4733,12 @@ img.emj.custom{object-fit:contain}
 .pn-menu-meta{font-size:11.5px;color:var(--color-text-secondary)}
 .pn-menu-meta em{font-style:normal;font-weight:700;color:var(--color-primary)}
 .pn-menu-snip{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* The comment box shows its text through a mirror layer (mentions drawn as chips) under a see-through
+   textarea. Dark mode gives every textarea a background, which hid that layer: what was typed could not
+   be read. The textarea stays see-through; the mirror carries the background. */
+#drawer .composer textarea.cmt-mirrored{background-color:transparent}
+[data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
 
 </style>
 </head>

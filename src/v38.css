@@ -559,3 +559,9 @@ img.emj.custom{object-fit:contain}
 .pn-menu-meta{font-size:11.5px;color:var(--color-text-secondary)}
 .pn-menu-meta em{font-style:normal;font-weight:700;color:var(--color-primary)}
 .pn-menu-snip{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* The comment box shows its text through a mirror layer (mentions drawn as chips) under a see-through
+   textarea. Dark mode gives every textarea a background, which hid that layer: what was typed could not
+   be read. The textarea stays see-through; the mirror carries the background. */
+#drawer .composer textarea.cmt-mirrored{background-color:transparent}
+[data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
