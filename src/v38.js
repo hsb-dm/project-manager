@@ -105,7 +105,7 @@ function routeWanted(){ var h=location.hash||"";
   /* a v38 hash link (#/tasks?task=…) pasted into an open tab: move it to the clean path */
   window.addEventListener("hashchange",function(){ if(!ROUTER.ready||document.body.classList.contains("auth")||!/^#\/[a-z]/i.test(location.hash)) return; var r=routeParse(location.hash); if(ROUTER.mode==="path"){ try{ history.replaceState(null,"",routeBuild(r.screen,r.sub,r.task)); }catch(e){} } routeApply(r); });
   window.addEventListener("popstate",function(){ if(document.body.classList.contains("auth")) return authRouteApply(); var r=routeParse(routeHere()); routeApply(r||{screen:"home"}); });
-  var baseAfter=afterLogin; afterLogin=function(){ var wanted=routeWanted(), legacy=/^#(task|project|asset|knowledge|decision|conv)=/.test(location.hash)?location.hash:null;
+  var baseAfter=afterLogin; afterLogin=function(){ var wanted=routeWanted(), legacy=/^#(task|project|asset|knowledge|conv)=/.test(location.hash)?location.hash:null;
     window.ZC_READY=false;
     var routed=!!(wanted&&wanted.screen!=="register"&&wanted.screen!=="login"&&wanted.screen!=="reset");
     BOOT_SKIP_RENDER=routed;   /* this wrapper renders the real screen a moment later */

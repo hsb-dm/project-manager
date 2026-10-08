@@ -222,8 +222,10 @@ Object.assign(UI_ID,{
 (function(){
   if(typeof setThemeTab!=="function") return;
   var base=setThemeTab;
+  /* the look is personal (personal-theme.js): everyone uses this tab for their own; the workspace's own
+     parts — its font list and how task cards are coloured — are drawn for admins only (settings.js) */
   setThemeTab=function(){ var h=base.apply(this,arguments); if(canI.manageWorkspace()) return h;
-    return '<div class="banner" role="note" style="margin-bottom:12px">'+tr("Only workspace admins can change the theme. Your own light/dark preference is in the top bar.")+'</div><fieldset disabled class="zc-readonly" aria-disabled="true">'+h+'</fieldset>'; };
+    return '<div class="banner" role="note" style="margin-bottom:12px">'+tr("Your look is personal: only your account changes.")+'</div>'+h; };
   Object.assign(UI_ID,{"Only workspace admins can change the theme. Your own light/dark preference is in the top bar.":"Hanya admin workspace yang bisa mengubah tema. Preferensi terang/gelap pribadimu ada di bilah atas."});
 })();
 </script>

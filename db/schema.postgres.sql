@@ -206,3 +206,11 @@ CREATE TABLE IF NOT EXISTS custom_emoji (
   workspace_id TEXT NOT NULL, name TEXT NOT NULL, url TEXT NOT NULL, created_by TEXT, created_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (workspace_id, name)
 );
+
+-- progress notes: where a task stands, kept as versions (V1, V2...). Saving changes the latest; a new version starts the next.
+CREATE TABLE IF NOT EXISTS task_progress_notes (
+  id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, version_number INTEGER NOT NULL,
+  body TEXT NOT NULL DEFAULT '', created_by TEXT, created_at TIMESTAMPTZ NOT NULL, edited_by TEXT, edited_at TIMESTAMPTZ,
+  UNIQUE (task_id, version_number)
+);
+CREATE INDEX IF NOT EXISTS idx_progress_task ON task_progress_notes(task_id, version_number);

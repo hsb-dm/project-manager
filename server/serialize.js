@@ -235,9 +235,12 @@ function taskRelations(db, sub, params) {
     versions: group(db.prepare("SELECT * FROM file_versions WHERE task_id IN (" + sub + ") ORDER BY version_number").all(...params), "task_id"),
     files: group(db.prepare("SELECT * FROM files WHERE task_id IN (" + sub + ") ORDER BY created_at").all(...params), "task_id"),
     comments: group(db.prepare("SELECT * FROM comments WHERE task_id IN (" + sub + ") ORDER BY created_at").all(...params), "task_id"),
-    activity: group(db.prepare("SELECT * FROM activity_logs WHERE entity_type='task' AND entity_id IN (" + sub + ") ORDER BY created_at").all(...params), "entity_id")
+    activity: group(db.prepare("SELECT * FROM activity_logs WHERE entity_type='task' AND entity_id IN (" + sub + ") ORDER BY created_at").all(...params), "entity_id"),
+    progress: group(db.prepare("SELECT * FROM task_progress_notes WHERE task_id IN (" + sub + ") ORDER BY version_number").all(...params), "task_id")
   };
 }
+/* a progress note version as the client sees it */
+const pnOut = p => ({ v: p.version_number, text: p.body || "", by: p.created_by, at: p.created_at, editedBy: p.edited_by || null, editedAt: p.edited_at || null });
 function buildTask(t, R) {
   const id = t.id, brief = R.briefs.get(id), custom = {};
   (R.custom.get(id) || []).forEach(r => { custom[r.field_id] = J(r.value, null); });
@@ -251,6 +254,7 @@ function buildTask(t, R) {
     files: (R.files.get(id) || []).map(f => ({ id: f.id, name: f.filename, type: f.file_type, source: f.storage_provider, size: f.size_label, createdAt: f.created_at, url: f.external_url || "", preview: f.preview_data || null, driveId: f.drive_id || null })),
     comments: (R.comments.get(id) || []).map(c => ({ id: c.id, by: c.author_id, createdAt: c.created_at, vis: c.visibility, text: c.body, parent: c.parent_id, attachments: J(c.attachments, []) })),
     activity: (R.activity.get(id) || []).map(a => ({ id: a.id, who: a.actor_id, k: a.action, createdAt: a.created_at, a: J(a.payload, {}) })),
+    progress: ((R.progress && R.progress.get(id)) || []).map(pnOut),
   };
 }
 function readTask(db, id) {
@@ -382,8 +386,10 @@ function readTaskSlimRows(db, wsId, where, params) {
   const rows = db.prepare("SELECT * FROM tasks t WHERE t.workspace_id=? AND " + where + " ORDER BY t.sort_order").all(wsId, ...(params || []));
   if (!rows.length) return [];
   const tags = {}; db.prepare("SELECT tt.task_id, g.name FROM task_tags tt JOIN tags g ON g.id=tt.tag_id JOIN tasks t ON t.id=tt.task_id WHERE t.workspace_id=? AND " + where).all(wsId, ...(params || [])).forEach(r => { (tags[r.task_id] = tags[r.task_id] || []).push(r.name); });
+  /* the latest progress note travels with a slim task too: it goes into the Excel export */
+  const prog = {}; db.prepare("SELECT p.* FROM task_progress_notes p JOIN tasks t ON t.id=p.task_id WHERE t.workspace_id=? AND " + where + " ORDER BY p.version_number").all(wsId, ...(params || [])).forEach(r => { prog[r.task_id] = r; });
   return rows.map(t => { const a = J(t.assignees, []), r = J(t.reviewers, []); if (t.assignee_id && a.indexOf(t.assignee_id) < 0) a.unshift(t.assignee_id); if (t.reviewer_id && r.indexOf(t.reviewer_id) < 0) r.unshift(t.reviewer_id);
-    return { _slim: true, id: t.id, title: t.title, description: "", proj: t.project_id, alsoIn: J(t.extra_projects, []), team: t.team_id, status: t.status_id, prio: t.priority, assignee: t.assignee_id, reviewer: t.reviewer_id, assignees: a, reviewers: r, hidden: !!t.is_hidden, startDate: t.start_date, dueDate: t.due_date, effort: (t.estimated_minutes || 0) / 60, assetCount: t.asset_count || 0, labels: J(t.labels, []), sort: t.sort_order, parent: t.parent_task_id, requestId: t.request_id, completedAt: t.completed_at, createdAt: t.created_at, createdBy: t.created_by, updatedAt: t.updated_at, tags: tags[t.id] || [], dependencies: [], brief: null, custom: {}, meta: J(t.meta, {}), versions: [], files: [], comments: [], activity: [] }; });
+    return { _slim: true, progress: prog[t.id] ? [pnOut(prog[t.id])] : [], id: t.id, title: t.title, description: "", proj: t.project_id, alsoIn: J(t.extra_projects, []), team: t.team_id, status: t.status_id, prio: t.priority, assignee: t.assignee_id, reviewer: t.reviewer_id, assignees: a, reviewers: r, hidden: !!t.is_hidden, startDate: t.start_date, dueDate: t.due_date, effort: (t.estimated_minutes || 0) / 60, assetCount: t.asset_count || 0, labels: J(t.labels, []), sort: t.sort_order, parent: t.parent_task_id, requestId: t.request_id, completedAt: t.completed_at, createdAt: t.created_at, createdBy: t.created_by, updatedAt: t.updated_at, tags: tags[t.id] || [], dependencies: [], brief: null, custom: {}, meta: J(t.meta, {}), versions: [], files: [], comments: [], activity: [] }; });
 }
 /* Merge a slim client copy over the stored task: scalar fields win, collections stay. */
 function mergeSlimTask(stored, incoming) { const out = Object.assign({}, stored); SLIM_FIELDS.forEach(k => { if (incoming[k] !== undefined) out[k] = incoming[k]; }); out.id = stored.id; return out; }

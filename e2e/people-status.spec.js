@@ -206,7 +206,7 @@ test("a theme colour can be dragged through the picker: neither the picker nor t
     /* dragging fires input after input; the picker's input must stay the same element throughout */
     const kept = await page.evaluate(async () => {
       const el = document.querySelector("#quickTheme input[type=color]"), out = [];
-      for (const v of ["#ff0000", "#00aa00", "#123456"]) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); await new Promise(r => setTimeout(r, 120)); out.push(el.isConnected && document.getElementById("themePop").classList.contains("open") && WS.theme.accent === v); }
+      for (const v of ["#ff0000", "#00aa00", "#123456"]) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); await new Promise(r => setTimeout(r, 120)); out.push(el.isConnected && document.getElementById("themePop").classList.contains("open") && myPrefs().theme.accent === v); }
       return out;
     });
     expect(kept).toEqual([true, true, true]);
@@ -216,26 +216,28 @@ test("a theme colour can be dragged through the picker: neither the picker nor t
     await page.waitForTimeout(150);
     await expect(pop).toHaveClass(/open/);
     await expect(page.locator("#quickTheme input[type=color]")).toHaveValue("#123456");
-    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => d.ws.theme.accent)), { timeout: 5000 }).toBe("#123456");
+    /* the colour is personal: it is saved with the person, not the workspace */
+    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => ((d.people[ME].prefs || {}).theme || {}).accent)), { timeout: 5000 }).toBe("#123456");
     /* a preset swatch: picked, marked, and the panel stays open */
     const preset = page.locator("#quickTheme .sw[data-v]").nth(2);
     const v = await preset.getAttribute("data-v");
     await preset.click();
     await page.waitForTimeout(150);
     await expect(pop).toHaveClass(/open/);
-    expect(await page.evaluate(() => WS.theme.accent)).toBe(v);
+    expect(await page.evaluate(() => myPrefs().theme.accent)).toBe(v);   /* the colour is personal */
     await expect(page.locator('#quickTheme .sw.on[data-v="' + v + '"]')).toHaveCount(1);
     /* Settings → Theme: the same, and the hex beside it follows the drag */
     await page.evaluate(() => { closePops(); go("settings", "theme"); });
     const kept2 = await page.evaluate(async () => {
       const el = document.querySelector("#content .swatches input[type=color]"), out = [];
-      for (const v of ["#aa0000", "#00bb00"]) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); await new Promise(r => setTimeout(r, 120)); out.push(el.isConnected && el.closest(".swatches").querySelector(".mono").textContent === v); }
+      for (const v of ["#aa0000", "#00bb00"]) { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); await new Promise(r => setTimeout(r, 120)); out.push(el.isConnected && el.closest(".swatches").querySelector(".sw-hex").value === v); }
       return out;
     });
     expect(kept2).toEqual([true, true]);
   } finally {
-    await page.evaluate(v => { setAccent(v); }, orig);
-    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => d.ws.theme.accent)), { timeout: 5000 }).toBe(orig);
+    await page.evaluate(() => resetMyTheme());
+    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => ((d.people[ME].prefs || {}).theme || {}).accent || null)), { timeout: 5000 }).toBe(null);
+    expect(await page.evaluate(() => WS.theme.accent)).toBe(orig);
   }
 });
 

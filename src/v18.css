@@ -371,7 +371,7 @@ body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
 .iconbtn.enh.watch.is-on svg{fill:currentColor}
 [data-theme="dark"] .iconbtn.enh.star.is-on{color:var(--color-secondary)}
 .enh-tools{display:inline-flex;gap:2px;flex:none}.enh-tools .iconbtn{width:28px;height:28px}.enh-tools .iconbtn svg{width:15px;height:15px}
-.related-row,.chk-item,.dc-row,.ep-row,.notif-filters button,.bulk-bar .btn,.palette-list .ep-row{transition:background .15s,color .15s,border-color .15s,transform .12s}
+.related-row,.chk-item,.ep-row,.notif-filters button,.bulk-bar .btn,.palette-list .ep-row{transition:background .15s,color .15s,border-color .15s,transform .12s}
 .related-row:active,.chip-ent:active{transform:scale(.98)}
 .menu button,.msg-crow,.msg-filters button,.msg-tabs button,.msg-dtabs>button{transition:background .15s,color .15s}
 .btn,.iconbtn{transition:background .15s,color .15s,border-color .15s,transform .12s,box-shadow .15s}
@@ -393,10 +393,6 @@ body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
 .effort input{width:56px;border:1px solid var(--color-border);border-radius:6px;padding:3px 6px;font-size:12px;text-align:right}
 .effort .over{color:var(--color-danger)}
 /* decisions */
-.dc-list{display:flex;flex-direction:column;gap:8px}
-.dc-row{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface)}
-.dc-row .sq{flex:none}.dc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}.dc-main b{font-size:13.5px}.dc-main p{margin:0;font-size:12.5px;color:var(--color-text-secondary);line-height:1.5}
-.dc-meta{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--color-text-tertiary);flex-wrap:wrap}.dc-meta .av{width:18px;height:18px;font-size:8px}.dc-meta a{color:var(--color-primary);cursor:pointer}
 /* digest (§7.8) */
 .digest{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 10px 10px;border-bottom:1px solid var(--color-border);margin-bottom:8px;font-size:12.5px;color:var(--color-text-secondary)}
 .digest .mh{width:100%;padding:0 0 2px}.digest b{color:var(--color-text-primary)}

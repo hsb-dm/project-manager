@@ -67,7 +67,7 @@ const swept = sz.sweepArchive(db, WS_ID); if (swept) console.log("Auto-archived 
 setInterval(() => { try { sz.sweepArchive(db, WS_ID); } catch (e) { console.error(e); } }, 6 * 3600 * 1000);
 
 /* ---------- email notifications (§52) ---------- */
-const MAIL_TEXT = { assigned: "{who} assigned you “{t}”.", reviewer: "{who} asked you to review “{t}”.", review: "{who} sent “{t}” for your review.", mention: "{who} mentioned you in a comment on “{t}”.", comment: "{who} commented on “{t}”.", revision: "{who} requested a revision on “{t}”.", approved: "{who} approved “{t}”.", upload: "{who} uploaded a new version of “{t}”.", status: "{who} moved “{t}” to a new stage.", file: "{who} attached a file to “{t}”.", deadline: "“{t}” is due today.", missed: "“{t}” missed its deadline.", request: "{who} submitted a creative request: “{t}”.", request_status: "{who} updated the status of your request “{t}”." };
+const MAIL_TEXT = { assigned: "{who} assigned you “{t}”.", reviewer: "{who} asked you to review “{t}”.", review: "{who} sent “{t}” for your review.", progress: "{who} updated the progress note on “{t}”.", mention: "{who} mentioned you in a comment on “{t}”.", comment: "{who} commented on “{t}”.", revision: "{who} requested a revision on “{t}”.", approved: "{who} approved “{t}”.", upload: "{who} uploaded a new version of “{t}”.", status: "{who} moved “{t}” to a new stage.", file: "{who} attached a file to “{t}”.", deadline: "“{t}” is due today.", missed: "“{t}” missed its deadline.", request: "{who} submitted a creative request: “{t}”.", request_status: "{who} updated the status of your request “{t}”." };
 const CHAT_MAIL_SENT = new Map();
 /* a link that reads like its task: /tasks?task=T-101-banner-ramadan (the app reads the id that leads it) */
 const urlSlug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
@@ -120,7 +120,6 @@ const TEXT_LIMITS = [
   [/^\/api\/members(\/|$)/, { name: 120, role: 120, email: 254 }],
   [/^\/api\/views(\/|$)/, { name: 120 }],
   [/^\/api\/assets(\/|$)/, { name: 240, notes: 5000 }],
-  [/^\/api\/decisions/, { title: 240, body: 10000, rationale: 10000 }]
 ];
 function tooLong(label, v, max) { if (typeof v === "string" && v.length > max) throw new HttpError(413, "Text is too long: " + label + " (max " + max.toLocaleString("en-US") + " characters)"); }
 function checkTextLimits(pathname, b) {
@@ -132,7 +131,7 @@ function checkTextLimits(pathname, b) {
    people work at once. Bulk bootstrap is not re-sent. */
 function announceTaskChange(method, pathname, out, user) {
   try {
-    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
+    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments|progress(?:\/\d+)?))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
     const id = m[1] || (out && out.id); if (!id || id === "bulk") return;
     const deleted = method === "DELETE";
     const row = deleted ? null : db.prepare("SELECT updated_at FROM tasks WHERE id=?").get(id);
@@ -304,6 +303,7 @@ function recordTaskChanges(user, cur, next) {
   if (next.title !== cur.title) recOnce("edited", { what: "the title" });
   if ((next.description || "") !== (cur.description || "")) recOnce("edited", { what: "the description" });
   if (!cur.brief && next.brief) rec("brief");
+  else if (cur.brief && !next.brief) rec("brief_removed");   /* a brief taken back: most keep the brief in the description */
   else if (cur.brief && next.brief && JSON.stringify(cur.brief) !== JSON.stringify(next.brief)) recOnce("edited", { what: "the brief" });
   if (next.prio && next.prio !== cur.prio) recOnce("edited", { what: "the priority" });
 }
@@ -347,7 +347,7 @@ require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
 /* v18 §144–147 Messages: the SSE stream handler needs the raw response, which route handlers receive as ctx.res */
 /* v19 task.meta (watchers, checklist, actual effort, source message) — one JSON column, added lazily for existing DBs */
 try { db.exec("ALTER TABLE tasks ADD COLUMN meta TEXT DEFAULT '{}'"); } catch (e) {}
-require('./decisions')(db, WS_ID, route);
+/* the decision log was removed; its table stays in the database untouched */
 const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: sz.readNotifs, writeNotif: sz.writeNotif, onNotification: id => emailNotification(id) });
 
 /* v36: the health check proves the database answers (an uptime monitor saw "ok" even with a
@@ -926,7 +926,7 @@ const cleanColor = (c, fallback) => (typeof c === "string" && (/^#[0-9a-fA-F]{3,
 function checkVersionNumbers(list) { const seen = new Set(); (Array.isArray(list) ? list : []).forEach(v => { if (!v || !Number.isInteger(v.n) || v.n < 1 || v.n > 9999 || seen.has(v.n)) throw new HttpError(400, "Each version needs its own whole number"); seen.add(v.n); }); }
 /* A stakeholder sees the comments meant for them, and nothing marked team or internal — the page
    hid the others, but they were in what the server sent. */
-const forViewer = (u, t) => (!t || !u || !u.stakeholder || !Array.isArray(t.comments)) ? t : Object.assign({}, t, { comments: t.comments.filter(c => c && c.vis === "client") });
+const forViewer = (u, t) => (!t || !u || !u.stakeholder) ? t : Object.assign({}, t, { comments: Array.isArray(t.comments) ? t.comments.filter(c => c && c.vis === "client") : t.comments, progress: [] });   /* progress notes are internal */
 route("POST", "/api/projects", (u, p, q, b) => { forbid(can.createProject(u), "create projects"); b.id = b.id || uid("p"); rejectExistingId("projects", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM projects WHERE workspace_id=?").get(WS_ID).s; withSnapshot(u, "project", b.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); act(u, "project_created", "project", b.id, { project: b.id, what: b.name }); }); return sz.readProjects(db, WS_ID); });
 route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "edit this project"); b.id = p.id;
   const changed = ["name", "description", "brief", "owner", "status", "startDate", "dueDate", "tags", "teams"].some(k => b[k] !== undefined && JSON.stringify(b[k]) !== JSON.stringify(cur[k]));
@@ -1037,7 +1037,7 @@ function nextTaskNumber() { const top = sql => (db.prepare(sql).get() || {}).n |
    before those constraints keeps it — so it is cleared explicitly on delete, and before a new task
    is written under an id, which must start empty. */
 function clearTaskRows(id) {
-  ["approvals", "revision_requests", "file_versions", "briefs", "comments", "files", "task_tags", "custom_field_values"].forEach(t => { try { db.prepare("DELETE FROM " + t + " WHERE task_id=?").run(id); } catch (e) { /* a table this database does not have */ } });
+  ["approvals", "revision_requests", "file_versions", "briefs", "comments", "files", "task_tags", "custom_field_values", "task_progress_notes"].forEach(t => { try { db.prepare("DELETE FROM " + t + " WHERE task_id=?").run(id); } catch (e) { /* a table this database does not have */ } });
   try { db.prepare("DELETE FROM task_dependencies WHERE task_id=? OR depends_on_task_id=?").run(id, id); } catch (e) {}
   try { snapTable(); db.prepare("DELETE FROM entity_snapshots WHERE entity_type='task' AND entity_id=?").run(id); } catch (e) {}
 }
@@ -1093,6 +1093,36 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   b.id = p.id; validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []);
   withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, cur, b); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); }));
   { const out = forViewer(u, sz.readTask(db, p.id)); if (merged) out._merged = merged; return out; }
+});
+/* ---------- Progress notes: where a task stands, kept as versions (V1, V2…). Saving changes the latest
+   version; "New version" starts the next, and the ones before stay as they were. Internal: a stakeholder
+   neither sees nor writes them. Whoever may edit the task writes them; whoever wrote a version, or an
+   admin, removes it. ---------- */
+function progressTask(u, id) {
+  const cur = sz.readTask(db, id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(id, WS_ID)) throw new HttpError(404, "Task not found");
+  forbid(!u.stakeholder && can.editTask(u, cur), "write progress notes on this task"); return cur;
+}
+const progressText = b => { const text = String((b && b.text) || ""); tooLong("progress note", text, 20000); if (!text.trim()) throw new HttpError(400, "Write something first"); return text; };
+const progressTouched = id => db.prepare("UPDATE tasks SET updated_at=? WHERE id=?").run(now(), id);   /* so open copies refetch it */
+route("POST", "/api/tasks/:id/progress", (u, p, q, b) => {
+  progressTask(u, p.id); const text = progressText(b);
+  const v = (db.prepare("SELECT max(version_number) AS n FROM task_progress_notes WHERE task_id=?").get(p.id).n || 0) + 1;
+  tx(db, () => { db.prepare("INSERT INTO task_progress_notes (id,task_id,version_number,body,created_by,created_at) VALUES (?,?,?,?,?,?)").run(uid("pn"), p.id, v, text, u.id, now()); progressTouched(p.id); act(u, "progress", "task", p.id, { task: p.id, v }); });
+  return forViewer(u, sz.readTask(db, p.id));
+});
+route("PUT", "/api/tasks/:id/progress/:v", (u, p, q, b) => {
+  progressTask(u, p.id); const text = progressText(b);
+  const last = db.prepare("SELECT * FROM task_progress_notes WHERE task_id=? ORDER BY version_number DESC LIMIT 1").get(p.id);
+  if (!last || String(last.version_number) !== String(p.v)) throw new HttpError(409, "Only the latest version can be changed. Start a new version instead.");
+  if (last.body !== text) tx(db, () => { db.prepare("UPDATE task_progress_notes SET body=?, edited_by=?, edited_at=? WHERE id=?").run(text, u.id, now(), last.id); progressTouched(p.id); act(u, "progress_edited", "task", p.id, { task: p.id, v: last.version_number }); });
+  return forViewer(u, sz.readTask(db, p.id));
+});
+route("DELETE", "/api/tasks/:id/progress/:v", (u, p) => {
+  progressTask(u, p.id);
+  const row = db.prepare("SELECT * FROM task_progress_notes WHERE task_id=? AND version_number=?").get(p.id, +p.v || 0); if (!row) throw new HttpError(404, "No such version");
+  forbid(row.created_by === u.id || can.manageWorkspace(u), "remove this version");
+  tx(db, () => { db.prepare("DELETE FROM task_progress_notes WHERE id=?").run(row.id); progressTouched(p.id); act(u, "progress_removed", "task", p.id, { task: p.id, v: row.version_number }); });
+  return forViewer(u, sz.readTask(db, p.id));
 });
 route("POST", "/api/tasks/:id/comments", (u, p, q, b) => {
   const cur = sz.readTask(db, p.id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found");
@@ -1179,7 +1209,7 @@ route("DELETE", "/api/views/:id", (u, p) => { db.prepare("DELETE FROM saved_view
 /* v29 client-raised notifications: they trigger real email, so they must point at a real
    entity, use a known kind, reach a bounded number of people and be rate limited per
    sender. Free text is not accepted; the email body is built from the entity. */
-const NOTIF_KINDS = new Set(["approved", "assigned", "reviewer", "review", "comment", "file", "mention", "request", "revision", "status", "upload", "watch", "deadline", "transition", "request_status"]);
+const NOTIF_KINDS = new Set(["approved", "assigned", "reviewer", "review", "progress", "comment", "file", "mention", "request", "revision", "status", "upload", "watch", "deadline", "transition", "request_status"]);
 const notifRate = new Map();
 route("POST", "/api/notifications", (u, p, q, b) => { const k = String(b.k || ""); if (!NOTIF_KINDS.has(k)) throw new HttpError(400, "Unknown notification type"); const entityType = ["task", "project", "request"].includes(b.entityType || "task") ? (b.entityType || "task") : null; if (!entityType) throw new HttpError(400, "Unsupported notification target"); const table = { task: "tasks", project: "projects", request: "creative_requests" }[entityType]; b.t = String(b.t || ""); if (!db.prepare("SELECT 1 FROM " + table + " WHERE id=? AND workspace_id=?").get(b.t, WS_ID)) throw new HttpError(404, "The item for this notification does not exist"); const recips = [...new Set((Array.isArray(b.recipients) ? b.recipients : [b.recipient]).filter(Boolean).map(String))]; if (recips.length > 25) throw new HttpError(400, "Too many recipients"); const minute = Math.floor(Date.now() / 60000), rk = u.id, rs = notifRate.get(rk); const cur = rs && rs.minute === minute ? rs : { minute, n: 0 }; if (cur.n + recips.length > 60) throw new HttpError(429, "Too many notifications. Try again in a minute."); cur.n += recips.length; notifRate.set(rk, cur); b = { k, t: b.t, entityType, recipients: recips }; const ids = []; recips.forEach(r => { if (r !== u.id && db.prepare("SELECT 1 FROM workspace_members WHERE user_id=? AND workspace_id=?").get(r, WS_ID)) { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: u.id, k: b.k, t: b.t, entityType: b.entityType }); ids.push(id); } }); /* each recipient hears of it at once — it used to wait for their next reload */
   setImmediate(() => { ids.forEach(emailNotification); ids.forEach(id => { try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* live delivery is best effort; the bell has it on the next load */ } }); }); return sz.readNotifs(db, WS_ID, u.id); });

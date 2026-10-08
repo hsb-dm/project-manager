@@ -42,13 +42,6 @@ test('Automatic project progress weighs effort at 60 percent and milestones at 4
   assert.equal(context.projectProgress({id:'empty',status:'done',milestones:[]},[]),100);
 });
 
-test('Project decision action sits in the panel header and the list owns the padded body',()=>{
-  const enhance=read('src/enhance.js'),css=read('src/refinements.css');
-  assert.match(enhance,/var action=canEdit\?'<button class="btn sm primary"/);
-  assert.match(enhance,/return panel\(tr\("Decisions"\),l\.length,body,null,action,I\.check,"decisions-panel"\)/);
-  assert.match(css,/\.decisions-panel \.panel-body\{padding:12px 16px 16px\}/);
-});
-
 test('Final asset rows open their task while external asset actions stay independent',()=>{
   const projects=read('src/projects.js'),css=read('src/refinements.css');
   assert.match(projects,/class="alink project-asset-row"[^>]*onclick="openTask/);

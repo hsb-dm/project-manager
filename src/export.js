@@ -258,7 +258,50 @@ function reportData(){ var m=metrics(); var live=reportTasks(); var open=live.fi
    Sheets ("CSV injection"). Text cells get a leading apostrophe; real numbers are kept. */
 function csvSafe(v){ if(typeof v==="number") return String(v); v=String(v==null?"":v); return /^[=+\-@\t\r]/.test(v)&&!/^[-+]?\d+([.,]\d+)?%?$/.test(v)?"'"+v:v; }
 function csvRows(rows){ return rows.map(function(r){ return r.map(function(v){ v=csvSafe(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(","); }).join("\r\n"); }
-function taskRows(list){ var head=["ID","Title","Project","Team","Status","Priority","Assignee","Reviewer","Start","Due","Days to due","Effort (h)","Assets produced","Asset links","Final asset link","All asset links","Tags","Versions","Latest version state","Files","Comments"].map(tr).concat(WS.customFields.map(function(f){ return locName(f); })); return [head].concat(list.map(function(t){ var lv=t.versions[t.versions.length-1]; var ls=taskAssetLinks(t); var fin=finalAssetLink(t); return [t.id,t.title,projName(t),teamName(t.team),stageName(t.status),prioL(t.prio),assigneesOf(t).map(function(id){return person(id).name;}).join("; "),reviewersOf(t).map(function(id){return person(id).name;}).join("; "),iso(t.due-t.span),iso(t.due),t.due,t.effort,assetCount(t),ls.length,fin?fin.url:"",ls.map(function(l){ return l.name+" -> "+l.url; }).join(" | "),t.tags.join("; "),t.versions.length,lv?lv.state:"",t.files.length,t.comments.length].concat(WS.customFields.map(function(f){ var v=t.custom[f.id]; return v===true?tr("Yes"):v===false?tr("No"):(v==null?"":v); })); })); }
+/* The Tasks table, column by column. Each column has a key, so an export can leave any out (ID and Title
+   always stay) and the workbook still knows which ones are dates — by key, not by position. */
+var TASK_COL_GROUPS=[["basics","Basics"],["people","People"],["dates","Dates & effort"],["assets","Assets & versions"],["other","Tags & comments"],["progress","Progress note"],["custom","Custom fields"]];
+function taskColumns(){ var pn=function(t){ return pnPick(t); };
+  return [
+    {k:"id",h:"ID",g:"basics",w:8,lock:true,v:function(t){ return t.id; }},
+    {k:"title",h:"Title",g:"basics",w:42,lock:true,v:function(t){ return t.title; }},
+    {k:"project",h:"Project",g:"basics",w:24,v:function(t){ return projName(t); }},
+    {k:"team",h:"Team",g:"basics",w:16,v:function(t){ return teamName(t.team); }},
+    {k:"status",h:"Status",g:"basics",w:14,v:function(t){ return stageName(t.status); }},
+    {k:"prio",h:"Priority",g:"basics",w:10,v:function(t){ return prioL(t.prio); }},
+    {k:"assignee",h:"Assignee",g:"people",w:16,v:function(t){ return assigneesOf(t).map(function(id){ return person(id).name; }).join("; "); }},
+    {k:"reviewer",h:"Reviewer",g:"people",w:16,v:function(t){ return reviewersOf(t).map(function(id){ return person(id).name; }).join("; "); }},
+    {k:"start",h:"Start",g:"dates",w:12,date:true,v:function(t){ return iso(t.due-t.span); }},
+    {k:"due",h:"Due",g:"dates",w:12,date:true,v:function(t){ return iso(t.due); }},
+    {k:"daysToDue",h:"Days to due",g:"dates",w:10,v:function(t){ return t.due; }},
+    {k:"effort",h:"Effort (h)",g:"dates",w:10,v:function(t){ return t.effort; }},
+    {k:"assetsProduced",h:"Assets produced",g:"assets",w:14,v:function(t){ return assetCount(t); }},
+    {k:"assetLinks",h:"Asset links",g:"assets",w:10,v:function(t){ return taskAssetLinks(t).length; }},
+    {k:"finalLink",h:"Final asset link",g:"assets",w:52,v:function(t){ var f=finalAssetLink(t); return f?f.url:""; }},
+    {k:"allLinks",h:"All asset links",g:"assets",w:64,v:function(t){ return taskAssetLinks(t).map(function(l){ return l.name+" -> "+l.url; }).join(" | "); }},
+    {k:"tags",h:"Tags",g:"other",w:22,v:function(t){ return t.tags.join("; "); }},
+    {k:"versions",h:"Versions",g:"assets",w:9,v:function(t){ return t.versions.length; }},
+    {k:"versionState",h:"Latest version state",g:"assets",w:16,v:function(t){ var lv=t.versions[t.versions.length-1]; return lv?lv.state:""; }},
+    {k:"files",h:"Files",g:"assets",w:7,v:function(t){ return t.files.length; }},
+    {k:"comments",h:"Comments",g:"other",w:9,v:function(t){ return t.comments.length; }},
+    /* the progress note chosen for the export (the latest by default): its text, version, when and by whom */
+    {k:"pnText",h:"Progress note",g:"progress",w:60,v:function(t){ var p=pn(t); return p?exPlain(p.text):""; }},
+    {k:"pnVersion",h:"Note version",g:"progress",w:10,v:function(t){ var p=pn(t); return p?"V"+p.v:""; }},
+    {k:"pnUpdated",h:"Note updated",g:"progress",w:24,v:function(t){ var p=pn(t); if(!p) return ""; var who=p.editedBy||p.by; return (exWhen(p.editedAt||p.at)+(who&&PEOPLE[who]?" · "+person(who).name:"")).trim(); }}
+  ].concat(WS.customFields.map(function(f){ return {k:"cf:"+f.id,h:locName(f),raw:true,g:"custom",w:16,date:f.type==="date",v:function(t){ var v=t.custom[f.id]; return v===true?tr("Yes"):v===false?tr("No"):(v==null?"":v); }}; })); }
+function taskRows(list){ var on=EXPORT&&EXPORT.cols?EXPORT.cols:null, cols=taskColumns().filter(function(c){ return c.lock||!on||on.indexOf(c.k)>=0; });
+  var rows=[cols.map(function(c){ return c.raw?c.h:tr(c.h); })].concat(list.map(function(t){ return cols.map(function(c){ return c.v(t); }); }));
+  rows.dateCols=cols.map(function(c,i){ return c.date?i:-1; }).filter(function(i){ return i>=0; }); rows.widths=cols.map(function(c){ return c.w; }); return rows; }
+/* which progress note an export takes: the latest (default), a version number, or all of them (the
+   Progress notes sheet then has a row per version; the Tasks sheet keeps the latest) */
+/* progress-note.js draws the notes; the export reads them without it too */
+function exPnList(t){ return typeof pnList==="function"?pnList(t):((t&&t.progress)||[]).slice().sort(function(a,b){ return a.v-b.v; }); }
+function exPlain(md){ return typeof pnPlain==="function"?pnPlain(md):String(md||""); }
+function exWhen(iso){ return typeof pnWhen==="function"?pnWhen(iso):String(iso||""); }
+function pnPick(t){ var c=EXPORT&&EXPORT.pnVersion, l=exPnList(t); if(typeof c==="number"){ var hit=null; l.forEach(function(p){ if(p.v===c) hit=p; }); return hit; } return l[l.length-1]||null; }
+function pnRows(list){ var rows=[["Task ID","Task","Project","Team","Version","Progress note","Written by","Written","Last edited by","Last edited"]];
+  list.forEach(function(t){ var vs=EXPORT&&EXPORT.pnVersion==="all"?exPnList(t):[pnPick(t)].filter(Boolean); vs.forEach(function(p){ rows.push([t.id,t.title,projName(t),teamName(t.team),"V"+p.v,exPlain(p.text),p.by?person(p.by).name:"",exWhen(p.at),p.editedBy?person(p.editedBy).name:"",p.editedAt?exWhen(p.editedAt):""]); }); });
+  return rows; }
 var EXPORT=null; /* {from,to (day offsets), weeks, an} — set by exportModal, cleared after the export */
 function exportTasks(){
   var base=TASKS.filter(function(t){ return !t._draft&&!t.tutorial&&!t.hidden&&!projArchived(t.proj); });
@@ -287,7 +330,7 @@ function exScopeLine(){
   if (EXPORT.status&&EXPORT.status!=="all") bits.push(tr(EXPORT.status==="open"?"open only":"completed only"));
   return bits.length?bits.join(" \u00b7 "):tr("All teams");
 }
-var EX_SHEETS=[["summary","Summary"],["tasks","Tasks"],["taskassets","Task assets"],["projects","Projects"],["teams","Teams"],["workload","Workload"],["weekly","Weekly"],["pipeline","Pipeline"],["assets","Asset library"]];
+var EX_SHEETS=[["summary","Summary"],["tasks","Tasks"],["progress","Progress notes"],["taskassets","Task assets"],["projects","Projects"],["teams","Teams"],["workload","Workload"],["weekly","Weekly"],["pipeline","Pipeline"],["assets","Asset library"]];
 var EX_SLIDES=[["kpis","Headline metrics"],["pipeline","Creative pipeline"],["throughput","Throughput"],["projects","Projects"],["teamload","Workload by team"],["workload","Workload by person"],["people","Performance by person"],["attention","Needs attention"],["airecs","AI recommendations"]];
 var EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{}};
 
@@ -298,6 +341,10 @@ function exToggle(group,id,btn){
   exUpdateCount();
 }
 function exToggleInc(key,on){ EXF.include[key]=on; exUpdateCount(); }
+/* the Tasks table's columns: what is left out is remembered for the person (new columns come in on) */
+function exToggleCol(k,on){ var i=EXF.colsOff.indexOf(k); if(on&&i>=0) EXF.colsOff.splice(i,1); if(!on&&i<0) EXF.colsOff.push(k); exColCount(); }
+function exAllCols(on){ EXF.colsOff=on?[]:taskColumns().filter(function(c){ return !c.lock; }).map(function(c){ return c.k; }); document.querySelectorAll("[data-col]").forEach(function(c){ if(!c.disabled) c.checked=on; }); exColCount(); }
+function exColCount(){ var el=document.getElementById("ex_colcount"); if(!el) return; var all=taskColumns(), n=all.filter(function(c){ return c.lock||EXF.colsOff.indexOf(c.k)<0; }).length; el.textContent="· "+n+" "+tr("of")+" "+all.length+" "+tr("columns"); }
 function exAllInc(on){
   var list=window._exKind==="ppt"?EX_SLIDES:EX_SHEETS;
   list.forEach(function(x){ EXF.include[x[0]]=on; });
@@ -333,7 +380,7 @@ function exportModal(kind){
   var titles={ppt:"PowerPoint report",xlsx:"Excel workbook",csv:"Tasks CSV"};
   var presets=[["4w","Last 4 weeks"],["8w","Last 8 weeks"],["month","This month"],["lastmonth","Last month"],["quarter","This quarter"],["custom","Custom"]];
   window._exKind=kind;
-  EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{}};
+  EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{},colsOff:((PEOPLE[ME]&&myPrefs().exportColsOff)||[]).slice(),pnv:"latest"};
 
   var period='<div class="field"><label>Period</label><div class="seg" id="ex_presets">'
     + presets.map(function(p,i){ return '<button class="'+(i===1?"on":"")+'" onclick="exportPreset(\''+p[0]+'\',this)">'+p[1]+'</button>'; }).join("")
@@ -352,7 +399,13 @@ function exportModal(kind){
     + fieldHtml("ex_status","Task state",selectHtml("ex_status",[["all","Everything in the period"],["open","Open tasks only"],["closed","Completed tasks only"]],"all",'onchange="exUpdateCount()"'));
 
   var list=kind==="ppt"?EX_SLIDES:EX_SHEETS;
-  var include=kind==="csv"?'<p class="hint">A CSV is always a single table of tasks with every column. Use the scope above to narrow the rows.</p>'
+  /* the Tasks table's columns, and which progress note version goes in (the latest unless chosen) */
+  var colsHtml=kind==="ppt"?"":'<div class="field ex-cols"><label>'+tr("Task columns")+' <span class="hint" style="font-weight:400" id="ex_colcount"></span></label>'+TASK_COL_GROUPS.map(function(g){ var cs=taskColumns().filter(function(c){ return c.g===g[0]; }); if(!cs.length) return ""; return '<div class="ex-colgroup"><div class="ex-colgroup-h">'+esc(tr(g[1]))+'</div><div class="report-slide-options">'+cs.map(function(c){ var on=c.lock||EXF.colsOff.indexOf(c.k)<0; return '<label class="report-slide-chip'+(c.lock?" locked":"")+'"><input type="checkbox" data-col="'+attr(c.k)+'"'+(on?" checked":"")+(c.lock?" disabled":"")+' onchange="exToggleCol('+jsq(c.k)+',this.checked)"><span class="report-slide-chip-label"'+(c.raw?' data-no-translate':'')+'>'+esc(c.raw?c.h:tr(c.h))+'</span></label>'; }).join("")+'</div></div>'; }).join("")
+    +'<div class="report-slide-actions"><button class="btn xs" onclick="exAllCols(true)">'+tr("All columns")+'</button><button class="btn xs ghost" onclick="exAllCols(false)">'+tr("Only ID and Title")+'</button></div><div class="hint" style="margin-top:6px">'+tr("ID and Title are always included.")+(kind==="xlsx"?' '+tr("These are the columns of the Tasks sheet."):'')+'</div></div>';
+  var maxV=0; TASKS.forEach(function(t){ var l=typeof pnLatest==="function"?pnLatest(t):null; if(l&&l.v>maxV) maxV=l.v; });
+  var pnSel=kind==="ppt"?"":fieldHtml("ex_pnv","Progress note version",'<select id="ex_pnv" onchange="EXF.pnv=this.value">'+[["latest",tr("Latest version")]].concat(kind==="xlsx"?[["all",tr("All versions")]]:[]).concat(Array.apply(null,{length:maxV}).map(function(_,i){ return [String(i+1),"V"+(i+1)]; })).map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===EXF.pnv?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>')
+    +'<div class="hint" style="margin-top:-6px">'+tr("A task without the chosen version is left blank.")+(kind==="xlsx"?' '+tr("All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest."):'')+'</div>';
+  var include=kind==="csv"?'<p class="hint">'+tr("A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows.")+'</p>'
     : '<div class="field"><label>'+(kind==="ppt"?"Slides":"Sheets")+' to include</label><div class="report-slide-options">'
       + list.map(function(x){ return '<label class="report-slide-chip"><input type="checkbox" data-inc checked onchange="exToggleInc(\''+x[0]+'\',this.checked)"><span class="report-slide-chip-label">'+esc(x[1])+'</span></label>'; }).join("")
       + '</div><div class="report-slide-actions"><button class="btn xs" onclick="exAllInc(true)">Select all</button><button class="btn xs ghost" onclick="exAllInc(false)">Clear all</button></div>'
@@ -361,15 +414,15 @@ function exportModal(kind){
   openModal("Export "+titles[kind],
     period
     + '<div class="eyebrow" style="margin:14px 0 8px">Scope</div>'+scope
-    + '<div class="eyebrow" style="margin:16px 0 8px">Contents</div>'+include
+    + '<div class="eyebrow" style="margin:16px 0 8px">Contents</div>'+include+colsHtml+pnSel
     + '<div id="ex_count" class="hint" style="margin-top:12px;padding:9px 12px;border-radius:var(--radius);background:var(--color-surface-sunken)"></div>'
     + '<p class="hint" style="margin-top:8px">Includes tasks due within the selected period. Manually hidden tasks and archived projects are excluded.</p>',
     '<button class="btn ghost" onclick="exClearScope()">Reset scope</button><span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="runExport()">'+I.download+'Export</button>', true);
-  exUpdateCount();
+  exUpdateCount(); exColCount();
 }
 function exportPreset(p,btn){ var d=new Date(TODAY); var from,to=0; if (p==="4w") from=-27; else if (p==="8w") from=-55; else if (p==="month"){ from=-(d.getDate()-1); to=Math.round((new Date(d.getFullYear(),d.getMonth()+1,0)-TODAY)/86400000); } else if (p==="lastmonth"){ var s=new Date(d.getFullYear(),d.getMonth()-1,1), en=new Date(d.getFullYear(),d.getMonth(),0); from=Math.round((s-TODAY)/86400000); to=Math.round((en-TODAY)/86400000); } else if (p==="quarter"){ var q=Math.floor(d.getMonth()/3)*3; var qs=new Date(d.getFullYear(),q,1), qe=new Date(d.getFullYear(),q+3,0); from=Math.round((qs-TODAY)/86400000); to=Math.round((qe-TODAY)/86400000); } else return; document.getElementById("ex_from").value=iso(from); document.getElementById("ex_to").value=iso(to); [].forEach.call(btn.parentNode.children,function(b){ b.classList.remove("on"); }); btn.classList.add("on"); exUpdateCount(); }
-function runExport(){ var from=offsetFromIso(val("ex_from")), to=offsetFromIso(val("ex_to")); if (to<from){ var x=from; from=to; to=x; } var weeks=Math.max(1,Math.min(26,Math.ceil((to-from+1)/7))); var kind=window._exKind; closeModal();
-  var go_=function(an){ EXPORT={from:from,to:to,weeks:weeks,an:an,label:dueDate(from)+" \u2192 "+dueDate(to),teams:EXF.teams.slice(),projects:EXF.projects.slice(),labels:EXF.labels.slice(),people:EXF.people.slice(),status:EXF.status,include:clone(EXF.include)}; EXPORT.an=demoAnalytics(); try { if (kind==="ppt") exportPPT(); else if (kind==="xlsx") exportXLSX(); else exportCSV(); } finally { EXPORT=null; } };
+function runExport(){ var from=offsetFromIso(val("ex_from")), to=offsetFromIso(val("ex_to")); if (to<from){ var x=from; from=to; to=x; } var weeks=Math.max(1,Math.min(26,Math.ceil((to-from+1)/7))); var kind=window._exKind; if(kind!=="ppt"&&PEOPLE[ME]){ var pf=myPrefs(); if(JSON.stringify(pf.exportColsOff||[])!==JSON.stringify(EXF.colsOff)){ pf.exportColsOff=EXF.colsOff.slice(); saveMyPrefs(); } } closeModal();
+  var go_=function(an){ EXPORT={from:from,to:to,weeks:weeks,an:an,label:dueDate(from)+" \u2192 "+dueDate(to),teams:EXF.teams.slice(),projects:EXF.projects.slice(),labels:EXF.labels.slice(),people:EXF.people.slice(),status:EXF.status,include:clone(EXF.include),cols:taskColumns().filter(function(c){ return EXF.colsOff.indexOf(c.k)<0; }).map(function(c){ return c.k; }),pnVersion:EXF.pnv==="all"?"all":/^\d+$/.test(EXF.pnv)?+EXF.pnv:"latest"}; EXPORT.an=demoAnalytics(); try { if (kind==="ppt") exportPPT(); else if (kind==="xlsx") exportXLSX(); else exportCSV(); } finally { EXPORT=null; } };
   go_(null); }
 function exportCSV(){ download(fileStamp().replace("creative-report","tasks")+".csv",new Blob(["\uFEFF"+csvRows(taskRows(exportTasks()))],{type:"text/csv;charset=utf-8"})); toast("CSV exported"); }
 function exportTaskCSV(id){ download(id+".csv",new Blob(["\uFEFF"+csvRows(taskRows([task(id)]))],{type:"text/csv;charset=utf-8"})); toast(id+" exported"); }
@@ -388,8 +441,8 @@ function buildXLSX(){ var d=reportData(), m=d.m;
   exportTasks().forEach(function(t){ var ls=taskAssetLinks(t); var fin=finalAssetLink(t);
     if (!ls.length){ taskAssets.push([t.id,t.title,projName(t),teamName(t.team),stageName(t.status),tr(isClosed(t)?"Yes":"No"),assetCount(t),"","","","",""]); return; }
     ls.forEach(function(l){ taskAssets.push([t.id,t.title,projName(t),teamName(t.team),stageName(t.status),tr(isClosed(t)?"Yes":"No"),assetCount(t),l.kind,l.v||"",l.name,l.url,(fin&&fin.url===l.url)?"final":""]); }); });
-  summary=summary.map(function(r){return r.map(function(v){return typeof v==="string"?tr(v):v;});}); [stages,projects,workload,weekly,assets,teams,taskAssets].forEach(function(rows){rows[0]=rows[0].map(tr);});
-  var allSheets=[["summary",tr("Summary"),summary,[26,22,34]],["tasks",tr("Tasks"),taskRows(exportTasks()),[8,42,24,16,14,10,16,16,12,12,10,10,14,10,52,64,22,9,16,7,9]],["taskassets",tr("Task assets"),taskAssets,[9,38,22,14,13,10,14,10,8,34,56,7]],["projects",tr("Projects"),projects,[26,16,10,12,12,12,11,9,11,14,14,11,30]],["teams",tr("Teams"),teams,[20,10,10,10,10,12,12,14]],["workload",tr("Workload"),workload,[20,18,16,12,12,14,11,10,9,15,15,26]],["weekly",tr("Weekly"),weekly,[10,9,10,9,16,14,16]],["pipeline",tr("Pipeline"),stages,[18,10,8]],["assets",tr("Asset library"),assets,[36,11,16,10,44,10,8,24,16]]];
+  summary=summary.map(function(r){return r.map(function(v){return typeof v==="string"?tr(v):v;});}); var progress=pnRows(exportTasks()), tRows=taskRows(exportTasks()); [stages,projects,workload,weekly,assets,teams,taskAssets,progress].forEach(function(rows){rows[0]=rows[0].map(tr);});
+  var allSheets=[["summary",tr("Summary"),summary,[26,22,34]],["tasks",tr("Tasks"),tRows,tRows.widths],["progress",tr("Progress notes"),progress,[9,38,22,14,9,70,18,20,18,20]],["taskassets",tr("Task assets"),taskAssets,[9,38,22,14,13,10,14,10,8,34,56,7]],["projects",tr("Projects"),projects,[26,16,10,12,12,12,11,9,11,14,14,11,30]],["teams",tr("Teams"),teams,[20,10,10,10,10,12,12,14]],["workload",tr("Workload"),workload,[20,18,16,12,12,14,11,10,9,15,15,26]],["weekly",tr("Weekly"),weekly,[10,9,10,9,16,14,16]],["pipeline",tr("Pipeline"),stages,[18,10,8]],["assets",tr("Asset library"),assets,[36,11,16,10,44,10,8,24,16]]];
   var sheets=allSheets.filter(function(x){ return exInc(x[0]); }).map(function(x){ return [x[1],x[2],x[3],x[0]]; });
   if (!sheets.length) sheets=[[tr("Summary"),summary,[26,22,34],"summary"]];
   var summaryIndex=sheets.findIndex(function(x){return x[3]==="summary";}), summaryName=summaryIndex>=0?sheets[summaryIndex][0]:null;
@@ -603,4 +656,5 @@ if(typeof UI_ID!=="undefined") Object.assign(UI_ID,{"Asset credit":"Sumber kredi
   "Volume depends on task size, role and availability — read alongside project context, not as a ranking.":"Jumlah bergantung pada ukuran task, peran, dan ketersediaan — baca bersama konteks proyek, bukan sebagai peringkat.",
   "* attributed from task ownership because no asset creator was recorded.":"* diperkirakan dari pemilik task karena pembuat asetnya tidak tercatat.",
   "Generated from this report's data":"Dibuat dari data laporan ini","Not enough data in this period to make a reliable recommendation.":"Data di periode ini belum cukup untuk rekomendasi yang andal.","Based on":"Berdasarkan"});
+(function(d){ if(typeof UI_ID==="undefined") return; Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Task columns":"Kolom task","Basics":"Dasar","People":"Orang","Dates & effort":"Tanggal & effort","Assets & versions":"Aset & versi","Tags & comments":"Tag & komentar","Custom fields":"Field kustom","All columns":"Semua kolom","Only ID and Title":"Hanya ID dan Judul","ID and Title are always included.":"ID dan Judul selalu disertakan.","These are the columns of the Tasks sheet.":"Ini kolom untuk sheet Tasks.","columns":"kolom","Progress note version":"Versi catatan progres","Latest version":"Versi terbaru","All versions":"Semua versi","A task without the chosen version is left blank.":"Task yang tidak punya versi yang dipilih dikosongkan.","All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest.":"Semua versi: satu baris per versi di sheet Progress notes; sheet Tasks tetap memakai yang terbaru.","A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows.":"CSV adalah satu tabel task. Pilih kolomnya di bawah; gunakan cakupan di atas untuk mempersempit baris.","Progress notes":"Catatan progres","Task ID":"ID task","Version":"Versi","Written by":"Ditulis oleh","Written":"Ditulis","Last edited by":"Terakhir diubah oleh","Last edited":"Terakhir diubah"});
 </script>
