@@ -55,7 +55,8 @@ function entityPicker(opts){
   list.addEventListener("mousemove",function(e){ var b=e.target.closest(".ep-row"); if(b&&+b.getAttribute("data-i")!==sel){ sel=+b.getAttribute("data-i"); list.querySelectorAll(".ep-row").forEach(function(x,i){ x.classList.toggle("on",i===sel); }); } });
   if(opts.initial){ input.value=opts.initial; }
   /* re-place after every render: the list height decides whether the picker sits below or above the anchor (§43.2 — never clipped by the viewport) */
-  var reposition=function(){ if(opts.inline||!opts.anchor||!document.body.contains(el)) return; if(!opts.anchor.isConnected){ var nx=epReanchor(opts); if(!nx) return; opts.anchor=nx; } if(opts._hold) return; place(el,opts.anchor); };
+  /* only an element can drop out of the page; an anchor worked out from a caret (chat, comments) is never "gone" */
+  var reposition=function(){ if(opts.inline||!opts.anchor||!document.body.contains(el)) return; if(opts.anchor.nodeType&&!opts.anchor.isConnected){ var nx=epReanchor(opts); if(!nx) return; opts.anchor=nx; } if(opts._hold) return; place(el,opts.anchor); };
   var render0=render; render=function(){ render0(); reposition(); };
   render(); setTimeout(function(){ input.focus(); document.addEventListener("mousedown",epOutside,true); },10);
   el._epResize=reposition; window.addEventListener("resize",reposition);
