@@ -565,3 +565,22 @@ img.emj.custom{object-fit:contain}
    be read. The textarea stays see-through; the mirror carries the background. */
 #drawer .composer textarea.cmt-mirrored{background-color:transparent}
 [data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
+/* checklist: an item's text is edited where it stands; the whole row drags it to another place */
+.chk .chk-item[draggable=true]{cursor:grab}.chk .chk-item[draggable=true]:active{cursor:grabbing}.chk .chk-item .chk-box,.chk .chk-item .iconbtn{cursor:pointer}
+.chk .chk-item .drag-handle{flex:none;width:16px;height:22px;margin:0 -4px;border-radius:5px;opacity:0;transition:opacity .12s}
+.chk .chk-item:hover .drag-handle,.chk .chk-item .drag-handle:focus-visible,.chk .chk-item.kb-grabbed .drag-handle{opacity:1}
+.chk .chk-item .drag-handle svg{width:12px;height:12px}
+/* the text cursor only over the words (double-click edits them); a hand everywhere else on the row, which drags it */
+.chk .chk-item[draggable=true]{-webkit-user-select:none;user-select:none}
+.chk .chk-item .chk-t{cursor:text;border-radius:3px}
+.chk .chk-item .chk-t:focus-visible{outline:2px solid var(--color-primary);outline-offset:1px}
+/* progress note: the checklist in one line — how far, what is next; it opens the checklist on the Brief tab */
+.pn-chk{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 10px;padding:7px 10px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.pn-chk:hover{border-color:var(--color-border-strong);color:var(--color-text-primary)}
+.pn-chk b{color:var(--color-text-primary);font-weight:600}
+.pn-chk-n{font-variant-numeric:tabular-nums}
+.pn-chk-bar{flex:none;width:64px;height:4px;border-radius:2px;background:var(--color-border);overflow:hidden}.pn-chk-bar i{display:block;height:100%;background:var(--color-success)}
+.pn-chk-next{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chk .chk-item .chk-edit{flex:1;min-width:0;font:inherit;font-size:12.5px;line-height:1.4;padding:2px 6px;margin:-3px 0;border:1px solid var(--color-primary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);outline:none;box-shadow:0 0 0 3px var(--color-primary-soft)}
+.chk .chk-item.editing:hover{background:transparent}
+@media (hover:none){.chk .chk-item .drag-handle,.chk .chk-item .iconbtn.xs{opacity:1}}

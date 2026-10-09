@@ -27,7 +27,7 @@ function progressView(tk){
   var acts="";
   if(e) acts='<button class="btn xs" onclick="pnCancel()">'+tr("Cancel")+'</button><button class="btn xs primary" id="pnSave" onmousedown="event.preventDefault()" onclick="pnSave()">'+I.check+tr(e.mode==="new"?"Save new version":"Save")+'</button>';
   else if(ed&&list.length) acts=(sel===last?'<button class="btn xs" onclick="pnStart(\'edit\')">'+I.edit+tr("Edit")+'</button>':'')+'<button class="btn xs primary" onclick="pnStart(\'new\')">'+I.plus+tr("New version")+'</button>';
-  var h='<div class="pn"><div class="pn-head"><span class="eyebrow">'+tr("Progress note")+'</span>'+(chips?'<span class="pn-chips">'+chips+'</span>':'')+'<span class="spacer"></span>'+acts+'</div>';
+  var h='<div class="pn"><div class="pn-head"><span class="eyebrow">'+tr("Progress note")+'</span>'+(chips?'<span class="pn-chips">'+chips+'</span>':'')+'<span class="spacer"></span>'+acts+'</div>'+pnChecklistLine(tk);
   if(e){
     var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="pnFormat(\''+act+'\')">'+html+'</button>'; };
     h+='<div class="md-editor"><div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'</div>'
@@ -43,6 +43,12 @@ function progressView(tk){
       +'<div class="md-view pn-view"'+(ed&&sel===last?' ondblclick="pnStart(\'edit\')" title="'+attr(tr("Double-click to edit"))+'"':'')+'>'+descMdHtml(sel.text)+'</div>';
   }
   return h+'</div>'; }
+
+/* The checklist beside the note, in one line: how far it is and what comes next — what a note is written from.
+   The list itself stays on the Brief tab; the line opens it there. */
+function pnChecklistLine(tk){ var items=(tk.meta&&tk.meta.checklist)||[]; if(!items.length) return ""; var done=items.filter(function(x){ return x.done; }).length, next=items.filter(function(x){ return !x.done; })[0];
+  return '<button type="button" class="pn-chk" title="'+attr(tr("Open the checklist"))+'" onclick="pnToChecklist()"><b>'+tr("Checklist")+'</b><span class="pn-chk-n">'+done+'/'+items.length+'</span><span class="pn-chk-bar"><i style="width:'+Math.round(done/items.length*100)+'%"></i></span><span class="pn-chk-next">'+(next?tr("Next")+': <span data-no-translate>'+esc(next.text)+'</span>':tr("All done"))+'</span></button>'; }
+function pnToChecklist(){ S.drawerTab="brief"; renderDrawer(); var c=document.querySelector("#drawer .chk"); if(c) c.scrollIntoView({block:"nearest"}); }
 
 /* many versions: one button showing the version on screen, and a list of them all (newest first) */
 var PN_CHIPS=5;

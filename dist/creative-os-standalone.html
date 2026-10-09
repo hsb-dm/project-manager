@@ -1967,7 +1967,7 @@ body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
 .menu.related-pop{width:340px}.menu.related-pop button{align-items:center}
 .chk-bar{height:4px;border-radius:2px;background:var(--color-surface-sunken);margin:2px 0 6px;overflow:hidden}.chk-bar i{display:block;height:100%;background:var(--color-success)}
 .chk-item{display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;border-radius:6px}.chk-item:hover{background:var(--color-surface-sunken)}
-.chk-item.done span{text-decoration:line-through;color:var(--color-text-tertiary)}.chk-item span{flex:1}
+.chk-item.done .chk-text{text-decoration:line-through;color:var(--color-text-tertiary)}.chk-item .chk-text{flex:1;min-width:0;overflow-wrap:anywhere}
 .chk-item .iconbtn.xs{width:20px;height:20px;border:0;opacity:0}.chk-item:hover .iconbtn.xs{opacity:1}.chk-item .iconbtn.xs svg{width:11px;height:11px}
 .chk-add input{width:100%;border:1px dashed var(--color-border);border-radius:8px;padding:6px 10px;font-size:12.5px;background:transparent}.chk-add input:focus{border-style:solid;border-color:var(--color-primary);outline:none;background:var(--color-surface)}
 .effort{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--color-text-secondary);flex-wrap:wrap}.effort>b{font-size:12.5px;color:var(--color-text-primary)}
@@ -4739,6 +4739,25 @@ img.emj.custom{object-fit:contain}
    be read. The textarea stays see-through; the mirror carries the background. */
 #drawer .composer textarea.cmt-mirrored{background-color:transparent}
 [data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
+/* checklist: an item's text is edited where it stands; the whole row drags it to another place */
+.chk .chk-item[draggable=true]{cursor:grab}.chk .chk-item[draggable=true]:active{cursor:grabbing}.chk .chk-item .chk-box,.chk .chk-item .iconbtn{cursor:pointer}
+.chk .chk-item .drag-handle{flex:none;width:16px;height:22px;margin:0 -4px;border-radius:5px;opacity:0;transition:opacity .12s}
+.chk .chk-item:hover .drag-handle,.chk .chk-item .drag-handle:focus-visible,.chk .chk-item.kb-grabbed .drag-handle{opacity:1}
+.chk .chk-item .drag-handle svg{width:12px;height:12px}
+/* the text cursor only over the words (double-click edits them); a hand everywhere else on the row, which drags it */
+.chk .chk-item[draggable=true]{-webkit-user-select:none;user-select:none}
+.chk .chk-item .chk-t{cursor:text;border-radius:3px}
+.chk .chk-item .chk-t:focus-visible{outline:2px solid var(--color-primary);outline-offset:1px}
+/* progress note: the checklist in one line — how far, what is next; it opens the checklist on the Brief tab */
+.pn-chk{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 10px;padding:7px 10px;border:1px solid var(--color-border);border-radius:8px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.pn-chk:hover{border-color:var(--color-border-strong);color:var(--color-text-primary)}
+.pn-chk b{color:var(--color-text-primary);font-weight:600}
+.pn-chk-n{font-variant-numeric:tabular-nums}
+.pn-chk-bar{flex:none;width:64px;height:4px;border-radius:2px;background:var(--color-border);overflow:hidden}.pn-chk-bar i{display:block;height:100%;background:var(--color-success)}
+.pn-chk-next{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chk .chk-item .chk-edit{flex:1;min-width:0;font:inherit;font-size:12.5px;line-height:1.4;padding:2px 6px;margin:-3px 0;border:1px solid var(--color-primary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);outline:none;box-shadow:0 0 0 3px var(--color-primary-soft)}
+.chk .chk-item.editing:hover{background:transparent}
+@media (hover:none){.chk .chk-item .drag-handle,.chk .chk-item .iconbtn.xs{opacity:1}}
 
 </style>
 </head>
@@ -13128,6 +13147,13 @@ Object.assign(UI_ID,{
   "Edit/assign/review tasks of teams they lead or belong to": "Mengedit, menugaskan, dan meninjau tugas tim yang dipimpin atau diikuti",
   "See tasks' progress notes": "Melihat catatan progres task",
   "Write progress notes on any task they can see": "Menulis catatan progres di task mana pun yang bisa mereka lihat",
+  "Double-click to edit": "Klik dua kali untuk mengedit",
+  "Open the checklist": "Buka checklist",
+  "All done": "Semua selesai",
+  "Edit item": "Edit item",
+  "Remove item": "Hapus item",
+  "Reorder": "Ubah urutan",
+  "Drag to reorder, or press Space and use the arrow keys": "Seret untuk mengubah urutan, atau tekan Spasi lalu pakai tombol panah",
   "Edit tasks where they are assignee or reviewer": "Mengedit tugas sebagai penanggung jawab atau peninjau",
   "Assign tasks to anyone": "Menugaskan pekerjaan kepada siapa saja",
   "Approve / send back any task": "Menyetujui atau mengembalikan semua tugas",
@@ -15068,7 +15094,24 @@ function relatedSectionHtml(type,id){ var r=relatedItems(type,id); var rows=[["m
 function relatedPop(a,type,id,kind){ var r=relatedItems(type,id)[kind]; var h='<div class="mh">'+tr({messages:"Messages",assets:"Assets",aigallery:"AI designs"}[kind])+'</div>'; if(kind==="messages") h+=r.slice(0,12).map(function(x){ var c=conv(x.conv); return '<button onclick="closePops();closeDrawer();openConversation(\''+x.conv+'\','+jsq(x.m.id)+')">'+av(x.m.senderId)+'<div class="ep-main"><b data-no-translate>'+esc(first(x.m.senderId))+' · '+esc(convTitle(c))+'</b><span data-no-translate>'+esc((x.m.body||"").slice(0,70)||tr("attachment"))+'</span></div></button>'; }).join(""); else if(kind==="assets") h+=r.slice(0,12).map(function(a){ return entityRow("asset",a.id); }).join(""); else if(kind==="aigallery") h+=r.slice(0,12).map(function(g){ return '<button onclick="closePops();go(\'aigallery\')"><span class="sq">'+I.gallery+'</span><div class="ep-main"><b data-no-translate>'+esc(g.name)+'</b><span>'+esc(g.toolId||"")+'</span></div></button>'; }).join(""); ctxMenu(a,h); var m=document.getElementById("ctxMenu"); m.classList.add("related-pop"); }
 /* =============== 7.13 CHECKLIST + TEMPLATES / 7.15 EFFORT (task.meta) =============== */
 function checklistTemplates(){ WS.checklistTemplates=WS.checklistTemplates||[]; return WS.checklistTemplates; }
-function checklistHtml(tk,ed){ var m=taskMeta(tk), items=m.checklist||[], done=items.filter(function(i){ return i.done; }).length; return '<div class="chk"><div class="chk-head"><b>'+tr("Checklist")+(items.length?' <span class="hint">'+done+'/'+items.length+'</span>':'')+'</b><span class="spacer"></span>'+(ed?'<button class="btn xs ghost" aria-label="'+attr(tr("Checklist options"))+'" onclick="checklistMenu(this,\''+tk.id+'\')">'+I.more+'</button>':'')+'</div>'+(items.length?'<div class="chk-bar"><i style="width:'+Math.round(done/items.length*100)+'%"></i></div>':'')+items.map(function(it,i){ return '<label class="chk-item'+(it.done?" done":"")+'"><input type="checkbox"'+(it.done?" checked":"")+(ed?"":" disabled")+' onchange="checklistToggle(\''+tk.id+'\','+i+',this.checked)"><span data-no-translate>'+esc(it.text)+'</span>'+(ed?'<button class="iconbtn flat xs" onclick="event.preventDefault();checklistRemove(\''+tk.id+'\','+i+')">'+I.x+'</button>':'')+'</label>'; }).join("")+(ed?'<form class="chk-add" onsubmit="event.preventDefault();var i=this.querySelector(\'input\');checklistAdd(\''+tk.id+'\',i.value);i.value=\'\'"><input placeholder="'+attr(tr("Add item…"))+'" maxlength="140"></form>':'')+'</div>'; }
+/* An item is edited where it stands: double-click its text (or Enter on it), then Enter or clicking away keeps it and Esc
+   leaves it as it was. The row drags it to another place; from the keyboard, Space on its handle, then ↑ / ↓.
+   Only for someone who can edit the task. What is being typed survives a redraw (a colleague's update). */
+var CHK={edit:null};
+function chkCanEdit(tk){ return !!tk&&!tk._draft&&canI.editTask(tk); }
+function chkItems(tk){ return (tk&&taskMeta(tk).checklist)||[]; }
+/* the item being edited, found again if the list moved under it */
+function chkEditIndex(tk){ var e=CHK.edit, it=chkItems(tk); if(!e||!tk||e.id!==tk.id) return -1; if(it[e.i]&&it[e.i].text===e.orig) return e.i; for(var j=0;j<it.length;j++) if(it[j].text===e.orig) return (e.i=j); return -1; }
+function checklistHtml(tk,ed){ var items=chkItems(tk), done=items.filter(function(i){ return i.done; }).length; if(CHK.edit&&CHK.edit.id===tk.id&&(!ed||chkEditIndex(tk)<0)) CHK.edit=null; return '<div class="chk"><div class="chk-head"><b>'+tr("Checklist")+(items.length?' <span class="hint">'+done+'/'+items.length+'</span>':'')+'</b><span class="spacer"></span>'+(ed?'<button class="btn xs ghost" aria-label="'+attr(tr("Checklist options"))+'" onclick="checklistMenu(this,'+jsq(tk.id)+')">'+I.more+'</button>':'')+'</div>'+(items.length?'<div class="chk-bar"><i style="width:'+Math.round(done/items.length*100)+'%"></i></div>':'')+items.map(function(it,i){ return chkRowHtml(tk,it,i,ed); }).join("")+(ed?'<form class="chk-add" onsubmit="event.preventDefault();var i=this.querySelector(\'input\');checklistAdd('+jsq(tk.id)+',i.value);i.value=\'\'"><input id="chkAdd" placeholder="'+attr(tr("Add item…"))+'" maxlength="140"></form>':'')+'</div>'; }
+function chkRowHtml(tk,it,i,ed){ var editing=ed&&i===chkEditIndex(tk), grab=ed&&REORDER.list==="checklist"&&REORDER.kb===i;
+  /* the whole row is what is dragged — not only the handle — except while its text is being typed in */
+  return '<div class="chk-item'+(it.done?" done":"")+(editing?" editing":"")+(ed?" reorder-row":"")+(grab?" kb-grabbed":"")+'" data-index="'+i+'"'+(ed?' data-reorder="checklist"'+(editing?'':' draggable="true" ondragstart="reorderStart(event,\'checklist\','+i+')" ondragend="reorderEnd(event)"')+' ondragover="reorderOver(event,\'checklist\','+i+')" ondragleave="reorderLeave(event)" ondrop="reorderDrop(event,\'checklist\','+i+')"':'')+'>'
+    +(ed?'<span class="drag-handle" role="button" tabindex="0" aria-label="'+attr(tr("Reorder")+" — "+it.text)+'" title="'+attr(tr("Drag to reorder, or press Space and use the arrow keys"))+'" onkeydown="chkGripKey(event,'+i+')">'+I.drag+'</span>':'')
+    +'<input type="checkbox" class="chk-box"'+(it.done?" checked":"")+(ed?"":" disabled")+' aria-labelledby="chkT'+i+'" onchange="checklistToggle('+jsq(tk.id)+','+i+',this.checked)">'
+    +(editing?'<input class="chk-edit" id="chkEdit" data-for="'+attr(tk.id)+'" maxlength="140" value="'+attr(CHK.edit.draft)+'" aria-label="'+attr(tr("Edit item"))+'" oninput="if(CHK.edit)CHK.edit.draft=this.value" onkeydown="chkEditKey(event)" onblur="chkEditBlur()">'
+      /* the words themselves are what is double-clicked (the text cursor shows only over them); the rest of the row is for dragging */
+      :'<span class="chk-text" id="chkT'+i+'" data-no-translate>'+(ed?'<span class="chk-t" role="button" tabindex="0" title="'+attr(tr("Double-click to edit"))+'" ondblclick="checklistEdit('+jsq(tk.id)+','+i+')" onkeydown="if(event.key===\'Enter\'||event.key===\'F2\'){event.preventDefault();checklistEdit('+jsq(tk.id)+','+i+')}">'+esc(it.text)+'</span>':esc(it.text))+'</span>')
+    +(ed?'<button class="iconbtn flat xs" aria-label="'+attr(tr("Remove item"))+'" onclick="checklistRemove('+jsq(tk.id)+','+i+')">'+I.x+'</button>':'')+'</div>'; }
 function checklistAdd(id,text){ text=(text||"").trim(); if(!text) return; editTaskWith(task(id),function(t){ var m=taskMeta(t); (m.checklist=m.checklist||[]).push({text:text,done:false}); }); }
 function checklistToggle(id,i,v){ editTaskWith(task(id),function(t){ var m=taskMeta(t); if(m.checklist&&m.checklist[i]) m.checklist[i].done=!!v; }); }
 function checklistRemove(id,i){ var tk=task(id), it=taskMeta(tk).checklist[i]; editTaskWith(tk,function(t){ t.meta.checklist.splice(i,1); }); undoToast("Item removed",function(){ editTaskWith(task(id),function(t){ (taskMeta(t).checklist=t.meta.checklist||[]).splice(i,0,it); }); }); }
@@ -15076,6 +15119,21 @@ function checklistMenu(a,id){ var tpl=checklistTemplates(); ctxMenu(a,'<div clas
 function checklistApply(id,tplId){ var t=byId(checklistTemplates(),tplId); if(!t) return; editTaskWith(task(id),function(tk){ var m=taskMeta(tk); m.checklist=(m.checklist||[]).concat(t.items.map(function(x){ return {text:x,done:false}; })); }); toast(tr("Template applied")); }
 function checklistSaveTemplate(id){ var items=(taskMeta(task(id)).checklist||[]).map(function(i){ return i.text; }); openModal(tr("Save checklist template"),'<div class="field"><label>'+tr("Template name")+'</label><input id="ctName" placeholder="'+attr(tr("e.g. Amazon PDP checklist"))+'"></div><p class="hint">'+items.length+' '+tr("items")+'</p>','<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="var n=val(\'ctName\');if(!n)return;checklistTemplates().push({id:uid(\'ct\'),name:n,items:'+attr(JSON.stringify(items))+'});if(typeof saveWorkspace===\'function\')saveWorkspace();closeModal();toast(tr(\'Template saved\'))">'+tr("Save")+'</button>'); }
 function checklistClear(id){ var tk=task(id), old=(taskMeta(tk).checklist||[]).slice(); editTaskWith(tk,function(t){ t.meta.checklist=[]; }); undoToast("Checklist cleared",function(){ editTaskWith(task(id),function(t){ taskMeta(t).checklist=old; }); }); }
+function checklistEdit(id,i){ var tk=task(id); if(!chkCanEdit(tk)||!chkItems(tk)[i]) return; if(CHK.edit){ if(CHK.edit.id===id&&chkEditIndex(tk)===i) return; checklistEditDone(true); } var it=chkItems(tk)[i]; if(!it) return; CHK.edit={id:id,i:i,orig:it.text,draft:it.text}; chkRowSwap(tk,i); var el=document.getElementById("chkEdit"); if(el){ el.focus(); var n=el.value.length; try{ el.setSelectionRange(n,n); }catch(x){} } }
+/* one row redrawn in place: going into or out of editing does not redraw the panel */
+function chkRowSwap(tk,i){ var row=i>=0&&document.querySelector('#drawer .chk-item[data-index="'+i+'"]'), it=chkItems(tk)[i]; if(row&&it) row.outerHTML=chkRowHtml(tk,it,i,chkCanEdit(tk)); else if(tk&&S.drawerTask===tk.id) renderDrawer(); }
+function checklistEditDone(save){ var e=CHK.edit; if(!e) return; var tk=task(e.id), i=chkEditIndex(tk), el=document.getElementById("chkEdit"), text=String(el&&el.getAttribute("data-for")===e.id?el.value:e.draft).trim().slice(0,140); CHK.edit=null;
+  if(save&&i>=0&&text&&text!==e.orig) return editTaskWith(tk,function(t){ var it=taskMeta(t).checklist[i]; if(it) it.text=text; });
+  if(tk&&S.drawerTask===tk.id) chkRowSwap(tk,i); }
+function chkEditKey(e){ if(e.isComposing) return; if(e.key==="Enter"){ e.preventDefault(); checklistEditDone(true); } else if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); var i=CHK.edit?chkEditIndex(task(CHK.edit.id)):-1; checklistEditDone(false); var t=document.querySelector("#chkT"+i+" .chk-t"); if(t) t.focus(); } }
+/* clicking away keeps what was typed — unless the box is back in focus, as it is after a redraw */
+function chkEditBlur(){ var e=CHK.edit; setTimeout(function(){ var el=document.getElementById("chkEdit"); if(!e||CHK.edit!==e||(el&&el===document.activeElement)) return; checklistEditDone(true); },0); }
+/* Esc lets go of a grabbed item; it does not close the panel as well */
+function chkGripKey(e,i){ var grabbed=REORDER.list==="checklist"&&REORDER.kb===i; reorderKey(e,"checklist",i); if(grabbed&&e.key==="Escape") e.stopPropagation(); }
+if(typeof registerReorderList==="function") registerReorderList("checklist",function(from,to){ var tk=task(S.drawerTask), n=chkItems(tk).length; if(!chkCanEdit(tk)||from<0||to<0||from>=n||to>=n) return false; editTaskWith(tk,function(t){ moveInArray(taskMeta(t).checklist,from,to); }); return true; });
+/* the handle, box or text in focus keeps it through a redraw — toggling or moving one from the keyboard redraws the panel */
+function chkFocusKey(){ var ae=document.activeElement, row=ae&&ae.closest&&ae.closest("#drawer .chk-item"); if(!row) return null; var c=["drag-handle","chk-box","chk-t"].filter(function(k){ return ae.classList.contains(k); })[0]; return c?{i:row.getAttribute("data-index"),c:c}:null; }
+function chkFocusRestore(k){ if(!k) return; var f=document.querySelector('#drawer .chk-item[data-index="'+k.i+'"] .'+k.c); if(f&&f!==document.activeElement){ try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
 function effortHtml(tk,ed){ var m=taskMeta(tk), est=tk.effort||0, act=m.actualEffort||0, over=est&&act>est; return '<div class="effort"><b>'+tr("Effort")+'</b><span>'+tr("Estimated")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+est+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){t.effort=+this.value||0}.bind(this))">':'<b>'+est+'</b>')+' h</span><span'+(over?' class="over"':'')+'>'+tr("Actual")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+act+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){taskMeta(t).actualEffort=+this.value||0}.bind(this))">':'<b>'+act+'</b>')+' h</span>'+(est&&act?'<span class="hint">'+(over?"+":"")+Math.round((act-est)/est*100)+'%</span>':'')+'</div>'; }
 /* =============== 7.8 PROJECT ACTIVITY DIGEST (deterministic, from ACTIVITY) =============== */
 function digestHtml(list){ var today=list.filter(function(a){ return a.ago<1440; }); if(!today.length) return ""; var c={done:0,review:0,upload:0,approved:0,comment:0,assigned:0,created:0}; today.forEach(function(a){ if(a.k==="upload") c.upload++; else if(a.k==="approved") c.approved++; else if(a.k==="comment") c.comment++; else if(a.k==="assigned") c.assigned++; else if(a.k==="created") c.created++; else if(a.k==="moved"){ var to=a.a.to?stage(a.a.to):null; if(to&&to.kind==="done") c.done++; else if(to&&/review/.test(to.kind||"")) c.review++; } }); var rows=[[c.done,"tasks completed"],[c.review,"tasks entered review"],[c.upload,"files uploaded"],[c.approved,"approvals completed"],[c.comment,"comments"],[c.assigned,"assignments"],[c.created,"tasks created"]].filter(function(r){ return r[0]; }); if(!rows.length) return ""; return '<div class="digest"><div class="mh">'+tr("Today")+'</div>'+rows.map(function(r){ return '<span><b>'+r[0]+'</b> '+tr(r[1])+'</span>'; }).join("")+'</div>'; }
@@ -15157,7 +15215,7 @@ function quickAddMenuHtml(){ var proj=S.screen==="projects"&&S.projectId?S.proje
   var _openTask=openTask; openTask=function(id){ _openTask(id); if(task(id)) recentTouch("task",id); };
   if(typeof openConversation==="function"){ var _oc=openConversation; openConversation=function(id,mid){ _oc(id,mid); if(conv(id)) recentTouch("conversation",id); }; }
   var _renderScreen=renderScreen; renderScreen=function(a){ _renderScreen(a); try{ enhanceAfterRender(); }catch(e){ console.error(e); } };
-  var _renderDrawer=renderDrawer; renderDrawer=function(){ _renderDrawer(); try{ enhanceDrawer(); }catch(e){ console.error(e); } };
+  var _renderDrawer=renderDrawer; renderDrawer=function(){ var cf=chkFocusKey(); _renderDrawer(); try{ enhanceDrawer(); }catch(e){ console.error(e); } chkFocusRestore(cf); };
   var _userMenuHtml=userMenuHtml; userMenuHtml=function(){ var h=_userMenuHtml(); return h.replace('<div class="mh">'+tr("Language")+'</div>',availabilityMenuHtml()+'<div class="mh">'+tr("Language")+'</div>'); };
   if(typeof dashboardCreateMenu==="function"){ dashboardCreateMenu=function(){ return quickAddMenuHtml(); }; }
   var _msgBootSync=typeof msgBootSync==="function"?msgBootSync:null; if(_msgBootSync) msgBootSync=function(){ _msgBootSync(); availabilityDemoSeed(); setTimeout(deepLinkHandle,0); setTimeout(reminderTick,1500); };
@@ -15171,8 +15229,9 @@ function enhanceAfterRender(){ var c=document.getElementById("content"); if(!c) 
   if(bulkSurface()){ var act2=c.querySelector(".pagehead .actions"); if(act2&&!act2.querySelector(".bulk-btn")) act2.insertAdjacentHTML("afterbegin",'<button class="btn sm bulk-btn'+(ENH.bulk?" ink":"")+'" aria-label="'+attr(tr(ENH.bulk?"Selecting…":"Select"))+'" onclick="bulkToggle()">'+I.check+'<span class="bulk-label">'+tr(ENH.bulk?"Selecting…":"Select")+'</span></button>'); bulkInject(); } else if(ENH.bulk){ ENH.bulk=false; ENH.bulkSel={}; bulkInject(); }
   localizeVisibleText(c); }
 function enhanceDrawer(){ var tk=task(S.drawerTask); var d=document.getElementById("drawer"); if(!tk||!d) return; var ed=canI.editTask(tk)&&!tk._draft; var head=d.querySelector(".dr-top .spacer"); if(head&&!d.querySelector(".enh-task")&&!tk._draft){ head.insertAdjacentHTML("afterend",'<span class="enh-tools"><button class="iconbtn enh enh-task watch'+(isWatching(tk.id)?" is-on":"")+'" aria-pressed="'+(isWatching(tk.id)?"true":"false")+'" title="'+attr(tr(isWatching(tk.id)?"Unwatch":"Watch"))+'" onclick="toggleWatch(\''+tk.id+'\')">'+I.bell+'</button><button class="iconbtn enh enh-task star'+(isSaved("task",tk.id)?" is-on":"")+'" aria-pressed="'+(isSaved("task",tk.id)?"true":"false")+'" title="'+attr(tr(isSaved("task",tk.id)?"Unsave":"Save"))+'" onclick="toggleSaved(\'task\',\''+tk.id+'\')">'+I.star+'</button><button class="iconbtn enh enh-task remind'+(hasReminder("task",tk.id)?" is-on":"")+'" aria-pressed="'+(hasReminder("task",tk.id)?"true":"false")+'" title="'+attr(tr(hasReminder("task",tk.id)?"Reminder set":"Remind me"))+'" onclick="remindMenu(this,\'task\',\''+tk.id+'\')">'+I.clock+'</button></span>'); }
-  /* the checklist, effort and related items belong with the task, not under its comments or its progress note */
-  if(S.drawerTab!=="comments"&&S.drawerTab!=="progress"&&!tk._draft&&!d.querySelector(".related")){ var body=document.getElementById("drBody"); if(body) body.insertAdjacentHTML("beforeend",'<div class="enh-blocks">'+checklistHtml(tk,ed)+effortHtml(tk,ed)+relatedSectionHtml("task",tk.id)+'</div>'); } localizeVisibleText(d); }
+  /* the checklist, effort and related items are the task's details: they live on the Brief tab only — not under its
+     assets, comments, progress note or activity */
+  if(S.drawerTab==="brief"&&!tk._draft&&!d.querySelector(".related")){ var body=document.getElementById("drBody"); if(body) body.insertAdjacentHTML("beforeend",'<div class="enh-blocks">'+checklistHtml(tk,ed)+effortHtml(tk,ed)+relatedSectionHtml("task",tk.id)+'</div>'); } localizeVisibleText(d); }
 /* the existing task menu (…) gains Watch / Save / Remind / Copy link without a second menu */
 (function(){ if(typeof taskMenu!=="function") return; var _tm=taskMenu; taskMenu=function(a){ _tm(a); var m=document.getElementById("ctxMenu"), id=S.drawerTask; if(!m||!id) return; m.insertAdjacentHTML("afterbegin",'<button onclick="closePops();copyDeepLink(\'task\',\''+id+'\')">'+I.link+tr("Copy link")+'</button><button onclick="closePops();toggleWatch(\''+id+'\')">'+I.bell+tr(isWatching(id)?"Unwatch":"Watch")+'</button><button onclick="closePops();toggleSaved(\'task\',\''+id+'\')">'+I.star+tr(isSaved("task",id)?"Unsave":"Save")+'</button><button onclick="closePops();remindMenu(this,\'task\',\''+id+'\')">'+I.clock+tr("Remind me…")+'</button><div class="mh"></div>'); localizeVisibleText(m); place(m,a); }; })();
 /* messages: save / remind from a message; availability in DM header + member rows */
@@ -18904,7 +18963,7 @@ function progressView(tk){
   var acts="";
   if(e) acts='<button class="btn xs" onclick="pnCancel()">'+tr("Cancel")+'</button><button class="btn xs primary" id="pnSave" onmousedown="event.preventDefault()" onclick="pnSave()">'+I.check+tr(e.mode==="new"?"Save new version":"Save")+'</button>';
   else if(ed&&list.length) acts=(sel===last?'<button class="btn xs" onclick="pnStart(\'edit\')">'+I.edit+tr("Edit")+'</button>':'')+'<button class="btn xs primary" onclick="pnStart(\'new\')">'+I.plus+tr("New version")+'</button>';
-  var h='<div class="pn"><div class="pn-head"><span class="eyebrow">'+tr("Progress note")+'</span>'+(chips?'<span class="pn-chips">'+chips+'</span>':'')+'<span class="spacer"></span>'+acts+'</div>';
+  var h='<div class="pn"><div class="pn-head"><span class="eyebrow">'+tr("Progress note")+'</span>'+(chips?'<span class="pn-chips">'+chips+'</span>':'')+'<span class="spacer"></span>'+acts+'</div>'+pnChecklistLine(tk);
   if(e){
     var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="pnFormat(\''+act+'\')">'+html+'</button>'; };
     h+='<div class="md-editor"><div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'</div>'
@@ -18920,6 +18979,12 @@ function progressView(tk){
       +'<div class="md-view pn-view"'+(ed&&sel===last?' ondblclick="pnStart(\'edit\')" title="'+attr(tr("Double-click to edit"))+'"':'')+'>'+descMdHtml(sel.text)+'</div>';
   }
   return h+'</div>'; }
+
+/* The checklist beside the note, in one line: how far it is and what comes next — what a note is written from.
+   The list itself stays on the Brief tab; the line opens it there. */
+function pnChecklistLine(tk){ var items=(tk.meta&&tk.meta.checklist)||[]; if(!items.length) return ""; var done=items.filter(function(x){ return x.done; }).length, next=items.filter(function(x){ return !x.done; })[0];
+  return '<button type="button" class="pn-chk" title="'+attr(tr("Open the checklist"))+'" onclick="pnToChecklist()"><b>'+tr("Checklist")+'</b><span class="pn-chk-n">'+done+'/'+items.length+'</span><span class="pn-chk-bar"><i style="width:'+Math.round(done/items.length*100)+'%"></i></span><span class="pn-chk-next">'+(next?tr("Next")+': <span data-no-translate>'+esc(next.text)+'</span>':tr("All done"))+'</span></button>'; }
+function pnToChecklist(){ S.drawerTab="brief"; renderDrawer(); var c=document.querySelector("#drawer .chk"); if(c) c.scrollIntoView({block:"nearest"}); }
 
 /* many versions: one button showing the version on screen, and a list of them all (newest first) */
 var PN_CHIPS=5;

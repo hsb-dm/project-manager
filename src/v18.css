@@ -386,7 +386,7 @@ body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
 .menu.related-pop{width:340px}.menu.related-pop button{align-items:center}
 .chk-bar{height:4px;border-radius:2px;background:var(--color-surface-sunken);margin:2px 0 6px;overflow:hidden}.chk-bar i{display:block;height:100%;background:var(--color-success)}
 .chk-item{display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;border-radius:6px}.chk-item:hover{background:var(--color-surface-sunken)}
-.chk-item.done span{text-decoration:line-through;color:var(--color-text-tertiary)}.chk-item span{flex:1}
+.chk-item.done .chk-text{text-decoration:line-through;color:var(--color-text-tertiary)}.chk-item .chk-text{flex:1;min-width:0;overflow-wrap:anywhere}
 .chk-item .iconbtn.xs{width:20px;height:20px;border:0;opacity:0}.chk-item:hover .iconbtn.xs{opacity:1}.chk-item .iconbtn.xs svg{width:11px;height:11px}
 .chk-add input{width:100%;border:1px dashed var(--color-border);border-radius:8px;padding:6px 10px;font-size:12.5px;background:transparent}.chk-add input:focus{border-style:solid;border-color:var(--color-primary);outline:none;background:var(--color-surface)}
 .effort{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--color-text-secondary);flex-wrap:wrap}.effort>b{font-size:12.5px;color:var(--color-text-primary)}
