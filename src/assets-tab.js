@@ -59,7 +59,7 @@ function avVersionSection(tk,ed){
   if(!tk.versions.length) return '<section class="av-sec">'+versionsView(tk)+'</section>';
   var v=lastVer(tk);
   S.drawerVer=v.n; /* versionsView draws curVer(), and the box only ever shows the latest */
-  var acts=ed?'<button class="btn sm" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link from Google Drive")+'</button><button class="btn sm" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button><button class="btn sm primary" onclick="uploadVersion()">'+I.up+tr("Upload new version")+'</button>':'';
+  var acts=ed?'<button class="btn sm" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link from Google Drive")+'</button><button class="btn sm" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button><button class="btn sm primary" data-short="'+attr(tr("Upload"))+'" onclick="uploadVersion()">'+I.up+tr("Upload new version")+'</button>':'';
   return '<section class="av-sec av-version">'
     + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
     + versionsView(tk,{onlyPreview:true})
@@ -198,7 +198,7 @@ function verNoteComposer(tk,v){
   return '<div class="vn-add"><div class="vn-add-row">'
     + '<textarea id="verNoteText" rows="1" placeholder="'+attr(tr("Add a note — what needs to change?"))+'" oninput="VN_DRAFT.text=this.value;verNoteGrow(this)" onkeydown="verNoteKeydown(event)">'+esc(VN_DRAFT.text)+'</textarea>'
     + '<button type="button" class="iconbtn vn-pic" title="'+attr(tr("Attach a screenshot"))+'" aria-label="'+attr(tr("Attach a screenshot"))+'" onclick="verNotePick()">'+I.image.replace("<svg",'<svg class="i"')+'</button>'
-    + '<button type="button" class="btn sm" onclick="addVerNote()">'+tr("Add note")+'</button></div>'
+    + '<button type="button" class="btn sm" data-short="'+attr(tr("Add"))+'" onclick="addVerNote()">'+tr("Add note")+'</button></div>'
     + '<div id="verNoteImg">'+verNoteImgHtml()+'</div></div>';
 }
 function verNoteImgHtml(){
@@ -517,7 +517,7 @@ function avFinalFiles(tk,ed){
   var drive=typeof driveIcon==="function"?driveIcon():I.cloud;
   var rows=[]; (tk.files||[]).forEach(function(f,i){ if(!fileFromComment(tk,f)) rows.push([f,i]); });
   var promoted=commentFileIds(tk);
-  var h='<section class="av-sec"><div class="av-head"><h3>'+tr("Final files")+'</h3><span class="cnt">'+rows.length+'</span></div>';
+  var h='<section class="av-sec"><div class="av-head"><h3>'+tr("Final files")+'</h3><span class="cnt">'+rows.length+'</span>'+(ed?'<span class="spacer"></span><button type="button" class="btn xs m-attach" data-menu="" aria-label="'+attr(tr("Add a final file"))+'" onclick="mAttachMenu(this,\'.av-tools\')">'+I.plus+tr("Add")+'</button>':'')+'</div>';
   if(ed) h+='<div class="av-tools"><button class="btn xs" onclick="attachLocal(true)">'+I.up+tr("Upload images")+'</button><button class="btn xs" onclick="attachLocal()">'+I.up+tr("Upload file")+'</button><button class="btn xs" onclick="linkCloudModal(\'task\')">'+drive+tr("Link Google Drive")+'</button><button class="btn xs" onclick="attachTaskLinkModal()">'+I.link+tr("Attach link")+'</button><button class="btn xs" onclick="attachAssetModal()">'+I.assets.replace('class="i"','')+tr("Attach from library")+'</button></div>';
   h+=taskUploadPendingHtml(tk);
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';

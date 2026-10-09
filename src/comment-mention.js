@@ -200,7 +200,7 @@ function cmtMentionsHtml(html){
 Object.assign(UI_ID,{
   "On this task":"Di task ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
-  "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar yang terlihat oleh pemangku kepentingan bisa dibaca peminta seperti tim Marketing.",
+  "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
   "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang"
 });
 </script>

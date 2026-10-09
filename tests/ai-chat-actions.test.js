@@ -29,13 +29,17 @@ test("the instruction tells the model a human confirms, and fences attached text
 /* ---------- the token budget ---------- */
 
 test("summaries get room, and reasoning models get the field they accept", () => {
-  const src = read("server/server.js");
-  const block = src.slice(src.indexOf('headers["Authorization"] = "Bearer " + c.key;'), src.indexOf("security.log(\"ai_chat_requested\""));
-  assert.ok(!/max_tokens: 500/.test(block), "500 truncated summaries mid-sentence");
-  assert.match(block, /\^\(o\[1-9\]\|gpt-5\)/, "reasoning models are recognised by name");
-  assert.match(block, /max_completion_tokens/, "which is the field they require");
-  /* both must never be sent together: the official API rejects that */
-  assert.match(block, /body\[reasoning \? "max_completion_tokens" : "max_tokens"\]/);
+  const { chatRequest } = require("../server/ai-chat-format.js");
+  const ep = "https://api.openai.com/v1/chat/completions", msgs = [{ role: "user", content: "hi" }];
+  const plain = chatRequest({ endpoint: ep, key: "k", model: "gpt-4.1-mini" }, "sys", msgs).body;
+  assert.equal(plain.max_tokens, 1500, "500 truncated summaries mid-sentence");
+  for (const model of ["o3", "o4-mini", "gpt-5", "gpt-5-mini"]) {
+    const b = chatRequest({ endpoint: ep, key: "k", model }, "sys", msgs).body;
+    assert.equal(b.max_completion_tokens, 4000, model + ": reasoning models get the field they require, and room to think");
+    /* both must never be sent together: the official API rejects that */
+    assert.ok(!("max_tokens" in b), model + ": never both");
+  }
+  assert.ok(!("max_completion_tokens" in plain));
 });
 
 /* ---------- what the browser sends ---------- */

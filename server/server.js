@@ -14,6 +14,7 @@ const mailer = require("./mailer");
 const security = require("./security");
 const secrets = require("./secrets");
 const backups = require("./backup");
+const aiChatFormat = require("./ai-chat-format");
 
 const PORT = +(process.env.PORT || 3000);
 const DEV_HEADER_AUTH = !security.IS_PRODUCTION && (process.env.COS_DEV_HEADER_AUTH === "1" || process.env.COS_ALLOW_HEADER_AUTH === "1");
@@ -359,7 +360,52 @@ require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
 /* v19 task.meta (watchers, checklist, actual effort, source message) — one JSON column, added lazily for existing DBs */
 try { db.exec("ALTER TABLE tasks ADD COLUMN meta TEXT DEFAULT '{}'"); } catch (e) {}
 /* the decision log was removed; its table stays in the database untouched */
-const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: sz.readNotifs, writeNotif: sz.writeNotif, onNotification: id => emailNotification(id) });
+/* The installed app (PWA) takes the workspace's name and the favicon it uses. The server cannot resize images,
+   so an admin's browser draws the favicon at each size and sends the PNGs (src/pwa.js); they are used while the
+   favicon they were drawn from is still the one in use (same hash), otherwise ZenCrevia's own mark. */
+const PWA_ICON_FILES = { "192": "icon-192.png", "512": "icon-512.png", "maskable-512": "icon-maskable-512.png", "apple-180": "apple-touch-icon.png" };
+function strHash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "-" + s.length.toString(36); }
+function pwaIcons() { const ws = sz.readWorkspace(db, WS_ID); let stored = null; try { db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)"); const r = db.prepare("SELECT value FROM app_meta WHERE key='pwa_icons'").get(); stored = r && JSON.parse(r.value); } catch (e) {} return { ws, stored, live: ws.favicon && stored && stored.hash === strHash(ws.favicon) ? stored : null }; }
+function pwaManifest() { const { ws, live } = pwaIcons(), v = live ? live.hash : "zc", name = String(ws.name || "ZenCrevia").slice(0, 45), icon = (k, size, purpose) => ({ src: "/pwa-icon/" + k + ".png?v=" + v, sizes: size + "x" + size, type: "image/png", purpose });
+  return { id: "/", name, short_name: name.slice(0, 24), description: "Creative operations: tasks, projects, reviews and chat for creative teams.", start_url: "/", scope: "/", display: "standalone", background_color: "#EEF0F4", theme_color: "#FFFFFF", categories: ["productivity", "business"],
+    icons: [icon("192", 192, "any"), icon("512", 512, "any"), icon("maskable-512", 512, "maskable")],
+    shortcuts: [{ name: "My tasks", url: "/tasks", icons: [{ src: "/pwa-icon/192.png?v=" + v, sizes: "192x192", type: "image/png" }] }, { name: "Messages", url: "/messages", icons: [{ src: "/pwa-icon/192.png?v=" + v, sizes: "192x192", type: "image/png" }] }] }; }
+/* Web Push (server/push.js): the VAPID subject is the first admin's address unless COS_VAPID_SUBJECT says otherwise */
+const push = require("./push")(db, { subject: () => process.env.COS_VAPID_SUBJECT || (() => { try { const a = db.prepare("SELECT u.email FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND u.email IS NOT NULL AND u.email<>'' LIMIT 1").get(WS_ID); return a ? "mailto:" + a.email : ""; } catch (e) { return ""; } })() });
+/* Web Push: the same notification on the person's devices, the app closed (server/push.js) — in their language */
+const PUSH_TEXT_ID = { assigned: "{who} menugaskan “{t}” kepadamu.", reviewer: "{who} memintamu me-review “{t}”.", review: "{who} mengirim “{t}” untuk kamu review.", progress: "{who} memperbarui catatan progres “{t}”.", mention: "{who} menyebutmu di komentar “{t}”.", comment: "{who} berkomentar di “{t}”.", revision: "{who} meminta revisi pada “{t}”.", approved: "{who} menyetujui “{t}”.", upload: "{who} mengunggah versi baru “{t}”.", status: "{who} memindahkan “{t}” ke tahap baru.", file: "{who} melampirkan file ke “{t}”.", deadline: "“{t}” jatuh tempo hari ini.", missed: "“{t}” melewati tenggat.", request: "{who} mengajukan permintaan kreatif: “{t}”.", request_status: "{who} memperbarui status permintaanmu “{t}”." };
+function memberPrefs(userId) { try { const m = db.prepare("SELECT prefs FROM workspace_members WHERE workspace_id=? AND user_id=?").get(WS_ID, userId); return JSON.parse((m && m.prefs) || "{}") || {}; } catch (e) { return {}; } }
+function userLang(userId) { return memberPrefs(userId).language === "id" ? "id" : "en"; }
+/* each kind follows the person's own switch in Settings → Notifications (notify-delivery.js NOTIF_PREF_DEFAULT) */
+const PUSH_PREF = { chat_dm: "chat_dm", chat_mention: "chat_mention", chat_reply: "chat_reply", chat_group: "chat_group", chat_team_general: "chat_team_general", assigned: "task_assigned", reviewer: "task_assigned", deadline: "task_due", missed: "task_due", approved: "approval", revision: "approval", review: "approval", mention: "chat_mention", comment: "chat_reply" };
+function pushNotification(notifId) {
+  if (typeof push === "undefined" || !push) return;
+  try {
+    const n = db.prepare("SELECT * FROM notifications WHERE id=?").get(notifId);
+    if (!n || !push.count(n.recipient_id)) return;
+    const ws = sz.readWorkspace(db, WS_ID), prefs = ws.notifPrefs || {};
+    if (prefs.push === false || prefs[n.type] === false) return;
+    /* the person's own switches: browser notifications on, and this kind on */
+    const mine = memberPrefs(n.recipient_id), np = mine.notif || {};
+    if (np.browser !== true || np[PUSH_PREF[n.type] || "project_updates"] === false) return;
+    const id = mine.language === "id", actor = n.actor_id ? ((db.prepare("SELECT name FROM users WHERE id=?").get(n.actor_id) || {}).name || "") : "";
+    let payload;
+    if (n.entity_type === "message") {
+      let info = {}; try { info = JSON.parse(n.message || "{}"); } catch (e) {}
+      const c = db.prepare("SELECT name, type FROM conversations WHERE id=?").get(n.entity_id) || {}, where = c.type === "DM" ? "" : "#" + (c.name || "general");
+      const head = n.type === "chat_dm" ? actor : n.type === "chat_mention" ? actor + (id ? " menyebutmu di " : " mentioned you in ") + where : n.type === "chat_reply" ? actor + (id ? " membalasmu di " : " replied to you in ") + where : actor + (id ? " di " : " in ") + where;
+      payload = { title: head, body: String(info.text || (id ? "Mengirim pesan" : "Sent a message")), url: "/messages/" + encodeURIComponent(n.entity_id) + (info.msg ? "?msg=" + encodeURIComponent(info.msg) : ""), tag: "conv:" + n.entity_id };
+    } else {
+      let title = n.entity_id, slug = "";
+      if (n.entity_type === "request") { const r = db.prepare("SELECT title FROM creative_requests WHERE id=?").get(n.entity_id); if (r) title = r.title; }
+      else { const t = db.prepare("SELECT title FROM tasks WHERE id=?").get(n.entity_id); if (t) { title = t.title; slug = urlSlug(t.title); } }
+      const text = ((id ? PUSH_TEXT_ID : MAIL_TEXT)[n.type] || (id ? "{who} memperbarui “{t}”." : "{who} updated “{t}”.")).replace("{who}", actor || "ZenCrevia").replace("{t}", title);
+      payload = { title: ws.name || "ZenCrevia", body: text, url: "/tasks?task=" + encodeURIComponent(n.entity_id + (slug ? "-" + slug : "")), tag: "task:" + n.entity_id };
+    }
+    push.sendToUser(n.recipient_id, payload).catch(e => console.error("[push] " + e.message));
+  } catch (e) { console.error("[push] " + e.message); }
+}
+const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: sz.readNotifs, writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id) });
 
 /* v36: the health check proves the database answers (an uptime monitor saw "ok" even with a
    broken database) and reports 503 while shutting down, so a load balancer stops routing. */
@@ -432,7 +478,7 @@ route("POST", "/api/auth/reset", (u, p, q, b, ctx) => {
   security.log("password_reset_completed", { userId: r.user_id, ip: ctx.ip });
   return { ok: true };
 });
-route("POST", "/api/auth/logout", (u, p, q, b, ctx) => { auth.destroySession(db, ctx.token); ctx.setCookie = auth.cookie(null); if (u) security.log("logout", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
+route("POST", "/api/auth/logout", (u, p, q, b, ctx) => { if (u && b && b.pushEndpoint) push.unsubscribe(u.id, b.pushEndpoint); /* a shared device stops getting this person's notifications */ auth.destroySession(db, ctx.token); ctx.setCookie = auth.cookie(null); if (u) security.log("logout", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/auth/password", (u, p, q, b, ctx) => { const row = db.prepare("SELECT password_hash, password_salt FROM users WHERE id=?").get(u.id); if (row.password_hash && !auth.verifyPassword(b.current || "", row.password_salt, row.password_hash)) throw new HttpError(400, "Current password is incorrect"); passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, u.id); db.prepare("DELETE FROM sessions WHERE user_id=? AND id!=?").run(u.id, auth.sessionId(ctx.token)); security.log("password_changed", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/members/:id/password", (u, p, q, b, ctx) => { forbid(can.manageMembers(u), "reset passwords"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) forbidAboveMe(u, t.perm, "reset this member's password"); } passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, p.id); db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); act(u, "edited", "user", p.id, { what: "password reset" }); security.log("password_reset_by_admin", { adminId: u.id, userId: p.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/members/:id/active", (u, p, q, b) => { forbid(can.manageMembers(u), "deactivate members"); if (p.id === u.id) throw new HttpError(400, "You cannot deactivate yourself"); db.prepare("UPDATE users SET is_active=? WHERE id=?").run(b.active ? 1 : 0, p.id); if (!b.active) db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); return sz.readPeople(db, WS_ID); });
@@ -493,8 +539,10 @@ const aiConf = (kind) => {
   if (!c.key) throw new HttpError(400, "No " + kind + " API key configured. Add one in Settings \u2192 AI.");
   c.key = secrets.decrypt(c.key);
   let endpoint; try { endpoint = new URL(String(c.endpoint || "")); } catch { throw new HttpError(400, "The AI provider endpoint is invalid"); }
-  const allowed = new Set(["api.anthropic.com", "generativelanguage.googleapis.com", "api.openai.com", "api.magnific.ai", "api.magnific.com", "api.freepik.com", "ai.sumopod.com"].concat(String(process.env.COS_AI_ALLOWED_HOSTS || "").split(",").map(s => s.trim()).filter(Boolean)));
-  if (endpoint.protocol !== "https:" || !allowed.has(endpoint.hostname)) throw new HttpError(400, "The AI provider endpoint is not on the server allowlist");
+  /* the providers people use and any Azure OpenAI resource (server/ai-chat-format.js), plus the server's COS_AI_ALLOWED_HOSTS */
+  const extraHosts = String(process.env.COS_AI_ALLOWED_HOSTS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (endpoint.protocol !== "https:") throw new HttpError(400, "The AI provider endpoint must start with https://");
+  if (!aiChatFormat.allowedAIHost(endpoint.hostname, extraHosts)) throw new HttpError(400, "The AI provider endpoint (" + endpoint.hostname + ") is not on the server allowlist. Known providers work as they are; for another one, the server admin adds its host to COS_AI_ALLOWED_HOSTS.");
   return c;
 };
 /* v17 §P1-1 — the server, not the browser, decides which model may run.
@@ -660,34 +708,11 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
   const system = "You are AI Intelligence inside ZenCrevia for " + (db.prepare("SELECT name FROM workspaces WHERE id=?").get(WS_ID) || {}).name +
     ". Answer only from the workspace snapshot below. Be concise, cite task IDs. Never invent data. " + languageRule + actionRule + "\n\n" +
     (c.systemExtra ? c.systemExtra + "\n\n" : "") + workspaceContext;
-  const anthropic = c.provider === "anthropic" || /anthropic/i.test(c.endpoint || "");
-  const gemini = c.provider === "gemini" || /generativelanguage\.googleapis\.com/.test(c.endpoint || "");
-  const headers = { "Content-Type": "application/json" };
-  let body, endpoint = c.endpoint;
-  if (anthropic) {
-    headers["x-api-key"] = c.key; headers["anthropic-version"] = "2023-06-01";
-    body = { model: c.model || "claude-sonnet-4-6", max_tokens: 1500, system, messages: msgs };
-  } else if (gemini) {
-    endpoint = (endpoint || "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent").replace("{model}", encodeURIComponent(c.model || "gemini-3.5-flash"));
-    headers["x-goog-api-key"] = c.key;
-    body = { systemInstruction: { parts: [{ text: system }] }, contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })) };
-  } else {
-    headers["Authorization"] = "Bearer " + c.key;
-    /* 500 cut summaries off mid-sentence once attachments made longer answers worth asking for.
-       Reasoning models (o-series, GPT-5) reject max_tokens and spend part of the budget thinking
-       before any visible text, so they get the field they expect and room to use it — with 500 they
-       returned an empty answer, which read as "the model returned no text". */
-    const reasoning = /^(o[1-9]|gpt-5)/i.test(String(c.model || ""));
-    body = { model: c.model, messages: [{ role: "system", content: system }].concat(msgs) };
-    body[reasoning ? "max_completion_tokens" : "max_tokens"] = reasoning ? 4000 : 1500;
-  }
+  /* the request and the reply in the provider's own shape: server/ai-chat-format.js (OpenAI's /v1/responses included) */
+  const req = aiChatFormat.chatRequest(c, system, msgs);
   security.log("ai_chat_requested", { userId: u.id, provider: c.provider || "chat", model: c.model, workspaceContext: !!b.context });
-  const j = await aiFetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) }, "Chat", 60000);
-  const directContent = typeof j.content === "string" ? j.content
-    : Array.isArray(j.content) ? j.content.filter(x => x && x.type === "text").map(x => x.text || "").join("\n") : "";
-  const choiceContent = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-  const text = gemini ? (j.candidates && j.candidates[0] && j.candidates[0].content && (j.candidates[0].content.parts || []).map(p => p.text || "").join(""))
-    : (directContent || (typeof choiceContent === "string" ? choiceContent : Array.isArray(choiceContent) ? choiceContent.map(x => x && (x.text || x.content || "")).join("") : ""));
+  const j = await aiFetch(req.endpoint, { method: "POST", headers: req.headers, body: JSON.stringify(req.body) }, "Chat", 60000);
+  const text = aiChatFormat.chatText(req.kind, j);
   if (!text) throw new HttpError(502, "The model returned no text.");
   return { text };
 });
@@ -916,7 +941,7 @@ route("PUT", "/api/members/:id", (u, p, q, b) => { forbid(can.manageMembers(u) |
   /* a status (focus, meeting, away…) reaches everyone at once; the rest of someone's preferences stay theirs */
   { const was = JSON.stringify((existing.prefs || {}).availability || null), is = JSON.stringify((b.prefs || {}).availability || null); if (was !== is) { try { const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND x.is_active=1").all(WS_ID).map(r => r.user_id); chat.publishToUsers(ids, { type: "person_status", id: p.id, availability: (b.prefs || {}).availability || null, by: u.id }); } catch (e) { /* best effort */ } } }
   return sz.readPeople(db, WS_ID); });
-route("DELETE", "/api/members/:id", (u, p) => { forbid(can.manageMembers(u), "remove members"); if (p.id === u.id) throw new HttpError(400, "You cannot remove yourself"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) { forbidAboveMe(u, t.perm, "remove this member"); if (t.perm === "admin" && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); } } tx(db, () => { db.prepare("UPDATE tasks SET assignee_id=? WHERE assignee_id=?").run(u.id, p.id); db.prepare("UPDATE tasks SET reviewer_id=? WHERE reviewer_id=?").run(u.id, p.id); db.prepare("UPDATE projects SET owner_id=? WHERE owner_id=?").run(u.id, p.id); db.prepare("UPDATE teams SET team_lead_id=NULL WHERE team_lead_id=?").run(p.id); db.prepare("DELETE FROM project_members WHERE user_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID); releaseAccount(p.id); }); security.log("member_removed", { adminId: u.id, userId: p.id }); return sz.readPeople(db, WS_ID); });
+route("DELETE", "/api/members/:id", (u, p) => { forbid(can.manageMembers(u), "remove members"); if (p.id === u.id) throw new HttpError(400, "You cannot remove yourself"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) { forbidAboveMe(u, t.perm, "remove this member"); if (t.perm === "admin" && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); } } tx(db, () => { db.prepare("UPDATE tasks SET assignee_id=? WHERE assignee_id=?").run(u.id, p.id); db.prepare("UPDATE tasks SET reviewer_id=? WHERE reviewer_id=?").run(u.id, p.id); db.prepare("UPDATE projects SET owner_id=? WHERE owner_id=?").run(u.id, p.id); db.prepare("UPDATE teams SET team_lead_id=NULL WHERE team_lead_id=?").run(p.id); db.prepare("DELETE FROM project_members WHERE user_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID); db.prepare("DELETE FROM push_subscriptions WHERE user_id=?").run(p.id); releaseAccount(p.id); }); security.log("member_removed", { adminId: u.id, userId: p.id }); return sz.readPeople(db, WS_ID); });
 route("POST", "/api/members/:id/team", (u, p, q, b) => { forbid(can.manageTeams(u), "change team membership"); tx(db, () => { if (b.isPrimary) db.prepare("UPDATE team_memberships SET is_primary=0 WHERE user_id=?").run(p.id); if (b.fromTeamId) db.prepare("DELETE FROM team_memberships WHERE user_id=? AND team_id=?").run(p.id, b.fromTeamId); db.prepare("INSERT INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,?) ON CONFLICT(team_id,user_id) DO UPDATE SET is_primary=excluded.is_primary").run("tm_" + b.teamId + "_" + p.id, b.teamId, p.id, b.isPrimary ? 1 : 0); if (!db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND is_primary=1").get(p.id)) db.prepare("UPDATE team_memberships SET is_primary=1 WHERE id=(SELECT id FROM team_memberships WHERE user_id=? LIMIT 1)").run(p.id); }); act(u, "member_team", "user", p.id, { team: b.teamId, user: p.id }); return sz.readPeople(db, WS_ID); });
 route("DELETE", "/api/members/:id/team/:teamId", (u, p) => { forbid(can.manageTeams(u), "change team membership"); tx(db, () => { db.prepare("DELETE FROM team_memberships WHERE user_id=? AND team_id=?").run(p.id, p.teamId); if (!db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND is_primary=1").get(p.id)) db.prepare("UPDATE team_memberships SET is_primary=1 WHERE id=(SELECT id FROM team_memberships WHERE user_id=? LIMIT 1)").run(p.id); }); return sz.readPeople(db, WS_ID); });
 /* projects */
@@ -1184,7 +1209,7 @@ route("POST", "/api/restore/:type/:id", (u, p, q, b) => {
   }
   throw new HttpError(400, "Unknown kind");
 });
-route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u), "delete tasks"); tx(db, () => { if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) return; clearTaskRows(p.id); db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
+route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u, sz.readTask(db, p.id)), "delete tasks"); tx(db, () => { if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) return; clearTaskRows(p.id); db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
 route("POST", "/api/tasks/:id/move", (u, p, q, b) => forViewer(u, withSnapshot(u, "task", p.id, () => moveTask(u, p.id, b))));
 route("POST", "/api/tasks/:id/hidden", (u, p, q, b) => { const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found"); forbid(can.editTask(u, cur), "hide this task"); db.prepare("UPDATE tasks SET is_hidden=?, updated_at=? WHERE id=?").run(b.hidden ? 1 : 0, now(), p.id); act(u, b.hidden ? "hidden" : "unhidden", "task", p.id, { task: p.id }); return sz.readTask(db, p.id); });
 /* requests */
@@ -1192,7 +1217,7 @@ route("POST", "/api/requests", (u, p, q, b) => { forbid(can.submitRequest(u), "s
 route("PUT", "/api/requests/:id", (u, p, q, b) => { const cur = sz.readRequests(db, WS_ID).find(r => r.id === p.id); if (!cur) throw new HttpError(404, "Request not found"); if (b.status !== cur.status || b.converted !== cur.converted) forbid(can.decideRequest(u), "decide on requests"); else forbid(can.decideRequest(u) || cur.by === u.id, "edit this request"); b.id = p.id; b.by = cur.by; b.createdAt = cur.createdAt; tx(db, () => sz.writeRequest(db, WS_ID, b)); if (b.status !== cur.status) act(u, "request_" + b.status, "request", p.id, { request: p.id, what: b.title }); return sz.readRequests(db, WS_ID); });
 route("DELETE", "/api/requests/:id", (u, p) => { forbid(can.decideRequest(u), "delete requests"); db.prepare("DELETE FROM creative_requests WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readRequests(db, WS_ID); });
 /* assets / folders */
-route("POST", "/api/assets", (u, p, q, b) => { forbid(can.manageAssets(u), "add assets"); b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = b.id || uid("as"); rejectExistingId("assets", b.id); b.by = u.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); act(u, "asset", "asset", b.id, { what: b.name }); return sz.readAssets(db, WS_ID); });
+route("POST", "/api/assets", (u, p, q, b) => { forbid(can.manageAssets(u), "add assets"); b.color = cleanColor(b.color); b.icon = /^[a-z0-9-]{1,24}$/.test(String(b.icon || "")) ? b.icon : null; if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = b.id || uid("as"); rejectExistingId("assets", b.id); b.by = u.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); act(u, "asset", "asset", b.id, { what: b.name }); return sz.readAssets(db, WS_ID); });
 route("PUT", "/api/assets/:id", (u, p, q, b) => {
   const cur = sz.readAssets(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Asset not found");
   /* whoever added an asset can rename it; changing anything else is for those who manage assets */
@@ -1200,10 +1225,15 @@ route("PUT", "/api/assets/:id", (u, p, q, b) => {
   const name = String(b && b.name != null ? b.name : cur.name).trim(); if (!name) throw new HttpError(400, "The name cannot be empty");
   if (!can.manageAssets(u)) b = Object.assign({}, cur, { name });
   b.name = name; b.by = cur.by; b.createdAt = cur.createdAt;   /* who added it, and when, are the server's */
-  b.color = cleanColor(b.color); if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
+  b.color = cleanColor(b.color); b.icon = /^[a-z0-9-]{1,24}$/.test(String(b.icon || "")) ? b.icon : null; if (b.img) { validateEmbeddedImage(b.img, "Asset preview"); b.img = uploads.externalize(db, b.img, u.id, "Asset preview"); } if (b.url) safeHttpsUrl(b.url, "Asset link"); b.id = p.id; tx(db, () => sz.writeAsset(db, WS_ID, b)); return sz.readAssets(db, WS_ID); });
 route("DELETE", "/api/assets/:id", (u, p) => { forbid(can.manageAssets(u), "delete assets"); db.prepare("DELETE FROM assets WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readAssets(db, WS_ID); });
 route("POST", "/api/folders", (u, p, q, b) => { forbid(can.manageAssets(u), "create folders"); b.id = b.id || uid("f"); rejectExistingId("asset_folders", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM asset_folders WHERE workspace_id=?").get(WS_ID).s; tx(db, () => sz.writeFolder(db, WS_ID, b)); return sz.readFolders(db, WS_ID); });
-route("DELETE", "/api/folders/:id", (u, p) => { forbid(can.manageAssets(u), "delete folders"); db.prepare("DELETE FROM asset_folders WHERE id=? AND workspace_id=?").run(p.id, WS_ID); return sz.readFolders(db, WS_ID); });
+/* rename a folder or change its type; where it sits in the list stays */
+route("PUT", "/api/folders/:id", (u, p, q, b) => { forbid(can.manageAssets(u), "edit folders"); const cur = sz.readFolders(db, WS_ID).find(f => f.id === p.id); if (!cur) throw new HttpError(404, "Folder not found");
+  const name = String(b && b.name != null ? b.name : cur.name).trim().slice(0, 80); if (!name) throw new HttpError(400, "The name cannot be empty");
+  tx(db, () => sz.writeFolder(db, WS_ID, { id: cur.id, name, type: String((b && b.type) || cur.type || "other").slice(0, 40), sort: cur.sort })); return sz.readFolders(db, WS_ID); });
+/* its assets stay, without a folder (the foreign key does it too; said here so it holds without one) */
+route("DELETE", "/api/folders/:id", (u, p) => { forbid(can.manageAssets(u), "delete folders"); tx(db, () => { db.prepare("UPDATE assets SET folder_id=NULL WHERE folder_id=? AND workspace_id=?").run(p.id, WS_ID); db.prepare("DELETE FROM asset_folders WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); return sz.readFolders(db, WS_ID); });
 /* knowledge */
 route("POST", "/api/knowledge", (u, p, q, b) => { forbid(can.manageKnowledge(u), "create pages"); b.id = b.id || uid("k"); rejectExistingId("knowledge_pages", b.id); b.by = u.id; tx(db, () => sz.writePage(db, WS_ID, b)); return sz.readKnowledge(db, WS_ID); });
 route("PUT", "/api/knowledge/:id", (u, p, q, b) => { forbid(can.manageKnowledge(u), "edit pages"); b.id = p.id; b.updatedAt = now(); tx(db, () => sz.writePage(db, WS_ID, b)); return sz.readKnowledge(db, WS_ID); });
@@ -1224,7 +1254,19 @@ route("DELETE", "/api/views/:id", (u, p) => { db.prepare("DELETE FROM saved_view
 const NOTIF_KINDS = new Set(["approved", "assigned", "reviewer", "review", "progress", "comment", "file", "mention", "request", "revision", "status", "upload", "watch", "deadline", "transition", "request_status"]);
 const notifRate = new Map();
 route("POST", "/api/notifications", (u, p, q, b) => { const k = String(b.k || ""); if (!NOTIF_KINDS.has(k)) throw new HttpError(400, "Unknown notification type"); const entityType = ["task", "project", "request"].includes(b.entityType || "task") ? (b.entityType || "task") : null; if (!entityType) throw new HttpError(400, "Unsupported notification target"); const table = { task: "tasks", project: "projects", request: "creative_requests" }[entityType]; b.t = String(b.t || ""); if (!db.prepare("SELECT 1 FROM " + table + " WHERE id=? AND workspace_id=?").get(b.t, WS_ID)) throw new HttpError(404, "The item for this notification does not exist"); const recips = [...new Set((Array.isArray(b.recipients) ? b.recipients : [b.recipient]).filter(Boolean).map(String))]; if (recips.length > 25) throw new HttpError(400, "Too many recipients"); const minute = Math.floor(Date.now() / 60000), rk = u.id, rs = notifRate.get(rk); const cur = rs && rs.minute === minute ? rs : { minute, n: 0 }; if (cur.n + recips.length > 60) throw new HttpError(429, "Too many notifications. Try again in a minute."); cur.n += recips.length; notifRate.set(rk, cur); b = { k, t: b.t, entityType, recipients: recips }; const ids = []; recips.forEach(r => { if (r !== u.id && db.prepare("SELECT 1 FROM workspace_members WHERE user_id=? AND workspace_id=?").get(r, WS_ID)) { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: u.id, k: b.k, t: b.t, entityType: b.entityType }); ids.push(id); } }); /* each recipient hears of it at once — it used to wait for their next reload */
-  setImmediate(() => { ids.forEach(emailNotification); ids.forEach(id => { try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* live delivery is best effort; the bell has it on the next load */ } }); }); return sz.readNotifs(db, WS_ID, u.id); });
+  setImmediate(() => { ids.forEach(emailNotification); ids.forEach(pushNotification); ids.forEach(id => { try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* live delivery is best effort; the bell has it on the next load */ } }); }); return sz.readNotifs(db, WS_ID, u.id); });
+/* Web Push: each browser that turns notifications on registers its subscription; a test sends one to all of the person's devices */
+route("GET", "/api/push/key", (u) => ({ publicKey: push.publicKey(), devices: push.count(u.id) }));
+route("POST", "/api/push/subscribe", (u, p, q, b, ctx) => { push.subscribe(u.id, b && b.subscription, ctx && ctx.req && ctx.req.headers["user-agent"]); return { ok: true, devices: push.count(u.id) }; });
+route("POST", "/api/push/unsubscribe", (u, p, q, b) => { push.unsubscribe(u.id, b && b.endpoint); return { ok: true, devices: push.count(u.id) }; });
+const pushTestAt = new Map();
+route("POST", "/api/push/test", async (u) => { if (Date.now() - (pushTestAt.get(u.id) || 0) < 5000) throw new HttpError(429, "Wait a moment before sending another test"); pushTestAt.set(u.id, Date.now()); const id = userLang(u.id) === "id"; const r = await push.sendToUser(u.id, { title: "ZenCrevia", body: id ? "Notifikasi di perangkat ini sudah aktif." : "Notifications are on for this device.", url: "/", tag: "push-test" }); return { sent: r.filter(x => x && x.ok).length, devices: push.count(u.id) }; });
+/* the app icon drawn from the favicon (src/pwa.js): admins only, PNGs only, for the favicon in use now */
+route("GET", "/api/workspace/pwa-icons", (u) => { const { stored, live } = pwaIcons(); return { hash: stored ? stored.hash : null, live: !!live }; });
+route("PUT", "/api/workspace/pwa-icons", (u, p, q, b) => { forbid(can.manageWorkspace(u), "change the app icon"); const ws = sz.readWorkspace(db, WS_ID);
+  if (!ws.favicon || String((b && b.hash) || "") !== strHash(ws.favicon)) throw new HttpError(409, "The favicon has changed since these icons were drawn");
+  const icons = {}; for (const k of Object.keys(PWA_ICON_FILES)) { const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String((b.icons || {})[k] || "")); if (!m) throw new HttpError(400, "Icon " + k + " must be a PNG"); const buf = Buffer.from(m[1], "base64"); if (buf.length > 700000 || buf.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new HttpError(400, "Icon " + k + " is not a valid PNG"); icons[k] = m[1]; }
+  db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('pwa_icons', ?)").run(JSON.stringify({ hash: String(b.hash), icons })); return { ok: true, hash: String(b.hash) }; });
 route("GET", "/api/mail/status", (u) => { forbid(can.manageWorkspace(u), "view email diagnostics"); return { transport: mailer.cfg.transport, from: mailer.cfg.from, outbox: mailer.cfg.transport === "log" ? mailer.cfg.outbox : null, sent: mailer.state.sent, failed: mailer.state.failed, lastError: mailer.state.lastError, lastTo: mailer.state.lastTo, lastAt: mailer.state.lastAt, pending: db.prepare("SELECT count(*) n FROM notifications WHERE emailed_at IS NULL AND email_error IS NOT NULL").get().n }; });
 route("POST", "/api/mail/test", (u) => { forbid(can.manageWorkspace(u), "send test email"); const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id); if (!me || !me.email) throw new HttpError(400, "Your user has no email address"); const ws = sz.readWorkspace(db, WS_ID); return mailer.send({ to: me.email, subject: "[" + ws.name + "] Test email from ZenCrevia", text: "Hi " + me.name.split(" ")[0] + ", this is a test message. If you can read this, email notifications work.", meta: { Transport: mailer.cfg.transport }, link: mailer.link("/"), workspace: ws.name }).then(r => ({ ok: true, transport: mailer.cfg.transport, result: r && r.file ? { file: path.basename(r.file) } : r })).catch(e => { throw new HttpError(502, "Send failed: " + e.message); }); });
 route("POST", "/api/notifications/read", (u, p, q, b) => { if (b.all) db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(now(), u.id); else (b.ids || []).forEach(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(now(), id, u.id)); if (b.entityId) db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(now(), b.entityId, u.id); return sz.readNotifs(db, WS_ID, u.id); });
@@ -1392,7 +1434,7 @@ route("POST", "/api/reset", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u)
 route("GET", "/api/auth/status", () => { const ws = db.prepare("SELECT name, logo, allow_registration, invite_code FROM workspaces WHERE id=?").get(WS_ID); return { workspace: ws.name, logo: ws.logo, allowRegistration: !!ws.allow_registration, joinCodeRequired: !!ws.invite_code }; });
 
 /* ---------- server ---------- */
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json" };
 /* v29 static delivery: the app shell is ~1.7 MB of text. Serve it compressed
    (brotli, then gzip), with a strong ETag so repeat visits cost one 304 instead of a
    full download. The shell revalidates every load (no-cache) so deploys show up
@@ -1421,7 +1463,7 @@ function acceptedEncoding(req, entry) {
 function sendStatic(req, res, file) {
   const e = staticEntry(file);
   security.applyHeaders(res);
-  const headers = { "Content-Type": e.type, "ETag": e.etag, "Vary": "Accept-Encoding", "Cache-Control": e.type.startsWith("text/html") ? "no-cache" : "public, max-age=3600, must-revalidate" };
+  const headers = { "Content-Type": e.type, "ETag": e.etag, "Vary": "Accept-Encoding", "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : "public, max-age=3600, must-revalidate" }; /* the service worker checks for itself on every load, so an update reaches everyone at once */
   if (req.headers["if-none-match"] === e.etag) { res.writeHead(304, headers); return res.end(); }
   const enc = acceptedEncoding(req, e), body = enc ? e[enc] : e.raw;
   if (enc) headers["Content-Encoding"] = enc;
@@ -1489,6 +1531,18 @@ const server = http.createServer(async (req, res) => {
       const token = auth.parseCookies(req.headers.cookie).cos_session, uid0 = auth.sessionUser(db, token);
       if (!uid0 || !userContext(uid0)) return send(401, "Please sign in", "text/plain");
       security.applyHeaders(res); return uploads.serve(req, res, fm[1], backups.BACKUP_DIR, backups.decryptFile);
+    }
+    /* the installed app's manifest and icons, from the workspace (pwaManifest / pwaIcons); public, as browsers fetch them without a session */
+    if (url.pathname === "/manifest.webmanifest" || /^\/pwa-icon\/[a-z0-9-]+\.png$/.test(url.pathname)) {
+      if (req.method !== "GET" && req.method !== "HEAD") return send(405, "Method not allowed", "text/plain");
+      security.applyHeaders(res);
+      if (url.pathname === "/manifest.webmanifest") { const body = Buffer.from(JSON.stringify(pwaManifest())); res.writeHead(200, { "Content-Type": "application/manifest+json", "Cache-Control": "no-cache", "Content-Length": body.length }); return res.end(req.method === "HEAD" ? undefined : body); }
+      const k = url.pathname.slice(10, -4); if (!PWA_ICON_FILES[k]) return send(404, "Not found", "text/plain");
+      const { live } = pwaIcons(), data = live && live.icons && live.icons[k];
+      if (!data) return sendStatic(req, res, path.join(PUBLIC, "icons", PWA_ICON_FILES[k]));
+      const buf = Buffer.from(data, "base64"), etag = '"' + live.hash + "-" + k + '"';
+      if (req.headers["if-none-match"] === etag) { res.writeHead(304, { ETag: etag, "Cache-Control": "no-cache" }); return res.end(); }
+      res.writeHead(200, { "Content-Type": "image/png", "Content-Length": buf.length, ETag: etag, "Cache-Control": "no-cache" }); return res.end(req.method === "HEAD" ? undefined : buf);
     }
     let file = path.join(PUBLIC, url.pathname === "/" ? "index.html" : url.pathname);
     if (url.pathname.startsWith("/shared/")) file = path.join(__dirname, "..", url.pathname);

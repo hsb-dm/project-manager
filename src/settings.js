@@ -100,9 +100,9 @@ function setAIProviders(){
   var chat=sp("AI Intelligence \u2014 chat model",
     '<div style="margin-bottom:8px">'+status(chatOn)+'</div><p class="hint" style="margin-bottom:10px">Enables the AI assistant. Without an API key, it can answer supported questions using the current workspace data.</p>'
     +'<div class="field-row">'+fieldHtml("ai_c_prov","Provider",selectHtml("ai_c_prov",[["anthropic","Anthropic (Claude)"],["gemini","Google Gemini Flash"],["openai","OpenAI-compatible"],["custom","Custom"]],c.chat.provider,ro+' onchange="aiChatProviderPreset(this.value)"'))
-    +fieldHtml("ai_c_model","Model",'<input'+ro+' id="ai_c_model" value="'+attr(c.chat.model)+'" placeholder="claude-sonnet-4-6">')+'</div>'
-    +'<div class="field"><label>API endpoint</label><input'+ro+' id="ai_c_ep" value="'+attr(c.chat.endpoint)+'" placeholder="https://api.anthropic.com/v1/messages"><div class="hint">Gemini uses the official GenerateContent endpoint. Availability and free-tier limits depend on the Google AI project.</div></div>'
-    +'<div class="field"><label>API key</label><input'+ro+' id="ai_c_key" type="password" placeholder="'+(chatOn?"\u2022\u2022\u2022\u2022 stored \u2014 leave blank to keep it":"sk-ant-\u2026")+'" autocomplete="off"><div class="hint">Leave blank to keep the existing key. To remove it, type: <code>clear</code></div></div>'
+    +fieldHtml("ai_c_model","Model",'<input'+ro+' id="ai_c_model" value="'+attr(c.chat.model)+'" placeholder="'+attr(aiChatPreset(c.chat.provider).model||"model-name")+'">')+'</div>'
+    +'<div class="field"><label>API endpoint</label><input'+ro+' id="ai_c_ep" value="'+attr(c.chat.endpoint)+'" placeholder="https://api.anthropic.com/v1/messages"><div class="hint" id="ai_c_ep_hint">'+esc(tr(aiChatPreset(c.chat.provider).hint))+'</div></div>'
+    +'<div class="field"><label>API key</label><input'+ro+' id="ai_c_key" type="password" placeholder="'+(chatOn?"\u2022\u2022\u2022\u2022 stored \u2014 leave blank to keep it":aiChatPreset(c.chat.provider).key)+'" autocomplete="off"><div class="hint">Leave blank to keep the existing key. To remove it, type: <code>clear</code></div></div>'
     +'<div class="field"><label>Extra system instructions</label><textarea'+ro+' id="ai_c_sys" rows="3" placeholder="e.g. Always answer in Bahasa Indonesia. Flag anything that needs compliance review.">'+esc(c.chat.systemExtra)+'</textarea></div>',
     ed?'<button class="btn" onclick="aiTest(\'chat\')">'+I.sync+'Test connection</button><span class="spacer"></span><button class="btn primary" onclick="saveAI()">Save</button>':'',I.analytics);
 
@@ -232,10 +232,24 @@ function delChatTpl(id){
   });
 }
 
+/* Each provider's endpoint, model and key as they are usually written, and what to know about the endpoint. The
+   server reads the endpoint for the shape (server/ai-chat-format.js), so any OpenAI-compatible service works. */
+var AI_CHAT_PRESETS={
+  anthropic:{ep:"https://api.anthropic.com/v1/messages",model:"claude-sonnet-4-6",key:"sk-ant-…",hint:"Anthropic's Messages API. Use a Claude model name, such as claude-sonnet-4-6."},
+  gemini:{ep:"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",model:"gemini-3.5-flash",key:"AIza…",hint:"Gemini uses the official GenerateContent endpoint. Availability and free-tier limits depend on the Google AI project."},
+  openai:{ep:"https://api.openai.com/v1/chat/completions",model:"gpt-5-mini",key:"sk-…",hint:"OpenAI or any OpenAI-compatible service — SumoPod, OpenRouter, Groq, DeepSeek, Mistral, xAI, Azure OpenAI. Paste the full URL (…/chat/completions, or OpenAI's …/responses) or just the base URL (…/v1)."},
+  custom:{ep:"",model:"",key:"sk-…",hint:"Any service that speaks the OpenAI chat format. If the server refuses its address, the server admin adds its host to COS_AI_ALLOWED_HOSTS."}
+};
+function aiChatPreset(p){ return AI_CHAT_PRESETS[p]||AI_CHAT_PRESETS.custom; }
 function aiChatProviderPreset(provider){
-  var ep=document.getElementById("ai_c_ep"), model=document.getElementById("ai_c_model");
-  if (provider==="gemini") { ep.value="https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"; model.value="gemini-3.5-flash"; }
-  else if (provider==="anthropic") { ep.value="https://api.anthropic.com/v1/messages"; model.value="claude-sonnet-4-6"; }
+  var ep=document.getElementById("ai_c_ep"), model=document.getElementById("ai_c_model"), hint=document.getElementById("ai_c_ep_hint"), key=document.getElementById("ai_c_key"), pr=aiChatPreset(provider);
+  /* a URL or model typed by hand stays; one that is another provider's default is replaced */
+  var isDefault=function(v,k){ return !v||Object.keys(AI_CHAT_PRESETS).some(function(x){ return AI_CHAT_PRESETS[x][k]&&AI_CHAT_PRESETS[x][k]===v; }); };
+  if (ep&&pr.ep&&(provider==="gemini"||provider==="anthropic"||isDefault(ep.value,"ep"))) ep.value=pr.ep;
+  if (model&&pr.model&&(provider==="gemini"||provider==="anthropic"||isDefault(model.value,"model"))) model.value=pr.model;
+  if (model) model.placeholder=pr.model||"model-name";
+  if (key&&!/stored/.test(key.placeholder)) key.placeholder=pr.key;
+  if (hint) hint.textContent=tr(pr.hint);
 }
 function saveAI(){
   var c=aiCfg();
@@ -677,7 +691,7 @@ function setNotifications(){ var ed=canI.manageWorkspace(); var items=[["assigne
   var np=notifPrefs(), perm=notifPermission(), sw=function(k,label,help){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b>'+(help?'<span>'+tr(help)+'</span>':'')+'</div><button class="switch'+(np[k]!==false?" on":"")+'" role="switch" aria-checked="'+(np[k]!==false)+'" aria-label="'+attr(tr(label))+'" onclick="setNotifPref(\''+k+'\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button></div>'; };
   var browser='<div class="pref"><div class="pl"><b>'+tr("Enable browser notifications")+'</b><span>'+tr("Status")+': <b>'+notifPermissionLabel()+'</b>'+(perm==="denied"?' · '+tr("Allow notifications for this site in the browser settings to turn them back on."):'')+'</span></div>'+(perm==="granted"?'<button class="switch'+(np.browser?" on":"")+'" role="switch" aria-checked="'+(!!np.browser)+'" onclick="setNotifPref(\'browser\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button>':perm==="default"?'<button class="btn sm primary" onclick="notifPrePrompt(\'settings\',true)">'+I.bell+tr("Enable notifications")+'</button>':'<span class="badge">'+notifPermissionLabel()+'</span>')+'</div>'
     +'<div class="pref"><div class="pl"><b>'+tr("Notification sound")+'</b><span>'+tr("ZenCrevia chime — the one sound used for every notification. Plays only after you have interacted with the page, as browsers require.")+'</span></div><button class="btn sm ghost" onclick="zenSoundUnlock();zenSoundPlay(true)">'+I.bell+tr("Play")+'</button><button class="switch'+(np.sound!==false?" on":"")+'" role="switch" aria-checked="'+(np.sound!==false)+'" aria-label="'+attr(tr("Notification sound"))+'" onclick="setNotifPref(\'sound\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button></div>';
-  var personal=sp("Browser notifications & sound",'<p class="hint" style="margin-bottom:10px">'+tr("Personal to your account. In-app notifications in the bell always work; these decide whether the browser and the chime join in.")+'</p>'+browser,null,I.bell)
+  var personal=sp("Browser notifications & sound",'<p class="hint" style="margin-bottom:10px">'+tr("Personal to your account. In-app notifications in the bell always work; these decide whether the browser and the chime join in.")+'</p>'+browser+(typeof pwaDeviceHtml==="function"?pwaDeviceHtml():""),null,I.bell)
     + sp("Chat",sw("chat_dm","Direct messages","")+sw("chat_mention","Mentions","@you and @everyone")+sw("chat_reply","Replies to my messages","")+sw("chat_group","Group messages","")+sw("chat_team_general","Team #general messages","Per conversation you can still pick All / Mentions only / Mute."),null,'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>')
     + sp("Tasks",sw("task_assigned","Assigned to me","")+sw("task_due","Due soon","")+sw("task_completed","Task completed","")+sw("blocker","Blocker update",""),null,I.tasks)
     + sp("Projects",sw("project_updates","Project updates","")+sw("approval","Approval requests",""),null,I.projects);

@@ -47,6 +47,7 @@ function open() {
        NULL means "use the default for this kind of stage" (see serialize.stageRules). */
     "ALTER TABLE task_statuses ADD COLUMN reviewer_only INTEGER",
     "ALTER TABLE task_statuses ADD COLUMN require_reviewer INTEGER",
+    "ALTER TABLE assets ADD COLUMN preview_icon TEXT",
   ].forEach((sql) => { try { db.exec(sql); } catch { /* already there */ } });
   return db;
 }

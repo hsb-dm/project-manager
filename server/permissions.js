@@ -51,6 +51,9 @@ const teamTask = (u, t) => has(u, "edit_team_tasks") && (leadsTeam(u, t.team) ||
 const isAssignee = (u, t) => t.assignee === u.id || (t.assignees || []).indexOf(u.id) >= 0;
 const isReviewer = (u, t) => t.reviewer === u.id || (t.reviewers || []).indexOf(u.id) >= 0;
 const ownTask = (u, t) => has(u, "edit_own_task") && (isAssignee(u, t) || isReviewer(u, t));
+/* a draft (a new task closed before it was created) is its maker's to finish or throw away, though no one is
+   assigned to it yet — for someone who could create the task in the first place */
+const draftOwner = (u, t) => !!(t && t.meta && t.meta.draft && t.createdBy === u.id) && (has(u, "create_task") || has(u, "create_own_task"));
 const can = {
   manageWorkspace: (u) => has(u, "manage_workspace"),
   manageMembers:   (u) => has(u, "manage_members"),
@@ -60,13 +63,13 @@ const can = {
   editProject:     (u, p) => has(u, "edit_any_project") || p.owner === u.id || (has(u, "edit_team_tasks") && (p.teams || []).some(t => leadsTeam(u, t))),
   deleteProject:   (u) => has(u, "delete_project"),
   createTask:      (u, t) => has(u, "create_task") || (has(u, "create_own_task") && (!t || ((!t.assignee || t.assignee === u.id) && (t.assignees || []).every(a => a === u.id)))),
-  editTask:        (u, t) => has(u, "edit_any_task") || teamTask(u, t) || ownTask(u, t),
+  editTask:        (u, t) => has(u, "edit_any_task") || teamTask(u, t) || ownTask(u, t) || draftOwner(u, t),
   assignTask:      (u, t) => has(u, "assign_task") || (has(u, "edit_team_tasks") && leadsTeam(u, t.team)) || (has(u, "create_own_task") && !t.assignee),
   reviewTask:      (u, t) => has(u, "review_any") || (!isAssignee(u, t) && (isReviewer(u, t) || (has(u, "edit_team_tasks") && leadsTeam(u, t.team)))),
   hasReviewAny:    (u) => has(u, "review_any"),
   leadsTaskTeam:   (u, t) => has(u, "edit_team_tasks") && leadsTeam(u, t.team),
   approveTask:     (u, t) => has(u, "review_any") || (!isAssignee(u, t) && (isReviewer(u, t) || (has(u, "edit_team_tasks") && leadsTeam(u, t.team)))),
-  deleteTask:      (u) => has(u, "delete_task"),
+  deleteTask:      (u, t) => has(u, "delete_task") || draftOwner(u, t),
   uploadFile:      (u, t) => has(u, "upload_file") && (has(u, "edit_any_task") || teamTask(u, t) || isAssignee(u, t) || isReviewer(u, t)),
   comment:         (u) => true,
   submitRequest:   (u) => has(u, "submit_request") || has(u, "create_task"),

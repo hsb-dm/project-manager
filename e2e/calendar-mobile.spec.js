@@ -40,7 +40,12 @@ test("the Calendar screen: tap a day, see its tasks", async ({ page }) => {
 test("the calendar view in Tasks does the same", async ({ page }) => {
   await signIn(page);
   await page.evaluate(() => { S.calMode = "month"; S.taskScope = "all"; S.taskView = "calendar"; go("tasks"); });
-  await expect(page.locator(".cal-mobile-scope-toggle"), "the Mine/Team switch is the Calendar screen's").toHaveCount(0);
+  /* whose tasks has its own switch here (Mine / All, as the list and board have); the Calendar screen's Mine / Team stays its own */
+  await expect(page.locator(".cal-mobile-scope-toggle")).toHaveCount(1);
+  const calScope = await page.evaluate(() => S.calScope);
+  await page.locator(".cal-mobile-scope-toggle").tap();
+  expect(await page.evaluate(() => [S.taskScope, S.calScope])).toEqual(["mine", calScope]);
+  await page.evaluate(() => { S.taskScope = "all"; renderScreen(); });
   await tapToday(page);
   /* and the month can be changed here too */
   const title = await page.locator(".cal-mobile-date strong").innerText();

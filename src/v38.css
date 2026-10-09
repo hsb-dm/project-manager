@@ -64,7 +64,7 @@
    action onto a row of its own while Board stayed on one. Everything now rides a single
    row and the pills give up width instead (measured: 373px wanted in a 328px bar at 360px),
    truncating their value rather than wrapping. Active filter chips keep their own line. */
-@media(max-width:560px){.task-filter-toolbar .task-toolbar-sort{order:1;flex:1 1 auto;min-width:0;flex-wrap:nowrap}.task-filter-toolbar .task-toolbar-sort .pillsel{flex:1 1 auto;min-width:0}.task-filter-toolbar .pillsel-trigger{min-width:0}.task-filter-toolbar .pillsel-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.task-filter-toolbar .task-toolbar-primary{order:2;flex:none}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none}/* a true single row: chips are already hidden at this width, so nothing needs to wrap */.task-filter-toolbar{flex-wrap:nowrap;overflow-x:auto}.task-filter-toolbar .task-toolbar-spacer{display:none}}
+@media(max-width:560px){/* one row: whose tasks, the filters, sort, group and views. Whose tasks is one button that says which and switches (as the calendar and the projects list do); Sort and Group show an icon for their name (still read out); the value keeps its words. One sideways-scrolling row had clipped the menus out of sight and squeezed the pills to a sliver */.toolbar.task-filter-toolbar[data-tour]{flex-wrap:wrap;overflow:visible;row-gap:6px;column-gap:4px}.task-filter-toolbar .task-toolbar-primary{order:1;flex:none;gap:4px}.task-filter-toolbar .task-toolbar-primary .seg{display:none}.task-filter-toolbar .task-scope-toggle{display:inline-flex;min-height:30px;padding:0 10px;font-size:11px;background:var(--color-ink);color:var(--color-ink-text);border-color:var(--color-ink)}.task-filter-toolbar .task-toolbar-spacer{display:none}.task-filter-toolbar .task-toolbar-sort{order:2;flex:0 1 auto;min-width:0;flex-wrap:nowrap;gap:4px}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none;margin-left:auto;gap:4px}.task-filter-toolbar .task-toolbar-sort .pillsel{flex:0 1 auto;min-width:0;gap:4px;padding-left:6px;padding-right:4px}.task-filter-toolbar .pillsel-trigger{min-width:0;gap:4px}.task-filter-toolbar .pillsel-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58px;font-size:11px}.task-filter-toolbar .iconbtn{width:28px!important;height:28px!important;min-width:28px!important}.task-filter-toolbar .pillsel-custom>span:first-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.task-filter-toolbar .pillsel-custom::before{content:"";flex:none;width:13px;height:13px;background:var(--color-text-secondary);-webkit-mask:var(--pill-ico) center/contain no-repeat;mask:var(--pill-ico) center/contain no-repeat}.task-filter-toolbar .pillsel-custom[data-pill="sort"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='1.5'/%3E%3Crect x='4' y='14' width='16' height='6' rx='1.5'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]:not(.on) .pillsel-value{display:none}.task-filter-toolbar .pillsel-custom .pillsel-trigger::after{content:"";position:absolute;inset:0;border-radius:inherit}}
 @media(max-width:520px){.task-filter-toolbar .task-toolbar-tail .tb-label{display:none}.task-filter-toolbar .task-toolbar-tail .btn{padding-left:8px;padding-right:8px}.task-filter-toolbar .pillsel{font-size:11px;padding-left:9px;padding-right:6px}.task-filter-toolbar .pillsel select{max-width:105px}.task-filter-toolbar .pillsel-menu{left:auto;right:0;min-width:176px}}
 .file-upload-pending{margin-bottom:8px}.file.pending{opacity:.8;background:var(--color-surface-sunken)}.file.pending .badge{color:var(--color-primary);background:var(--color-primary-soft)}.file.pending .spinner{width:16px;height:16px;border:2px solid var(--color-border-strong);border-top-color:var(--color-primary);border-radius:50%;animation:cos-spin .75s linear infinite;flex:0 0 auto}@keyframes cos-spin{to{transform:rotate(360deg)}}
 
@@ -584,3 +584,264 @@ img.emj.custom{object-fit:contain}
 .chk .chk-item .chk-edit{flex:1;min-width:0;font:inherit;font-size:12.5px;line-height:1.4;padding:2px 6px;margin:-3px 0;border:1px solid var(--color-primary);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);outline:none;box-shadow:0 0 0 3px var(--color-primary-soft)}
 .chk .chk-item.editing:hover{background:transparent}
 @media (hover:none){.chk .chk-item .drag-handle,.chk .chk-item .iconbtn.xs{opacity:1}}
+/* task drafts: a new task closed before it was created, kept in the backlog for no one yet */
+.badge.draft-badge{background:var(--color-warning-soft);color:var(--color-text-primary);border:1px dashed color-mix(in srgb,var(--color-warning) 55%,transparent)}
+.draft-note{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:10px 12px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--color-warning) 55%,transparent);background:var(--color-warning-soft);font-size:12.5px;line-height:1.45;color:var(--color-text-secondary)}
+.draft-note svg{width:16px;height:16px;flex:none;margin-top:1px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.draft-note b{color:var(--color-text-primary)}
+/* ===== The task panel on a phone =====
+   One scroll for the whole task. The details had a scroll of their own (cut off mid-row) above a short one for
+   the tab, over a two-row footer: little was left to read. Now the details scroll away with what is under them and
+   the tabs stay at the top; one "All details" toggle opens them all; the tabs scroll sideways with nothing over
+   them; the actions take one row. */
+@media (max-width:760px){
+  #drawer.drawer{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  #drawer .dr-head{display:contents}
+  #drawer .dr-head>*{flex:none}
+  #drawer .dr-head>*:not(.tabs){margin-left:12px!important;margin-right:12px!important}
+  #drawer .dr-head>.dr-title{margin-left:8px!important}
+  #drawer .dr-head>.dr-top{margin-top:10px}
+  #drawer .dr-head>.task-more-toggle{align-self:flex-start}
+  #drawer .dr-body{flex:1 0 auto;overflow:visible;min-height:0}
+  #drawer .dr-head>.tabs{position:sticky;top:0;z-index:6;margin:0;padding:4px 12px 0;background:var(--color-surface);border-bottom:1px solid var(--color-border);overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:none}
+  #drawer .dr-head>.tabs::-webkit-scrollbar{display:none}
+  #drawer .dr-head>.tabs .tab{flex:none}
+  #drawer .tab-expand{display:none!important}
+  #drawer .dr-foot{position:sticky;bottom:0;z-index:6;flex:none;flex-wrap:nowrap;background:var(--color-surface)}
+  #drawer .dr-foot .foot-lbl{display:none}
+  #drawer .dr-foot .btn{white-space:nowrap;flex:none}
+  #drawer .dr-foot .foot-up{padding-left:10px;padding-right:10px}
+  #drawer .dr-foot .task-stage-select{flex:0 1 auto;min-width:0}
+  #drawer .dr-foot .task-stage-select select{max-width:38vw;text-overflow:ellipsis}
+  #drHead.m-details .task-more-toggle{display:none!important}
+  #drHead.m-details .task-meta-secondary{display:grid!important}
+  /* the chat: no page title over it, so the conversation has the room */
+  .msg-head{display:none!important}
+}
+.m-attach{display:none}.tab .tab-s{display:none}.m-details-cell{display:none}.proj-scope-toggle{display:none}.task-scope-toggle{display:none}
+/* ===== The task panel on a phone, compact =====
+   A touch screen makes every button 34-38px tall, too big for a panel this full: here they are 28-32px. A button
+   whose icon says it all (edit, full view, download, open, Drive, link) is the icon alone, its name kept for screen
+   readers; one that needs words keeps them, shorter where it can (data-short). The five ways to attach a file are
+   one button with a menu. The tabs fit without scrolling sideways (short names, a second line if need be). The
+   details at the top are tighter; priority and team, already in the badges, wait under All details. */
+@media (max-width:760px){
+  #drawer .btn{min-height:32px;padding:0 11px;font-size:12px;gap:5px;margin-top:0}
+  #drawer .btn.sm{min-height:30px;padding:0 10px}
+  #drawer .btn.xs{min-height:28px;padding:0 9px;font-size:11.5px}
+  #drawer .btn svg{width:13px;height:13px}
+  #drawer .iconbtn{width:30px;height:30px}
+  #drawer .iconbtn svg{width:15px;height:15px}
+  /* the icon alone */
+  #drawer .av-version .av-head .btn:not(.primary):has(svg,img),#drawer .pbar-foot .btn:has(svg,img),
+  #drawer .file-acts .btn:is([onclick^="previewFile("],[onclick^="saveFile("],[onclick^="openExternal("]),
+  #drawer .md-head .btn[onclick*="descMode='editor'"],#drawer .btn[onclick^="S.briefEdit=true"]{font-size:0;gap:0;padding:0;width:30px;min-width:30px;justify-content:center}
+  #drawer .file-acts .btn:is([onclick^="previewFile("],[onclick^="saveFile("],[onclick^="openExternal("]),#drawer .pbar-foot .btn:has(svg,img){width:28px;min-width:28px}
+  #drawer .btn .drive-logo{margin:0;width:15px;height:15px}
+  /* a shorter name */
+  #drawer .btn[data-short]{font-size:0;gap:0}
+  #drawer .btn[data-short]::after{content:attr(data-short);font-size:12px;margin-left:5px}
+  #drawer .btn[data-short]:not(:has(svg))::after{margin-left:0}
+  /* one attach button with a menu */
+  #drawer .m-attach{display:inline-flex}
+  #drawer .av-tools,#drawer .composer .cmt-tools{display:none}
+  #drawer .composer .bar>.av,#drawer .composer .bar>.hint{display:none}
+  .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
+  /* tidy rows: a version's name and state, its actions under them; a file's actions in one row under its name */
+  #drawer .av-version>.av-head{flex-wrap:wrap;row-gap:8px}
+  #drawer .av-version>.av-head>.spacer{flex-basis:100%;height:0}
+  #drawer .file-acts{justify-content:flex-start;gap:4px}
+  #drawer .av-head h3{font-size:15px}
+  /* a version: who and when beside the picture's buttons; the steps one under another; the note box full width */
+  #drawer .preview .pbar-foot{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;align-items:center;column-gap:8px}
+  #drawer .preview .pbar-foot>.spacer{display:none}
+  #drawer .av-steps{flex-direction:column;align-items:flex-start;row-gap:6px}
+  #drawer .av-steps li{position:relative}
+  #drawer .av-steps li+li::before{position:absolute;left:4px;top:-7px;width:2px;height:6px;margin:0}
+  #drawer .vn-add-row{flex-wrap:wrap;justify-content:flex-end}
+  #drawer .vn-add-row textarea{flex:1 1 100%}
+  /* tabs: no sideways scroll */
+  #drawer .dr-head>.tabs{flex-wrap:wrap;overflow-x:visible;gap:0 2px;padding:2px 8px 0}
+  #drawer .dr-head>.tabs .tab{padding:9px 8px 8px;font-size:12px}
+  #drawer .tab:has(.tab-s) .tab-l{display:none}
+  #drawer .tab .tab-s{display:inline}
+  /* the details at the top, tighter */
+  #drawer .dr-head>.dr-top{margin-top:8px;margin-bottom:4px;gap:4px;min-height:30px}
+  #drawer .dr-head>.dr-title{font-size:17px;margin-bottom:6px}
+  #drHead:not(.m-details) [data-meta="prio"],#drHead:not(.m-details) [data-meta="team"]{display:none!important}
+  #drawer .dr-head .meta{gap:6px 8px;margin-bottom:2px}
+  #drawer .dr-head .meta .k{font-size:9.5px;margin-bottom:2px}
+  #drawer .dr-head .meta .v{min-height:26px;font-size:12.5px}
+  #drawer .dr-head .mchip{padding:2px 7px 2px 2px;gap:5px;font-size:12px}
+  #drawer .dr-head .mchip .av{width:20px;height:20px;font-size:8.5px}
+  #drawer .dr-head .pplchips .btn.xs{width:26px;min-width:26px;min-height:26px;padding:0;justify-content:center}
+  /* All details stays where it is, beside the due date, open or folded; what it opens comes under it, set apart
+     by a line and a shade */
+  #drawer .m-details-cell{display:flex;justify-content:flex-end;align-items:flex-end;min-width:0}
+  #drawer .m-details-cell .m-details-toggle.mobile-only{padding:0 0 4px;font-size:11.5px}
+  #drawer .task-meta-primary>*{order:6}
+  #drawer .task-meta-primary>[data-meta="assignees"]{order:1}
+  #drawer .task-meta-primary>[data-meta="reviewers"]{order:2}
+  #drawer .task-meta-primary>[data-meta="due"]{order:3}
+  #drawer .task-meta-primary>.m-details-cell{order:4}
+  #drHead.m-details .task-meta-primary::before{content:"";order:5;grid-column:1/-1;border-top:1px solid var(--color-border-strong);margin:4px 0 2px}
+  #drHead.m-details .task-meta-primary>[data-meta]:not([data-meta="assignees"]):not([data-meta="reviewers"]):not([data-meta="due"]),
+  #drHead.m-details .task-meta-secondary>div,#drHead.m-details .task-tags-bottom{background:var(--color-surface-sunken);border-radius:10px;padding:7px 10px}
+  #drHead.m-details .task-meta-secondary{border-top:0;margin-top:6px;padding-top:0;gap:6px 8px}
+  #drHead.m-details .task-tags-bottom{border-top:0;margin-top:6px;margin-bottom:8px}
+  /* no versions yet: the three ways to add the first one, centred under the words */
+  #drawer .empty>div[style*="flex-wrap:wrap"]{justify-content:center}
+  /* the stage in the footer: a compact pill that shows it opens */
+  #drawer .dr-foot{padding:8px 12px calc(8px + env(safe-area-inset-bottom));gap:6px}
+  #drawer .dr-foot .task-stage-select{min-height:32px;padding:0 12px;font-size:12px;gap:6px}
+  #drawer .dr-foot .task-stage-select select{font-size:12px;padding:0}
+  #drawer .dr-foot .task-stage-select::after{content:"";flex:none;width:6px;height:6px;margin-top:-3px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg);pointer-events:none}
+  /* the footer a size down so stage, Request revision and Approve fit one row; the stage keeps its arrow inside,
+     its name shortened if need be (the arrow used to spill onto the next button) */
+  #drawer .dr-foot .btn{min-height:30px;padding:0 10px;font-size:11.5px;gap:4px}
+  #drawer .dr-foot .btn svg{width:12px;height:12px}
+  #drawer .dr-foot .task-stage-select{overflow:hidden;max-width:40%;padding:0 10px;font-size:11.5px}
+  #drawer .dr-foot .task-stage-select select{flex:1 1 auto;min-width:0;max-width:none;width:100%;font-size:11.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+}
+/* ===== Phone: the calendar's controls, the projects list, a project's header =====
+   The calendar's row starts at the left like the rest of the page, whose tasks first (Mine / All, as the Calendar
+   page has Mine / Team). The projects list fits its two switches on one line. A project's header is tighter. */
+@media (max-width:760px){
+  .cal-mobile-actions{justify-content:flex-start}
+  .cal-mobile-actions>*{margin-left:0!important}
+  .cal-mobile-actions>.cal-mobile-scope-toggle{order:-2}
+  .cal-mobile-actions>.seg{order:-1}
+  /* whose tasks and the period at the left, filters and saved views at the right: one row, both ends */
+  .cal-mobile-actions>.iconbtn:first-child{margin-left:auto!important}
+  .toolbar:has(>.proj-scope){flex-wrap:nowrap;gap:6px;overflow:visible}
+  .toolbar:has(>.proj-scope)>.seg{flex:0 1 auto;min-width:0;padding:2px}
+  .toolbar:has(>.proj-scope)>.seg{flex-wrap:nowrap}
+  /* whose projects: one button that says which and switches (as the calendar's Mine / Team), so both fit one line */
+  .toolbar>.proj-scope{display:none}
+  .toolbar>.proj-scope-toggle{display:inline-flex;flex:none;min-height:28px;padding:4px 10px;font-size:11px;background:var(--color-ink);color:var(--color-ink-text);border-color:var(--color-ink)}
+  .toolbar>.proj-scope-toggle .cnt{font-size:9.5px;opacity:.75}
+  /* a project's task toolbar has no Mine / All: sort, group, filters and views share one row, wrapping only if need be */
+  .task-filter-toolbar:not(:has(.task-toolbar-primary .seg)) .task-toolbar-sort{order:1;flex:0 1 auto}
+  .task-filter-toolbar:not(:has(.task-toolbar-primary .seg)) .task-toolbar-primary{order:2}
+  .task-filter-toolbar:not(:has(.task-toolbar-primary .seg)) .task-toolbar-spacer{order:3}
+  .task-filter-toolbar:not(:has(.task-toolbar-primary .seg)) .task-toolbar-tail{order:4}
+  .nav-context-back{min-height:28px;margin-bottom:2px}
+  /* smaller round buttons and pills in the task toolbar, so a row holds them */
+  .task-filter-toolbar{column-gap:6px}
+  .task-filter-toolbar .task-toolbar-sort,.task-filter-toolbar .task-toolbar-primary,.task-filter-toolbar .task-toolbar-tail{gap:6px}
+  .task-filter-toolbar .iconbtn{width:30px!important;height:30px!important;min-width:30px!important}
+  .task-filter-toolbar .iconbtn svg{width:14px;height:14px}
+  .task-filter-toolbar .pillsel{min-height:30px;padding-top:3px;padding-bottom:3px}
+  .task-filter-toolbar .seg button{min-height:28px;padding-top:4px;padding-bottom:4px}
+  /* a project's header: less air between its lines */
+  .project-pagehead{margin-top:0;padding-top:0}
+  .project-pagehead .date{margin-bottom:1px}
+  #content>div:has(>.nav-context-back){margin-bottom:0!important;margin-top:-4px}
+  .project-pagehead{margin-bottom:6px!important}
+  .project-pagehead~.ptabs{margin-top:2px}
+  .toolbar:has(>.proj-scope) .seg button{font-size:11px;padding:4px 8px;min-height:28px;white-space:nowrap}
+  .toolbar:has(>.proj-scope) .seg .cnt{font-size:9.5px;margin-left:1px}
+  .project-pagehead{gap:8px;margin-bottom:10px}
+  .project-pagehead .date{font-size:11px}
+  .project-pagehead h1{font-size:19px;line-height:1.2;margin-top:2px}
+  .project-pagehead>div:first-child>div[style*="margin-top:6px"]{gap:4px!important;margin-top:5px!important}
+  .project-pagehead .badge,.project-pagehead .tbadge{font-size:10.5px;padding:2px 7px}
+  .project-pagehead .actions .enh-proj,.project-pagehead .actions>.iconbtn{width:30px!important;min-width:30px!important;height:30px!important}
+  .project-pagehead .actions .enh-proj svg{width:14px;height:14px}
+  .project-pagehead .actions .pillsel{height:30px!important}
+  .project-pagehead .project-new-task{width:40px!important;min-width:40px!important;height:40px!important;flex:0 0 40px!important}
+}
+/* ===== Chat on a narrow screen =====
+   The conversations are a side panel over the chat (as in Slack): the button at the top left slides them in, a tap
+   beside them or a choice closes them. Before, Back left the chat for a page of conversations, which lost people.
+   The messages are a little smaller, so a screen holds more of them. */
+.msg-nav-scrim{display:none}
+@media (max-width:980px){
+  .msg-layout{position:relative}
+  .msg-layout.pane-chat.nav-open .msg-nav{display:flex;position:absolute;left:0;top:0;bottom:0;width:min(320px,86%);z-index:31;border:1px solid var(--color-border-strong);box-shadow:0 8px 24px rgba(15,23,42,.12);border-radius:var(--radius-lg)}
+  /* no dark overlay: the chat stays as it is; a tap beside the panel still closes it */
+  .msg-layout.pane-chat.nav-open .msg-nav-scrim{display:block;position:absolute;inset:0;z-index:30;background:transparent}
+  .msg-back svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+}
+@media (max-width:980px) and (prefers-reduced-motion:no-preference){
+  .msg-layout.pane-chat.nav-open .msg-nav{animation:msgNavIn .18s ease-out}
+  @keyframes msgNavIn{from{transform:translateX(-16px);opacity:.5}to{transform:none;opacity:1}}
+}
+@media (max-width:760px){
+  /* denser, as WhatsApp and other chat apps are: a smaller picture, name and time; the text a size down */
+  .msg{grid-template-columns:34px minmax(0,1fr) auto;gap:1px 8px;padding:4px 4px}
+  .msg .av.lg{width:28px;height:28px;font-size:10px;margin-top:1px;justify-self:center}
+  .msg-gutter{font-size:8.5px}
+  .msg-meta{gap:6px;margin-bottom:1px}
+  .msg-meta b{font-size:12px}
+  .msg-meta span{font-size:10px}
+  .msg-text{font-size:12px;line-height:1.4}
+}
+/* similar tasks: listed under a new task's title while it is written (src/similar-task.js) */
+.sim-box{margin:2px 0 10px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--color-warning) 50%,transparent);border-radius:10px;background:var(--color-warning-soft)}
+.sim-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;font-size:12px}
+.sim-head svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
+.sim-head .hint{font-size:11px}
+.sim-row{display:flex;align-items:baseline;gap:6px;width:100%;padding:5px 6px;border:0;border-radius:7px;background:transparent;color:var(--color-text-primary);font:inherit;font-size:12.5px;text-align:left;cursor:pointer;min-width:0}
+.sim-row:hover{background:color-mix(in srgb,var(--color-surface) 70%,transparent)}
+.sim-id{flex:none;font-size:11px;color:var(--color-text-tertiary)}
+.sim-t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.sim-m{flex:none;font-size:11px;color:var(--color-text-secondary);white-space:nowrap}
+@media (max-width:560px){.sim-row{flex-wrap:wrap}.sim-t{flex-basis:calc(100% - 50px)}.sim-m{flex-basis:100%;padding-left:44px}}
+/* activity on a phone: when it happened goes under what happened, so the line reads across instead of word by word */
+@media (max-width:760px){
+  .tl .it{grid-template-columns:14px minmax(0,1fr) auto;row-gap:1px}
+  .tl .it .when{grid-column:2;grid-row:2;padding-top:0;font-size:10.5px;white-space:normal}
+  .tl .it .act-restore{grid-column:3;grid-row:1/span 2}
+}
+/* ===== Phone: settings, the activity list, the export dialog =====
+   A row with a label and several controls (a team, an AI model, the legal pages) lets the controls go under the
+   label when space runs short; the label was squeezed to a word, or a letter, per line. A label's and a field's
+   name sits above its colours or its place; the time of an activity goes under what happened; a group of choices
+   that wraps reads as separate pills instead of one lumpy shape. */
+@media (max-width:600px){
+  .pref{flex-wrap:wrap;row-gap:8px}
+  .pref>.pl{flex:1 1 200px}
+  .pf-colors{flex-wrap:wrap}
+  .stage-edit.builtin-field{grid-template-columns:auto minmax(0,1fr)!important}
+  .stage-edit.builtin-field>select{grid-column:2}
+  .stage-edit:has(>input[onchange^="renameLabel"]){grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}
+  .stage-edit:has(>input[onchange^="renameLabel"])>input{grid-column:1;grid-row:1;min-width:0}
+  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(2){grid-column:1;grid-row:2}
+  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(3){grid-column:2;grid-row:2;justify-self:end}
+  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(4){grid-column:2;grid-row:1}
+  #modal .seg,.settings .seg{background:transparent;padding:0;gap:6px}
+  #modal .seg button,.settings .seg button{background:var(--color-surface-sunken);padding:7px 12px}
+  #modal .seg button.on,.settings .seg button.on{background:var(--color-ink);color:var(--color-ink-text)}
+  .settings .subnav{background:transparent;padding:0;gap:6px;flex-wrap:wrap}
+  .settings .subnav button{background:var(--color-surface-sunken);padding:7px 12px;box-shadow:none}
+  .settings .subnav button.on{background:var(--color-ink);color:var(--color-ink-text)}
+}
+@media (max-width:760px){
+  .act{grid-template-columns:auto minmax(0,1fr) auto;row-gap:1px}
+  .act>.when{grid-column:2;grid-row:2;padding-top:0;font-size:10.5px;white-space:normal}
+  .act>.act-restore{grid-column:3;grid-row:1/span 2}
+}
+
+/* ---------- Assets: an edit button beside each folder; an icon in place of a thumbnail ---------- */
+.folders .folder-item{display:flex;align-items:center;gap:2px;min-width:0}
+.folders .folder-item>button:first-child{flex:1;min-width:0}
+.folders .folder-item .fname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.folders button.folder-edit{flex:none;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:50%;color:var(--color-text-tertiary)}
+.folders button.folder-edit:hover,.folders button.folder-edit:focus-visible{color:var(--color-text);background:var(--color-surface-hover)}
+.folders button.folder-edit svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.asset-toolbar .folder-edit-m{flex:none}
+.asset-face{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff}
+.asset-face .asset-glyph{flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+.asset-face .ext{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;background:rgba(0,0,0,.22);padding:2px 8px;border-radius:7px;color:#fff}
+.ficon .asset-glyph{color:#fff}
+.asset-icon-pick{display:flex;flex-direction:column;gap:6px}
+.asset-icon-grid{display:flex;flex-wrap:wrap;gap:6px}
+.asset-icon-opt{width:34px;height:34px;border-radius:10px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-secondary);display:grid;place-items:center;cursor:pointer;padding:0}
+.asset-icon-opt:hover{background:var(--color-surface-hover);color:var(--color-text)}
+.asset-icon-opt.on{background:var(--color-ink);border-color:var(--color-ink);color:var(--color-ink-text)}
+@media(max-width:600px){.asset-icon-grid{gap:5px}.asset-icon-opt{width:32px;height:32px}}
+/* A select shows its chevron. Every select has one; .field select's background shorthand wiped it, so no form
+   dropdown showed it could open. In the asset dialog's details (plain text until hovered) it says the value can change. */
+.field select:not([multiple]),.asset-meta select:not(:disabled){background-image:linear-gradient(45deg,transparent 50%,var(--color-text-secondary) 50%),linear-gradient(135deg,var(--color-text-secondary) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.asset-meta select:not(:disabled){background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%;padding-right:24px!important}

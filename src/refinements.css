@@ -499,7 +499,7 @@ body{overflow:hidden}
 @media (max-width:640px){
   /* §515 narrow: metadata and actions stack under the title, still no overlap */
   .file{grid-template-columns:auto minmax(0,1fr)}
-  .file-actions{grid-column:2;justify-content:flex-start}
+  .file-actions,.file-acts{grid-column:2;justify-content:flex-start}
 }
 
 /* §331-362 global tag picker */

@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS asset_folders (id TEXT PRIMARY KEY, workspace_id TEXT
 CREATE TABLE IF NOT EXISTS assets (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), folder_id TEXT REFERENCES asset_folders(id) ON DELETE SET NULL,
   name TEXT NOT NULL, type TEXT, description TEXT, size_label TEXT, version INTEGER DEFAULT 1, storage_provider TEXT DEFAULT 'local', storage_key TEXT, external_url TEXT,
-  preview_color TEXT, preview_data TEXT, tags TEXT DEFAULT '[]', is_brand INTEGER DEFAULT 0, uploaded_by TEXT REFERENCES users(id),
+  preview_color TEXT, preview_data TEXT, preview_icon TEXT, tags TEXT DEFAULT '[]', is_brand INTEGER DEFAULT 0, uploaded_by TEXT REFERENCES users(id),
   created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS cloud_connections (
@@ -212,3 +212,10 @@ CREATE TABLE IF NOT EXISTS task_progress_notes (
   UNIQUE (task_id, version_number)
 );
 CREATE INDEX IF NOT EXISTS idx_progress_task ON task_progress_notes(task_id, version_number);
+
+-- Web Push: one row per browser that turned notifications on (server/push.js). The endpoint is a push service's URL.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL,
+  user_agent TEXT, created_at TEXT NOT NULL, last_used_at TEXT, fail_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
