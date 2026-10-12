@@ -226,17 +226,30 @@ function cmtNameFiledLinks(tk,files){
     });
   });
 }
-/* A posted comment's Drive attachments, drawn as chips with their live name — unless someone typed
-   a name for one, which is shown as typed. */
+/* A comment's links and files are chips, the way the description draws them (descLinkHtml): a file
+   by its type's coloured badge (PDF, DOC, FIG…), a Google link by its product's mark and the file's
+   live name (unless someone typed a name, shown as typed), Figma and Canva by theirs, any other link
+   by a link mark — the name on one line. In the comment box they used to be a bare icon at full size
+   (a black shape) beside a name that broke over two lines. Images keep their thumbnails. */
+var CMT_LINK_BADGE={FIGMA:["FIG","#A259FF"],CANVA:["CNV","#00A3B4"]};
+function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").trim(), ext=typeof descFileExt==="function"?descFileExt(name):"";
+  if(ext) return descFileChipHtml(esc(url),esc(name)).replace(' contenteditable="false"','');
+  if(isGoogleLink(url)) return driveChipHtml(url,a.named||(name&&name!==url&&!/^https?:/i.test(name))?name:"");
+  var p=typeof detectProvider==="function"?detectProvider(url):null, badge=p&&CMT_LINK_BADGE[p.provider], host="";
+  try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
+  var label=name&&name!==url?name:(host||url);
+  return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
+    +(badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>')+'<span>'+esc(label)+'</span></a>'; }
+function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+cmtAttChipHtml(a)+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;
   commentAttachmentsHtml=function(c){
     var list=(c&&c.attachments||[]).filter(Boolean);
-    var drive=list.filter(function(a){ return a.url&&!a.preview&&!a.named&&isGoogleLink(a.url); });
-    if(!drive.length) return base.apply(this,arguments);
-    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return drive.indexOf(a)<0; })});
-    return base.call(this,rest)+'<div class="cmt-drive">'+drive.map(function(a){ return driveChipHtml(a.url); }).join("")+'</div>';
+    var links=list.filter(function(a){ return a&&typeof a==="object"&&a.url&&!a.preview; });
+    if(!links.length) return base.apply(this,arguments);
+    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0; })});
+    return base.call(this,rest)+'<div class="cmt-drive cmt-links">'+links.map(cmtAttChipHtml).join("")+'</div>';
   };
 })();
 /* In Assets & versions a Drive link's row said its full URL under its name; it says what kind of
