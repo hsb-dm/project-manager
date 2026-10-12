@@ -845,3 +845,51 @@ img.emj.custom{object-fit:contain}
    dropdown showed it could open. In the asset dialog's details (plain text until hovered) it says the value can change. */
 .field select:not([multiple]),.asset-meta select:not(:disabled){background-image:linear-gradient(45deg,transparent 50%,var(--color-text-secondary) 50%),linear-gradient(135deg,var(--color-text-secondary) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
 .asset-meta select:not(:disabled){background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%;padding-right:24px!important}
+
+/* ---------- People, tasks and projects in the writing (description, progress note, brief) ---------- */
+.ref-chip{margin:0 1px;line-height:1.35;max-width:min(100%,340px);vertical-align:-3px;cursor:pointer}
+.ref-chip.gone{background:var(--color-surface-sunken);color:var(--color-text-secondary)!important;cursor:default}
+.md-wysiwyg .ref-chip,.md-wysiwyg .msg-mention{cursor:default;user-select:none}
+.md-btn.ref-btn .ref-at{font-weight:800;font-size:14px;line-height:1}
+.md-btn.ref-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ref-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:6px 8px;border:1px dashed var(--color-border);border-radius:10px;background:var(--color-surface)}
+.ref-bar .hint{margin:0;flex:1 1 220px;min-width:0}
+.ref-bar .btn{gap:5px}
+.ref-bar .btn .ref-at{font-weight:800}
+.ref-bar .btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:600px){.ref-bar .hint{flex-basis:100%}}
+
+/* ---------- The task panel's top on a laptop: compact ----------
+   On a 768px-high laptop the tabs started 400px down: the fields' grid, a "More details" line, then Tags under a
+   divider. Now the grid is tighter, chips are smaller and stay on one line, and Tags shares one row with "More
+   details" (the row is put back in place by order; what More details opens comes under it). Phones keep theirs. */
+@media (min-width:761px){
+  #drHead{display:flex;flex-wrap:wrap;column-gap:0}
+  #drHead>*{flex:1 1 100%;min-width:0}
+  #drHead>.task-meta-primary~*{order:5}
+  #drHead>.task-tags-bottom{order:1;flex:1 1 60%;margin:0 0 8px;padding:6px 0 0;border-top:1px solid var(--color-border);display:flex;align-items:center}
+  #drHead>.task-more-toggle{order:2;flex:0 0 auto;margin:0 0 8px;padding:6px 4px 0 12px;border-radius:0;border-top:1px solid var(--color-border);background:transparent!important}
+  #drHead>.task-more-toggle:hover,#drHead>.task-more-toggle:focus-visible{color:var(--color-text-primary)}
+  #drHead>.task-meta-secondary{order:3;margin:0 0 10px;padding-top:8px}
+  #drHead .task-tags-bottom>[data-meta]{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+  #drHead .task-tags-bottom .k{margin:0;flex:none}
+  #drHead .task-tags-bottom .v{flex:1;min-width:0}
+  #drHead .task-tags-bottom .tag-picker-field{min-height:26px}
+  #drHead .dr-title{margin-bottom:8px}
+  #drHead .task-meta-primary,#drHead .task-meta-secondary{row-gap:8px;column-gap:14px}
+  #drHead .task-meta-primary{margin-bottom:8px}
+  #drHead .meta .k{margin-bottom:2px}
+  #drHead .meta .v{min-width:0}
+  /* people and labels: small enough to stay on one line beside their + */
+  #drHead .pplchips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  #drHead .pplchips .mchip{padding:2px 7px 2px 2px;gap:5px;font-size:12px}
+  #drHead .pplchips .mchip .av{width:20px;height:20px;font-size:8px}
+  #drHead .pplchips .mchip button{padding:0 2px;font-size:12px;line-height:1}
+  #drHead .pplchips>.btn.xs{width:24px;height:24px;min-height:24px;padding:0;justify-content:center}
+  #drHead [data-meta="labels"] .lbls{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  #drHead [data-meta="labels"] .lbl{font-size:11px;padding:1px 7px;line-height:1.5}
+  #drHead [data-meta="labels"] .btn.xs{min-height:22px;padding:0 6px;font-size:11.5px}
+  /* a long project name: one line, cut short, whole on hover */
+  #drHead [data-meta="proj"] .v{display:flex;align-items:center;gap:2px}
+  #drHead .task-read-value .trv-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}

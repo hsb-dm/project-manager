@@ -301,7 +301,7 @@ function descEditorHtml(tk){ var ed=tk._draft||canI.editTask(tk), txt=tk.descrip
     +'<div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'<span class="md-sep"></span>'+b("link","Link",I.link)+b("code","Code","&lt;/&gt;")
     /* Pasting works too, but a button is the only way in from a phone, where there is no clipboard
        shortcut and the picture is in the camera roll. */
-    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'<button type="button" class="md-btn md-attach" title="'+attr(tr("Attach file"))+'" aria-label="'+attr(tr("Attach file"))+'" onmousedown="descKeepCaret()" onclick="descPickFile()">'+DESC_CLIP+'</button>'+'</div>'
+    +'<button type="button" class="md-btn" title="'+attr(tr("Insert image"))+'" aria-label="'+attr(tr("Insert image"))+'" onmousedown="descKeepCaret()" onclick="descPickImage()">'+I.image+'</button>'+'<button type="button" class="md-btn md-attach" title="'+attr(tr("Attach file"))+'" aria-label="'+attr(tr("Attach file"))+'" onmousedown="descKeepCaret()" onclick="descPickFile()">'+DESC_CLIP+'</button>'+(typeof refToolbarHtml==="function"?refToolbarHtml():"")+'</div>'
     +'<div class="md-src md-wysiwyg" id="descSrc" data-for="'+attr(drawerKey(tk))+'" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="'+attr(tr("Add context not covered by the brief…"))+'" oninput="descWysiwygInput()" onblur="descBlurSave()">'+(txt?descMdHtml(txt):"")+'</div><div class="hint" style="margin-top:5px">'+tr("Type to see the formatting. Formatted text you paste keeps its formatting.")+'</div></div>'; }
 var _descT=null;
 function descWysiwygInput(){ clearTimeout(_descT); _descT=setTimeout(descWysiwygSave,1200); }
@@ -495,7 +495,7 @@ function briefStartEdit(e){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk|
   if(ta){ ta.focus(); try{ ta.setSelectionRange(ta.value.length,ta.value.length); }catch(x){} } }
 (function(){
   /* the picture handles (resize, remove) float over the editor but live outside it */
-  var NOT_OUTSIDE="#modalWrap,.pop,.menu,#entityPicker,.tag-picker,#toasts,.link-card,.emoji-pop,input[type=file],#descImgSize,#descImgX,.desc-img-size,.desc-img-x";
+  var NOT_OUTSIDE="#modalWrap,.pop,.menu,#entityPicker,.ref-bar,.tag-picker,#toasts,.link-card,.emoji-pop,input[type=file],#descImgSize,#descImgX,.desc-img-size,.desc-img-x";
   var downDesc=false, downBrief=false;
   var descBox=function(){ var el=document.getElementById("descSrc"); return el&&el.closest?el.closest(".md-editor"):null; };
   var briefBox=function(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk) return null; return Array.prototype.filter.call(document.querySelectorAll(".brief[data-for]"),function(b){ return b.getAttribute("data-for")===drawerKey(tk); })[0]||null; };

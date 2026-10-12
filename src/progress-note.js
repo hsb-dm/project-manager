@@ -30,7 +30,7 @@ function progressView(tk){
   var h='<div class="pn"><div class="pn-head"><span class="eyebrow">'+tr("Progress note")+'</span>'+(chips?'<span class="pn-chips">'+chips+'</span>':'')+'<span class="spacer"></span>'+acts+'</div>'+pnChecklistLine(tk);
   if(e){
     var b=function(act,label,html){ return '<button type="button" class="md-btn" title="'+attr(tr(label))+'" aria-label="'+attr(tr(label))+'" onmousedown="event.preventDefault()" onclick="pnFormat(\''+act+'\')">'+html+'</button>'; };
-    h+='<div class="md-editor"><div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+'</div>'
+    h+='<div class="md-editor"><div class="md-toolbar">'+b("bold","Bold","<b>B</b>")+b("italic","Italic","<i>I</i>")+b("strike","Strikethrough","<s>S</s>")+'<span class="md-sep"></span>'+b("h","Heading","H")+b("ul","Bullet list","•&thinsp;≡")+b("ol","Numbered list","1.&thinsp;≡")+b("quote","Quote","❝")+(typeof refToolbarHtml==="function"?refToolbarHtml():"")+'</div>'
       +'<div class="md-src md-wysiwyg pn-src" id="pnSrc" data-for="'+attr(tk.id)+'" contenteditable="true" role="textbox" aria-multiline="true" aria-label="'+attr(tr("Progress note"))+'" data-placeholder="'+attr(tr("Where does this task stand? What is done, what is next, what is blocking it…"))+'" oninput="pnInput()" onpaste="pnPaste(event)" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key===\'Enter\'){event.preventDefault();pnSave();}">'+(e.draft?descMdHtml(e.draft):"")+'</div>'
       +'<div class="hint pn-hint">'+(e.mode==="new"?tr("Saving creates")+' V'+e.v+'. '+(e.v>1?tr("The earlier versions stay as they are."):""):tr("Saving changes")+' V'+e.v+'. '+tr("To keep this version as it is, start a new version instead."))+' '+tr("Ctrl+Enter saves.")+'</div></div>';
   } else if(!list.length){
@@ -67,10 +67,12 @@ var _pnT=null; function pnInput(){ clearTimeout(_pnT); _pnT=setTimeout(function(
 function pnPaste(e){ var cd=e.clipboardData; if(!cd) return; if(cd.files&&cd.files.length) return; var html=cd.getData("text/html"), md=html?descHtmlToMd(html,{paste:true}):cd.getData("text/plain"); if(!md) return; e.preventDefault(); document.execCommand("insertHTML",false,descMdHtml(md)); pnInput(); }
 function pnFormat(act){ var el=document.getElementById("pnSrc"); if(!el) return; el.focus(); var cmd={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock"}[act]; if(!cmd) return; if(act==="h"||act==="quote") document.execCommand(cmd,false,act==="h"?"<h3>":"<blockquote>"); else document.execCommand(cmd,false,null); pnInput(); }
 function pnSave(){ var tk=pnTask(), e=PN.edit, el=document.getElementById("pnSrc"); if(!tk||!e||e.key!==tk.id||!el) return; var md=descHtmlToMd(el.innerHTML); e.draft=md;
-  if(!md.trim()) return toast(tr("Write something first"),"bad"); var last=pnLatest(tk);
+  if(!md.trim()) return toast(tr("Write something first"),"bad"); var last=pnLatest(tk), prevText=last?last.text:"";
   if(e.mode==="edit"&&last&&last.text===md){ PN.edit=null; renderDrawer(); return; }
   var btn=document.getElementById("pnSave"); if(btn) btn.disabled=true;
-  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); PN.edit=null; PN.view[tk.id]=(pnLatest(tk)||{}).v; refresh(); if(e.mode==="new"){ if(typeof notifyTask==="function") notifyTask("progress",tk); toast(tr("Progress note saved as")+" V"+e.v); } else toast(tr("Progress note updated")); };
+  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); PN.edit=null; PN.view[tk.id]=(pnLatest(tk)||{}).v; refresh(); if(e.mode==="new"){ if(typeof notifyTask==="function") notifyTask("progress",tk); toast(tr("Progress note saved as")+" V"+e.v); } else toast(tr("Progress note updated"));
+    /* whoever the note now names and did not before is told; a note is internal, so never a stakeholder */
+    if(typeof refNotify==="function") refNotify(tk,prevText,md,{internal:true}); };
   if(!API.on){ tk.progress=pnList(tk); var now=new Date().toISOString(); if(e.mode==="new") tk.progress.push({v:e.v,text:md,by:ME,at:now,editedBy:null,editedAt:null}); else { last.text=md; last.editedBy=ME; last.editedAt=now; } log(tk,e.mode==="new"?"progress":"progress_edited",{v:e.v}); return done(null); }
   apiFetch(e.mode==="new"?"POST":"PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/progress"+(e.mode==="new"?"":"/"+e.v),{text:md}).then(done).catch(function(err){ if(btn) btn.disabled=false; toast(err.message||tr("Could not save the progress note"),"bad"); }); }
 function pnDelete(id,v){ var tk=task(id); if(!tk) return;
