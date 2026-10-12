@@ -545,9 +545,10 @@ function avCommentFiles(tk,ed){
     + rows.map(function(r){
       var f=r[0], c=avFileComment(tk,f);
       var meta=c?'<span>·</span><span>'+esc(first(c.by))+' '+tr("in a comment")+'</span>':'';
-      var btns=useAsVersionHtml(tk,f)+(c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'')
-        + (ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
-      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns});
+      /* two lines (fileRowHtml): what the file becomes for the task, then looking at it — the comment it came from first */
+      var btns=useAsVersionHtml(tk,f)+(ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
+      var view=c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'';
+      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view});
     }).join("")+'</section>';
 }
 function markFileFinal(fid,on){

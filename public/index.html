@@ -5099,6 +5099,37 @@ img.emj.custom{object-fit:contain}
   #drawer .dr-foot>.btn,#drawer .dr-foot .foot-actions .btn{min-height:32px;padding-top:0;padding-bottom:0}
 }
 
+/* ---------- A file's actions in two lines ----------
+   In Final files and From comments one line held both kinds of button, and the file's name and details were
+   squeezed into what was left (a name cut short, the date and the link broken over four lines). Now, when a
+   file has both: the first line is what it is to the task (Use as new version, Mark as final, Not final), the
+   second is the file itself (View comment, Preview, Save, Open, Remove). A long link in the details is cut short. */
+.file-acts.two{flex-direction:column;align-items:flex-end;gap:5px}
+.file-acts .fa-line{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.file .m .mono{flex:0 1 auto;min-width:0;max-width:100%;white-space:nowrap}
+@media (max-width:760px){
+  #drawer .file-acts.two{align-items:flex-start}
+  #drawer .file-acts .fa-line{justify-content:flex-start}
+}
+@media (max-width:640px){
+  .file-acts.two{align-items:flex-start}
+  .file-acts .fa-line{justify-content:flex-start}
+}
+
+/* ---------- A file row: room around it, Remove on its own ----------
+   A file from a comment sits on a grey shape: rounded now, with even room inside and a gap to the next. On a
+   laptop, Remove leaves the lines of buttons for the far right of the row, centred top to bottom, so the two
+   lines end together (Mark as final above Open). Phones keep it in the line of icons. */
+#drawer .av-from-comments .file{border-radius:12px;padding:12px 14px;border-bottom:0;margin-bottom:8px}
+#drawer .av-from-comments .file:last-child{margin-bottom:0}
+@media (min-width:761px){
+  #drawer .file{position:relative}
+  #drawer .file:has(.file-del){padding-right:40px}
+  #drawer .av-from-comments .file:has(.file-del){padding-right:52px}
+  #drawer .file .file-del{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
+  #drawer .av-from-comments .file .file-del{right:14px}
+}
+
 </style>
 </head>
 <body>
@@ -7693,7 +7724,7 @@ function filesView(tk,nested){ var ed=tk._draft||canI.editTask(tk); var drive=ty
   return h+pending+tk.files.map(function(f,i){ return fileRowHtml(tk,f,i,ed); }).join(""); }
 /* One file row. i is the file's place in tk.files, which is what removeFile takes, so a row keeps
    it however the list is grouped. o adds a tag after the name, a line of detail and buttons. */
-function fileRowHtml(tk,f,i,ed,o){ o=o||{}; return '<div class="file'+(o.cls?" "+o.cls:"")+'" data-fid="'+attr(f.id)+'">'+((f.url&&typeof isGoogleLink==="function"&&isGoogleLink(f.url)&&typeof driveIcon==="function")?'<span class="ficon ficon-drive">'+googleIcon(f.url)+'</span>':fileThumb(f))+'<div style="min-width:0"><div class="t">'+esc(f.name)+(o.tag||"")+'</div><div class="m">'+srcBadge(srcOf(f))+'<span>'+esc(f.size)+'</span><span>·</span><span>'+ago(f.ago,f.createdAt)+'</span>'+((f.url&&(typeof fileUrlLabel==="function"?fileUrlLabel(f.url):f.url)!==f.name)?'<span>·</span><span class="mono" style="overflow:hidden;text-overflow:ellipsis" title="'+attr(f.url)+'">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(f.url):f.url)+'</span>':'')+(o.meta||"")+'</div></div><div class="file-acts">'+(o.btns||"")+((f.preview||f.driveId||(f.url&&typeof embedFor==="function"&&embedFor(f.url)))?'<button class="btn xs" onclick="previewFile(\''+f.id+'\')">'+I.eye+tr("Preview")+'</button>':'')+((f.preview||f.driveId||(f.url&&/^https?:/i.test(f.url)))?'<button class="btn xs" title="'+attr(tr("Save to device"))+'" onclick="saveFile('+attr(JSON.stringify({name:f.name,img:f.preview||"",url:f.url||"",driveId:f.driveId||null}))+')">'+I.download+tr("Save")+'</button>':'')+(f.url?'<button class="btn xs" onclick="openExternal('+jsq(f.url)+')">'+I.ext+(f.driveId?'Drive':tr("Open"))+'</button>':'')+(ed?'<button class="iconbtn flat" style="width:26px;height:26px" aria-label="'+attr(tr("Remove file"))+'" onclick="removeFile('+i+')">'+I.trash+'</button>':'')+'</div></div>'; }
+function fileRowHtml(tk,f,i,ed,o){ o=o||{}; return '<div class="file'+(o.cls?" "+o.cls:"")+'" data-fid="'+attr(f.id)+'">'+((f.url&&typeof isGoogleLink==="function"&&isGoogleLink(f.url)&&typeof driveIcon==="function")?'<span class="ficon ficon-drive">'+googleIcon(f.url)+'</span>':fileThumb(f))+'<div style="min-width:0"><div class="t">'+esc(f.name)+(o.tag||"")+'</div><div class="m">'+srcBadge(srcOf(f))+'<span>'+esc(f.size)+'</span><span>·</span><span>'+ago(f.ago,f.createdAt)+'</span>'+((f.url&&(typeof fileUrlLabel==="function"?fileUrlLabel(f.url):f.url)!==f.name)?'<span>·</span><span class="mono" style="overflow:hidden;text-overflow:ellipsis" title="'+attr(f.url)+'">'+esc(typeof fileUrlLabel==="function"?fileUrlLabel(f.url):f.url)+'</span>':'')+(o.meta||"")+'</div></div><div class="file-acts'+(o.btns?' two':'')+'">'+(o.btns?'<div class="fa-line fa-task">'+o.btns+'</div>':'')+'<div class="fa-line fa-file">'+(o.view||"")+((f.preview||f.driveId||(f.url&&typeof embedFor==="function"&&embedFor(f.url)))?'<button class="btn xs" onclick="previewFile(\''+f.id+'\')">'+I.eye+tr("Preview")+'</button>':'')+((f.preview||f.driveId||(f.url&&/^https?:/i.test(f.url)))?'<button class="btn xs" title="'+attr(tr("Save to device"))+'" onclick="saveFile('+attr(JSON.stringify({name:f.name,img:f.preview||"",url:f.url||"",driveId:f.driveId||null}))+')">'+I.download+tr("Save")+'</button>':'')+(f.url?'<button class="btn xs" onclick="openExternal('+jsq(f.url)+')">'+I.ext+(f.driveId?'Drive':tr("Open"))+'</button>':'')+(ed?'<button class="iconbtn flat file-del" style="width:26px;height:26px" aria-label="'+attr(tr("Remove file"))+'" title="'+attr(tr("Remove file"))+'" onclick="removeFile('+i+')">'+I.trash+'</button>':'')+'</div></div></div>'; }
 /* v19.7 one gate for every external link — task versions/files, project final assets, asset library, Drive cards, chat links: confirm popup first, then a new tab */
 /* what the button that opens a version's source says: the stored original, Drive, or — for a
    version attached as an ordinary link — just the link */
@@ -18807,9 +18838,10 @@ function avCommentFiles(tk,ed){
     + rows.map(function(r){
       var f=r[0], c=avFileComment(tk,f);
       var meta=c?'<span>·</span><span>'+esc(first(c.by))+' '+tr("in a comment")+'</span>':'';
-      var btns=useAsVersionHtml(tk,f)+(c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'')
-        + (ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
-      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns});
+      /* two lines (fileRowHtml): what the file becomes for the task, then looking at it — the comment it came from first */
+      var btns=useAsVersionHtml(tk,f)+(ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
+      var view=c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'';
+      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view});
     }).join("")+'</section>';
 }
 function markFileFinal(fid,on){
