@@ -100,7 +100,8 @@ test.describe("phone", () => {
       expect(vis.map(b => b.t)).toEqual(["Internal", "Stakeholder"]);
       expect(Math.max(...vis.map(b => b.h)), "one line").toBeLessThan(40);
       await page.locator("#drBody .composer .m-attach").click();
-      await expect(page.locator("#ctxMenu.open button")).toHaveCount(5);
+      /* the five ways in, and a task or a project (Oct 2026) */
+      await expect(page.locator("#ctxMenu.open button")).toHaveCount(7);
       await page.evaluate(() => closePops());
       /* another task starts at the top */
       await page.evaluate(() => { document.getElementById("drawer").scrollTop = 600; S.mDetails = false; });

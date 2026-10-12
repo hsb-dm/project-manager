@@ -52,14 +52,14 @@ test("a task to comment on", async ({ page }) => {
   taskId = await page.evaluate(() => TASKS.find(t => t.title === "Comment target").id);
 });
 
-test("the comment box has the same five ways in as Assets & versions", async ({ page }) => {
+test("the comment box has the same five ways in as Assets & versions, and a task or a project", async ({ page }) => {
   await signIn(page);
   await openComments(page);
   const labels = await page.locator("#drawer .composer .cmt-tools .btn").allInnerTexts();
-  expect(labels.map(s => s.trim())).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library"]);
+  expect(labels.map(s => s.trim())).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library", "Task", "Project"]);
   await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
   const id = await page.locator("#drawer .composer .cmt-tools .btn").allInnerTexts();
-  expect(id.map(s => s.trim())).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka"]);
+  expect(id.map(s => s.trim())).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka", "Task", "Project"]);   /* the workspace's Indonesian keeps Task and Project */
   await page.evaluate(() => { UI_LANG = "en"; });
 });
 

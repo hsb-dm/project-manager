@@ -946,3 +946,13 @@ img.emj.custom{object-fit:contain}
   #drawer .file .file-del{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
   #drawer .av-from-comments .file .file-del{right:14px}
 }
+
+/* ---------- A task or a project attached to a comment ---------- */
+.cmt-links .ref-chip,.att-chip .ref-chip{font-size:12px;line-height:1.6;padding:2px 9px 2px 6px;max-width:min(100%,300px);vertical-align:middle}
+#drawer .composer .att.att-chip .ref-chip{cursor:default}
+.cmt-ref-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* seven ways in now (a task and a project too): a little tighter, so they stay one line in the laptop panel */
+@media (min-width:761px){
+  #drawer .composer .cmt-tools{gap:4px}
+  #drawer .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
+}

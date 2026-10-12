@@ -93,6 +93,8 @@ function cmtToolbarHtml(){
     + '<button type="button" class="btn xs" onclick="cmtLinkModal(\'drive\')">'+drive+tr("Link Google Drive")+'</button>'
     + '<button type="button" class="btn xs" onclick="cmtLinkModal(\'web\')">'+I.link+tr("Attach link")+'</button>'
     + '<button type="button" class="btn xs" onclick="cmtLibraryModal()">'+I.assets.replace('class="i"','')+tr("Attach from library")+'</button>'
+    + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="task" title="'+attr(tr("Attach a task"))+'" onclick="cmtAttachRef(this,\'task\')">'+I.tasks+tr("Task")+'</button>'
+    + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="project" title="'+attr(tr("Attach a project"))+'" onclick="cmtAttachRef(this,\'project\')">'+I.projects+tr("Project")+'</button>'
     + '</div>';
 }
 function cmtRoom(){ return 10-(window._cmtAtt||[]).length; }
@@ -100,6 +102,7 @@ function cmtStage(a){
   window._cmtAtt=window._cmtAtt||[];
   if(cmtRoom()<=0) return toast(tr("Up to 10 attachments per comment"),"bad");
   if(a.url&&window._cmtAtt.some(function(x){ return x.url===a.url; })) return toast(tr("That link is already attached"));
+  if(a.ref&&window._cmtAtt.some(function(x){ return x.ref===a.ref&&x.refId===a.refId; })) return toast(tr("Already attached"));
   window._cmtAtt.push(a); cmtRedraw();
 }
 /* Upload images / Upload file: the same path as the comment box's own attach, filtered by kind. */
@@ -240,16 +243,25 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   var label=name&&name!==url?name:(host||url);
   return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
     +(badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>')+'<span>'+esc(label)+'</span></a>'; }
-function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+cmtAttChipHtml(a)+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
+/* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
+   drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
+   {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
+   buttons are behind the one attach button, so the picker opens by that one. */
+function cmtAttachRef(btn,kind){ var tk=S.drawerTask?task(S.drawerTask):null, anchor=btn&&btn.offsetParent?btn:(document.querySelector("#drawer .composer .m-attach")||btn);
+  entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:tk&&tk.proj},
+    search:kind==="task"?function(q){ return epTaskItems(q,{projectId:tk&&tk.proj}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
+    onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
+function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a.ref,a.refId,a.name||a.refId):'<span class="att">'+esc(a.name||a.refId)+'</span>'; }
+function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;
   commentAttachmentsHtml=function(c){
     var list=(c&&c.attachments||[]).filter(Boolean);
-    var links=list.filter(function(a){ return a&&typeof a==="object"&&a.url&&!a.preview; });
+    var links=list.filter(function(a){ return a&&typeof a==="object"&&!a.preview&&(a.url||(a.ref&&a.refId)); });
     if(!links.length) return base.apply(this,arguments);
     var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0; })});
-    return base.call(this,rest)+'<div class="cmt-drive cmt-links">'+links.map(cmtAttChipHtml).join("")+'</div>';
+    return base.call(this,rest)+'<div class="cmt-drive cmt-links">'+links.map(function(a){ return a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a); }).join("")+'</div>';
   };
 })();
 /* In Assets & versions a Drive link's row said its full URL under its name; it says what kind of

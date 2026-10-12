@@ -20,7 +20,7 @@ function refChipHtml(kind,id,label){
   var tk=kind==="task"?task(id):null, pj=kind==="project"?project(id):null, ok=!!((tk&&!tk._draft)||pj), text=tk?tk.id+" · "+tk.title:pj?pj.name:(label||id);
   return '<a class="msg-entity-link ref-chip'+(ok?"":" gone")+'" href="#'+kind+'='+attr(encodeURIComponent(id))+'" data-ref="'+kind+':'+attr(id)+'" data-label="'+attr(label||id)+'" contenteditable="false" title="'+attr(ok?text:tr("Not available"))+'" onclick="refChipClick(event,this)">'+(kind==="task"?I.tasks:I.projects)+'<span data-no-translate>'+esc(text)+'</span></a>'; }
 function refMentionHtml(id,view){ return '<span class="msg-mention ref-mention'+(id===ME?" self":"")+'" data-uid="'+attr(id)+'"'+(view?' role="button" tabindex="0"':'')+' contenteditable="false" data-no-translate>@'+esc(person(id).name)+'</span>'; }
-function refChipClick(e,a){ e.preventDefault(); if(a.closest('[contenteditable="true"]')) return; e.stopPropagation();
+function refChipClick(e,a){ e.preventDefault(); if(a.closest('[contenteditable="true"],.composer')) return; e.stopPropagation();
   var r=String(a.getAttribute("data-ref")||""), i=r.indexOf(":"), kind=r.slice(0,i), id=r.slice(i+1);
   if(kind==="task"&&task(id)&&!task(id)._draft) openTask(id);
   else if(kind==="project"&&project(id)){ if(S.drawerTask) closeDrawer(); go("projects",id); } }

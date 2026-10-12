@@ -54,3 +54,66 @@ test("links and files in a comment are chips with a small mark and a one-line na
     await page.evaluate(async id => { closeDrawer(); await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); }, id);
   }
 });
+
+/* A task or a project goes with a comment as a chip, the way chat attaches one: the Task and Project buttons
+   beside the others (on a phone, in the one attach menu), a chip with × while writing, a live chip on the
+   posted comment that opens it. Nothing is filed under Assets & versions; the server keeps it on the comment. */
+for (const vp of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
+  test("a task and a project attached to a comment (" + vp.width + "px)", async ({ page }) => {
+    await page.setViewportSize(vp);
+    await page.goto("/");
+    await page.locator("#au_email").fill(ADMIN.email);
+    await page.locator("#au_pw").fill(ADMIN.pw);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.waitForFunction(() => window.ZC_READY === true && API.on);
+    const ids = await page.evaluate(async () => {
+      const mk = async title => { const d = await apiFetch("POST", "/api/tasks", { title, status: WS.workflow[1].id, prio: "medium", assignee: ME, assignees: [ME] }); TASKS.push(hTask(d)); return d.id; };
+      const list = await apiFetch("POST", "/api/projects", { name: "Comment ref project " + Date.now().toString(36), status: "active", owner: ME, teams: [] });
+      PROJECTS = list.map(hProject);
+      const p = PROJECTS.filter(x => /^Comment ref project /.test(x.name)).pop();
+      const ids = { task: await mk("Commenting here"), other: await mk("Banner resize for the ref"), project: p.id, projectName: p.name };
+      openTask(ids.task); S.drawerTab = "comments"; renderDrawer(); return ids;
+    });
+    const phone = vp.width < 761;
+    const pick = async (kind, q) => {
+      if (phone) { await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.open button", { hasText: kind === "task" ? "Task" : "Project" }).click(); }
+      else await page.locator(`#drawer .composer .cmt-ref-btn[data-ref-kind="${kind}"]`).click();
+      await expect(page.locator("#entityPicker")).toBeVisible();
+      const box = await page.locator("#entityPicker").boundingBox();
+      expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1, "the picker is on screen").toBe(true);
+      /* by the button it came from — on a phone the visible attach button, not the hidden one it pressed */
+      const from = await page.locator(phone ? "#drawer .composer .m-attach" : `#drawer .composer .cmt-ref-btn[data-ref-kind="${kind}"]`).boundingBox();
+      expect(Math.min(Math.abs(box.y - (from.y + from.height)), Math.abs(box.y + box.height - from.y)), "next to its button").toBeLessThan(24);
+      await page.locator("#entityPicker .ep-search").fill(q);
+      await page.locator("#entityPicker .ep-row").first().click();
+    };
+    try {
+      await pick("task", "Banner resize");
+      const staged = page.locator(`#drawer .composer .att.att-chip a.ref-chip[data-ref="task:${ids.other}"]`);
+      await expect(staged).toContainText("Banner resize for the ref");
+      /* the same one again is refused */
+      await pick("task", "Banner resize");
+      await expect(page.locator(`#drawer .composer a.ref-chip[data-ref="task:${ids.other}"]`)).toHaveCount(1);
+      /* a chip in the comment box does not leave the task being written about */
+      await staged.click();
+      expect(await page.evaluate(() => S.drawerTask)).toBe(ids.task);
+      await pick("project", ids.projectName);
+      await expect(page.locator(`#drawer .composer a.ref-chip[data-ref="project:${ids.project}"]`)).toContainText(ids.projectName);
+      /* posted */
+      await page.locator("#cmtText").fill("Lihat juga ini");
+      await page.locator("#drawer .composer .bar .btn.primary").click();
+      await expect.poll(() => page.evaluate(id => task(id).comments.length, ids.task), { timeout: 10000 }).toBe(1);
+      const posted = page.locator("#drawer .cmt .cmt-links");
+      await expect(posted.locator(`a.ref-chip[data-ref="task:${ids.other}"]`)).toBeVisible();
+      await expect(posted.locator(`a.ref-chip[data-ref="project:${ids.project}"]`)).toBeVisible();
+      expect(await page.evaluate(id => task(id).files.length, ids.task), "nothing filed under Assets").toBe(0);
+      const kept = await page.evaluate(async id => (await apiFetch("GET", "/api/tasks/" + id)).comments[0].attachments.map(a => a.ref + ":" + a.refId), ids.task);
+      expect(kept).toEqual(["task:" + ids.other, "project:" + ids.project]);
+      /* the posted chip opens the task */
+      await posted.locator(`a.ref-chip[data-ref="task:${ids.other}"]`).click();
+      await expect.poll(() => page.evaluate(() => S.drawerTask)).toBe(ids.other);
+    } finally {
+      await page.evaluate(async ids => { closeDrawer(); for (const id of [ids.task, ids.other]) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); await apiFetch("DELETE", "/api/projects/" + ids.project).catch(() => {}); }, ids);
+    }
+  });
+}
