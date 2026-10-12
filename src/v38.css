@@ -904,3 +904,14 @@ img.emj.custom{object-fit:contain}
 #drawer .composer .att.att-chip .drive-chip{min-width:0;max-width:280px}
 #drawer .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
 #drawer .composer .att.att-chip .att-x:hover,#drawer .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
+
+/* ---------- The task panel's foot: a stage that is done shows a tick, not a filled shape ----------
+   Done stages carried the class "star", and the favourites' rule (.views button.star svg) filled the tick's
+   path solid. They are "done" now, with a drawn tick. On a laptop the stage buttons and the actions under them
+   are lower, so the details get the room. */
+.task-stage-rail button svg{width:11px;height:11px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.task-stage-rail button.done svg{stroke:var(--color-success,#16A34A)}
+@media (min-width:761px){
+  #drawer .dr-foot{padding-top:8px;padding-bottom:10px;row-gap:6px}
+  #drawer .dr-foot>.btn,#drawer .dr-foot .foot-actions .btn{min-height:32px;padding-top:0;padding-bottom:0}
+}

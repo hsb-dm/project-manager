@@ -810,7 +810,7 @@ body{overflow:hidden}
 .dependency-empty span{font-size:11.5px;color:var(--color-text-secondary)}
 .dependency-empty .btn{margin-left:auto;flex:none}
 .task-stage-rail{width:100%;display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:4px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
-.task-stage-rail button{justify-content:center;flex:1 0 auto;min-width:max-content;min-height:38px;padding:0 14px;white-space:nowrap;line-height:1}
+.task-stage-rail button{justify-content:center;flex:1 0 auto;min-width:max-content;min-height:30px;padding:0 12px;font-size:12px;white-space:nowrap;line-height:1}
 .task-stage-select{display:none}
 @container (max-width:720px){.task-meta-primary{grid-template-columns:repeat(2,minmax(0,1fr))}.task-meta-secondary{grid-template-columns:repeat(2,minmax(0,1fr))}.task-stage-rail{display:none}.task-stage-select{display:inline-flex}}
 @container (max-width:440px){.task-meta-primary,.task-meta-secondary{grid-template-columns:1fr}.dependency-empty{align-items:flex-start;flex-wrap:wrap}.dependency-empty .btn{margin-left:0}}
@@ -5088,6 +5088,17 @@ img.emj.custom{object-fit:contain}
 #drawer .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
 #drawer .composer .att.att-chip .att-x:hover,#drawer .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
 
+/* ---------- The task panel's foot: a stage that is done shows a tick, not a filled shape ----------
+   Done stages carried the class "star", and the favourites' rule (.views button.star svg) filled the tick's
+   path solid. They are "done" now, with a drawn tick. On a laptop the stage buttons and the actions under them
+   are lower, so the details get the room. */
+.task-stage-rail button svg{width:11px;height:11px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.task-stage-rail button.done svg{stroke:var(--color-success,#16A34A)}
+@media (min-width:761px){
+  #drawer .dr-foot{padding-top:8px;padding-bottom:10px;row-gap:6px}
+  #drawer .dr-foot>.btn,#drawer .dr-foot .foot-actions .btn{min-height:32px;padding-top:0;padding-bottom:0}
+}
+
 </style>
 </head>
 <body>
@@ -7440,7 +7451,7 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
   else if (k==="closed"&&canI.reviewTask(tk)&&tk.versions.length&&tk.versions[tk.versions.length-1].state==="approved"&&typeof startRevision==="function"&&reviewFlow().reopen) primary='<button class="btn danger-soft" onclick="startRevision()">'+tr("Request revision")+'</button>';
   else if (isReview(tk)&&canI.reviewTask(tk)&&tk.versions.length) primary='<button class="btn danger-soft" onclick="if(typeof startRevision===\'function\')startRevision();else{setTab(\'versions\');S.revOpen=true;renderDrawer()}">Request revision</button><button class="btn success" onclick="approveTask()">'+I.check+'Approve</button>';
   var footStages=taskFooterStages(), footStatus=taskFooterStatus(tk.status,footStages);
-  var stepper=ed?'<div class="views task-stage-rail" role="group" aria-label="'+attr(tr("Workflow stage"))+'">'+footStages.map(function(s){ var on=s.ids.indexOf(tk.status)>=0; var wf=footStages.map(function(x){ return x.id; }); var done=wf.indexOf(s.id)<wf.indexOf(footStatus); return '<button class="'+(on?"on":done?"star":"")+'" '+(on?'disabled':'onclick="editTask(\'status\',\''+s.id+'\')"')+' title="Move to '+attr(s.name)+'">'+(done?I.check:on?I.chev:'')+esc(s.name)+'</button>'; }).join("")+'</div>':'';
+  var stepper=ed?'<div class="views task-stage-rail" role="group" aria-label="'+attr(tr("Workflow stage"))+'">'+footStages.map(function(s){ var on=s.ids.indexOf(tk.status)>=0; var wf=footStages.map(function(x){ return x.id; }); var done=wf.indexOf(s.id)<wf.indexOf(footStatus); return '<button class="'+(on?"on":done?"done":"")+'" '+(on?'disabled':'onclick="editTask(\'status\',\''+s.id+'\')"')+' title="Move to '+attr(s.name)+'">'+(done?I.check:on?I.chev:'')+esc(s.name)+'</button>'; }).join("")+'</div>':'';
   if (draft){ document.getElementById("drFoot").innerHTML='<button class="btn ghost" onclick="discardDraft()">Discard</button><span class="spacer"></span><span class="hint">Nothing is saved until you create it</span><button class="btn primary" onclick="(typeof createDraftChecked===\'function\'?createDraftChecked:createDraft)()">'+I.check+(tk._request?"Submit request":"Create task")+'</button>'; localizeVisibleText(document.querySelector(".drawer")); return; }
   var declineBtn=(!isClosed(tk)&&isRequestTask(tk)&&canI.decideRequest()&&byId(WS.workflow,"declined"))?'<button class="btn danger-soft" onclick="declineRequest(\''+tk.id+'\')">'+I.x+'Decline</button>':'';
   document.getElementById("drFoot").innerHTML=stepper+declineBtn+'<label class="stage-select task-stage-select"><span class="foot-lbl">Move to</span> <select aria-label="Move to"'+ro+' onchange="editTask(\'status\',this.value)">'+footStages.map(function(s){ return '<option value="'+s.id+'"'+(s.ids.indexOf(tk.status)>=0?" selected":"")+'>'+esc(s.name)+'</option>'; }).join("")+'</select></label><span class="spacer"></span>'+primary; localizeVisibleText(document.querySelector(".drawer")); }

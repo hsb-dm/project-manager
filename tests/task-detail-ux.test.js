@@ -71,7 +71,8 @@ test('Task footer merges successful closed stages without changing stored histor
   assert.match(drawer,/name:tr\("Done"\)/);
   assert.match(drawer,/s\.ids\.indexOf\(tk\.status\)>=0/);
   assert.match(css,/\.task-stage-rail\{[^}]*flex-wrap:nowrap[^}]*overflow-x:auto/);
-  assert.match(css,/\.task-stage-rail button\{[^}]*min-height:38px/);
+  /* 30px since Oct 2026: lower, so the task panel has more room for its details */
+  assert.match(css,/\.task-stage-rail button\{[^}]*min-height:30px/);
   assert.match(css,/\.task-stage-rail button\{[^}]*white-space:nowrap/);
 });
 

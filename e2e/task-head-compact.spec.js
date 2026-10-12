@@ -30,6 +30,16 @@ test("on a laptop the tabs start near the top; Tags and More details share a row
     expect(m.moreRight > m.tagsRight, "More details at the end of the row").toBe(true);
     expect(m.projH, "a long project name stays on one line").toBeLessThan(32);
     await expect(page.locator('#drawer [data-meta="proj"] .trv-text')).toHaveCSS("text-overflow", "ellipsis");
+    /* the foot: a done stage shows a drawn tick (it was filled solid by the favourites' star rule), and the
+       stage buttons and actions are low */
+    await page.evaluate(id => { task(id).status = "progress"; renderDrawer(); }, ids.task);
+    const f = await page.evaluate(() => { const done = document.querySelector("#drawer .task-stage-rail button.done"), svg = done && done.querySelector("svg"), foot = document.querySelector("#drawer .dr-foot");
+      return { done: !!done, fill: svg && getComputedStyle(svg).fill, stageH: done && done.getBoundingClientRect().height, footH: foot.getBoundingClientRect().height, star: !!document.querySelector("#drawer .task-stage-rail button.star") }; });
+    expect(f.done, "stages before the current one are done").toBe(true);
+    expect(f.star, "not the favourites' class").toBe(false);
+    expect(f.fill).toBe("none");
+    expect(f.stageH).toBeLessThanOrEqual(30);
+    expect(f.footH, "stages and actions together").toBeLessThanOrEqual(95);
     /* what More details opens comes under the row, before the tabs */
     await page.locator("#drawer .task-more-toggle").click();
     const o = await page.evaluate(() => { const b = s => document.querySelector("#drawer " + s).getBoundingClientRect(); return { sec: b(".task-meta-secondary"), tags: b(".task-tags-bottom"), tabs: b(".tabs") }; });
