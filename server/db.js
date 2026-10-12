@@ -48,6 +48,7 @@ function open() {
     "ALTER TABLE task_statuses ADD COLUMN reviewer_only INTEGER",
     "ALTER TABLE task_statuses ADD COLUMN require_reviewer INTEGER",
     "ALTER TABLE assets ADD COLUMN preview_icon TEXT",
+    "ALTER TABLE comments ADD COLUMN edited_at TEXT",
   ].forEach((sql) => { try { db.exec(sql); } catch { /* already there */ } });
   return db;
 }

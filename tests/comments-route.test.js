@@ -60,3 +60,39 @@ test('deleting a comment someone replied to keeps the reply', { timeout: 30000 }
   const reply = after.find(c => c.id === 'cm_reply');
   assert.ok(reply, 'the reply stays'); assert.equal(reply.parent, null);
 });
+
+/* Editing a comment (Oct 2026): whoever wrote it may change its words — a Viewer too, who cannot edit the
+   task — on its own route; an admin may as well; nobody else. It is stamped as edited by the server, and
+   its attachments stay as they were. */
+test('the author edits their comment; it says it was edited; nobody else can', { timeout: 30000 }, async t => {
+  const s = await start(t);
+  const boot = await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json();
+  const tk = boot.tasks.find(x => !x._slim);
+  const ids = Object.keys(boot.people).filter(id => id !== 'admin' && boot.people[id].active !== false);
+  assert.equal((await s.req('PUT', '/api/members/' + ids[0], { perm: 'viewer' }, s.admin)).status, 200);
+  const viewer = await s.as(ids[0]), other = await s.as(ids[1]);
+  let r = await s.req('POST', '/api/tasks/' + tk.id + '/comments', { id: 'cm_edit', text: 'Logo 2x lebih kecil', attachments: [{ ref: 'task', refId: tk.id, name: tk.id }] }, viewer);
+  assert.equal(r.status, 200, await r.clone().text());
+  let c = (await s.get(tk.id)).comments.find(x => x.id === 'cm_edit');
+  assert.equal(c.editedAt, null, 'a new comment is not edited');
+  r = await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'Logo 3x lebih kecil' }, viewer);
+  assert.equal(r.status, 200, await r.clone().text());
+  c = (await s.get(tk.id)).comments.find(x => x.id === 'cm_edit');
+  assert.equal(c.text, 'Logo 3x lebih kecil');
+  assert.ok(c.editedAt && !isNaN(Date.parse(c.editedAt)), 'stamped as edited');
+  assert.deepEqual(c.attachments.map(a => a.ref + ':' + a.refId), ['task:' + tk.id], 'attachments stay');
+  assert.equal(c.by, ids[0], 'still theirs');
+  /* someone else cannot; an admin can; empty is refused; too long is refused; an unknown comment is 404 */
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'mine now' }, other)).status, 403);
+  assert.equal((await s.get(tk.id)).comments.find(x => x.id === 'cm_edit').text, 'Logo 3x lebih kecil');
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'Logo 3x lebih kecil (moderated)' }, s.admin)).status, 200);
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_nope', { text: 'x' }, viewer)).status, 404);
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'x'.repeat(10001) }, viewer)).status, 413);
+  r = await s.req('POST', '/api/tasks/' + tk.id + '/comments', { id: 'cm_plain', text: 'Just words' }, viewer);
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_plain', { text: '   ' }, viewer)).status, 400, 'a comment with nothing in it is refused');
+  /* through a task PUT: the stamp is the server's — set when the words change, never taken from the client */
+  const doc = await s.get(tk.id);
+  doc.comments = doc.comments.map(x => x.id === 'cm_plain' ? Object.assign({}, x, { editedAt: '2001-01-01T00:00:00.000Z' }) : x);
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id, doc, s.admin)).status, 200);
+  assert.equal((await s.get(tk.id)).comments.find(x => x.id === 'cm_plain').editedAt, null, 'unchanged words, no stamp');
+});

@@ -997,10 +997,12 @@ function sanitizeComments(prevComments, bodyComments, u) {
          predates ids and is kept. */
       const keep = mine && Array.isArray(c.attachments) ? new Set(c.attachments.map(a => a && a.id).filter(Boolean)) : null;
       const attachments = keep ? (Array.isArray(old.attachments) ? old.attachments : []).filter(a => !a || !a.id || keep.has(a.id)) : old.attachments;
-      out.push(Object.assign({}, old, { text: mine ? String(c.text != null ? c.text : old.text) : old.text, vis: old.vis, attachments }));
+      const text = mine ? String(c.text != null ? c.text : old.text) : old.text;
+      /* when it was edited is the server's to say: stamped when its words change, kept otherwise */
+      out.push(Object.assign({}, old, { text, vis: old.vis, attachments, editedAt: text !== old.text ? now() : (old.editedAt || null) }));
       prev.delete(c.id);
     }
-    else out.push({ id: /^[-\w]{1,40}$/.test(String(c.id || "")) ? c.id : uid("cm"), by: u.id, createdAt: now(), vis: u.stakeholder ? "client" : c.vis === "internal" ? "internal" : c.vis === "client" ? "client" : "team", text: String(c.text || ""), parent: c.parent || null, attachments: Array.isArray(c.attachments) ? c.attachments.slice(0, 10) : [] });
+    else out.push({ id: /^[-\w]{1,40}$/.test(String(c.id || "")) ? c.id : uid("cm"), by: u.id, createdAt: now(), editedAt: null, vis: u.stakeholder ? "client" : c.vis === "internal" ? "internal" : c.vis === "client" ? "client" : "team", text: String(c.text || ""), parent: c.parent || null, attachments: Array.isArray(c.attachments) ? c.attachments.slice(0, 50) : [] });
   });
   /* keep other people's comments even if the client dropped them; only the author or an
      admin may delete, and that path is a dedicated route, not a task PUT. */
@@ -1172,6 +1174,21 @@ route("POST", "/api/tasks/:id/comments", (u, p, q, b) => {
   if (cur.comments.some(c => c.id === added.id)) added.id = uid("cm");
   const next = Object.assign({}, cur, { comments: cur.comments.concat([added]) });
   validateStoredFiles(next, u.id);
+  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); }));
+  return forViewer(u, sz.readTask(db, p.id));
+});
+/* Whoever wrote a comment changes what it says (an admin may too); it is stamped as edited. Its attachments, who
+   can see it and the thread it is in stay as they were. A route of its own, like adding one: someone who may
+   comment but not edit the task — a Viewer, a stakeholder — can correct their words. */
+route("PUT", "/api/tasks/:id/comments/:cid", (u, p, q, b) => {
+  const cur = sz.readTask(db, p.id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found");
+  const c = cur.comments.find(x => x.id === p.cid); if (!c) throw new HttpError(404, "Comment not found");
+  forbid((c.by === u.id && can.comment(u)) || can.manageWorkspace(u), "edit this comment");
+  const text = String((b && b.text) || "").trim();
+  if (!text && !(c.attachments || []).length) throw new HttpError(400, "Write something first");
+  tooLong("comment", text, 10000);
+  if (text === c.text) return forViewer(u, cur);
+  const next = Object.assign({}, cur, { comments: cur.comments.map(x => x.id === c.id ? Object.assign({}, x, { text, editedAt: now() }) : x) });
   withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); }));
   return forViewer(u, sz.readTask(db, p.id));
 });

@@ -252,7 +252,7 @@ function buildTask(t, R) {
     brief: brief ? Object.assign({ tpl: brief.template_id }, J(brief.fields, {})) : null, custom, meta: J(t.meta, {}),
     versions: (R.versions.get(id) || []).map(v => ({ id: v.id, n: v.version_number, by: v.uploaded_by, createdAt: v.created_at, state: v.approval_status, color: v.preview_color, img: v.preview_data, note: v.note || "", annots: noteIds(v.id, J(v.annotations, [])), decidedBy: v.decided_by, decidedAt: v.decided_at, reason: v.decision_reason, driveUrl: v.drive_url || "", driveId: v.drive_id || null })),
     files: (R.files.get(id) || []).map(f => ({ id: f.id, name: f.filename, type: f.file_type, source: f.storage_provider, size: f.size_label, createdAt: f.created_at, url: f.external_url || "", preview: f.preview_data || null, driveId: f.drive_id || null })),
-    comments: (R.comments.get(id) || []).map(c => ({ id: c.id, by: c.author_id, createdAt: c.created_at, vis: c.visibility, text: c.body, parent: c.parent_id, attachments: J(c.attachments, []) })),
+    comments: (R.comments.get(id) || []).map(c => ({ id: c.id, by: c.author_id, createdAt: c.created_at, vis: c.visibility, text: c.body, parent: c.parent_id, attachments: J(c.attachments, []), editedAt: c.edited_at || null })),
     activity: (R.activity.get(id) || []).map(a => ({ id: a.id, who: a.actor_id, k: a.action, createdAt: a.created_at, a: J(a.payload, {}) })),
     progress: ((R.progress && R.progress.get(id)) || []).map(pnOut),
   };
@@ -323,7 +323,7 @@ function writeTask(db, wsId, d, actorId) {
   (d.files || []).forEach(f => db.prepare("INSERT INTO files (id,workspace_id,task_id,filename,file_type,size_label,storage_provider,external_url,preview_data,drive_id,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").run(f.id || uid("file"), wsId, d.id, f.name, f.type || "other", f.size || "", f.source || "local", f.url || null, f.preview || null, f.driveId || null, f.by || actorId, f.createdAt || now()));
   db.prepare("DELETE FROM comments WHERE task_id=?").run(d.id);
   const ordered = (d.comments || []).slice().sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0));
-  ordered.forEach(c => db.prepare("INSERT INTO comments (id,workspace_id,task_id,parent_id,author_id,visibility,body,attachments,created_at) VALUES (?,?,?,?,?,?,?,?,?)").run(c.id || uid("cm"), wsId, d.id, c.parent || null, c.by || actorId, c.vis || "internal", c.text, S(c.attachments || []), c.createdAt || now()));
+  ordered.forEach(c => db.prepare("INSERT INTO comments (id,workspace_id,task_id,parent_id,author_id,visibility,body,attachments,created_at,edited_at) VALUES (?,?,?,?,?,?,?,?,?,?)").run(c.id || uid("cm"), wsId, d.id, c.parent || null, c.by || actorId, c.vis || "internal", c.text, S(c.attachments || []), c.createdAt || now(), c.editedAt || null));
   (d.activity || []).forEach(a => { if (!a.id || !db.prepare("SELECT 1 FROM activity_logs WHERE id=?").get(a.id)) appendActivity(db, wsId, { id: a.id, who: a.who || actorId, k: a.k, a: Object.assign({}, a.a, { task: d.id }), createdAt: a.createdAt }, "task", d.id); });
   return existing;
 }

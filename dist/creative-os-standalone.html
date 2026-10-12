@@ -5140,6 +5140,17 @@ img.emj.custom{object-fit:contain}
   #drawer .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
 }
 
+/* ---------- Editing a comment ---------- */
+.cmt .cmt-edited{color:var(--color-text-tertiary);font-size:11px;margin-left:4px}
+.cmt-edit{margin:4px 0 2px}
+.cmt-edit textarea{width:100%;box-sizing:border-box;min-height:64px;border:1px solid var(--color-primary);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:var(--color-surface);color:var(--color-text-primary);resize:vertical;outline:none}
+.cmt-edit-bar{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.cmt-edit-bar .hint{margin:0;font-size:11px}
+
+/* the Attach link dialog takes one link or many */
+#modal textarea#cmt_url{width:100%;box-sizing:border-box;min-height:52px;resize:vertical;font-family:var(--font-mono);font-size:12.5px;line-height:1.5}
+.cmt-links-found{margin-top:5px}
+
 </style>
 </head>
 <body>
@@ -7764,7 +7775,7 @@ function removeFile(i){ var tk=task(S.drawerTask), f0=tk&&tk.files[i]; if(!f0) r
 function fileLinkedVersions(tk,f){ if(!tk||!f) return []; return (tk.versions||[]).filter(function(v){ return (f.driveId&&v.driveId===f.driveId)||(f.preview&&v.img&&v.img===f.preview)||(f.url&&v.driveUrl&&v.driveUrl===f.url); }); }
 function attachLocal(imagesOnly){ var tk=task(S.drawerTask); var inp=document.getElementById("fileInput"); inp.accept=imagesOnly?"image/*":"*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files); inp.value=""; inp.multiple=false; if (!files.length) return; var q=taskUploadQueue(tk.id), entries=files.map(function(f){ return {id:uid("up"),name:f.name,size:(f.size/1048576).toFixed(1)+" MB",type:/^image\//.test(f.type)?"image":/^video\//.test(f.type)?"video":"other",preview:/^(image|video)\//.test(f.type)?URL.createObjectURL(f):""}; }); Array.prototype.push.apply(q,entries); renderDrawer();
   Promise.all(files.map(function(f,i){ return uploadAny(f,{forceDrive:true}).then(function(u){ return {file:f,upload:u}; }).catch(function(e){ return {file:f,error:e}; }); })).then(function(results){ var active=taskUploadQueue(tk.id); entries.forEach(function(x){ var i=active.indexOf(x); if(i>=0)active.splice(i,1); if(x.preview)URL.revokeObjectURL(x.preview); }); var good=results.filter(function(x){return x.upload;}); var bad=results.filter(function(x){return x.error;}); if(!good.length){ renderDrawer(); return toast(bad[0].file.name+": "+bad[0].error.message,"bad"); } return editTaskWith(tk,function(t){ good.forEach(function(x){ var u=x.upload; t.files.push(F(u.name,u.type,u.source,u.size,0,u.url,{preview:u.preview,driveId:u.driveId})); log(t,"file",{name:u.name}); }); }).then(function(saved){ renderDrawer(); if(saved===false)return false; toast(good.length+" file"+(good.length>1?"s":"")+" attached to Google Drive"); if(bad.length)toast(bad.length+" file could not be uploaded","bad"); if (!tk._draft) notifyTask("file",tk); }); }); }; inp.click(); }
-function normalizedAttachUrl(raw){ var value=String(raw||"").trim(); if(/^www\./i.test(value))value="https://"+value; try{ var u=new URL(value); return u.protocol==="https:"?u.href:""; }catch(_){ return ""; } }
+function normalizedAttachUrl(raw){ var value=String(raw||"").trim(); if(/^http:\/\//i.test(value))value="https://"+value.slice(7); if(/^www\./i.test(value)||(typeof BARE_LINK_RE!=="undefined"&&BARE_LINK_RE.test(value)))value="https://"+value; try{ var u=new URL(value); return u.protocol==="https:"?u.href:""; }catch(_){ return ""; } }
 function attachTaskLinkModal(){ openModal(tr("Attach link"),'<p class="hint">'+tr("Attach any trusted HTTPS link. It stays connected to this task and appears with the other files and references.")+'</p>'+fieldHtml("atl_url",tr("Link"),'<input id="atl_url" inputmode="url" placeholder="https://example.com/file-or-page">')+fieldHtml("atl_name",tr("Display name"),'<input id="atl_name" placeholder="'+attr(tr("e.g. Campaign reference"))+'">'),'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="saveTaskLink()">'+I.link+tr("Attach link")+'</button>'); }
 function saveTaskLink(){ if(!require(["atl_url"]))return; var url=normalizedAttachUrl(val("atl_url")); if(!url)return toast(tr("Use a valid HTTPS link"),"bad"); var name=val("atl_name").trim(); if(!name){try{name=new URL(url).hostname;}catch(_){name=tr("External link");}} var tk=task(S.drawerTask); closeModal(); editTaskWith(tk,function(t){t.files.push(F(name,"document","link","Link",0,url));log(t,"file",{name:name});}).then(function(saved){if(saved===false)return false;toast(tr("Link attached"));if(!tk._draft)notifyTask("file",tk);}); }
 function attachAssetModal(){ openModal("Attach from asset library",'<div class="agenda">'+ASSETS.map(function(a){ return '<div class="row" onclick="attachAsset(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+assetChip(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(srcOf(a))+' <span>'+esc(a.size)+'</span>'+(a.brand?' <span class="badge">brand</span>':'')+'</div></div><span class="btn xs">Attach</span></div>'; }).join("")+'</div>',null,true); }
@@ -7772,7 +7783,7 @@ function attachAsset(id){ var a=asset(id); var tk=task(S.drawerTask); closeModal
 
 /* ---- comments (threads, replies, mentions, attachments) ---- */
 function commentsView(tk){ var vis=person(ME).stakeholder?"client":S.commentVis; var list=tk.comments.filter(function(c){ return vis==="internal"?true:c.vis==="client"; }); var roots=list.filter(function(c){ return !c.parent||!byId(list,c.parent); }).sort(function(a,b){ return b.ago-a.ago; });
-  var one=function(c,isReply){ return '<div class="cmt '+c.vis+(isReply?" reply":"")+'" data-cid="'+attr(c.id||"")+'">'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span></div><div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>'+commentAttachmentsHtml(c)+'<div class="acts"><button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')+'</div></div></div>'; };
+  var one=function(c,isReply){ return '<div class="cmt '+c.vis+(isReply?" reply":"")+'" data-cid="'+attr(c.id||"")+'">'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(S.cmtEdit&&S.cmtEdit.id===c.id&&S.cmtEdit.task===tk.id&&typeof cmtEditHtml==="function"?cmtEditHtml(c):'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>')+commentAttachmentsHtml(c)+'<div class="acts"><button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')+'</div></div></div>'; };
   var h=(person(ME).stakeholder?'':'<div class="cvis"><button class="'+(S.commentVis==="internal"?"on":"")+'" onclick="S.commentVis=\'internal\';renderDrawer()">'+I.lock+'Internal</button><button class="'+(S.commentVis==="client"?"on":"")+'" onclick="S.commentVis=\'client\';renderDrawer()">'+I.eye+'Stakeholder-visible</button></div><div class="hint" style="margin:-6px 0 12px">'+tr(S.commentVis==="internal"?"Internal comments are only visible to the creative team.":"Stakeholder-visible comments can be seen by requesters like Marketing.")+'</div>');
   h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+'</div>';
   var rt=S.replyTo?byId(tk.comments,S.replyTo):null; window._cmtAtt=window._cmtAtt||[];
@@ -10425,8 +10436,11 @@ function messagesBadgeSync(){ var n=messagesUnreadTotal(), txt=n>99?"99+":String
 function msgTime(iso){ var d=new Date(iso); return d.toLocaleTimeString(UI_LANG==="id"?"id-ID":"en-US",{hour:"numeric",minute:"2-digit"}); }
 function msgDay(iso){ var d=new Date(iso), t=new Date(), y=new Date(t.getTime()-864e5); var same=function(a,b){ return a.toDateString()===b.toDateString(); }; var lab=d.toLocaleDateString(UI_LANG==="id"?"id-ID":"en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"}); return same(d,t)?tr("Today")+", "+d.toLocaleDateString(UI_LANG==="id"?"id-ID":"en-US",{month:"short",day:"numeric",year:"numeric"}):same(d,y)?tr("Yesterday"):lab; }
   /* ---------- §28–40 smart links ---------- */
-function normalizeMessageUrl(url){ var u=String(url||"").trim(); if(/^www\./i.test(u))u="https://"+u; if(!/^https?:\/\//i.test(u))return ""; try{ var x=new URL(u); if(x.protocol!=="http:"&&x.protocol!=="https:")return ""; x.hash=x.hash||""; return x.toString(); }catch(e){return "";} }
-function messageUrls(text){ var s=String(text||""), re=/(?:https?:\/\/|www\.|file:\/\/\/|zencrevia:\/\/)[^\s<>"']+/ig, out=[], seen={}, m; while((m=re.exec(s))){ var raw=m[0], clean=raw; while(/[.,!?;:]$/.test(clean))clean=clean.slice(0,-1); while(/\)$/.test(clean)&&((clean.match(/\(/g)||[]).length<(clean.match(/\)/g)||[]).length))clean=clean.slice(0,-1); var u=normalizeMessageUrl(clean)||(internalEntityFromUrl(clean)?clean:""); if(!u||seen[u])continue; seen[u]=1; out.push({raw:clean,url:u,start:m.index,end:m.index+clean.length}); } return out; }
+/* An address written without its https:// — figma.com/file/…, bit.ly/…, tokopedia.co.id/… — is a link too when
+   it has a known ending and a path after it (the path keeps "file.pdf" or "v1.2" from being taken for one). */
+var BARE_LINK_RE=/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|co|id|ly|me|app|dev|ai|so|gg|tv|to|link|site|xyz|info|biz|design|studio|page|art|us|uk|sg|my|au|cc|in)\//i;
+function normalizeMessageUrl(url){ var u=String(url||"").trim(); if(/^www\./i.test(u)||BARE_LINK_RE.test(u))u="https://"+u; if(!/^https?:\/\//i.test(u))return ""; try{ var x=new URL(u); if(x.protocol!=="http:"&&x.protocol!=="https:")return ""; x.hash=x.hash||""; return x.toString(); }catch(e){return "";} }
+function messageUrls(text,opts){ var all=!!(opts&&opts.all), s=String(text||""), re=/(?:https?:\/\/|www\.|file:\/\/\/|zencrevia:\/\/|\b(?=[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|co|id|ly|me|app|dev|ai|so|gg|tv|to|link|site|xyz|info|biz|design|studio|page|art|us|uk|sg|my|au|cc|in)\/)(?![a-z0-9.-]*@))[^\s<>"']+/ig, out=[], seen={}, m; while((m=re.exec(s))){ var raw=m[0], clean=raw; while(/[.,!?;:]$/.test(clean))clean=clean.slice(0,-1); while(/\)$/.test(clean)&&((clean.match(/\(/g)||[]).length<(clean.match(/\)/g)||[]).length))clean=clean.slice(0,-1); var u=normalizeMessageUrl(clean)||(internalEntityFromUrl(clean)?clean:""); if(!u||(!all&&seen[u]))continue; seen[u]=1; out.push({raw:clean,url:u,start:m.index,end:m.index+clean.length}); } return out; }
 /* v40 a ZenCrevia task/project link is recognised by its target, not by the exact address it was copied from:
    same app (origin+path) OR any copy of the app whose #task= / #project= points at an item that exists here
    (standalone file://, another host, index.html vs /). */
@@ -10515,7 +10529,7 @@ function renderMsgMain(keepScroll){ var el=document.getElementById("msgMain"); i
 function msgToggleSearch(){ CHAT_RUNTIME.searchOpen=!CHAT_RUNTIME.searchOpen; if(!CHAT_RUNTIME.searchOpen) S.messageSearch=""; renderMsgMain(true); if(CHAT_RUNTIME.searchOpen) focusSoon("msgSearchInput",30); }
 function msgConvMenu(a){ var c=conv(S.messageConversationId), isTeam=c.type==="TEAM_DEFAULT"||c.type==="TEAM_CHANNEL"; ctxMenu(a,'<button onclick="closePops();convToggleStar(\''+c.id+'\')">'+I.star+tr(convStarred(c)?"Unstar":"Star")+'</button><button onclick="closePops();msgMarkRead(conv(\''+c.id+'\'));renderMessages()">'+I.check+tr("Mark as read")+'</button>'+(msgDetailToggleable()?'<button onclick="closePops();S.messageDetailOpen=!S.messageDetailOpen;renderMessages()">'+I.eye+tr(S.messageDetailOpen?"Hide details":"Show details")+'</button>':'')+(innerWidth<=760?'<div class="gear-divider"></div><button onclick="closePops();msgMarkAllRead()">'+I.check+tr("Mark all conversations read")+'</button><button onclick="closePops();go(\'settings\',\'notifications\')">'+I.settings+tr("Notification settings")+'</button>':'')+''+(c.type==="GROUP"&&(c.createdBy===ME||has("manage_group_chat"))?'<button onclick="closePops();groupModal(\''+c.id+'\')">'+I.edit+tr("Rename / members")+'</button>':'')+(convCanEditChannel(c)?'<button onclick="closePops();editChannelModal(\''+c.id+'\')">'+I.edit+tr("Edit channel")+'</button>':'')+(!convIsChannel(c)&&c.type!=="DM"?'<button class="danger" style="color:var(--color-danger)" onclick="closePops();convLeave(\''+c.id+'\')">'+I.x+tr("Leave channel")+'</button>':'')+(convCanArchive(c)?'<button onclick="closePops();convArchive(\''+c.id+'\','+(!c.archivedAt)+')">'+I.trash+tr(c.archivedAt?"Unarchive":"Archive")+'</button>':'')); }
 function msgOnScroll(box){ if(box.scrollTop<40&&!CHAT_RUNTIME.loadingOlder){ var id=S.messageConversationId, total=convMsgs(id).length, shown=(CHAT_RUNTIME.shown||{})[id]||MSG_PAGE; if(API.on?CHAT_RUNTIME.cursor[id]:total>shown){ CHAT_RUNTIME.loadingOlder=true; var h=box.scrollHeight; msgLoadOlder(); setTimeout(function(){ var b=document.getElementById("msgTimeline"); if(b) b.scrollTop=b.scrollHeight-h+b.scrollTop; CHAT_RUNTIME.loadingOlder=false; },60); } } }
-function msgBodyHtml(m){ var body=m.body||"", urls=messageUrls(body), pos=0, t=""; urls.forEach(function(x){ t+=esc(body.slice(pos,x.start)); var ie=internalEntityFromUrl(x.url), tk=ie&&ie.type==="TASK"?task(ie.id):null, pj=ie&&ie.type==="PROJECT"?project(ie.id):null;
+function msgBodyHtml(m){ var body=m.body||"", urls=messageUrls(body,{all:true}), pos=0, t=""; urls.forEach(function(x){ t+=esc(body.slice(pos,x.start)); var ie=internalEntityFromUrl(x.url), tk=ie&&ie.type==="TASK"?task(ie.id):null, pj=ie&&ie.type==="PROJECT"?project(ie.id):null;
     /* v40 a task/project link reads as a short labelled chip and opens in-app, instead of a long raw address */
     if(tk||pj){ t+='<a href="'+attr(x.url)+'" class="msg-entity-link" title="'+attr(x.url)+'" onclick="event.stopPropagation();event.preventDefault();'+(tk?"openTask(\'"+attr(tk.id)+"\')":"go(\'projects\',\'"+attr(pj.id)+"\')")+'">'+(tk?I.tasks:I.projects)+'<span>'+esc(tk?tk.id+" · "+tk.title:pj.name)+'</span></a>'; }
     else t+='<a href="'+attr(x.url)+'" target="_blank" rel="noopener nofollow" onclick="event.stopPropagation();event.preventDefault();msgOpenLink(this.href)">'+esc(x.raw)+'</a>'; pos=x.end; }); t+=esc(body.slice(pos)); var inText=function(html,fn){ return html.split(/(<[^>]*>)/).map(function(part,i){ return i%2?part:fn(part); }).join(""); }; (m.mentions||[]).forEach(function(x){ var d=esc(x.display||("@"+x.userId)); t=inText(t,function(s){ return s.split("@"+d).join('<span class="msg-mention'+(x.userId===ME||x.userId==="@everyone"?" self":"")+'"'+(x.userId&&x.userId!=="@everyone"?' data-uid="'+attr(x.userId)+'" role="button" tabindex="0"':'')+'>@'+d+'</span>'); }); }); if(S.messageSearch){ var q=S.messageSearch.trim(); if(q){ var re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"); t=inText(t,function(s){ return s.replace(re,'<mark>$1</mark>'); }); } } return t.replace(/\n/g,"<br>"); }
@@ -13619,6 +13633,11 @@ Object.assign(UI_ID,{
   "created": "dibuat",
   "Move to": "Pindah ke",
   "Add a final file": "Tambah file final",
+  "One link, or many — paste a list, or text with links in it.": "Satu tautan atau banyak — tempel daftar, atau teks yang berisi tautan.",
+  "links found — each is attached": "tautan ditemukan — semuanya dilampirkan",
+  "1 link found": "1 tautan ditemukan",
+  "links attached": "tautan dilampirkan",
+  "Up to 50 attachments per comment": "Maksimal 50 lampiran per komentar",
   "Attach a task": "Lampirkan task",
   "Attach a project": "Lampirkan proyek",
   "Already attached": "Sudah dilampirkan",
@@ -16407,7 +16426,7 @@ Object.assign(UI_ID,{
 
 /* ---------- shared: links in plain text (chat rules) ---------- */
 /* Turns URLs into safe links. Task/project links of this workspace become in-app chips. */
-function richLinkText(text,o){ o=o||{}; text=String(text||""); var urls=typeof messageUrls==="function"?messageUrls(text):[], pos=0, out="";
+function richLinkText(text,o){ o=o||{}; text=String(text||""); var urls=typeof messageUrls==="function"?messageUrls(text,{all:true}):[], pos=0, out="";
   urls.forEach(function(x){ out+=esc(text.slice(pos,x.start)); var ie=internalEntityFromUrl(x.url), tk=ie&&ie.type==="TASK"?task(ie.id):null, pj=ie&&ie.type==="PROJECT"?project(ie.id):null;
     if(tk||pj) out+='<a href="'+attr(x.url)+'" class="msg-entity-link" onclick="event.stopPropagation();event.preventDefault();'+(tk?"openTask(\\'"+attr(tk.id)+"\\')":"go(\\'projects\\',\\'"+attr(pj.id)+"\\')")+'">'+(tk?I.tasks:I.projects)+'<span>'+esc(tk?tk.id+" · "+tk.title:pj.name)+'</span></a>';
     else if(/^https?:/i.test(x.url)) out+='<a href="'+attr(x.url)+'" target="_blank" rel="noopener nofollow" class="rich-link" onclick="event.stopPropagation();event.preventDefault();openExternal(this.href)">'+esc(x.raw)+'</a>';
@@ -17575,10 +17594,11 @@ function cmtToolbarHtml(){
     + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="project" title="'+attr(tr("Attach a project"))+'" onclick="cmtAttachRef(this,\'project\')">'+I.projects+tr("Project")+'</button>'
     + '</div>';
 }
-function cmtRoom(){ return 10-(window._cmtAtt||[]).length; }
+var CMT_MAX_ATT=50;
+function cmtRoom(){ return CMT_MAX_ATT-(window._cmtAtt||[]).length; }
 function cmtStage(a){
   window._cmtAtt=window._cmtAtt||[];
-  if(cmtRoom()<=0) return toast(tr("Up to 10 attachments per comment"),"bad");
+  if(cmtRoom()<=0) return toast(tr("Up to 50 attachments per comment"),"bad");
   if(a.url&&window._cmtAtt.some(function(x){ return x.url===a.url; })) return toast(tr("That link is already attached"));
   if(a.ref&&window._cmtAtt.some(function(x){ return x.ref===a.ref&&x.refId===a.refId; })) return toast(tr("Already attached"));
   window._cmtAtt.push(a); cmtRedraw();
@@ -17604,8 +17624,8 @@ function cmtLinkModal(kind){
   var drive=kind==="drive";
   openModal(drive?(driveIcon()+" "+tr("Link Google Drive")):tr("Attach link"),
     '<p class="hint" style="margin-bottom:10px">'+tr(drive?"Paste a Google Drive, Docs, Sheets or Slides link. It is shown by its name, and filed under Assets & versions.":"Paste a link. A link to a file or a design is also filed under Assets & versions; any other link stays on the comment.")+'</p>'
-    + fieldHtml("cmt_url",tr("Link"),'<input id="cmt_url" inputmode="url" placeholder="'+attr(drive?"https://drive.google.com/drive/folders/…":"https://")+'" oninput="cmtLinkNameSoon(\''+kind+'\')">')
-    + fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')
+    + fieldHtml("cmt_url",tr("Link"),'<textarea id="cmt_url" rows="2" inputmode="url" spellcheck="false" placeholder="'+attr(drive?"https://drive.google.com/drive/folders/…":"https://")+'" oninput="cmtLinkNameSoon(\''+kind+'\')"></textarea><div class="hint cmt-links-found" id="cmt_found">'+esc(tr("One link, or many — paste a list, or text with links in it."))+'</div>')
+    + '<div id="cmt_name_wrap">'+fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')+'</div>'
     + '<p class="hint" id="cmt_name_hint" style="min-height:1.3em"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
   focusSoon("cmt_url",40);
@@ -17635,9 +17655,25 @@ function linkNameFor(url,typed){
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },2500); });
   return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||driveLinkLabel(url); });
 }
-function cmtLinkNameSoon(kind){ linkNameSoon("cmt_url","cmt_name","cmt_name_hint"); }
+/* Every link in what was pasted — a list, or text with links in it: http:// as https://, an address without its
+   https:// as a link, each once. One link keeps the name field; several are named by themselves (a Drive link by
+   its file's name, any other by its site). */
+function cmtLinksIn(text,kind){ var seen={}, out=[];
+  var add=function(raw){ var u=normalizedAttachUrl(raw); if(!u||seen[u]) return; if(kind==="drive"&&!isGoogleLink(u)) return; seen[u]=1; out.push(u); };
+  (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){ add(x.raw); });
+  if(!out.length) add(String(text||"").trim());
+  return out; }
+function cmtLinkNameSoon(kind){ var list=cmtLinksIn(val("cmt_url"),kind), f=document.getElementById("cmt_found"), w=document.getElementById("cmt_name_wrap");
+  if(f) f.textContent=list.length>1?list.length+" "+tr("links found — each is attached"):list.length===1?tr("1 link found"):tr("One link, or many — paste a list, or text with links in it.");
+  if(w) w.style.display=list.length>1?"none":"";
+  if(list.length<=1) linkNameSoon("cmt_url","cmt_name","cmt_name_hint"); }
 function cmtLinkSave(kind){
-  var url=normalizedAttachUrl(val("cmt_url"));
+  var list=cmtLinksIn(val("cmt_url"),kind);
+  if(list.length>1){ var room=cmtRoom(), added=0, skipped=0;
+    list.forEach(function(u){ if(added>=room){ skipped++; return; } if((window._cmtAtt||[]).some(function(x){ return x.url===u; })) return; var drive=isGoogleLink(u), host=""; try{ host=new URL(u).hostname.replace(/^www\./,""); }catch(e){}
+      window._cmtAtt=window._cmtAtt||[]; window._cmtAtt.push({name:drive?driveLinkLabel(u):host||tr("External link"),url:u,type:"link",kind:"link",source:drive?"gdrive":"link",size:tr("Link"),named:false}); added++; });
+    closeModal(); cmtRedraw(); toast(added+" "+tr("links attached")+(skipped?" · "+tr("Up to 50 attachments per comment"):""),skipped?"bad":undefined); return; }
+  var url=list[0]||normalizedAttachUrl(val("cmt_url"));
   if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var drive=isGoogleLink(url);
   if(kind==="drive"&&!drive) return toast(tr("Use a Google Drive, Docs, Sheets, or Slides share link"),"bad");
@@ -17958,7 +17994,32 @@ function cmtMentionsHtml(html){
   }).join("");
 }
 
+/* ---------- editing a comment ----------
+   Whoever wrote a comment can change what it says, in place: its words in a box where they were, Save and
+   Cancel under it (Ctrl+Enter saves, Esc cancels). What is being written is kept through a redraw of the panel
+   (S.cmtEdit), and the box keeps its focus (it has an id, see v38.js). Saved, it says "edited"; whoever the new
+   words name and the old ones did not is told. Attachments and replies stay as they were. */
+function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
+  S.cmtEdit={task:tk.id,id:id,draft:c.text||""}; renderDrawer();
+  setTimeout(function(){ var ta=document.getElementById("cmtEditText"); if(ta){ ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} } },0); }
+function cmtEditHtml(c){ var d=S.cmtEdit;
+  return '<div class="cmt-edit"><textarea id="cmtEditText" rows="3" maxlength="10000" aria-label="'+attr(tr("Edit comment"))+'" oninput="if(S.cmtEdit)S.cmtEdit.draft=this.value" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){event.preventDefault();cmtEditSave();}else if(event.key===\'Escape\'){event.preventDefault();event.stopPropagation();cmtEditCancel();}">'+esc(d.draft)+'</textarea>'
+    +'<div class="cmt-edit-bar"><span class="hint">'+esc(shortcutCombo?shortcutCombo("Enter"):"Ctrl + Enter")+' '+tr("saves")+' · Esc '+tr("cancels")+'</span><span class="spacer"></span><button type="button" class="btn xs" onclick="cmtEditCancel()">'+tr("Cancel")+'</button><button type="button" class="btn xs primary" id="cmtEditSave" onclick="cmtEditSave()">'+tr("Save")+'</button></div></div>'; }
+function cmtEditCancel(){ S.cmtEdit=null; renderDrawer(); }
+function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), ta=document.getElementById("cmtEditText"); if(!c) return cmtEditCancel();
+  var text=String(ta?ta.value:d.draft).trim(); if(!text&&!(c.attachments||[]).length) return toast(tr("Write something first"),"bad");
+  if(text===(c.text||"")){ S.cmtEdit=null; renderDrawer(); return; }
+  var before=c.text||"", btn=document.getElementById("cmtEditSave"); if(btn) btn.disabled=true;
+  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); S.cmtEdit=null; refresh(); toast(tr("Comment updated"));
+    /* whoever the new words name and the old did not */
+    if(typeof refMentionIds==="function"){ var was=refMentionIds(before), now=refMentionIds(text).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); }); if(now.length) notify("mention",now,tk.id); } };
+  if(!API.on){ c.text=text; c.editedAt=new Date().toISOString(); return done(null); }
+  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
+/* a comment being edited is let go when its task is left */
+(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) S.cmtEdit=null; return base.apply(this,arguments); }; })();
+
 Object.assign(UI_ID,{
+  "Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
   "On this task":"Di task ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",

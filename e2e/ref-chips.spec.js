@@ -199,5 +199,5 @@ test("a new task tells whoever its description names when it is created, not tho
 
 test("cleanup", async ({ page }) => {
   await signIn(page);
-  await page.evaluate(async ids => { for (const id of [ids.task, ids.other, ids.created].filter(Boolean)) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); if (ids.project) await apiFetch("DELETE", "/api/projects/" + ids.project).catch(() => {}); }, ids);
+  await page.evaluate(async ids => { for (const id of [ids.task, ids.other, ids.created].filter(Boolean)) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); if (ids.project) await apiFetch("DELETE", "/api/projects/" + ids.project).catch(() => {}); for (const m of [ids.rara, ids.sinta].filter(Boolean)) await apiFetch("DELETE", "/api/members/" + m).catch(() => {}); }, ids);
 });

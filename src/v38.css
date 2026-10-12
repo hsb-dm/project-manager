@@ -956,3 +956,14 @@ img.emj.custom{object-fit:contain}
   #drawer .composer .cmt-tools{gap:4px}
   #drawer .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
 }
+
+/* ---------- Editing a comment ---------- */
+.cmt .cmt-edited{color:var(--color-text-tertiary);font-size:11px;margin-left:4px}
+.cmt-edit{margin:4px 0 2px}
+.cmt-edit textarea{width:100%;box-sizing:border-box;min-height:64px;border:1px solid var(--color-primary);border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:var(--color-surface);color:var(--color-text-primary);resize:vertical;outline:none}
+.cmt-edit-bar{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.cmt-edit-bar .hint{margin:0;font-size:11px}
+
+/* the Attach link dialog takes one link or many */
+#modal textarea#cmt_url{width:100%;box-sizing:border-box;min-height:52px;resize:vertical;font-family:var(--font-mono);font-size:12.5px;line-height:1.5}
+.cmt-links-found{margin-top:5px}

@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS revision_requests (
 CREATE TABLE IF NOT EXISTS comments (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   parent_id TEXT REFERENCES comments(id) ON DELETE CASCADE, author_id TEXT REFERENCES users(id), visibility TEXT DEFAULT 'internal',
-  body TEXT NOT NULL, attachments TEXT DEFAULT '[]', created_at TEXT DEFAULT (datetime('now'))
+  body TEXT NOT NULL, attachments TEXT DEFAULT '[]', created_at TEXT DEFAULT (datetime('now')), edited_at TEXT
 );
 CREATE TABLE IF NOT EXISTS creative_requests (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, objective TEXT, description TEXT, deliverables TEXT,

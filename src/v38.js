@@ -37,7 +37,7 @@ Object.assign(UI_ID,{
 
 /* ---------- shared: links in plain text (chat rules) ---------- */
 /* Turns URLs into safe links. Task/project links of this workspace become in-app chips. */
-function richLinkText(text,o){ o=o||{}; text=String(text||""); var urls=typeof messageUrls==="function"?messageUrls(text):[], pos=0, out="";
+function richLinkText(text,o){ o=o||{}; text=String(text||""); var urls=typeof messageUrls==="function"?messageUrls(text,{all:true}):[], pos=0, out="";
   urls.forEach(function(x){ out+=esc(text.slice(pos,x.start)); var ie=internalEntityFromUrl(x.url), tk=ie&&ie.type==="TASK"?task(ie.id):null, pj=ie&&ie.type==="PROJECT"?project(ie.id):null;
     if(tk||pj) out+='<a href="'+attr(x.url)+'" class="msg-entity-link" onclick="event.stopPropagation();event.preventDefault();'+(tk?"openTask(\\'"+attr(tk.id)+"\\')":"go(\\'projects\\',\\'"+attr(pj.id)+"\\')")+'">'+(tk?I.tasks:I.projects)+'<span>'+esc(tk?tk.id+" · "+tk.title:pj.name)+'</span></a>';
     else if(/^https?:/i.test(x.url)) out+='<a href="'+attr(x.url)+'" target="_blank" rel="noopener nofollow" class="rich-link" onclick="event.stopPropagation();event.preventDefault();openExternal(this.href)">'+esc(x.raw)+'</a>';

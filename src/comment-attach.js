@@ -97,10 +97,11 @@ function cmtToolbarHtml(){
     + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="project" title="'+attr(tr("Attach a project"))+'" onclick="cmtAttachRef(this,\'project\')">'+I.projects+tr("Project")+'</button>'
     + '</div>';
 }
-function cmtRoom(){ return 10-(window._cmtAtt||[]).length; }
+var CMT_MAX_ATT=50;
+function cmtRoom(){ return CMT_MAX_ATT-(window._cmtAtt||[]).length; }
 function cmtStage(a){
   window._cmtAtt=window._cmtAtt||[];
-  if(cmtRoom()<=0) return toast(tr("Up to 10 attachments per comment"),"bad");
+  if(cmtRoom()<=0) return toast(tr("Up to 50 attachments per comment"),"bad");
   if(a.url&&window._cmtAtt.some(function(x){ return x.url===a.url; })) return toast(tr("That link is already attached"));
   if(a.ref&&window._cmtAtt.some(function(x){ return x.ref===a.ref&&x.refId===a.refId; })) return toast(tr("Already attached"));
   window._cmtAtt.push(a); cmtRedraw();
@@ -126,8 +127,8 @@ function cmtLinkModal(kind){
   var drive=kind==="drive";
   openModal(drive?(driveIcon()+" "+tr("Link Google Drive")):tr("Attach link"),
     '<p class="hint" style="margin-bottom:10px">'+tr(drive?"Paste a Google Drive, Docs, Sheets or Slides link. It is shown by its name, and filed under Assets & versions.":"Paste a link. A link to a file or a design is also filed under Assets & versions; any other link stays on the comment.")+'</p>'
-    + fieldHtml("cmt_url",tr("Link"),'<input id="cmt_url" inputmode="url" placeholder="'+attr(drive?"https://drive.google.com/drive/folders/…":"https://")+'" oninput="cmtLinkNameSoon(\''+kind+'\')">')
-    + fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')
+    + fieldHtml("cmt_url",tr("Link"),'<textarea id="cmt_url" rows="2" inputmode="url" spellcheck="false" placeholder="'+attr(drive?"https://drive.google.com/drive/folders/…":"https://")+'" oninput="cmtLinkNameSoon(\''+kind+'\')"></textarea><div class="hint cmt-links-found" id="cmt_found">'+esc(tr("One link, or many — paste a list, or text with links in it."))+'</div>')
+    + '<div id="cmt_name_wrap">'+fieldHtml("cmt_name",tr("Display name"),'<input id="cmt_name" placeholder="'+attr(tr(drive?"Filled in from Drive when it can be read":"Optional"))+'">')+'</div>'
     + '<p class="hint" id="cmt_name_hint" style="min-height:1.3em"></p>',
     '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="cmtLinkSave(\''+kind+'\')">'+(drive?driveIcon():I.link)+tr("Attach")+'</button>');
   focusSoon("cmt_url",40);
@@ -157,9 +158,25 @@ function linkNameFor(url,typed){
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },2500); });
   return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||driveLinkLabel(url); });
 }
-function cmtLinkNameSoon(kind){ linkNameSoon("cmt_url","cmt_name","cmt_name_hint"); }
+/* Every link in what was pasted — a list, or text with links in it: http:// as https://, an address without its
+   https:// as a link, each once. One link keeps the name field; several are named by themselves (a Drive link by
+   its file's name, any other by its site). */
+function cmtLinksIn(text,kind){ var seen={}, out=[];
+  var add=function(raw){ var u=normalizedAttachUrl(raw); if(!u||seen[u]) return; if(kind==="drive"&&!isGoogleLink(u)) return; seen[u]=1; out.push(u); };
+  (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){ add(x.raw); });
+  if(!out.length) add(String(text||"").trim());
+  return out; }
+function cmtLinkNameSoon(kind){ var list=cmtLinksIn(val("cmt_url"),kind), f=document.getElementById("cmt_found"), w=document.getElementById("cmt_name_wrap");
+  if(f) f.textContent=list.length>1?list.length+" "+tr("links found — each is attached"):list.length===1?tr("1 link found"):tr("One link, or many — paste a list, or text with links in it.");
+  if(w) w.style.display=list.length>1?"none":"";
+  if(list.length<=1) linkNameSoon("cmt_url","cmt_name","cmt_name_hint"); }
 function cmtLinkSave(kind){
-  var url=normalizedAttachUrl(val("cmt_url"));
+  var list=cmtLinksIn(val("cmt_url"),kind);
+  if(list.length>1){ var room=cmtRoom(), added=0, skipped=0;
+    list.forEach(function(u){ if(added>=room){ skipped++; return; } if((window._cmtAtt||[]).some(function(x){ return x.url===u; })) return; var drive=isGoogleLink(u), host=""; try{ host=new URL(u).hostname.replace(/^www\./,""); }catch(e){}
+      window._cmtAtt=window._cmtAtt||[]; window._cmtAtt.push({name:drive?driveLinkLabel(u):host||tr("External link"),url:u,type:"link",kind:"link",source:drive?"gdrive":"link",size:tr("Link"),named:false}); added++; });
+    closeModal(); cmtRedraw(); toast(added+" "+tr("links attached")+(skipped?" · "+tr("Up to 50 attachments per comment"):""),skipped?"bad":undefined); return; }
+  var url=list[0]||normalizedAttachUrl(val("cmt_url"));
   if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var drive=isGoogleLink(url);
   if(kind==="drive"&&!drive) return toast(tr("Use a Google Drive, Docs, Sheets, or Slides share link"),"bad");

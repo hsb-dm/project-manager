@@ -197,7 +197,32 @@ function cmtMentionsHtml(html){
   }).join("");
 }
 
+/* ---------- editing a comment ----------
+   Whoever wrote a comment can change what it says, in place: its words in a box where they were, Save and
+   Cancel under it (Ctrl+Enter saves, Esc cancels). What is being written is kept through a redraw of the panel
+   (S.cmtEdit), and the box keeps its focus (it has an id, see v38.js). Saved, it says "edited"; whoever the new
+   words name and the old ones did not is told. Attachments and replies stay as they were. */
+function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
+  S.cmtEdit={task:tk.id,id:id,draft:c.text||""}; renderDrawer();
+  setTimeout(function(){ var ta=document.getElementById("cmtEditText"); if(ta){ ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} } },0); }
+function cmtEditHtml(c){ var d=S.cmtEdit;
+  return '<div class="cmt-edit"><textarea id="cmtEditText" rows="3" maxlength="10000" aria-label="'+attr(tr("Edit comment"))+'" oninput="if(S.cmtEdit)S.cmtEdit.draft=this.value" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){event.preventDefault();cmtEditSave();}else if(event.key===\'Escape\'){event.preventDefault();event.stopPropagation();cmtEditCancel();}">'+esc(d.draft)+'</textarea>'
+    +'<div class="cmt-edit-bar"><span class="hint">'+esc(shortcutCombo?shortcutCombo("Enter"):"Ctrl + Enter")+' '+tr("saves")+' · Esc '+tr("cancels")+'</span><span class="spacer"></span><button type="button" class="btn xs" onclick="cmtEditCancel()">'+tr("Cancel")+'</button><button type="button" class="btn xs primary" id="cmtEditSave" onclick="cmtEditSave()">'+tr("Save")+'</button></div></div>'; }
+function cmtEditCancel(){ S.cmtEdit=null; renderDrawer(); }
+function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), ta=document.getElementById("cmtEditText"); if(!c) return cmtEditCancel();
+  var text=String(ta?ta.value:d.draft).trim(); if(!text&&!(c.attachments||[]).length) return toast(tr("Write something first"),"bad");
+  if(text===(c.text||"")){ S.cmtEdit=null; renderDrawer(); return; }
+  var before=c.text||"", btn=document.getElementById("cmtEditSave"); if(btn) btn.disabled=true;
+  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); S.cmtEdit=null; refresh(); toast(tr("Comment updated"));
+    /* whoever the new words name and the old did not */
+    if(typeof refMentionIds==="function"){ var was=refMentionIds(before), now=refMentionIds(text).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); }); if(now.length) notify("mention",now,tk.id); } };
+  if(!API.on){ c.text=text; c.editedAt=new Date().toISOString(); return done(null); }
+  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
+/* a comment being edited is let go when its task is left */
+(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) S.cmtEdit=null; return base.apply(this,arguments); }; })();
+
 Object.assign(UI_ID,{
+  "Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
   "On this task":"Di task ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
