@@ -4,7 +4,7 @@
    ============================================================ */
 function kpi(cls,v,k,hint,onclick,icon,sq){ return '<div class="kpi '+cls+'" onclick="'+(onclick||"")+'"><div class="top"><span class="sq '+(sq||"")+'">'+(icon||I.tasks)+'</span><span class="k">'+tr(k)+'</span></div><div class="v">'+v+'</div>'+(hint?'<div class="d">'+tr(hint)+'</div>':'')+'</div>'; }
 function rail(){ var st=localStages(); var counts={}; var max=1; st.forEach(function(s){ counts[s.id]=0; }); visibleBoardTasks().forEach(function(x){ counts[x.status]=(counts[x.status]||0)+1; }); st.forEach(function(s){ if (counts[s.id]>max) max=counts[s.id]; });
-  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Creative pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':tr("All")+' '+visibleBoardTasks().length+' '+tr("tasks"))+'</div></div></div><div class="rail-track">';
+  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Workflow pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':tr("All")+' '+visibleBoardTasks().length+' '+tr("tasks"))+'</div></div></div><div class="rail-track">';
   st.forEach(function(sg){ var n=counts[sg.id]||0; var over=visibleBoardTasks().filter(function(x){ return x.status===sg.id&&x.due<0&&sg.kind!=="closed"; }).length; var cls=sg.kind==="closed"?"good":sg.kind==="review"?"warn":sg.kind==="revision"?"bad":"";
     h+='<div class="stage '+cls+(S.railFilter===sg.id?" on":"")+(n===0?" empty":"")+'" onclick="S.railFilter=(S.railFilter===\''+sg.id+'\')?null:\''+sg.id+'\';renderScreen(false)" title="'+attr(sg.name)+'">'+(over?'<span class="flag"></span>':'')+'<div class="n">'+n+'</div><div class="l">'+esc(sg.name)+'</div><div class="bar"><i style="width:'+Math.round(n/max*100)+'%"></i></div></div>'; });
   return h+'</div></div>'; }
@@ -22,7 +22,7 @@ function toggleDashCollapse(k){ var pf=dashPrefs(); var c=dashCollapsed().slice(
 /* v19.7 the eight KPI cards are back; each can be shown/hidden per member (myPrefs.kpiHidden) from Customize */
 var KPI_ALL=[["mytasks","My tasks"],["duetoday","Due today"],["inreview","In review"],["overdue","Overdue"],["assetsdone","Assets delivered"],["assetsopen","Assets in production"],["assetlinks","Asset links"],["autohidden","Auto-hidden"]];
 function kpiHidden(){ return myPrefs().kpiHidden||[]; }
-var DASH_NAMES={myspace:"My space",kpis:"KPI cards",rail:"Creative pipeline",priorities:"My priorities",review:"Needs your review",workload:"Team workload",projects:"Active projects",deadlines:"Upcoming deadlines",requests:"Inbox \u2014 new requests",activity:"Recent activity"};
+var DASH_NAMES={myspace:"My space",kpis:"KPI cards",rail:"Workflow pipeline",priorities:"My priorities",review:"Needs your review",workload:"Team workload",projects:"Active projects",deadlines:"Upcoming deadlines",requests:"Inbox \u2014 new requests",activity:"Recent activity"};
 /* ---------- one modal: tick everything, then apply ---------- */
 var CUST=null;
 function dashMenu(){ customizeModal(); }

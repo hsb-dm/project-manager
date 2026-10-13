@@ -67,7 +67,7 @@ function attr(s){ return esc(s).replace(/'/g,"&#39;"); }
 function jsq(s){ return attr(JSON.stringify(String(s==null?"":s))); }
 function byId(list,id){ for (var i=0;i<list.length;i++) if (list[i].id===id) return list[i]; return null; }
 function task(id){ return byId(TASKS,id); } function project(id){ return byId(PROJECTS,id); } function asset(id){ return byId(ASSETS,id); } function page(id){ return byId(KNOWLEDGE,id); } function request(id){ return byId(REQUESTS,id); }
-function team(id){ return byId(TEAMS,id)||null; } function teamName(id){ var t=team(id); return t?t.name:"No team"; } function teamVar(id){ var t=team(id); if (!t) return "var(--team-gray)"; return /^#/.test(t.color)?t.color:"var(--team-"+t.color+")"; }
+function team(id){ return byId(TEAMS,id)||null; } function teamName(id){ var t=team(id); return t?t.name:tr("No team"); } function teamVar(id){ var t=team(id); if (!t) return "var(--team-gray)"; return /^#/.test(t.color)?t.color:"var(--team-"+t.color+")"; }
 function teamColorCss(c){ return /^#/.test(c||"")?c:"var(--team-"+(c||"gray")+")"; }
 function teamBadge(id,cls){ var t=team(id); if (!t) return '<span class="tbadge'+(cls?" "+cls:"")+'" style="--tc:var(--team-gray)"><i></i>'+tr("No team")+'</span>'; return '<span class="tbadge'+(cls?" "+cls:"")+'" style="--tc:'+teamVar(id)+'"><i></i>'+esc(t.name)+'</span>'; }
 function requestBadge(t){ return isRequestTask(t)?'<span class="badge req" title="Submitted as a creative request by '+attr(person(t.createdBy).name)+'">request</span>':""; }

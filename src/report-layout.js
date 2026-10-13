@@ -27,7 +27,7 @@ function reportDashboardXml(d,sheets){
   ];
   var rows={},merges=[],links=[];function put(r,c,v,style,f){if(!rows[r])rows[r]={cells:{},height:22};rows[r].cells[c]=xlCell(colName(c)+r,v,style,f);}function height(r,h){if(!rows[r])rows[r]={cells:{}};rows[r].height=h;}
   function merge(r,c,endR,endC,v,style,f){for(var y=r;y<=endR;y++)for(var x=c;x<=endC;x++)put(y,x,'',style);put(r,c,v,style,f);merges.push(colName(c)+r+':'+colName(endC)+endR);}
-  merge(1,0,2,14,WS.name+' · '+tr('Creative report'),'title');height(1,24);height(2,20);
+  merge(1,0,2,14,WS.name+' · '+tr('Workspace report'),'title');height(1,24);height(2,20);
   merge(3,0,4,14,reportPeriod()+' · '+tr('Scope')+': '+(exScopeLine()||tr('All teams'))+' · '+tr('Report date')+': '+iso(0),'context');height(3,19);height(4,19);height(5,10);
   metrics.slice(0,8).forEach(function(k,i){var c=i%4*4,r=i<4?6:11;merge(r,c,r,c+2,tr(k[0]),'label');height(r,28);merge(r+1,c,r+2,c+2,k[1],i===3||i===7?'percent':i===2&&k[1]>0?'danger':'value','F'+(47+i));height(r+1,27);height(r+2,27);merge(r+3,c,r+3,c+2,i===3?m.asg+'h / '+m.cap+'h':'','note');height(r+3,14);});height(10,10);height(15,10);height(16,8);
   for(var r=17;r<=30;r++)height(r,20);height(31,12);

@@ -41,6 +41,15 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_progress_notes', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[roles] progress note capabilities: " + e.message); }
+/* The default tagline was "Creative operations workspace"; teams outside creative use the workspace too, so it is
+   "Team operations workspace" now. A workspace still on the old default gets the new one, once — a tagline anyone
+   wrote is left as it is, and it stays editable in Settings → Workspace. */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='tagline_general'").get()) {
+    db.prepare("UPDATE workspaces SET tagline='Team operations workspace' WHERE tagline='Creative operations workspace'").run();
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('tagline_general', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[workspace] tagline: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
 /* v38: a removed member keeps their user row (history points at it) but loses everything that
    made the account usable: sign-in email, password, sessions. The email is free to be added or
@@ -367,7 +376,7 @@ const PWA_ICON_FILES = { "192": "icon-192.png", "512": "icon-512.png", "maskable
 function strHash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "-" + s.length.toString(36); }
 function pwaIcons() { const ws = sz.readWorkspace(db, WS_ID); let stored = null; try { db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)"); const r = db.prepare("SELECT value FROM app_meta WHERE key='pwa_icons'").get(); stored = r && JSON.parse(r.value); } catch (e) {} return { ws, stored, live: ws.favicon && stored && stored.hash === strHash(ws.favicon) ? stored : null }; }
 function pwaManifest() { const { ws, live } = pwaIcons(), v = live ? live.hash : "zc", name = String(ws.name || "ZenCrevia").slice(0, 45), icon = (k, size, purpose) => ({ src: "/pwa-icon/" + k + ".png?v=" + v, sizes: size + "x" + size, type: "image/png", purpose });
-  return { id: "/", name, short_name: name.slice(0, 24), description: "Creative operations: tasks, projects, reviews and chat for creative teams.", start_url: "/", scope: "/", display: "standalone", background_color: "#EEF0F4", theme_color: "#FFFFFF", categories: ["productivity", "business"],
+  return { id: "/", name, short_name: name.slice(0, 24), description: "Tasks, projects, reviews and chat for teams.", start_url: "/", scope: "/", display: "standalone", background_color: "#EEF0F4", theme_color: "#FFFFFF", categories: ["productivity", "business"],
     icons: [icon("192", 192, "any"), icon("512", 512, "any"), icon("maskable-512", 512, "maskable")],
     shortcuts: [{ name: "My tasks", url: "/tasks", icons: [{ src: "/pwa-icon/192.png?v=" + v, sizes: "192x192", type: "image/png" }] }, { name: "Messages", url: "/messages", icons: [{ src: "/pwa-icon/192.png?v=" + v, sizes: "192x192", type: "image/png" }] }] }; }
 /* Web Push (server/push.js): the VAPID subject is the first admin's address unless COS_VAPID_SUBJECT says otherwise */
