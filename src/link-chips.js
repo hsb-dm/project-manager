@@ -62,8 +62,10 @@ var LINK_CARD={el:null,chip:null,show:null,hide:null};
 function linkCardClose(){ clearTimeout(LINK_CARD.show); clearTimeout(LINK_CARD.hide); if(LINK_CARD.el) LINK_CARD.el.classList.remove("open"); LINK_CARD.chip=null; }
 function linkCardOpen(chip){
   var url=chip.getAttribute("href"); if(!url) return;
-  var p=typeof detectProvider==="function"?detectProvider(url):null, s=chip.querySelector("span"), name=(s?s.textContent:chip.textContent).trim();
-  var kind=p&&typeof smartSubtitle==="function"?tr(smartSubtitle(p)):"", e=typeof embedFor==="function"?embedFor(url):null;
+  var p=typeof detectProvider==="function"?detectProvider(url):null, s=chip.querySelector("span:last-child")||chip.querySelector("span"), name=(chip.getAttribute("data-name")||(s?s.textContent:chip.textContent)).trim();
+  var google=typeof isGoogleLink==="function"&&isGoogleLink(url), brand=!google&&typeof brandOf==="function"?brandOf(url):null, host=""; try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(x){}
+  var kind=google&&p&&typeof smartSubtitle==="function"?tr(smartSubtitle(p)):brand?brand.name:host, e=typeof embedFor==="function"?embedFor(url):null;
+  var mark=google&&typeof googleIcon==="function"?googleIcon(url):brand?brandIconHtml(url,18):'<span class="lc-link">'+I.link+'</span>';
   var el=LINK_CARD.el;
   if(!el){
     el=LINK_CARD.el=document.createElement("div"); el.className="link-card"; el.setAttribute("role","dialog");
@@ -72,7 +74,7 @@ function linkCardOpen(chip){
     document.body.appendChild(el);
   }
   el.setAttribute("aria-label",name);
-  el.innerHTML='<div class="lc-head">'+(typeof googleIcon==="function"?googleIcon(url):I.link)+'<b>'+esc(name)+'</b></div>'+(kind?'<div class="lc-kind">'+esc(kind)+'</div>':'')
+  el.innerHTML='<div class="lc-head">'+mark+'<b>'+esc(name)+'</b></div>'+(kind?'<div class="lc-kind">'+esc(kind)+'</div>':'')
     + '<div class="lc-acts">'
     + (e?'<button type="button" data-act="preview">'+I.eye+tr("Open preview")+'</button>':'')
     + '<button type="button" data-act="open">'+I.ext+tr("Open link")+'</button>'

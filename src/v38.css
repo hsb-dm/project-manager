@@ -967,3 +967,11 @@ img.emj.custom{object-fit:contain}
 /* the Attach link dialog takes one link or many */
 #modal textarea#cmt_url{width:100%;box-sizing:border-box;min-height:52px;resize:vertical;font-family:var(--font-mono);font-size:12.5px;line-height:1.5}
 .cmt-links-found{margin-top:5px}
+
+/* ---------- A service's mark on a link (src/brand-icons.js) ---------- */
+.brand-ico{flex:none;display:inline-block;vertical-align:middle}
+.brand-mono{flex:none;display:inline-grid;place-items:center;border-radius:4px;color:#fff;font-weight:800;line-height:1;letter-spacing:-.02em;font-family:var(--font-sans,inherit)}
+.link-chip .link-chip-ico.brand{color:inherit}
+.link-card .lc-head .brand-ico,.link-card .lc-head .brand-mono,.link-card .lc-head .lc-link{flex:none}
+.link-card .lc-head .lc-link svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand-mono{text-transform:none}

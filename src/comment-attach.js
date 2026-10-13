@@ -259,7 +259,7 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
   var label=name&&name!==url?name:(host||url);
   return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
-    +(badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>')+'<span>'+esc(label)+'</span></a>'; }
+    +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span>'+esc(label)+'</span></a>'; }
 /* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the

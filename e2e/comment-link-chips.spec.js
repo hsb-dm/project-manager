@@ -29,7 +29,8 @@ test("links and files in a comment are chips with a small mark and a one-line na
     const sizes = await staged.evaluateAll(list => list.map(s => { const chip = s.querySelector(".drive-chip"), mark = chip.querySelector("svg,.file-chip-ico,img"); const m = mark.getBoundingClientRect(), c = chip.getBoundingClientRect(); return { markW: Math.round(m.width), markH: Math.round(m.height), chipH: Math.round(c.height), fill: mark.tagName.toLowerCase() === "svg" ? getComputedStyle(mark).fill : "" }; }));
     for (const s of sizes) { expect(s.markW, JSON.stringify(s)).toBeLessThanOrEqual(30); expect(s.markH, JSON.stringify(s)).toBeLessThanOrEqual(18); expect(s.chipH, "one line").toBeLessThanOrEqual(30); }
     expect(sizes[2].fill, "the link mark is drawn, not filled black").toBe("none");
-    await expect(staged.nth(0).locator(".file-chip-ico")).toHaveText("FIG");
+    /* Figma by its own mark (src/brand-icons.js), in its colour */
+    await expect(staged.nth(0).locator("svg.brand-ico")).toBeVisible();
     await expect(staged.nth(0)).toContainText("Figma KV Insurance");
     await expect(staged.nth(2)).toContainText("example.org");
     await expect(staged.nth(3).locator(".file-chip-ico")).toHaveText("PDF");
@@ -42,7 +43,7 @@ test("links and files in a comment are chips with a small mark and a one-line na
     await expect.poll(() => page.evaluate(id => task(id).comments.length, id), { timeout: 10000 }).toBe(1);
     const posted = page.locator("#drawer .cmt .cmt-links .drive-chip");
     await expect(posted).toHaveCount(3);
-    await expect(posted.nth(0).locator(".file-chip-ico")).toHaveText("FIG");
+    await expect(posted.nth(0).locator("svg.brand-ico")).toBeVisible();
     await expect(posted.filter({ hasText: "Media plan Q4.pdf" }).locator(".file-chip-ico")).toHaveText("PDF");
     const h = await posted.evaluateAll(list => list.map(a => Math.round(a.getBoundingClientRect().height)));
     for (const x of h) expect(x).toBeLessThanOrEqual(30);
