@@ -48,9 +48,13 @@ function pruneOutbox() {
   } catch {}
 }
 function sendLog(m) { fs.mkdirSync(cfg.outbox, { recursive: true }); const file = path.join(cfg.outbox, new Date().toISOString().replace(/[:.]/g, "-") + "-" + m.to.replace(/[^a-z0-9@.]/gi, "_") + "-" + require("crypto").randomBytes(3).toString("hex") + ".eml"); /* v30: two mails in one millisecond no longer overwrite each other */ fs.writeFileSync(file, mime(m), { mode: 0o600 }); pruneOutbox(); console.log("[mail:log] → " + m.to + " · " + m.subject + "  (" + path.relative(process.cwd(), file) + ")"); return Promise.resolve({ file }); }
+/* Google shows an App Password in four groups of four ("abcd efgh ijkl mnop"). Pasted like that, the spaces went to
+   Gmail as part of the password and it answered "535 Username and Password not accepted". For a Gmail host, a
+   password that is exactly such an App Password is sent as its 16 letters; any other password is sent as typed. */
+const smtpPass = (host, pass) => { const p = String(pass == null ? "" : pass); return /(^|\.)(gmail|googlemail)\.com$/i.test(String(host || "").trim()) && /^[a-z]{4}(\s?[a-z]{4}){3}$/i.test(p.trim()) ? p.replace(/\s+/g, "") : p; };
 const plainAuthOk = host => process.env.COS_SMTP_ALLOW_PLAINTEXT_AUTH === "1" || /^(localhost|127\.\d+\.\d+\.\d+|::1)$/i.test(String(host || ""));
 function sendSmtp(m) {
-  const s = cfg.smtp; if (!s.host) return Promise.reject(new Error("SMTP_HOST not set"));
+  const s = Object.assign({}, cfg.smtp, { pass: smtpPass(cfg.smtp.host, cfg.smtp.pass) }); if (!s.host) return Promise.reject(new Error("SMTP_HOST not set"));
   return new Promise((resolve, reject) => {
     let sock = s.secure ? tls.connect({ host: s.host, port: s.port, servername: s.host }) : net.connect({ host: s.host, port: s.port });
     let buf = "", queue = [], done = false; const fromAddr = (cfg.from.match(/<([^>]+)>/) || [null, cfg.from])[1];
@@ -126,6 +130,7 @@ function sendWith(conf, m) {
 function verifySmtp(s) {
   return new Promise((resolve, reject) => {
     if (!s || !s.host) return reject(new Error("Enter an SMTP host first"));
+    s = Object.assign({}, s, { pass: smtpPass(s.host, s.pass) });
     const port = +s.port || 587;
     let sock = s.secure ? tls.connect({ host: s.host, port, servername: s.host }) : net.connect({ host: s.host, port });
     let buf = "", queue = [], done = false, caps = [];
@@ -166,4 +171,4 @@ function send(m) {
     .then(r => { state.sent++; state.lastTo = m.to; state.lastAt = new Date().toISOString(); state.lastError = null; return r; })
     .catch(e => { state.failed++; state.lastError = e.message; state.lastTo = m.to; state.lastAt = new Date().toISOString(); throw e; });
 }
-module.exports = { send, sendWith, verifySmtp, setStoredConfig, activeConfig, PROVIDER_PRESETS, cfg, state, link: (p) => cfg.appUrl.replace(/\/$/, "") + p };
+module.exports = { smtpPass, send, sendWith, verifySmtp, setStoredConfig, activeConfig, PROVIDER_PRESETS, cfg, state, link: (p) => cfg.appUrl.replace(/\/$/, "") + p };

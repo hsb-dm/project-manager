@@ -1183,3 +1183,5 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
 .panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
 .panel.ink .empty .h{color:var(--color-ink-text)}
+/* a refused SMTP sign-in says what to do, under the error */
+.smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}

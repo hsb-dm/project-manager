@@ -54,3 +54,20 @@ test('a refused SMTP login comes back as 424 with the mail server\'s reason', { 
     assert.match(j.error, /535 5\.7\.8 Username and Password not accepted/, route + ': the mail server\'s own words reach the admin');
   }
 });
+
+/* Google shows an App Password as "abcd efgh ijkl mnop"; pasted like that, Gmail refused it with the same 535 as a
+   wrong password. For a Gmail host such a password goes as its 16 letters; any other password goes as typed. */
+test('a Gmail App Password pasted with its spaces is sent as its 16 letters; other passwords as typed', () => {
+  const { smtpPass } = require('../server/mailer');
+  assert.equal(smtpPass('smtp.gmail.com', 'abcd efgh ijkl mnop'), 'abcdefghijklmnop');
+  assert.equal(smtpPass(' SMTP.GMAIL.COM ', 'abcd efgh ijkl mnop'), 'abcdefghijklmnop');
+  assert.equal(smtpPass('smtp.googlemail.com', 'abcdefghijklmnop'), 'abcdefghijklmnop');
+  assert.equal(smtpPass('smtp.gmail.com', 'my pass word'), 'my pass word', 'not an App Password: as typed');
+  assert.equal(smtpPass('smtp.gmail.com', 'abcd efgh ijkl mnop qrst'), 'abcd efgh ijkl mnop qrst', 'too long for one');
+  assert.equal(smtpPass('smtp.office365.com', 'abcd efgh ijkl mnop'), 'abcd efgh ijkl mnop', 'another server: as typed');
+  assert.equal(smtpPass('evilgmail.com', 'abcd efgh ijkl mnop'), 'abcd efgh ijkl mnop', 'only Gmail itself');
+  /* and both ways in use it: Test connection, and every e-mail sent */
+  const src = fs.readFileSync(path.join(root, 'server', 'mailer.js'), 'utf8');
+  assert.ok(src.slice(src.indexOf('function verifySmtp'), src.indexOf('function send(')).includes('pass: smtpPass(s.host, s.pass)'), 'Test connection');
+  assert.ok(src.slice(src.indexOf('function sendSmtp'), src.indexOf('function sendResend')).includes('pass: smtpPass(cfg.smtp.host, cfg.smtp.pass)'), 'sending');
+});

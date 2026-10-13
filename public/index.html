@@ -5366,6 +5366,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
 .panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
 .panel.ink .empty .h{color:var(--color-ink-text)}
+/* a refused SMTP sign-in says what to do, under the error */
+.smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}
 
 </style>
 </head>
@@ -12512,6 +12514,11 @@ function smtpFormValues(){
     replyTo: val("smtp_reply").trim()
   };
 }
+/* a refused sign-in (535) says what to do: for Gmail, an App Password and the full address; for any server, that a
+   blank password field keeps the password already stored */
+function smtpAuthHint(msg,host){ if(!/\b535\b|BadCredentials|Username and Password not accepted/i.test(String(msg||""))) return "";
+  var gmail=/(^|\.)(gmail|googlemail)\.com$/i.test(String(host==null?val("smtp_host"):host).trim());
+  return '<div class="smtp-hint">'+esc(tr(gmail?"Gmail refused the sign-in. Use a 16-letter App Password (Google Account → Security → 2-Step Verification → App passwords), not the Google password, and the full Gmail address as the username. Type the App Password again: a blank password field keeps the one already stored.":"The mail server refused the username or password. Check both; a blank password field keeps the one already stored."))+'</div>'; }
 function smtpTestConnection(){
   var btn=document.getElementById("smtpTestBtn"); if(btn){ btn.disabled=true; btn.textContent=tr("Connecting…"); }
   var done=function(html){ var el=document.getElementById("smtpResult"); if(el) el.innerHTML=html; if(btn){ btn.disabled=false; btn.textContent=tr("Test connection"); } };
@@ -12519,7 +12526,7 @@ function smtpTestConnection(){
     done('<div class="banner ok"><b>'+tr("Connection succeeded")+'</b> — '+tr("encryption")+': <span class="mono">'+esc(r.encryption)+'</span>'
       + (r.authenticated?' · '+tr("credentials accepted"):' · '+tr("no credentials sent"))+'</div>');
   }).catch(function(e){
-    done('<div class="banner warn"><b>'+tr("Connection failed")+'</b> — '+esc(e.message)+'</div>');
+    done('<div class="banner warn"><b>'+tr("Connection failed")+'</b> — '+esc(e.message)+smtpAuthHint(e.message)+'</div>');
   });
 }
 function smtpSendTest(){
@@ -12529,7 +12536,7 @@ function smtpSendTest(){
   apiFetch("POST","/api/mail/smtp/send-test",Object.assign(smtpFormValues(),{to:to})).then(function(r){
     done('<div class="banner ok"><b>'+tr("Test email sent")+'</b> — '+esc(r.to)+'. '+tr("Check the inbox, including spam.")+'</div>');
   }).catch(function(e){
-    done('<div class="banner warn"><b>'+tr("Send failed")+'</b> — '+esc(e.message)+'</div>');
+    done('<div class="banner warn"><b>'+tr("Send failed")+'</b> — '+esc(e.message)+smtpAuthHint(e.message)+'</div>');
   });
 }
 function smtpSave(){
@@ -12833,6 +12840,8 @@ function createServerBackup(){
     .catch(function(e){ toast(e.message,"bad"); });
 }
 function backupSize(n){ return bytesLabel(n); }
+Object.assign(UI_ID,{"Gmail refused the sign-in. Use a 16-letter App Password (Google Account → Security → 2-Step Verification → App passwords), not the Google password, and the full Gmail address as the username. Type the App Password again: a blank password field keeps the one already stored.":"Gmail menolak login. Pakai App Password 16 huruf (Akun Google → Keamanan → Verifikasi 2 Langkah → Sandi aplikasi), bukan password Google, dan alamat Gmail lengkap sebagai username. Ketik ulang App Password-nya: kolom password yang dikosongkan tetap memakai password yang sudah tersimpan.",
+  "The mail server refused the username or password. Check both; a blank password field keeps the one already stored.":"Server email menolak username atau password. Periksa keduanya; kolom password yang dikosongkan tetap memakai password yang sudah tersimpan."});
 </script>
 <script>
 /* IMPORT A JSON SNAPSHOT — Settings → Backup & data → Import / Export (admins, server mode).
