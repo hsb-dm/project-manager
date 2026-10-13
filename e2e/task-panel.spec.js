@@ -202,7 +202,7 @@ test("neither button is ever left floating where there is no picture", async ({ 
 
 /* ---------- expand ---------- */
 
-test("Expand folds the header to its top line and gives the tab the room; Collapse brings it back", async ({ page }) => {
+test("Expand folds the header to its top line and the title, and gives the tab the room; Collapse brings it back", async ({ page }) => {
   await signIn(page);
   await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; renderDrawer(); }, taskId);
   await page.waitForTimeout(300);
@@ -215,7 +215,9 @@ test("Expand folds the header to its top line and gives the tab the room; Collap
   await btn.click();
   await page.waitForTimeout(300);
 
-  for (const sel of [".dr-title", ".dr-head .meta", ".task-tags-bottom"]) expect(await shown(page, sel), sel + " is folded away").toBe(false);
+  for (const sel of [".dr-head .meta", ".task-tags-bottom"]) expect(await shown(page, sel), sel + " is folded away").toBe(false);
+  /* the title stays, so which task this is stays on screen (it used to fold away too) */
+  await expect(page.locator(".dr-title"), "the title stays").toBeVisible();
   await expect(page.locator(".dr-top"), "the top line stays").toBeVisible();
   await expect(page.locator(".dr-head .tabs"), "and so do the tabs").toBeVisible();
   expect(await bodyHeight(page), "the tab's contents get the space").toBeGreaterThan(normal + 150);
