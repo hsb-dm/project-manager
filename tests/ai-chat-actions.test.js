@@ -53,10 +53,10 @@ test("attachments ride with the question and are cleared once answered", () => {
 
 test("an attachment narrows the standing snapshot instead of adding to it", () => {
   const actions = read("src/ai-chat-actions.js");
-  assert.match(actions, /aiContext\(n\?18:60\)/, "18 tasks when something is attached, 60 when not");
+  assert.match(actions, /aiContext\(n\?18:60,AI_CTX_MAX-att\.length\)/, "18 tasks in full when something is attached, 60 when not — in the room the attachment left");
   const ai = read("src/ai.js");
-  assert.match(ai, /function aiContext\(taskLimit\)/);
-  assert.match(ai, /open\.slice\(0,Math\.max\(1,\+taskLimit\|\|60\)\)/);
+  assert.match(ai, /function aiContext\(taskLimit,budget\)/);
+  assert.match(ai, /lim=Math\.max\(1,\+taskLimit\|\|60\), full=open\.slice\(0,lim\)/);
 });
 
 test("attached material is fenced and labelled as data, never as instructions", () => {
@@ -102,4 +102,17 @@ test("a proposal is accepted only when it is well formed", () => {
   assert.match(parse, /p\.action!=="create_task"/, "only the one action is understood");
   assert.match(parse, /!String\(p\.title\|\|""\)\.trim\(\)/, "a proposal without a title is refused");
   assert.match(parse, /catch\(e\)\{ return null; \}/, "malformed JSON falls back to plain text");
+});
+
+/* ---------- reading the workspace accurately (Oct 2026) ---------- */
+test("the server keeps the whole snapshot the browser sends, and tells the model how to read it", () => {
+  const srv = read("server/server.js"), ai = read("src/ai.js");
+  const keep = +(srv.match(/String\(b\.context \|\| ""\)\.slice\(0, (\d+)\)/) || [])[1];
+  const room = +(ai.match(/var AI_CTX_MAX=(\d+);/) || [])[1];
+  assert.ok(room >= 30000, "the snapshot has room for a busy workspace");
+  assert.ok(keep >= room, "the server keeps all of it (it kept 12 000 and cut off the people and the overdue list)");
+  assert.match(srv, /Read dates from the snapshot/, "dates are read, not worked out");
+  assert.match(srv, /a person's work is the tasks that name them under assignees/);
+  assert.match(srv, /FINISHED IN THE LAST 30 DAYS/);
+  assert.match(ai, /Read dates from the snapshot/, "the browser's direct mode gives the same rule");
 });

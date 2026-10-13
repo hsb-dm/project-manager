@@ -65,7 +65,8 @@ function driveChipHtml(url,name){
     return base.apply(this,args).replace(/<a href="([^"]+)" target="_blank" rel="noopener nofollow" class="rich-link"([^>]*)>([^<]*)<\/a>/g,function(whole,href,rest){
       var url=typeof pasteUnesc==="function"?pasteUnesc(href):href, name=names[url];
       if(isGoogleLink(url)) return driveChipHtml(url,name);
-      return name?'<a href="'+href+'" target="_blank" rel="noopener nofollow" class="rich-link"'+rest+'>'+esc(name)+'</a>':whole;
+      /* any other link is a chip too — its service's mark and its name (written with it, or read from the address) */
+      return cmtAttChipHtml({url:url,name:name||"",named:!!name});
     });
   };
 })();
@@ -209,12 +210,13 @@ function cmtAssetsFrom(att,text){
     if(a.kind==="link"&&!linkLooksLikeAsset(a.url)) return;   /* a reference page stays on the comment */
     out.push(a);
   });
-  /* Drive links written into the comment are attachments too */
+  /* links written into the comment count as attached ones do: an asset (Drive, Figma, Canva, Dropbox, a file…)
+     is filed, a reference page stays on the comment */
   (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){
-    var url=normalizedAttachUrl(x.url); if(!url||!isGoogleLink(url)) return;
+    var url=normalizedAttachUrl(x.url); if(!url||!linkLooksLikeAsset(url)) return;
     if(out.some(function(a){ return a.url===url; })) return;
-    var written=typeof mdLinkNames==="function"?mdLinkNames(text)[url]:"";
-    out.push({name:written||driveLinkLabel(url),url:url,type:"link",kind:"link",source:"gdrive",size:tr("Link")});
+    var written=typeof mdLinkNames==="function"?mdLinkNames(text)[url]:"", g=isGoogleLink(url);
+    out.push({name:written||(g?driveLinkLabel(url):cmtLinkLabel(url)),url:url,type:"link",kind:"link",source:g?"gdrive":"link",size:tr("Link")});
   });
   return out;
 }
@@ -257,7 +259,7 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   if(isGoogleLink(url)) return driveChipHtml(url,a.named||(name&&name!==url&&!/^https?:/i.test(name))?name:"");
   var p=typeof detectProvider==="function"?detectProvider(url):null, badge=p&&CMT_LINK_BADGE[p.provider], host="";
   try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
-  var label=name&&name!==url?name:(host||url);
+  var label=name&&name!==url?name:cmtLinkLabel(url);
   return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
     +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span>'+esc(label)+'</span></a>'; }
 /* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
@@ -269,6 +271,15 @@ function cmtAttachRef(btn,kind){ var tk=S.drawerTask?task(S.drawerTask):null, an
     search:kind==="task"?function(q){ return epTaskItems(q,{projectId:tk&&tk.proj}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
 function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a.ref,a.refId,a.name||a.refId):'<span class="att">'+esc(a.name||a.refId)+'</span>'; }
+/* A link's name when none was written with it, read from its address: a known service's link by the page's own
+   words in it (figma.com/design/…/Figma-KV-Insurance → "Figma KV Insurance"), any other by its site and that page
+   (example.org › guidelines 2026), or its site alone. An id-like part (a long run of letters and digits) is no name. */
+function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String(url||""); }
+  var host=u.hostname.replace(/^www\./,""), segs=u.pathname.split("/").filter(Boolean).map(function(x){ try{ return decodeURIComponent(x); }catch(e){ return x; } });
+  var words=null; for(var i=segs.length-1;i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
+  if(words&&words.length>48) words=words.slice(0,47)+"…";
+  var brand=typeof brandOf==="function"?brandOf(url):null;
+  return brand?(words||brand.name):(words?host+" › "+words:host); }
 function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;

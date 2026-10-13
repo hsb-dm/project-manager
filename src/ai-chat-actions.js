@@ -111,7 +111,7 @@ function aiAttachDetail(){
 }
 /* With attachments the question is about them, so the standing snapshot can be narrower — which
    also pays for the detail in tokens instead of adding to it. */
-function aiChatContext(){ var n=aiAttachList().length; return aiAttachDetail()+aiContext(n?18:60); }
+function aiChatContext(){ var n=aiAttachList().length, att=aiAttachDetail(); return att+aiContext(n?18:60,AI_CTX_MAX-att.length); }
 
 /* ---------- 3 · proposals ---------- */
 var AI_ACTION_OPEN = "<<<ZC_ACTION", AI_ACTION_CLOSE = "ZC_ACTION>>>";

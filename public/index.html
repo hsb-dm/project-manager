@@ -5313,6 +5313,28 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .exm-lang b{display:block;font-size:14px}
 .exm-lang small{display:block;margin-top:2px;color:var(--color-text-secondary);font-size:12px}
 
+/* editing a comment in the box: the box says so, and the comment being edited is marked */
+/* the comment being edited: a tinted card with room around it — the avatar stays in line with the others —
+   and the comment box in place of its words */
+#drawer .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
+#drawer .cmt.cmt-editing .composer{margin-top:8px}
+#drawer .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
+/* a link in a comment's words is a chip: inline with the text */
+#drawer .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
+@media(max-width:760px){#drawer .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+/* Home: Mine · All on each card, small, at the head's end */
+.panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
+.seg.dash-scope button{padding:3px 10px;font-size:12px}
+.rail-head .seg.dash-scope{margin-left:auto}
+.dash .empty .btn{margin-top:10px}
+/* the estimate filled in for the person: a small "auto" beside the hours, its source on hover (or a tap) */
+.est-auto{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:16px;cursor:help;vertical-align:middle;border:0}
+.est-auto.ai{background:color-mix(in srgb,#8B5CF6 16%,transparent);color:#7C3AED}
+[data-theme="dark"] .est-auto.ai{color:#C4B5FD}
+/* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
+.panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
+.panel.ink .empty .h{color:var(--color-ink-text)}
+
 </style>
 </head>
 <body>
@@ -5730,6 +5752,10 @@ function person(id){ return PEOPLE[id]||{name:id||"Unassigned",ini:id?"?":"–",
 function assigneesOf(t){ var a=(t.assignees||[]).slice(); if (t.assignee&&a.indexOf(t.assignee)<0) a.unshift(t.assignee); return a.filter(function(x){ return !!x; }); }
 function reviewersOf(t){ var a=(t.reviewers||[]).slice(); if (t.reviewer&&a.indexOf(t.reviewer)<0) a.unshift(t.reviewer); return a.filter(function(x){ return !!x; }); }
 function isAssignee(t,id){ return assigneesOf(t).indexOf(id)>=0; } function isReviewer(t,id){ return reviewersOf(t).indexOf(id)>=0; } function involved(t,id){ return isAssignee(t,id)||isReviewer(t,id)||t.createdBy===id; }
+/* In review and mine: work I am named to review, my own work waiting for its review, and — when nobody is named to
+   review it — the work of a team I lead. Being allowed to review anything (an admin) does not fill my list with
+   reviews that belong to other people. */
+function reviewMine(t){ return isReviewer(t,ME)||isAssignee(t,ME)||(!reviewersOf(t).length&&leadsTeam(t.team)); }
 function avStack(ids,max){ ids=ids||[]; max=max||3; return '<span class="av-stack">'+ids.slice(0,max).map(function(id){ return av(id); }).join("")+(ids.length>max?'<span class="av" style="background:var(--color-border-strong);color:var(--color-text-primary)">+'+(ids.length-max)+'</span>':"")+'</span>'; }
 function av(id,cls){ var p=person(id); if (p.avatar) return '<span class="av img'+(cls?' '+cls:'')+'" style="background-image:url(&quot;'+attr(p.avatar)+'&quot;)" title="'+attr(p.name)+'"></span>'; return '<span class="av c'+p.c+(cls?' '+cls:'')+'" title="'+attr(p.name)+'">'+p.ini+'</span>'; }
 /* When something happened, as a date and time that can be tracked — "Oct 2, 2026, 11:06 AM (today)"
@@ -6086,6 +6112,7 @@ function detectedShortcutStyle(){var platform="";try{platform=(navigator.userAge
 function shortcutStyle(){var pref=(myPrefs().shortcutStyle||"auto");return pref==="mac"?"mac":pref==="ctrl"?"ctrl":detectedShortcutStyle();}
 function shortcutModifier(){return shortcutStyle()==="mac"?"⌘":"Ctrl";}
 function shortcutCombo(key){return shortcutModifier()+(shortcutStyle()==="mac"?" ":" + ")+key;}
+function shiftCombo(key){return shortcutStyle()==="mac"?"⇧ "+key:"Shift + "+key;}
 function syncShortcutHints(){var el=document.getElementById("searchShortcut");if(el)el.textContent=shortcutModifier()+" K";}
 function setShortcutStyle(value){var p=myPrefs();p.shortcutStyle=["auto","ctrl","mac"].indexOf(value)>=0?value:"auto";saveMyPrefs();syncShortcutHints();if(S.drawerTask)renderDrawer();if(S.screen==="settings")renderScreen(false);toast(tr("Shortcut display updated"));}
 
@@ -6548,7 +6575,8 @@ function projOpen(p){ return TASKS.filter(function(t){ return inProject(t,p.id)&
 function workloadRows(click,ids){ return (ids||Object.keys(PEOPLE).filter(function(id){ return !PEOPLE[id].stakeholder; })).map(function(id){ var p=person(id); var a=assigned(id); var pct=p.cap?Math.round(a/p.cap*100):0; var cls=pct>100?"hot":pct>=90?"warm":""; var pt=primaryTeam(id);
   return '<div class="wl'+(click?" click":"")+'" '+(click?'onclick="go(\'team\',\''+id+'\')"':'')+' style="--tc:'+teamVar(pt)+'">'+av(id)+'<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="n">'+esc(p.name)+(id===ME?' <span class="tiny muted">(you)</span>':'')+' '+teamBadge(pt)+'</span><span class="h">'+(typeof memberAssetsChip==="function"?memberAssetsChip(id):'')+'<b>'+a+'h</b> / '+p.cap+'h · '+pct+'%</span></div><div class="track '+cls+'"><i style="width:'+Math.min(100,pct)+'%"></i></div></div></div>'; }).join(""); }
 function teamWorkload(tid){ var ids=teamMembers(tid).filter(function(id){ return !PEOPLE[id].stakeholder; }); var cap=0,a=0; ids.forEach(function(id){ cap+=person(id).cap; a+=assigned(id); }); return {ids:ids,cap:cap,assigned:a,pct:cap?Math.round(a/cap*100):0,open:TASKS.filter(function(t){ return taskInvolvesTeam(t,tid)&&!isClosed(t)&&!projArchived(t.proj); }).length}; }
-function teamWorkloadRows(){ return activeTeams().filter(function(t){ return teamMembers(t.id).some(function(id){ return !PEOPLE[id].stakeholder; }); }).map(function(t){ var w=teamWorkload(t.id); var cls=w.pct>100?"hot":w.pct>=90?"warm":""; return '<div class="wl click" style="--tc:'+teamColorCss(t.color)+'" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:8px"><span class="n">'+esc(t.name)+' <span class="tiny muted">'+uiCount(w.ids.length,"member","members")+' · '+w.open+' '+tr("open")+'</span></span><span class="h"><b>'+w.assigned+'h</b> / '+w.cap+'h · '+w.pct+'%</span></div><div class="track '+cls+'"><i style="width:'+Math.min(100,w.pct)+'%"></i></div></div></div>'; }).join(""); }
+function workloadTeams(){ return activeTeams().filter(function(t){ return teamMembers(t.id).some(function(id){ return !PEOPLE[id].stakeholder; }); }); }
+function teamWorkloadRows(list){ return (list||workloadTeams()).map(function(t){ var w=teamWorkload(t.id); var cls=w.pct>100?"hot":w.pct>=90?"warm":""; return '<div class="wl click" style="--tc:'+teamColorCss(t.color)+'" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div style="display:flex;justify-content:space-between;gap:8px"><span class="n">'+esc(t.name)+' <span class="tiny muted">'+uiCount(w.ids.length,"member","members")+' · '+w.open+' '+tr("open")+'</span></span><span class="h"><b>'+w.assigned+'h</b> / '+w.cap+'h · '+w.pct+'%</span></div><div class="track '+cls+'"><i style="width:'+Math.min(100,w.pct)+'%"></i></div></div></div>'; }).join(""); }
 function activityRows(list,n){ return list.slice().sort(function(a,b){ return a.ago-b.ago; }).slice(0,n||8).map(function(a){ var tk=a.a.task?task(a.a.task):null; var rq=a.a.request?task("T-"+String(a.a.request).replace(/^R-/,"R")):null; var args={who:first(a.who),from:a.a.from?stageName(a.a.from):"",to:a.a.to?(a.k==="team"?teamName(a.a.to):a.k==="assigned"?(PEOPLE[a.a.to]?first(a.a.to):a.a.to):stageName(a.a.to)):"",v:a.a.v,name:a.a.name,what:a.a.what};
   var pj=a.a.project?project(a.a.project):null; var click=tk?'openTask(\''+tk.id+'\')':rq?'openTask(\''+rq.id+'\')':pj?'go(\'projects\',\''+pj.id+'\')':''; args.who=a.who?first(a.who):"ZenCrevia"; return '<div class="act" '+(click?'onclick="'+click+'" style="cursor:pointer"':'')+'>'+(a.who?av(a.who):'<span class="av" style="background:var(--color-ink);color:var(--color-ink-text)">OS</span>')+'<div><div class="txt">'+activityLine(a.k,args)+'</div><div class="ctx">'+(a.a.task?'<span class="mono">'+a.a.task+'</span> · ':'')+esc(tk?tk.title:rq?rq.title:pj?pj.name:"")+'</div></div><div class="when">'+ago(a.ago,a.createdAt)+'</div>'+(pj&&!tk?restoreButtonHtml("project",pj.id,a):'')+'</div>'; }).join(""); }
 var SRC={local:{l:"Local",c:"#6A717D"},gdrive:{l:"Google Drive",c:"#1FA463"},link:{l:"External link",c:"#2563EB"}};
@@ -7045,9 +7073,20 @@ function optimizeImage(file,presetName){
    DASHBOARD — KPI · priorities · team workload · projects · deadlines · review queue · requests · activity (§15–18)
    ============================================================ */
 function kpi(cls,v,k,hint,onclick,icon,sq){ return '<div class="kpi '+cls+'" onclick="'+(onclick||"")+'"><div class="top"><span class="sq '+(sq||"")+'">'+(icon||I.tasks)+'</span><span class="k">'+tr(k)+'</span></div><div class="v">'+v+'</div>'+(hint?'<div class="d">'+tr(hint)+'</div>':'')+'</div>'; }
-function rail(){ var st=localStages(); var counts={}; var max=1; st.forEach(function(s){ counts[s.id]=0; }); visibleBoardTasks().forEach(function(x){ counts[x.status]=(counts[x.status]||0)+1; }); st.forEach(function(s){ if (counts[s.id]>max) max=counts[s.id]; });
-  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Workflow pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':tr("All")+' '+visibleBoardTasks().length+' '+tr("tasks"))+'</div></div></div><div class="rail-track">';
-  st.forEach(function(sg){ var n=counts[sg.id]||0; var over=visibleBoardTasks().filter(function(x){ return x.status===sg.id&&x.due<0&&sg.kind!=="closed"; }).length; var cls=sg.kind==="closed"?"good":sg.kind==="review"?"warn":sg.kind==="revision"?"bad":"";
+/* Every Home card but Needs your review (which is only ever mine) shows Mine or All — Mine unless the person chose
+   All; the choice is remembered per card and travels with them. Mine is the work I am on: assigned, reviewing or
+   created; for projects, the ones I own, belong to or have work in; for teams, the ones I am in or lead; and the
+   inbox also holds new requests sent to my teams. */
+function dashScope(k){ var s=(PEOPLE[ME]&&myPrefs().dashScope)||{}; return s[k]==="all"?"all":"mine"; }
+function setDashScope(k,v){ var pr=myPrefs(); pr.dashScope=Object.assign({},pr.dashScope||{}); pr.dashScope[k]=v==="all"?"all":"mine"; saveMyPrefs(); renderScreen(false); }
+function dashScopeSeg(k){ var s=dashScope(k), b=function(v,l){ return '<button type="button" class="'+(s===v?"on":"")+'" aria-pressed="'+(s===v)+'" onclick="event.stopPropagation();setDashScope(\''+k+'\',\''+v+'\')">'+esc(tr(l))+'</button>'; };
+  return '<div class="seg dash-scope" data-scope="'+k+'" role="group" aria-label="'+attr(tr("Show"))+'">'+b("mine","Mine")+b("all","All")+'</div>'; }
+function dashShowAll(k){ return '<button type="button" class="btn xs" onclick="setDashScope(\''+k+'\',\'all\')">'+esc(tr("Show all"))+'</button>'; }
+function myTeam(tid){ var t=tid&&team(tid); return !!t&&(t.lead===ME||teamsOf(ME).indexOf(tid)>=0); }
+function railTasks(){ var all=visibleBoardTasks(); return dashScope("rail")==="all"?all:all.filter(function(x){ return involved(x,ME); }); }
+function rail(){ var st=localStages(); var counts={}; var max=1; st.forEach(function(s){ counts[s.id]=0; }); railTasks().forEach(function(x){ counts[x.status]=(counts[x.status]||0)+1; }); st.forEach(function(s){ if (counts[s.id]>max) max=counts[s.id]; });
+  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Workflow pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':railTasks().length+' '+tr("tasks"))+'</div></div>'+dashScopeSeg("rail")+'</div><div class="rail-track">';
+  st.forEach(function(sg){ var n=counts[sg.id]||0; var over=railTasks().filter(function(x){ return x.status===sg.id&&x.due<0&&sg.kind!=="closed"; }).length; var cls=sg.kind==="closed"?"good":sg.kind==="review"?"warn":sg.kind==="revision"?"bad":"";
     h+='<div class="stage '+cls+(S.railFilter===sg.id?" on":"")+(n===0?" empty":"")+'" onclick="S.railFilter=(S.railFilter===\''+sg.id+'\')?null:\''+sg.id+'\';renderScreen(false)" title="'+attr(sg.name)+'">'+(over?'<span class="flag"></span>':'')+'<div class="n">'+n+'</div><div class="l">'+esc(sg.name)+'</div><div class="bar"><i style="width:'+Math.round(n/max*100)+'%"></i></div></div>'; });
   return h+'</div></div>'; }
 var DASH_DEFAULT=["myspace","kpis","rail","priorities","review","workload","projects","deadlines","requests","activity"];
@@ -7064,6 +7103,7 @@ function toggleDashCollapse(k){ var pf=dashPrefs(); var c=dashCollapsed().slice(
 /* v19.7 the eight KPI cards are back; each can be shown/hidden per member (myPrefs.kpiHidden) from Customize */
 var KPI_ALL=[["mytasks","My tasks"],["duetoday","Due today"],["inreview","In review"],["overdue","Overdue"],["assetsdone","Assets delivered"],["assetsopen","Assets in production"],["assetlinks","Asset links"],["autohidden","Auto-hidden"]];
 function kpiHidden(){ return myPrefs().kpiHidden||[]; }
+Object.assign(UI_ID,{"Show":"Tampilkan","Show all":"Tampilkan semua","Priorities":"Prioritas","No open tasks":"Tidak ada task terbuka","Only what you are on is shown.":"Hanya yang melibatkan Anda yang ditampilkan.","No teams yet":"Belum ada tim","You are not in a team yet":"Anda belum masuk tim mana pun","No active projects":"Tidak ada proyek aktif","No active projects of yours":"Tidak ada proyek aktif milik Anda","No activity yet":"Belum ada aktivitas"});
 var DASH_NAMES={myspace:"My space",kpis:"KPI cards",rail:"Workflow pipeline",priorities:"My priorities",review:"Needs your review",workload:"Team workload",projects:"Active projects",deadlines:"Upcoming deadlines",requests:"Inbox \u2014 new requests",activity:"Recent activity"};
 /* ---------- one modal: tick everything, then apply ---------- */
 var CUST=null;
@@ -7179,15 +7219,19 @@ function dStart(e,k){ DDRAG=k; e.dataTransfer.effectAllowed="move"; setTimeout(f
 function dOver(e,el){ e.preventDefault(); el.classList.add("over"); }
 function dDrop(e,k){ e.preventDefault(); document.querySelectorAll("[data-sec].over,[data-sec].drag").forEach(function(x){ x.classList.remove("over","drag"); }); var from=DDRAG; DDRAG=null; if (!from||from===k) return; var o=dashOrder(); o.splice(o.indexOf(from),1); o.splice(o.indexOf(k),0,from); saveDashOrder(o); renderScreen(false); toast("Dashboard layout saved"); }
 function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
-  var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(function(x){ return isReviewer(x,ME)||canI.reviewTask(x); }));
+  var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(reviewMine));
   var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length; var assetsDone=assetsProduced(TASKS.filter(isClosed)); var assetsOpen=assetsProduced(ot);
   var h='<div class="pagehead m-head"><div><div class="date">'+uiDow(d.getDay())+', '+uiMol(d.getMonth())+' '+d.getDate()+'</div><h1>'+tr(g)+', '+first(ME)+'</h1><div class="muted" style="margin-top:4px">'+rev.length+' '+tr("waiting for your review")+' · '+today.length+' '+tr("due today")+' · '+over.length+' '+tr("overdue")+' · '+doneWeek+' '+tr("completed this week")+'</div></div><div class="actions"><button class="btn desktop-only" onclick="openMenu(\'exportMenu\',this)" data-menu>'+I.download+tr("Export")+'</button>'+dashboardCreateAction()+'<button class="btn desktop-only" id="dashCustom" title="'+tr("Choose which cards and menu items you see")+'" onclick="customizeModal()">'+I.tiles+tr("Customize")+((dashHidden().length+navHidden().length)?' <span class="cnt">'+(dashHidden().length+navHidden().length)+'</span>':'')+'</button></div></div>';
   h+=typeof wqHomeCard==="function"?wqHomeCard():"";
   var rf=S.railFilter, inStage=function(x){ return !rf||x.status===rf; };
-  var prioTitle=rf?"Tasks in “"+esc(stageName(rf))+"”":"My priorities"; var prioList=rf?sortTasks(visibleBoardTasks().filter(function(x){ return x.status===rf; })):sortTasks(mine);
+  var sc=function(k,list,isMine){ return dashScope(k)==="all"?list:list.filter(isMine||function(x){ return involved(x,ME); }); };
+  var prioAll=dashScope("priorities")==="all";
+  var prioTitle=rf?"Tasks in “"+esc(stageName(rf))+"”":prioAll?tr("Priorities"):"My priorities"; var prioList=rf?sortTasks(railTasks().filter(function(x){ return x.status===rf; })):sortTasks(prioAll?ot:mine);
   if (rf) rev=rev.filter(inStage);
-  var upcoming=sortTasks(ot.filter(inStage).filter(function(x){ return x.due>=0&&x.due<=7; })).slice(0,6); var openReqs=sortTasks(ot.filter(inStage).filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }));
-  var actAll=ACTIVITY; var actMine=ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&involved(t,ME))||a.who===ME; }); var actList=S.actScope==="all"?actAll:actMine;
+  var upcoming=sortTasks(sc("deadlines",ot.filter(inStage)).filter(function(x){ return x.due>=0&&x.due<=7; })).slice(0,6); var openReqs=sortTasks(sc("requests",ot.filter(inStage),function(t){ return involved(t,ME)||myTeam(t.team); }).filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }));
+  var actAll=ACTIVITY; var actMine=ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&involved(t,ME))||a.who===ME; }); var actList=dashScope("activity")==="all"?actAll:actMine;
+  var projList=sc("projects",liveProjects().filter(function(p){return p.status!=="done";}),projMine), wlTeams=sc("workload",workloadTeams(),function(t){ return myTeam(t.id); });
+  var none=function(k,all,mineText){ return dashScope(k)==="all"?emptyBox(all,""):emptyBox(mineText,tr("Only what you are on is shown."),null,dashShowAll(k)); };
   var sec={
     /* v19.4 My space is a normal Home card: draggable, hideable, collapsible, restorable from Customize */
     myspace:{full:true,html:typeof workbenchHtml==="function"?workbenchHtml():""},
@@ -7203,13 +7247,13 @@ function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); va
       var shown=KPI_ALL.map(function(k){ return k[0]; }).filter(function(k){ return kh.indexOf(k)<0; }); if(!shown.length) return '<div class="hint" style="padding:6px 2px">'+tr("All KPI cards are hidden.")+' <a href="#" onclick="customizeModal();return false" style="color:var(--color-primary);font-weight:600">'+tr("Customize")+'</a></div>';
       var cols=shown.length>=4?4:shown.length; return '<div class="kpis kpis-4 kpis-n'+cols+'">'+shown.map(function(k){ return cards[k](); }).join("")+'</div>'; })()},
     rail:{full:true,html:rail()},
-    priorities:{html:panel(prioTitle,prioList.length,prioList.length?prioList.slice(0,8).map(function(x){ return taskRow(x,{showAssignee:!!S.railFilter}); }).join(""):emptyBox(S.railFilter?"No tasks in this stage":"No tasks assigned to you",S.railFilter?"Try another stage or clear the filter.":""),"go(\'tasks\')",null,I.tasks)},
+    priorities:{html:panel(prioTitle,prioList.length,prioList.length?prioList.slice(0,8).map(function(x){ return taskRow(x,{showAssignee:!!S.railFilter||prioAll}); }).join(""):S.railFilter?emptyBox("No tasks in this stage","Try another stage or clear the filter."):prioAll?emptyBox(tr("No open tasks"),""):emptyBox("No tasks assigned to you","",null,dashShowAll("priorities")),"go(\'tasks\')",rf?null:dashScopeSeg("priorities"),I.tasks)},
     review:{html:panel("Needs your review",rev.length,rev.length?rev.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Nothing waiting for your review",""),null,null,I.eye,"ink")},
-    workload:{html:panel("Team workload",activeTeams().length,teamWorkloadRows(),"go(\'teams\')",null,I.team)},
-    projects:{html:panel("Active projects",liveProjects().filter(function(p){return p.status!=="done";}).length,projRows(liveProjects().filter(function(p){return p.status!=="done";})),"go(\'projects\')",null,I.projects)},
-    deadlines:{html:panel("Upcoming deadlines",upcoming.length,upcoming.length?upcoming.map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Nothing due this week",""),"go(\'calendar\')",null,I.calendar)},
-    requests:{html:panel("Inbox — new requests",openReqs.length,openReqs.length?openReqs.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Inbox is empty",""),"S.filters.status=firstStage();S.taskScope=\'all\';go(\'tasks\',\'list\')",null,I.inbox)},
-    activity:{full:true,html:panel("Recent activity",actList.length,actList.length?activityRows(actList,10):emptyBox("No activity on your tasks yet",""),null,'<div class="seg"><button class="'+(S.actScope!=="all"?"on":"")+'" onclick="S.actScope=\'mine\';renderScreen(false)">Mine</button><button class="'+(S.actScope==="all"?"on":"")+'" onclick="S.actScope=\'all\';renderScreen(false)">All</button></div>',I.sync)}
+    workload:{html:panel("Team workload",wlTeams.length,wlTeams.length?teamWorkloadRows(wlTeams):none("workload",tr("No teams yet"),tr("You are not in a team yet")),"go(\'teams\')",dashScopeSeg("workload"),I.team)},
+    projects:{html:panel("Active projects",projList.length,projList.length?projRows(projList):none("projects",tr("No active projects"),tr("No active projects of yours")),"go(\'projects\')",dashScopeSeg("projects"),I.projects)},
+    deadlines:{html:panel("Upcoming deadlines",upcoming.length,upcoming.length?upcoming.map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):none("deadlines","Nothing due this week","Nothing due this week"),"go(\'calendar\')",dashScopeSeg("deadlines"),I.calendar)},
+    requests:{html:panel("Inbox — new requests",openReqs.length,openReqs.length?openReqs.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):none("requests","Inbox is empty","Inbox is empty"),"S.filters.status=firstStage();S.taskScope=\'all\';go(\'tasks\',\'list\')",dashScopeSeg("requests"),I.inbox)},
+    activity:{full:true,html:panel("Recent activity",actList.length,actList.length?activityRows(actList,10):none("activity",tr("No activity yet"),"No activity on your tasks yet"),null,dashScopeSeg("activity"),I.sync)}
   };
   var hidden=dashHidden(), collapsed=dashCollapsed();
   var MARK='<span class="spacer"></span>';
@@ -7217,6 +7261,8 @@ function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); va
     /* Wanted order: icon, title, count, head actions (Mine/All, View all), gap, controls.
        panel() puts every action after the spacer, so move that whole run in front of it
        and park the controls at the end. */
+    /* the pipeline's head has Mine / All at its end: the controls go after it, in the head, not over it */
+    if (html.indexOf('</div><div class="rail-track">')>=0) return html.replace('</div><div class="rail-track">',ctl+'</div><div class="rail-track">');
     var b=html.indexOf('<div class="panel-body');
     if (b<0||html.indexOf('panel-head')<0) return ctl.replace('class="dctl"','class="dctl float"')+html;
     var head=html.slice(0,b), rest=html.slice(b);
@@ -7379,7 +7425,7 @@ function taskGrid(list){ if (!list.length) return '<div class="panel">'+emptyBox
   return '<div class="panel"><div class="tbl-wrap" style="max-height:70vh"><table class="tbl gridv tbl-fixed" style="--tbl-min:'+gridMin+'px"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Every cell writes straight to the task record — the same one Kanban, Calendar and Timeline show.</div></div>'; }
 function gridSet(id,k,v){ var tk=task(id); if (!tk) return; if (k==="status") return setStatus(id,v); if (k==="prio") return setPrio(id,v); if (k==="team") return moveTask(tk,{type:"MOVE_TASK_TEAM",teamId:v||null},function(t){ t.team=v||null; }); if (k==="assignee") return moveTask(tk,{type:"MOVE_TASK_ASSIGNEE",assigneeId:v},function(t){ t.assignee=v; }).then(function(saved){ if(saved===false)return false; notify("assigned",v,id); }); if (k==="proj") return moveTask(tk,{type:"MOVE_TASK_PROJECT",projectId:v},function(t){ t.proj=v; });
   if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):tk.due; var start=k==="start"?offsetFromIso(v):tk.due-tk.span; if (start>due) start=due; return moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(start),dueDate:iso(due)},function(t){ t.due=due; t.span=Math.max(1,due-start); }); }
-  editTaskWith(tk,function(t){ if (k==="title") t.title=v||t.title; else if (k==="reviewer") t.reviewer=v; else if (k==="effort") t.effort=+v||0; else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k.indexOf("cf:")===0){ var f=byId(WS.customFields,k.slice(3)); t.custom[f.id]=f.type==="number"?(v===""?null:+v):v; } log(t,"edited",{what:k.replace("cf:","")}); }); }
+  editTaskWith(tk,function(t){ if (k==="title") t.title=v||t.title; else if (k==="reviewer") t.reviewer=v; else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k.indexOf("cf:")===0){ var f=byId(WS.customFields,k.slice(3)); t.custom[f.id]=f.type==="number"?(v===""?null:+v):v; } log(t,"edited",{what:k.replace("cf:","")}); }); }
 
 /* ---------- CALENDAR (month / week / day; drag a chip to a day = MOVE_TASK_DATE, §27–28) ---------- */
 var CAL_AGENDA={};
@@ -7526,13 +7572,13 @@ function editTask(k,v){ var tk=task(S.drawerTask); if (!tk) return;
   if (k==="status"){ if (v!==old) setStatus(tk.id,v); return; } if (k==="prio"){ if (v!==old) setPrio(tk.id,v); return; } if (k==="team"){ if ((v||null)!==(old||null)) moveTask(tk,{type:"MOVE_TASK_TEAM",teamId:v||null},function(t){ t.team=v||null; }); return; } if (k==="proj"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_PROJECT",projectId:v},function(t){ t.proj=v; }); return; }
   if (k==="assignee"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_ASSIGNEE",assigneeId:v},function(t){ t.assignee=v; }).then(function(saved){ if(saved===false)return false; notify("assigned",v,tk.id); }); return; }
   if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):tk.due; var start=k==="start"?offsetFromIso(v):tk.due-tk.span; if (start>due) start=due; if (due===tk.due&&start===tk.due-tk.span) return; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(start),dueDate:iso(due)},function(t){ t.due=due; t.span=Math.max(1,due-start); }); return; }
-  var saving=editTaskWith(tk,function(t){ if (k==="assetCount") t.assetCount=Math.max(0,Math.round(+v||0)); else if (k==="effort") t.effort=+v||0; else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title"){ if (!v.trim()) return; t.title=v.trim(); } else if (k==="description") t.description=v; else if (k==="reviewer") t.reviewer=v; if (k!=="description"||v!==old) log(t,"edited",{what:k==="description"?"the description":k}); });
+  var saving=editTaskWith(tk,function(t){ if (k==="assetCount") t.assetCount=Math.max(0,Math.round(+v||0)); else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title"){ if (!v.trim()) return; t.title=v.trim(); } else if (k==="description") t.description=v; else if (k==="reviewer") t.reviewer=v; if (k!=="description"||v!==old) log(t,"edited",{what:k==="description"?"the description":k}); });
   if (k==="reviewer"&&v&&v!==old) saving.then(function(saved){ if(saved!==false) notify("reviewer",v,tk.id); }); }
 /* §P0-3 the picker hands back an array; nothing re-serialises it to a
    comma string on the way in. */
 function editTaskTags(value){ editTask("tags",value||[]); }
 function editDraftTags(value){ var tk=S.drawerTask?task(S.drawerTask):null; if(tk) editDraft(tk,"tags",value||[]); }
-function editDraft(t,k,v){ if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):t.due; var start=k==="start"?offsetFromIso(v):t.due-t.span; if (start>due) start=due; t.due=due; t.span=Math.max(1,due-start); } else if (k==="assetCount") t.assetCount=Math.max(0,Math.round(+v||0)); else if (k==="effort") t.effort=+v||0; else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title") t.title=v.trim(); else if (k==="assignee"){ t.assignee=v||null; t.assignees=v?[v].concat((t.assignees||[]).filter(function(x){ return x!==v; })):[]; if (v&&!t.team) t.team=primaryTeam(v); } else if (k==="reviewer"){ t.reviewer=v||null; t.reviewers=v?[v].concat((t.reviewers||[]).filter(function(x){ return x!==v; })):[]; } else t[k]=v||(k==="team"||k==="proj"?null:v); if (k!=="title") renderDrawer(); }
+function editDraft(t,k,v){ if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):t.due; var start=k==="start"?offsetFromIso(v):t.due-t.span; if (start>due) start=due; t.due=due; t.span=Math.max(1,due-start); } else if (k==="assetCount") t.assetCount=Math.max(0,Math.round(+v||0)); else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title") t.title=v.trim(); else if (k==="assignee"){ t.assignee=v||null; t.assignees=v?[v].concat((t.assignees||[]).filter(function(x){ return x!==v; })):[]; if (v&&!t.team) t.team=primaryTeam(v); } else if (k==="reviewer"){ t.reviewer=v||null; t.reviewers=v?[v].concat((t.reviewers||[]).filter(function(x){ return x!==v; })):[]; } else t[k]=v||(k==="team"||k==="proj"?null:v); if (k!=="title") renderDrawer(); }
 function editCustom(id,v){ var tk=task(S.drawerTask); if (tk._draft){ tk.custom[id]=v; return; } editTaskWith(tk,function(t){ t.custom[id]=v; log(t,"edited",{what:byId(WS.customFields,id).name}); }); }
 function taskMoreOpen(){ return !!(myPrefs()||{}).taskMoreDetailsOpen; }
 function toggleTaskMore(){ var p=myPrefs(); p.taskMoreDetailsOpen=!p.taskMoreDetailsOpen; saveMyPrefs(); renderDrawer(); }
@@ -7635,7 +7681,7 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
     reviewers:function(){ return pplChips(tk,"reviewers",ed); },
     start:function(){ return taskDateField("start",tk.due-tk.span,tk,ed,false); },
     due:function(){ return taskDateField("due",tk.due,tk,ed,true); },
-    effort:function(){ return '<input'+ro+' type="number" min="0" style="width:54px" value="'+tk.effort+'" onchange="editTask(\'effort\',this.value)"><span class="muted">h</span>'; },
+    effort:function(){ return '<input'+ro+' type="number" min="0" style="width:54px" value="'+tk.effort+'" onchange="editTask(\'effort\',this.value)"><span class="muted">h</span>'+(typeof effortBadge==="function"?effortBadge(tk):''); },
     assetCount:function(){ return '<input'+ro+' type="number" min="0" step="1" style="width:60px" value="'+assetCount(tk)+'" onchange="editTask(\'assetCount\',this.value)"><span class="muted">'+tr("deliverables")+'</span>'; },
     tags:function(){ return tagPicker("tp_task_"+tk.id,tk.tags||[],function(value){ editTaskTags(value); },{readonly:!ed}); }
   };
@@ -7945,12 +7991,21 @@ function attachAsset(id){ var a=asset(id); var tk=task(S.drawerTask); closeModal
 
 /* ---- comments (threads, replies, mentions, attachments) ---- */
 function commentsView(tk){ var vis=person(ME).stakeholder?"client":S.commentVis; var list=tk.comments.filter(function(c){ return vis==="internal"?true:c.vis==="client"; }); var roots=list.filter(function(c){ return !c.parent||!byId(list,c.parent); }).sort(function(a,b){ return b.ago-a.ago; });
-  var one=function(c,isReply){ return '<div class="cmt '+c.vis+(isReply?" reply":"")+'" data-cid="'+attr(c.id||"")+'">'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(S.cmtEdit&&S.cmtEdit.id===c.id&&S.cmtEdit.task===tk.id&&typeof cmtEditHtml==="function"?cmtEditHtml(c):'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>')+commentAttachmentsHtml(c)+'<div class="acts"><button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')+'</div></div></div>'; };
+  /* a comment being edited that is not on show (the list switched to stakeholder-visible) lets the edit go */
+  var editing=S.cmtEdit&&S.cmtEdit.task===tk.id?S.cmtEdit.id:null; if(editing&&!byId(list,editing)&&typeof cmtEditFinish==="function"){ cmtEditFinish(); editing=null; }
+  var one=function(c,isReply){ return '<div class="cmt '+c.vis+(isReply?" reply":"")+(editing===c.id?" cmt-editing":"")+'" data-cid="'+attr(c.id||"")+'">'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(editing===c.id?cmtComposerHtml(tk,vis,true):'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>'+commentAttachmentsHtml(c)+'<div class="acts"><button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')+'</div>')+'</div></div>'; };
   var h=(person(ME).stakeholder?'':'<div class="cvis"><button class="'+(S.commentVis==="internal"?"on":"")+'" onclick="S.commentVis=\'internal\';renderDrawer()">'+I.lock+'Internal</button><button class="'+(S.commentVis==="client"?"on":"")+'" onclick="S.commentVis=\'client\';renderDrawer()">'+I.eye+'Stakeholder-visible</button></div><div class="hint" style="margin:-6px 0 12px">'+tr(S.commentVis==="internal"?"Internal comments are only visible to the creative team.":"Stakeholder-visible comments can be seen by requesters like Marketing.")+'</div>');
   h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+'</div>';
-  var rt=S.replyTo?byId(tk.comments,S.replyTo):null; window._cmtAtt=window._cmtAtt||[];
-  var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),postHint=audience+" · "+shortcutCombo("Enter");
-  return h+'<div class="composer">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="S.replyTo=null;renderDrawer()">'+I.x+'</button></div>':'')+'<textarea id="cmtText" placeholder="'+attr(tr("Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key===\'Enter\')postComment()">'+esc(window._cmtDraft||"")+'</textarea>'+(window._cmtAtt.length?'<div>'+window._cmtAtt.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+av(ME)+'<span class="hint">'+esc(postHint)+' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image")+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+'<button class="btn primary sm" onclick="postComment()">Post</button></div></div>'; }
+  return h+(editing?'':cmtComposerHtml(tk,vis,false)); }
+/* The comment box. Editing, it is the same box — the @ picker, links read as their names, attachments that can be
+   taken off, the Attach buttons — opened in the comment's place, with Cancel and Save. */
+function cmtComposerHtml(tk,vis,editing){ var rt=!editing&&S.replyTo?byId(tk.comments,S.replyTo):null; window._cmtAtt=window._cmtAtt||[];
+  var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),newLine=" · "+shiftCombo("Enter")+" "+tr("new line"),postHint=editing?"Enter "+tr("saves")+newLine+" · Esc "+tr("cancels"):audience+" · Enter "+tr("sends")+newLine;
+  return '<div class="composer'+(editing?' cmt-edit-box" role="group" aria-label="'+attr(tr("Editing your comment")):'')+'">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="S.replyTo=null;renderDrawer()">'+I.x+'</button></div>':'')+'<textarea id="cmtText" placeholder="'+attr(tr("Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="cmtKey(event)">'+esc(window._cmtDraft||"")+'</textarea>'+(window._cmtAtt.length?'<div>'+window._cmtAtt.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+(editing?'':av(ME))+'<span class="hint">'+esc(postHint)+(editing?'':' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image"))+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+(editing?'<button type="button" class="btn sm ghost cmt-edit-cancel" onclick="cmtEditCancel()">'+esc(tr("Cancel"))+'</button>':'')+'<button class="btn primary sm" onclick="postComment()">'+(editing?esc(tr("Save")):'Post')+'</button></div></div>'; }
+/* Enter sends the comment — or saves the edit — as Enter sends a chat message; Shift+Enter is a new line, and
+   Ctrl/⌘+Enter still sends. An Enter that chooses a person in the @ picker is taken before it gets here
+   (src/comment-mention.js); one that ends an IME composition is the composition's. */
+function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); postComment(); }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ window._cmtAtt.push(a); cmtRedraw(); };
     if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
@@ -7958,7 +8013,7 @@ function attachToComment(){ var inp=document.getElementById("fileInput"); inp.ac
 /* An attachment arriving redraws the comment box with what is in it now — not what was there when the
    upload started — and someone typing keeps typing: same focus, same caret. */
 function cmtRedraw(){ var ta=document.getElementById("cmtText"), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; renderDrawer(); var n=document.getElementById("cmtText"); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
-function postComment(){ var el=document.getElementById("cmtText");
+function postComment(){ if(S.cmtEdit&&S.cmtEdit.task===S.drawerTask&&typeof cmtEditSave==="function") return cmtEditSave(); var el=document.getElementById("cmtText");
   /* links shown by their name while writing are stored as [name](url) (src/link-tab.js) */
   var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim();
   window._cmtDraft=""; if (!txt&&!(window._cmtAtt||[]).length){ el.focus(); return; } var tk=task(S.drawerTask); var vis=person(ME).stakeholder?"client":S.commentVis; var att=window._cmtAtt||[]; window._cmtAtt=[]; window._cmtLinks=[]; var parent=S.replyTo, replyOf=parent; S.replyTo=null; for(var hop=0;parent&&hop<20;hop++){ var pc=byId(tk.comments,parent); if(!pc||!pc.parent) break; parent=pc.parent; }
@@ -9235,44 +9290,77 @@ function aiSystem(q){
   return "You are AI Intelligence inside ZenCrevia, the creative operations tool for "+(WS.name||"this workspace")+
     ". Answer about the workspace data you are given: tasks, projects, people, deadlines, assets. Be concise and concrete, cite task IDs and names. "+
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
+    "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
-/* a compact, factual snapshot — small enough to send on every turn */
-function aiContext(taskLimit){
-  var open = TASKS.filter(function(t){ return !isClosed(t)&&!t.hidden; });
+/* The snapshot the model reads, made to be read accurately (Oct 2026).
+   - What answers most questions comes first — totals, overdue, due soon, in review, blocked, people, teams,
+     projects, what was finished lately — and the long list of open tasks last. The server keeps AI_CTX_MAX
+     characters; it used to keep 12 000, and in a busy workspace that cut off the people and the overdue list.
+   - Every date is written out beside today's — 2026-10-16 Fri (in 3d) — so "due Friday" is read, not worked out.
+   - A task names all its assignees and reviewers, its team, labels and tags, its estimate and the hours logged.
+   - Open tasks go most urgent first; the ones past taskLimit are still listed in short form, so none is missing.
+   - Everyone in the workspace is there, capacity set or not; a person's hours are their share of a task with
+     several assignees, as the workload screen counts them. */
+var AI_CTX_MAX=40000;
+function aiDay(off){ if(typeof off!=="number"||!isFinite(off)) return "none"; return iso(off)+" "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dateOf(off).getDay()]+" ("+dueTxt(off)+")"; }
+function aiNames(ids){ return (ids||[]).map(function(id){ return person(id).name; }).join(", ")||"none"; }
+function aiUrgency(t){ var d=typeof t.due==="number"?t.due:9999; return (d<0?0:isTaskBlocked(t)?1:stageKind(t.status)==="review"?2:d<=7?3:4)*1e6+(d+5000)*10+((typeof PRANK!=="undefined"&&PRANK[t.prio])||5); }
+function aiTaskLine(t){ var m=t.meta||{}, tm=t.team&&team(t.team), ls=typeof labelsOf==="function"?labelsOf(t).map(function(l){ return l.name; }):[], tg=(t.tags||[]).map(function(x){ return typeof x==="string"?x:(x&&x.name)||""; }).filter(Boolean), flags=[];
+  if(isTaskBlocked(t)) flags.push("BLOCKED-by:"+unresolvedDependencies(t).map(function(d){ return d.id; }).join("+"));
+  if(dependencyRisk(t).length) flags.push("SCHEDULE-RISK");
+  if(typeof isRequestTask==="function"&&isRequestTask(t)) flags.push("REQUEST");
+  return "- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" assignees="+aiNames(assigneesOf(t))+" reviewers="+aiNames(reviewersOf(t))+(tm?" team="+tm.name:"")+" due="+aiDay(t.due)+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")+(ls.length?" labels="+ls.join("/"):"")+(tg.length?" tags="+tg.join("/"):"")+(flags.length?" "+flags.join(" "):""); }
+function aiShortLine(t){ return t.id+" \""+t.title+"\" due="+aiDay(t.due)+" stage="+stageName(t.status)+" assignees="+aiNames(assigneesOf(t)); }
+function aiContext(taskLimit,budget){
+  budget=Math.min(+budget||AI_CTX_MAX,AI_CTX_MAX);
+  var open = TASKS.filter(function(t){ return !t._draft&&!isClosed(t)&&!t.hidden; }).sort(function(a,b){ return aiUrgency(a)-aiUrgency(b); });
   var over = open.filter(function(t){ return t.due<0; });
   var rev  = open.filter(function(t){ return stageKind(t.status)==="review"; });
-  var week = open.filter(function(t){ return t.due>=0&&t.due<=7; });
+  var week = open.filter(function(t){ return t.due>=0&&t.due<=7; }).sort(function(a,b){ return a.due-b.due; });
   var blocked = open.filter(function(t){ return isTaskBlocked(t); });
+  var ref = function(t){ return t.id+" \""+t.title+"\" ("+aiDay(t.due)+", "+aiNames(assigneesOf(t))+")"; };
   var lines = [];
-  lines.push("WORKSPACE: "+WS.name+" \u00b7 today is "+new Date().toDateString());
-  lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") \u2014 refer to this person as \"you\".");
+  lines.push("WORKSPACE: "+WS.name);
+  lines.push("TODAY: "+aiDay(0).replace(" (today)","")+". Dates below are YYYY-MM-DD with the weekday; \"in 3d\" and \"2d overdue\" count from today.");
+  lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") — refer to this person as \"you\".");
   lines.push("STAGES: "+WS.workflow.map(function(s){ return s.name; }).join(" > "));
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
-  lines.push("PROJECTS:");
-  PROJECTS.forEach(function(p){
-    var ts = TASKS.filter(function(t){ return inProject(t,p.id); });
-    lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+dueTxt(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
-  });
-  lines.push("OPEN TASKS ("+open.length+(open.length>(+taskLimit||60)?", showing "+(+taskLimit||60):"")+"):");
-  open.slice(0,Math.max(1,+taskLimit||60)).forEach(function(t){
-    var flags = []; if (isTaskBlocked(t)) flags.push("BLOCKED-by:"+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"));
-    if (dependencyRisk(t).length) flags.push("SCHEDULE-RISK");
-    lines.push("- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" owner="+person(t.assignee).name+" effort="+t.effort+"h due="+dueTxt(t.due)+" assets="+assetCount(t)+(flags.length?" "+flags.join(" "):""));
-  });
-  lines.push("OVERDUE: "+(over.length?over.map(function(t){ return t.id+" ("+dueTxt(t.due)+")"; }).join(", "):"none"));
-  lines.push("DUE WITHIN 7 DAYS: "+(week.length?week.sort(function(a,b){return a.due-b.due;}).map(function(t){ return t.id+" ("+dueTxt(t.due)+")"; }).join(", "):"none"));
-  lines.push("AWAITING REVIEW: "+(rev.length?rev.map(function(t){ return t.id; }).join(", "):"none"));
-  lines.push("BLOCKED: "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
-  lines.push("PEOPLE:");
+  lines.push("OVERDUE ("+over.length+"): "+(over.length?over.map(ref).join("; "):"none"));
+  lines.push("DUE WITHIN 7 DAYS ("+week.length+"): "+(week.length?week.map(ref).join("; "):"none"));
+  lines.push("AWAITING REVIEW ("+rev.length+"): "+(rev.length?rev.map(function(t){ return t.id+" \""+t.title+"\" reviewers="+aiNames(reviewersOf(t)); }).join("; "):"none"));
+  lines.push("BLOCKED ("+blocked.length+"): "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
+  lines.push("PEOPLE (hours are each person's share of open work; capacity is per week):");
   Object.keys(PEOPLE).forEach(function(id){
-    var p=PEOPLE[id]; if (!p.cap) return;
-    var mine=open.filter(function(t){ return isAssignee(t,id); });
-    var h=mine.reduce(function(a,t){return a+t.effort;},0);
-    lines.push("- "+p.name+" ("+p.role+") capacity="+p.cap+"h assigned="+h+"h util="+Math.round(h/p.cap*100)+"% open="+mine.length);
+    var p=PEOPLE[id]; if (!p||p.active===false||p.stakeholder) return;
+    var mine=open.filter(function(t){ return isAssignee(t,id); }), cap=+p.cap||0;
+    var h=Math.round(mine.reduce(function(a,t){ return a+(+t.effort||0)/Math.max(1,assigneesOf(t).length); },0)*10)/10;
+    var tms=(typeof teamsOf==="function"?teamsOf(id):[]).map(function(x){ var tm=team(x); return tm&&!tm.archived?tm.name:""; }).filter(Boolean);
+    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+Math.round(h/cap*100)+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
   });
+  var sh=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false&&PEOPLE[id].stakeholder; });
+  if(sh.length) lines.push("STAKEHOLDERS (requesters, not on the team): "+sh.map(function(id){ return PEOPLE[id].name; }).join(", "));
+  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS:");
+    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; });
+      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length); }); }
+  lines.push("PROJECTS:");
+  var arch=[];
+  PROJECTS.forEach(function(p){
+    if (p.status==="archived"){ arch.push(p.name); return; }
+    var ts = TASKS.filter(function(t){ return !t._draft&&inProject(t,p.id); });
+    lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+aiDay(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
+  });
+  if(arch.length) lines.push("ARCHIVED PROJECTS: "+arch.join(", "));
+  var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
+  lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
+  done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
   lines.push("ASSETS: "+assetsProduced(TASKS)+" produced total, "+assetsProduced(TASKS.filter(isClosed))+" delivered.");
-  return lines.join("\n");
+  /* the open tasks, most urgent first: in full up to taskLimit, then in short form — as many as the room allows */
+  var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
+  var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
+  out+="\n"+head; full.forEach(function(t){ var l="\n"+aiTaskLine(t); if(out.length+l.length<budget-200) out+=l; });
+  if(rest.length){ var n=0; out+="\nMORE OPEN TASKS (short form):"; for(var i=0;i<rest.length;i++){ var l="\n"+aiShortLine(rest[i]); if(out.length+l.length>budget-80) break; out+=l; n++; } if(n<rest.length) out+="\n…and "+(rest.length-n)+" more open tasks not listed here."; }
+  return out;
 }
 /* ============================================================
    Local intelligence — deterministic answers from the same
@@ -10241,7 +10329,7 @@ function aiAttachDetail(){
 }
 /* With attachments the question is about them, so the standing snapshot can be narrower — which
    also pays for the detail in tokens instead of adding to it. */
-function aiChatContext(){ var n=aiAttachList().length; return aiAttachDetail()+aiContext(n?18:60); }
+function aiChatContext(){ var n=aiAttachList().length, att=aiAttachDetail(); return att+aiContext(n?18:60,AI_CTX_MAX-att.length); }
 
 /* ---------- 3 · proposals ---------- */
 var AI_ACTION_OPEN = "<<<ZC_ACTION", AI_ACTION_CLOSE = "ZC_ACTION>>>";
@@ -11276,7 +11364,7 @@ function setProfile(){ var p=PEOPLE[ME]||{}; var r=byId(ROLES,p.perm); var x=myP
     +sec("Workspace",'<div class="pf-ws"><div><span class="hint">'+tr("Permission role")+'</span><div><span class="badge">'+esc(r?r.name:p.perm)+'</span> <span class="hint">'+tr(canI.manageMembers()?"change it under Members":"ask an admin to change it")+'</span></div></div><div><span class="hint">'+tr("Capacity (h / week)")+'</span><div>'+(canI.manageMembers()?'<input id="pf_cap" type="number" min="0" value="'+(p.cap||0)+'" style="width:90px">':'<b>'+(p.cap||0)+'</b> <span class="hint">'+tr("ask an admin to change it")+'</span>')+'</div></div><div><span class="hint">'+tr("Teams")+'</span><div style="display:flex;gap:4px;flex-wrap:wrap">'+((p.teams||[]).map(function(t){ return teamBadge(t[0]); }).join("")||'<span class="hint">'+tr("No team yet")+'</span>')+'</div></div></div>');
   return sp("My profile",body,(API.on?'<button class="btn" onclick="changePasswordModal()">'+I.lock+'Change password</button>':'')+'<span class="spacer"></span><button class="btn primary" onclick="saveProfile()">Save profile</button>',I.user)+shortcutPreferencePanel(); }
 function setAvatarColor(c){ var p=PEOPLE[ME]; if(!p) return; p.c=c; applyShell(); renderScreen(false); persistPerson(ME).then(function(saved){ if(saved===false) return false; toast(tr("Avatar colour updated")); }); }
-function shortcutPreferencePanel(){var pref=myPrefs().shortcutStyle||"auto",autoLabel=tr("Automatic")+" — "+shortcutModifier();return sp("Keyboard shortcuts",fieldHtml("pf_shortcuts","Shortcut display",selectHtml("pf_shortcuts",[["auto",autoLabel],["ctrl","Windows / Linux — Ctrl"],["mac","macOS — ⌘"]],pref,'onchange="setShortcutStyle(this.value)"'))+'<div class="hint" style="margin-top:6px">'+tr("Comment shortcut")+': <b>'+esc(shortcutCombo("Enter"))+'</b></div>',null,I.settings,"desktop-only");}
+function shortcutPreferencePanel(){var pref=myPrefs().shortcutStyle||"auto",autoLabel=tr("Automatic")+" — "+shortcutModifier();return sp("Keyboard shortcuts",fieldHtml("pf_shortcuts","Shortcut display",selectHtml("pf_shortcuts",[["auto",autoLabel],["ctrl","Windows / Linux — Ctrl"],["mac","macOS — ⌘"]],pref,'onchange="setShortcutStyle(this.value)"'))+'<div class="hint" style="margin-top:6px">'+tr("Comment shortcut")+': <b>Enter</b> '+tr("sends")+' · <b>'+esc(shiftCombo("Enter"))+'</b> '+tr("new line")+'</div>',null,I.settings,"desktop-only");}
 function saveProfile(){ if (!require(["pf_name","pf_email"])) return; var em=val("pf_email").toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast("Enter a valid email","bad"); var dup=Object.keys(PEOPLE).filter(function(id){ return id!==ME&&(PEOPLE[id].email||"").toLowerCase()===em; })[0]; if(dup) return toast(tr("That email is already used by another member"),"bad"); var p=PEOPLE[ME]; var name=val("pf_name").trim(); p.name=name; var ini=(val("pf_ini")||"").trim().toUpperCase().slice(0,2); p.ini=ini||name.split(" ").filter(Boolean).map(function(s){ return s.charAt(0).toUpperCase(); }).join("").slice(0,2); p.role=val("pf_role").trim(); p.email=em; if (canI.manageMembers()) p.cap=+val("pf_cap")||0; var x=myProfileExtra(); x.pronouns=val("pf_pronouns").trim(); x.phone=val("pf_phone").trim(); x.location=val("pf_location").trim(); x.tz=val("pf_tz"); x.bio=(val("pf_bio")||"").trim(); saveMyPrefs(); applyShell(); renderScreen(false); persistPerson(ME).then(function(saved){ if(saved===false)return false; toast("Profile saved"); }); }
 function canEditPhoto(id){ return id===ME||canI.manageMembers(); }
 function pickAvatar(id){ id=id||ME; if (!canEditPhoto(id)) return toast("Only an admin can change someone else\u2019s photo","bad");
@@ -15940,11 +16028,11 @@ if(typeof registerReorderList==="function") registerReorderList("checklist",func
 /* the handle, box or text in focus keeps it through a redraw — toggling or moving one from the keyboard redraws the panel */
 function chkFocusKey(){ var ae=document.activeElement, row=ae&&ae.closest&&ae.closest("#drawer .chk-item"); if(!row) return null; var c=["drag-handle","chk-box","chk-t"].filter(function(k){ return ae.classList.contains(k); })[0]; return c?{i:row.getAttribute("data-index"),c:c}:null; }
 function chkFocusRestore(k){ if(!k) return; var f=document.querySelector('#drawer .chk-item[data-index="'+k.i+'"] .'+k.c); if(f&&f!==document.activeElement){ try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
-function effortHtml(tk,ed){ var m=taskMeta(tk), est=tk.effort||0, act=m.actualEffort||0, over=est&&act>est; return '<div class="effort"><b>'+tr("Effort")+'</b><span>'+tr("Estimated")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+est+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){t.effort=+this.value||0}.bind(this))">':'<b>'+est+'</b>')+' h</span><span'+(over?' class="over"':'')+'>'+tr("Actual")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+act+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){taskMeta(t).actualEffort=+this.value||0}.bind(this))">':'<b>'+act+'</b>')+' h</span>'+(est&&act?'<span class="hint">'+(over?"+":"")+Math.round((act-est)/est*100)+'%</span>':'')+'</div>'; }
+function effortHtml(tk,ed){ var m=taskMeta(tk), est=tk.effort||0, act=m.actualEffort||0, over=est&&act>est; return '<div class="effort"><b>'+tr("Effort")+'</b><span>'+tr("Estimated")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+est+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){t.effort=+this.value||0;if(window.effortManual)effortManual(t)}.bind(this))">':'<b>'+est+'</b>')+' h'+(typeof effortBadge==="function"?effortBadge(tk):'')+'</span><span'+(over?' class="over"':'')+'>'+tr("Actual")+' '+(ed?'<input type="number" min="0" step="0.5" value="'+act+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){taskMeta(t).actualEffort=+this.value||0}.bind(this))">':'<b>'+act+'</b>')+' h</span>'+(est&&act?'<span class="hint">'+(over?"+":"")+Math.round((act-est)/est*100)+'%</span>':'')+'</div>'; }
 /* =============== 7.8 PROJECT ACTIVITY DIGEST (deterministic, from ACTIVITY) =============== */
 function digestHtml(list){ var today=list.filter(function(a){ return a.ago<1440; }); if(!today.length) return ""; var c={done:0,review:0,upload:0,approved:0,comment:0,assigned:0,created:0}; today.forEach(function(a){ if(a.k==="upload") c.upload++; else if(a.k==="approved") c.approved++; else if(a.k==="comment") c.comment++; else if(a.k==="assigned") c.assigned++; else if(a.k==="created") c.created++; else if(a.k==="moved"){ var to=a.a.to?stage(a.a.to):null; if(to&&to.kind==="done") c.done++; else if(to&&/review/.test(to.kind||"")) c.review++; } }); var rows=[[c.done,"tasks completed"],[c.review,"tasks entered review"],[c.upload,"files uploaded"],[c.approved,"approvals completed"],[c.comment,"comments"],[c.assigned,"assignments"],[c.created,"tasks created"]].filter(function(r){ return r[0]; }); if(!rows.length) return ""; return '<div class="digest"><div class="mh">'+tr("Today")+'</div>'+rows.map(function(r){ return '<span><b>'+r[0]+'</b> '+tr(r[1])+'</span>'; }).join("")+'</div>'; }
 /* =============== 7.11 FOCUS STRIP (Home, presentation only — §6.2 "what needs my attention") =============== */
-function focusStripHtml(){ var ot=openTasks(); var due=ot.filter(function(x){ return isAssignee(x,ME)&&x.due<=0; }).length; var rev=ot.filter(function(x){ return isReview(x)&&(isReviewer(x,ME)||canI.reviewTask(x)); }).length; var mentions=(typeof convVisibleList==="function"?convVisibleList():[]).reduce(function(n,c){ return n+convMentionCount(c); },0); var blocked=ot.filter(function(x){ return isAssignee(x,ME)&&typeof isBlocked==="function"&&isBlocked(x); }).length; var rem=reminders().filter(function(r){ return !r.done; }).length; var total=due+rev+mentions+blocked+rem; var items=[[due,"Due or overdue","go('tasks')",I.clock],[rev,"Waiting for my review","go('tasks')",I.eye],[mentions,"Mentions","S.messageFilter='mentions';go('messages')",'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg>'],[blocked,"Blocked","S.filters.blocked=true;go('tasks')",I.lock],[rem,"Reminders","openPop('notifPop',document.getElementById('notifBtn'))",I.bell]].filter(function(x){ return x[0]; }); return '<section class="focus'+(total?"":" calm")+'"><div class="focus-head"><span class="focus-ico">'+(total?I.bell:I.check)+'</span><div><span class="mh">'+tr("Focus")+'</span><b>'+(total?total+" "+tr(total===1?"item needs your attention":"items need your attention"):tr("Nothing needs your attention right now"))+'</b></div></div>'+(items.length?'<div class="focus-items">'+items.map(function(x){ return '<button onclick="'+attr(x[2])+'">'+x[3]+'<b>'+x[0]+'</b><span>'+tr(x[1])+'</span></button>'; }).join("")+'</div>':'')+'</section>'; }
+function focusStripHtml(){ var ot=openTasks(); var due=ot.filter(function(x){ return isAssignee(x,ME)&&x.due<=0; }).length; var rev=ot.filter(function(x){ return isReview(x)&&reviewMine(x); }).length; var mentions=(typeof convVisibleList==="function"?convVisibleList():[]).reduce(function(n,c){ return n+convMentionCount(c); },0); var blocked=ot.filter(function(x){ return isAssignee(x,ME)&&typeof isBlocked==="function"&&isBlocked(x); }).length; var rem=reminders().filter(function(r){ return !r.done; }).length; var total=due+rev+mentions+blocked+rem; var items=[[due,"Due or overdue","go('tasks')",I.clock],[rev,"Waiting for my review","go('tasks')",I.eye],[mentions,"Mentions","S.messageFilter='mentions';go('messages')",'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg>'],[blocked,"Blocked","S.filters.blocked=true;go('tasks')",I.lock],[rem,"Reminders","openPop('notifPop',document.getElementById('notifBtn'))",I.bell]].filter(function(x){ return x[0]; }); return '<section class="focus'+(total?"":" calm")+'"><div class="focus-head"><span class="focus-ico">'+(total?I.bell:I.check)+'</span><div><span class="mh">'+tr("Focus")+'</span><b>'+(total?total+" "+tr(total===1?"item needs your attention":"items need your attention"):tr("Nothing needs your attention right now"))+'</b></div></div>'+(items.length?'<div class="focus-items">'+items.map(function(x){ return '<button onclick="'+attr(x[2])+'">'+x[3]+'<b>'+x[0]+'</b><span>'+tr(x[1])+'</span></button>'; }).join("")+'</div>':'')+'</section>'; }
 /* Saved + Recent as one compact chip row with a segmented switch (§7.3/§7.4 "Home shortcut") — never a stack of panels. */
 S.quickTab=S.quickTab||"saved";
 function quickAccessHtml(){ var sv=savedList(), rc=recentList(); if(!sv.length&&!rc.length) return ""; var tab=S.quickTab==="recent"||!sv.length?"recent":"saved"; var list=(tab==="saved"?sv:rc).slice(0,8); return '<div class="quick"><div class="quick-head"><div class="seg"><button class="'+(tab==="saved"?"on":"")+'" onclick="S.quickTab=\'saved\';renderScreen(false)">'+I.star+tr("Saved")+(sv.length?' <span class="cnt">'+sv.length+'</span>':'')+'</button><button class="'+(tab==="recent"?"on":"")+'" onclick="S.quickTab=\'recent\';renderScreen(false)">'+I.clock+tr("Recent")+'</button></div><span class="spacer"></span><button class="btn xs ghost" onclick="commandPalette()">'+tr("Everything")+' <kbd>'+esc(shortcutCombo("K"))+'</kbd></button></div><div class="quick-row">'+(list.length?list.map(function(r){ return '<button class="chip-ent" onclick="entityOpen(\''+r.type+'\','+jsq(r.id)+')" title="'+attr(entityTitle(r.type,r.id))+'">'+(r.type==="person"?av(r.id):'<span class="sq">'+entityIcon(r.type)+'</span>')+'<span class="chip-ent-t" data-no-translate>'+esc(entityTitle(r.type,r.id))+'</span><span class="chip-ent-k">'+(tab==="recent"?ago(Math.round((Date.now()-r.at)/60000)):tr(ENTITY_KINDS[r.type]||r.type))+'</span></button>'; }).join(""):'<span class="hint">'+tr(tab==="saved"?"Star a task, project or conversation to keep it here.":"Items you open show up here.")+'</span>')+'</div></div>'; }
@@ -15954,7 +16042,7 @@ function workbenchSet(k,v){ var st=workbenchState(); if(k==="tab"&&typeof dashCo
 /* v19.6 an expanded My space folds back when you click anywhere else on Home (menus, modals, drawer, palette and the quest coach are exempt) */
 document.addEventListener("click",function(e){ if(S.screen!=="home"||!e.target||!e.target.closest) return; var sec=document.querySelector('.dash>[data-sec="myspace"]'); if(!sec||sec.classList.contains("collapsed")) return; if(e.target.closest('[data-sec="myspace"], .menu, .pop, #modalWrap, .modal, #drawer, .palette-wrap, #workspaceQuestRoot, .toast, #toasts, .msg-toast, .topbar, #nav, #sheet, #tabbar')) return; if(typeof wqState==="function"){ var st=wqState(); if(st.status==="active"&&/^home\.(myspace|palette)$/.test(wqCurrent(st)[0])) return; } toggleDashCollapse("myspace"); });
 function workbenchHeadClick(el){ var sec=el.closest("[data-sec]"); if(sec) toggleDashCollapse("myspace"); }
-function workbenchHtml(){ var st=workbenchState(), tab=st.tab||"focus"; var ot=openTasks(); var due=ot.filter(function(x){ return isAssignee(x,ME)&&x.due<=0; }), rev=ot.filter(function(x){ return isReview(x)&&(isReviewer(x,ME)||canI.reviewTask(x)); }), mentions=(typeof convVisibleList==="function"?convVisibleList():[]).reduce(function(n,c){ return n+convMentionCount(c); },0), blocked=ot.filter(function(x){ return isAssignee(x,ME)&&typeof isBlocked==="function"&&isBlocked(x); }), rem=reminders().filter(function(r){ return !r.done; }).sort(function(a,b){ return a.at.localeCompare(b.at); }), sv=savedList(), rc=recentList(); var total=due.length+rev.length+mentions+blocked.length+rem.length;
+function workbenchHtml(){ var st=workbenchState(), tab=st.tab||"focus"; var ot=openTasks(); var due=ot.filter(function(x){ return isAssignee(x,ME)&&x.due<=0; }), rev=ot.filter(function(x){ return isReview(x)&&reviewMine(x); }), mentions=(typeof convVisibleList==="function"?convVisibleList():[]).reduce(function(n,c){ return n+convMentionCount(c); },0), blocked=ot.filter(function(x){ return isAssignee(x,ME)&&typeof isBlocked==="function"&&isBlocked(x); }), rem=reminders().filter(function(r){ return !r.done; }).sort(function(a,b){ return a.at.localeCompare(b.at); }), sv=savedList(), rc=recentList(); var total=due.length+rev.length+mentions+blocked.length+rem.length;
   var tabs=[["focus","Focus",total],["saved","Saved",sv.length],["recent","Recent",rc.length],["reminders","Reminders",rem.length]];
   var head='<div class="wb-head" onclick="workbenchHeadClick(this)"><span class="wb-ico'+(total?"":" calm")+'">'+(total?I.bell:I.check)+'</span><div class="wb-title"><b>'+tr("My space")+'</b><span>'+(total?total+" "+tr(total===1?"item needs your attention":"items need your attention"):tr("Nothing needs your attention right now"))+(sv.length?' · '+sv.length+' '+tr("saved"):'')+(rem.length?' · '+rem.length+' '+tr("reminders").toLowerCase():'')+'</span></div><span class="spacer"></span>'+('<div class="seg">'+tabs.map(function(t){ return '<button class="'+(tab===t[0]?"on":"")+'" onclick="event.stopPropagation();workbenchSet(\'tab\',\''+t[0]+'\')">'+tr(t[1])+(t[2]?'<span class="cnt">'+t[2]+'</span>':'')+'</button>'; }).join("")+'</div>')+'<button class="btn xs ghost wb-cmdk" title="'+attr(tr("Command palette"))+'" onclick="event.stopPropagation();commandPalette()">'+esc(shortcutCombo("K"))+'</button></div>';
   var body="";
@@ -17826,7 +17914,8 @@ function driveChipHtml(url,name){
     return base.apply(this,args).replace(/<a href="([^"]+)" target="_blank" rel="noopener nofollow" class="rich-link"([^>]*)>([^<]*)<\/a>/g,function(whole,href,rest){
       var url=typeof pasteUnesc==="function"?pasteUnesc(href):href, name=names[url];
       if(isGoogleLink(url)) return driveChipHtml(url,name);
-      return name?'<a href="'+href+'" target="_blank" rel="noopener nofollow" class="rich-link"'+rest+'>'+esc(name)+'</a>':whole;
+      /* any other link is a chip too — its service's mark and its name (written with it, or read from the address) */
+      return cmtAttChipHtml({url:url,name:name||"",named:!!name});
     });
   };
 })();
@@ -17970,12 +18059,13 @@ function cmtAssetsFrom(att,text){
     if(a.kind==="link"&&!linkLooksLikeAsset(a.url)) return;   /* a reference page stays on the comment */
     out.push(a);
   });
-  /* Drive links written into the comment are attachments too */
+  /* links written into the comment count as attached ones do: an asset (Drive, Figma, Canva, Dropbox, a file…)
+     is filed, a reference page stays on the comment */
   (typeof messageUrls==="function"?messageUrls(String(text||"")):[]).forEach(function(x){
-    var url=normalizedAttachUrl(x.url); if(!url||!isGoogleLink(url)) return;
+    var url=normalizedAttachUrl(x.url); if(!url||!linkLooksLikeAsset(url)) return;
     if(out.some(function(a){ return a.url===url; })) return;
-    var written=typeof mdLinkNames==="function"?mdLinkNames(text)[url]:"";
-    out.push({name:written||driveLinkLabel(url),url:url,type:"link",kind:"link",source:"gdrive",size:tr("Link")});
+    var written=typeof mdLinkNames==="function"?mdLinkNames(text)[url]:"", g=isGoogleLink(url);
+    out.push({name:written||(g?driveLinkLabel(url):cmtLinkLabel(url)),url:url,type:"link",kind:"link",source:g?"gdrive":"link",size:tr("Link")});
   });
   return out;
 }
@@ -18018,7 +18108,7 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   if(isGoogleLink(url)) return driveChipHtml(url,a.named||(name&&name!==url&&!/^https?:/i.test(name))?name:"");
   var p=typeof detectProvider==="function"?detectProvider(url):null, badge=p&&CMT_LINK_BADGE[p.provider], host="";
   try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
-  var label=name&&name!==url?name:(host||url);
+  var label=name&&name!==url?name:cmtLinkLabel(url);
   return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
     +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span>'+esc(label)+'</span></a>'; }
 /* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
@@ -18030,6 +18120,15 @@ function cmtAttachRef(btn,kind){ var tk=S.drawerTask?task(S.drawerTask):null, an
     search:kind==="task"?function(q){ return epTaskItems(q,{projectId:tk&&tk.proj}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
 function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a.ref,a.refId,a.name||a.refId):'<span class="att">'+esc(a.name||a.refId)+'</span>'; }
+/* A link's name when none was written with it, read from its address: a known service's link by the page's own
+   words in it (figma.com/design/…/Figma-KV-Insurance → "Figma KV Insurance"), any other by its site and that page
+   (example.org › guidelines 2026), or its site alone. An id-like part (a long run of letters and digits) is no name. */
+function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String(url||""); }
+  var host=u.hostname.replace(/^www\./,""), segs=u.pathname.split("/").filter(Boolean).map(function(x){ try{ return decodeURIComponent(x); }catch(e){ return x; } });
+  var words=null; for(var i=segs.length-1;i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
+  if(words&&words.length>48) words=words.slice(0,47)+"…";
+  var brand=typeof brandOf==="function"?brandOf(url):null;
+  return brand?(words||brand.name):(words?host+" › "+words:host); }
 function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
@@ -18154,8 +18253,8 @@ document.addEventListener("input",function(e){
   else if(ep) epClose();
   cmtMirrorSync();
 });
-/* Captured before the box's own key handler, so Enter picks a person rather than starting a new
-   line, and Ctrl+Enter cannot post while the picker is still open. */
+/* Captured before the box's own key handler (Enter sends there), so Enter on "@name" picks a person
+   rather than sending the comment. */
 document.addEventListener("keydown",function(e){
   var ta=e.target; if(!ta||ta.id!=="cmtText") return;
   var ep=cmtPicker(), q=msgCaretMention(ta);
@@ -18259,31 +18358,54 @@ function cmtMentionsHtml(html){
 }
 
 /* ---------- editing a comment ----------
-   Whoever wrote a comment can change what it says, in place: its words in a box where they were, Save and
-   Cancel under it (Ctrl+Enter saves, Esc cancels). What is being written is kept through a redraw of the panel
-   (S.cmtEdit), and the box keeps its focus (it has an id, see v38.js). Saved, it says "edited"; whoever the new
-   words name and the old ones did not is told. Attachments and replies stay as they were. */
+   A comment is edited where it is: the comment box — the box it was written in — opens in the comment's place, so
+   the @ picker, a link read as its name, the attachments with their remove buttons and the Attach buttons all work
+   as they did when it was written. It has Cancel and Save (Ctrl+Enter saves, Esc lets it go). The box at the bottom
+   steps aside meanwhile; what was being written in it is put aside and comes back when the edit is saved or let go. Saved, the comment says
+   "edited"; whoever the new words name is told; an attachment added that is an asset is filed under Assets &
+   versions, as when posting. */
+function cmtEditLoad(text){ var links=[];
+  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return name; });
+  var mentions=(typeof refMentionIds==="function"?refMentionIds(shown):[]).map(function(id){ return {userId:id,display:person(id).name}; });
+  return {text:shown,links:links,mentions:mentions}; }
 function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
-  S.cmtEdit={task:tk.id,id:id,draft:c.text||""}; renderDrawer();
-  setTimeout(function(){ var ta=document.getElementById("cmtEditText"); if(ta){ ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} } },0); }
-function cmtEditHtml(c){ var d=S.cmtEdit;
-  return '<div class="cmt-edit"><textarea id="cmtEditText" rows="3" maxlength="10000" aria-label="'+attr(tr("Edit comment"))+'" oninput="if(S.cmtEdit)S.cmtEdit.draft=this.value" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){event.preventDefault();cmtEditSave();}else if(event.key===\'Escape\'){event.preventDefault();event.stopPropagation();cmtEditCancel();}">'+esc(d.draft)+'</textarea>'
-    +'<div class="cmt-edit-bar"><span class="hint">'+esc(shortcutCombo?shortcutCombo("Enter"):"Ctrl + Enter")+' '+tr("saves")+' · Esc '+tr("cancels")+'</span><span class="spacer"></span><button type="button" class="btn xs" onclick="cmtEditCancel()">'+tr("Cancel")+'</button><button type="button" class="btn xs primary" id="cmtEditSave" onclick="cmtEditSave()">'+tr("Save")+'</button></div></div>'; }
-function cmtEditCancel(){ S.cmtEdit=null; renderDrawer(); }
-function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), ta=document.getElementById("cmtEditText"); if(!c) return cmtEditCancel();
-  var text=String(ta?ta.value:d.draft).trim(); if(!text&&!(c.attachments||[]).length) return toast(tr("Write something first"),"bad");
-  if(text===(c.text||"")){ S.cmtEdit=null; renderDrawer(); return; }
-  var before=c.text||"", btn=document.getElementById("cmtEditSave"); if(btn) btn.disabled=true;
-  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); S.cmtEdit=null; refresh(); toast(tr("Comment updated"));
-    /* whoever the new words name and the old did not */
-    if(typeof refMentionIds==="function"){ var was=refMentionIds(before), now=refMentionIds(text).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); }); if(now.length) notify("mention",now,tk.id); } };
-  if(!API.on){ c.text=text; c.editedAt=new Date().toISOString(); return done(null); }
-  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
-/* a comment being edited is let go when its task is left */
-(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) S.cmtEdit=null; return base.apply(this,arguments); }; })();
+  if(!S.cmtEdit){ var ta=document.getElementById("cmtText"); S.cmtEditStash={text:ta?ta.value:(window._cmtDraft||""),att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null}; }
+  var shown=cmtEditLoad(c.text||"");
+  window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
+  S.cmtEdit={task:tk.id,id:id};
+  renderDrawer(); cmtEditFocus(); }
+function cmtEditFocus(){ setTimeout(function(){ var ta=document.getElementById("cmtText"); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
+  ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} if(typeof cmtMirrorSync==="function") try{ cmtMirrorSync(); }catch(e){} },0); }
+/* the box back to what was being written in it before the edit */
+function cmtEditFinish(){ var st=S.cmtEditStash||{text:"",att:[],links:[],mentions:[],reply:null};
+  window._cmtDraft=st.text; window._cmtAtt=st.att; window._cmtLinks=st.links; window._cmtMentions=st.mentions; S.replyTo=st.reply; S.cmtEdit=null; S.cmtEditStash=null; }
+function cmtEditCancel(){ cmtEditFinish(); renderDrawer(); }
+function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), el=document.getElementById("cmtText"); if(!c||!el){ cmtEditCancel(); return; }
+  var text=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
+  if(!text&&!att.length) return toast(tr("Write something first"),"bad");
+  var key=function(a){ return a?String(a.url||a.preview||a.driveId||(a.ref?a.ref+":"+a.refId:"")||a.name||""):""; };
+  var before=c.text||"", beforeKeys=(c.attachments||[]).map(key);
+  if(text===before&&JSON.stringify(att.map(key))===JSON.stringify(beforeKeys)){ cmtEditCancel(); return; }
+  var added=att.filter(function(a){ return beforeKeys.indexOf(key(a))<0; }), btn=document.querySelector("#drawer .composer .bar .btn.primary"); if(btn) btn.disabled=true;
+  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc));
+    var was=typeof refMentionIds==="function"?refMentionIds(before):[], tell=(typeof refMentionIds==="function"?refMentionIds(text):[]).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); });
+    if(tell.length) notify("mention",tell,tk.id);
+    cmtEditFinish();
+    /* filed under Assets & versions as when posting: what was attached, and the links the new words bring — only
+       the new ones, so a link someone took off Assets does not come back with every edit */
+    var was=(typeof messageUrls==="function"?messageUrls(before):[]).map(function(x){ return normalizedAttachUrl(x.url); });
+    var list=typeof cmtAssetsFrom==="function"&&(!API.on||canI.editTask(tk))?cmtAssetsFrom(added,text).filter(function(a){ return added.indexOf(a)>=0||was.indexOf(a.url)<0; }):[], filed=[];
+    if(list.length) editTaskWith(tk,function(t){ filed=cmtFileAssets(t,list); }).then(function(saved){ if(saved!==false&&filed.length&&typeof cmtNameFiledLinks==="function") cmtNameFiledLinks(tk,filed); }); else refresh();
+    toast(tr("Comment updated")); };
+  if(!API.on){ c.text=text; c.attachments=att; c.editedAt=new Date().toISOString(); return done(null); }
+  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text,attachments:att}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
+/* Esc in the box while editing lets the edit go — unless the @ picker is open, which Esc closes first */
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!t||t.id!=="cmtText"||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
+/* leaving the task lets the edit go, and what was being written comes back */
+(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); return base.apply(this,arguments); }; })();
 
 Object.assign(UI_ID,{
-  "Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
+  "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
   "On this task":"Di task ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
@@ -20081,6 +20203,124 @@ function createDraftChecked(){ var tk=task("T-new"); if(!tk) return createDraft(
   var t=top.t; window._simCreate=function(){ tk._dupOk=true; createDraft(); };
   openModal(tr("This looks like a task that already exists"),'<p>'+tr("It is very close to")+' <b class="mono">'+esc(t.id)+'</b> “<span data-no-translate>'+esc(t.title)+'</span>” — '+esc(stageName(t.status))+(t.assignee?' · <span data-no-translate>'+esc(person(t.assignee).name)+'</span>':'')+' ('+Math.round(top.s*100)+'%).</p><p class="hint">'+tr("Open it to add to it, or create this one anyway.")+'</p>',
     '<button class="btn" onclick="closeModal();openTask('+jsq(t.id)+')">'+tr("Open")+' '+esc(t.id)+'</button><span class="spacer"></span><button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" id="simCreateAnyway" onclick="closeModal();window._simCreate()">'+tr("Create anyway")+'</button>'); }
+</script>
+<script>
+/* ============================================================
+   ESTIMATED HOURS, FILLED IN — and still the person's to change.
+   While a new task is written, its Estimate fills itself in from work already done: finished tasks that read
+   alike (simScore), counted more when they share the brief template, the team or a label, each with the hours
+   it actually took (its estimate when nobody logged the actual). The weighted median, rounded to half an hour,
+   with the range. Fewer than three alike and the title says what kind of work it is (a feed post, a carousel,
+   reels…)? What that kind usually takes (EST_KINDS), per deliverable for work made in sets, weighed with the one
+   or two alike. Nothing at all? Finished tasks of the same brief template, then of the same team (three or more).
+   Text only, in the browser — no cost, no wait.
+   Only when neither says enough, and the workspace lets the AI work for it, the AI is asked once, on Create, with
+   the task, the usual hours of each kind as a yardstick (and the closest examples, when the workspace shares its
+   data with the AI); its answer — never more than a working week — fills the task a moment later.
+   A number the person types is theirs: never overwritten, and the "auto" mark goes. The mark (meta.effortAuto)
+   says where the number came from — on hover, or a tap on phones.
+   ============================================================ */
+var EST_MIN=0.4, EST_ENOUGH=3, EST_BASE={}, EST_T=null;
+/* What a kind of work usually takes — hands-on hours for one person, not calendar time or waiting for approval.
+   It is the number when the workspace has nothing finished like it yet, it is weighed in when there are only one or
+   two, and it is the yardstick the AI is given: a single feed post is not a ten-hour job. Work made in sets (posts,
+   stories, banners, posters, resizes) is per deliverable, the later ones quicker than the first. Matched on the
+   title, English or Indonesian, the more specific kinds first.
+   [id, English name, Indonesian name, title pattern, typical, low, high, per deliverable] */
+var EST_KINDS=[
+  ["carousel","carousel","karosel",/carousel|karosel/,4,3,6,false],
+  ["story","story","story",/\bstor(y|ies)\b|insta ?story|ig ?story/,1.5,1,3,true],
+  ["reels","reels or short video","reels atau video pendek",/\breels?\b|tiktok|\bshorts\b|short video|video pendek/,6,4,10,false],
+  ["video","video","video",/video|motion|animation|animasi/,8,4,16,false],
+  ["kv","key visual","key visual",/\bkv\b|key ?visual/,6,4,10,false],
+  ["resize","resize or adaptation","resize atau adaptasi",/resize|adaptasi|adaptation|turunan/,1.5,0.5,3,true],
+  ["feed","feed post","post feed",/\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/,2,1,3,true],
+  ["poster","poster or flyer","poster atau flyer",/poster|flyer|leaflet|brosur|brochure|pamflet/,3,2,5,true],
+  ["banner","banner or ad","banner atau iklan",/banner|\bads?\b|iklan|billboard|baliho|spanduk/,3,2,5,true],
+  ["copy","copywriting","copywriting",/copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/,1.5,0.5,3,false],
+  ["deck","presentation","presentasi",/\bdeck\b|presentation|presentasi|\bppt\b|pitch/,6,3,10,false],
+  ["logo","logo or brand identity","logo atau identitas brand",/\blogo\b|branding|brand identity|identitas brand/,10,6,16,false],
+  ["web","web page","halaman web",/landing ?page|website|web ?page|halaman web/,10,6,20,false],
+  ["email","email or newsletter","email atau newsletter",/\bemail\b|newsletter|\bedm\b/,3,2,5,false]
+];
+function estKind(title){ var s=String(title||"").toLowerCase(); for(var i=0;i<EST_KINDS.length;i++) if(EST_KINDS[i][3].test(s)) return EST_KINDS[i]; return null; }
+/* the kind's hours for this many deliverables: the first in full, each next one at 60% */
+function estKindHours(k,items){ var f=k[7]&&items>1?1+0.6*(items-1):1; return {h:k[4]*f,low:k[5]*f,high:k[6]*f}; }
+function estKindName(id){ var k=EST_KINDS.filter(function(x){ return x[0]===id; })[0]; return k?(UI_LANG==="id"?k[2]:k[1]):id; }
+function estHours(t){ var a=+((t.meta||{}).actualEffort)||0; return a>0?a:(+t.effort||0); }
+function estRound(h){ return Math.max(0.5,Math.round(h*2)/2); }
+function estPool(){ return TASKS.filter(function(t){ return !t._draft&&!t._creating&&t.title&&isSuccessfulTask(t)&&estHours(t)>0; }); }
+function estMedian(xs){ xs=xs.slice().sort(function(a,b){ return a.h-b.h; }); var tot=xs.reduce(function(n,x){ return n+x.w; },0), acc=0; for(var i=0;i<xs.length;i++){ acc+=xs[i].w; if(acc>=tot/2) return xs[i].h; } return 0; }
+function estFrom(list,basis){ var hs=list.map(function(x){ return x.h; }).sort(function(a,b){ return a-b; });
+  return {h:estRound(estMedian(list)),n:list.length,low:estRound(hs[0]),high:estRound(hs[hs.length-1]),src:"history",basis:basis,ids:list.slice(0,5).map(function(x){ return x.t.id; })}; }
+/* the estimate for a task as it is written now (title, description, template, team, labels) */
+function effortEstimate(tk){ var title=String(tk.title||"").trim(); if(!title||typeof simScore!=="function") return null;
+  var tpl=tk.brief&&tk.brief.tpl, labels=tk.labels||[], pool=estPool();
+  var alike=pool.map(function(t){ var s=simScore(title,tk.description||"",t); if(s<EST_MIN) return null;
+      if(tpl&&t.brief&&t.brief.tpl===tpl) s+=0.1; if(tk.team&&t.team===tk.team) s+=0.05; if(labels.some(function(l){ return (t.labels||[]).indexOf(l)>=0; })) s+=0.05;
+      return {t:t,h:estHours(t),w:s}; }).filter(Boolean).sort(function(a,b){ return b.w-a.w; }).slice(0,8);
+  var k=estKind(title), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
+  /* enough finished work like it: that is the answer */
+  if(alike.length>=EST_ENOUGH||(alike.length&&!k)) return estFrom(alike,"alike");
+  /* one or two like it: weighed with what the kind usually takes (the kind counts as two) */
+  if(alike.length){ var e=estFrom(alike,"alike"), n=alike.length; return Object.assign(e,{h:estRound((n*estMedian(alike)+2*kh.h)/(n+2)),low:estRound(Math.min(e.low,kh.low)),high:estRound(Math.max(e.high,kh.high)),kind:k[0],items:items}); }
+  if(k) return {h:estRound(kh.h),n:0,low:estRound(kh.low),high:estRound(kh.high),src:"kind",basis:"",kind:k[0],items:items};
+  var same=function(f,basis){ var l=pool.filter(f).map(function(t){ return {t:t,h:estHours(t),w:1}; }); return l.length>=EST_ENOUGH?estFrom(l,basis):null; };
+  return (tpl&&same(function(t){ return t.brief&&t.brief.tpl===tpl; },"template"))||(tk.team&&same(function(t){ return t.team===tk.team; },"team"))||null; }
+/* the AI is asked only when neither the workspace's finished work nor the kind of work says enough */
+function effortWantsAi(est){ return !est||(!est.kind&&(est.basis!=="alike"||est.n<EST_ENOUGH)); }
+/* fill it in — unless the person has typed their own; with nothing to go on, back to what the draft started with */
+function effortApply(tk,est){ var m=taskMeta(tk); if(m.effortManual) return false; var k=tk._draftKey||tk.id; if(!(k in EST_BASE)) EST_BASE[k]=+tk.effort||0;
+  if(est){ tk.effort=est.h; m.effortAuto={src:est.src,basis:est.basis||"",n:est.n||0,low:est.low||est.h,high:est.high||est.h,reason:est.reason||""}; if(est.kind){ m.effortAuto.kind=est.kind; m.effortAuto.items=est.items||1; } }
+  else if(m.effortAuto){ tk.effort=EST_BASE[k]; delete m.effortAuto; }
+  return true; }
+/* a number typed by the person (every place the estimate is edited calls this) */
+function effortManual(t){ var m=taskMeta(t); m.effortManual=true; delete m.effortAuto; }
+function effortWhy(a){ if(!a) return ""; var range=a.low!==a.high?" ("+a.low+"–"+a.high+" h)":"";
+  var items=a.items>1?", "+a.items+" "+tr("deliverables"):"", like=function(n){ return n+" "+tr(n===1?"finished task like this one":"finished tasks like this one"); };
+  var s=a.src==="ai"?tr("Estimated by AI")+(a.reason?": "+a.reason:"")+(a.n?" · "+tr("Examples")+": "+a.n+" "+tr(a.n===1?"similar task":"similar tasks"):"")
+    :a.kind?tr("Typical for a")+" "+estKindName(a.kind)+items+(a.n?", "+tr("weighed with")+" "+like(a.n):"")+range
+    :tr("Filled in from")+" "+(a.basis==="template"?a.n+" "+tr("finished tasks with the same brief template"):a.basis==="team"?a.n+" "+tr("finished tasks of the same team"):like(a.n))+range;
+  return s+". "+tr("Type a number to set your own."); }
+function effortBadge(tk){ var a=(tk.meta||{}).effortAuto; if(!a) return ""; var why=effortWhy(a);
+  return '<button type="button" class="est-auto'+(a.src==="ai"?" ai":"")+'" title="'+attr(why)+'" aria-label="'+attr(tr("Filled in automatically")+". "+why)+'" onclick="event.stopPropagation();toast(this.title)">'+esc(tr("auto"))+'</button>'; }
+/* the number and the mark, changed where they stand: no redraw while someone types the title */
+function effortPaint(tk){ var cell=document.querySelector('#drawer [data-meta="effort"] .v'); if(!cell||!tk) return; var inp=cell.querySelector("input");
+  if(inp&&document.activeElement!==inp&&+inp.value!==+tk.effort) inp.value=tk.effort;
+  var old=cell.querySelector(".est-auto"), html=effortBadge(tk); if(old){ if(html){ if(old.outerHTML!==html) old.outerHTML=html; } else old.remove(); } else if(html) cell.insertAdjacentHTML("beforeend",html); }
+function effortLive(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!tk._draft) return; var r=typeof simRead==="function"?simRead(tk):{title:tk.title,desc:tk.description};
+  if(effortApply(tk,effortEstimate(Object.assign({},tk,{title:r.title,description:r.desc})))) effortPaint(tk); }
+document.addEventListener("input",function(e){ var el=e.target; if(!el||!el.closest||!(el.closest("#drHead .dr-title")||el.closest("#descSrc"))) return; var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!tk._draft) return; clearTimeout(EST_T); EST_T=setTimeout(effortLive,300); },true);(function(){ if(typeof renderDrawer!=="function") return; var base=renderDrawer; renderDrawer=function(){ var out=base.apply(this,arguments); try{ effortLive(); }catch(e){ console.error(e); } return out; }; })();
+
+/* ---------- the AI, once, on Create ---------- */
+function effortAiOk(){ if(typeof aiCfg!=="function"||typeof API==="undefined"||!API.on) return false; var c=aiCfg(); return !!(c.processing.externalEnabled&&(typeof aiConfigured!=="function"||aiConfigured("chat"))); }
+function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTemplates||[],tk.brief.tpl), tm=tk.team&&team(tk.team);
+  return ["Estimate the hands-on working hours one experienced person needs to do this task — the time spent working on it, not calendar time and not time waiting for feedback or approval.",
+    "Typical hands-on hours: "+EST_KINDS.map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+(k[7]?" each":""); }).join("; ")+". A small task gets a small number.",
+    "Task title: "+tk.title,
+    tk.description?"Description: "+String(tk.description).slice(0,800):"",
+    tpl?"Brief template: "+tpl.name:"", tm?"Team: "+tm.name:"", "Priority: "+(tk.prio||"medium"),
+    tk.assetCount?"Deliverables: "+tk.assetCount:"",
+    ex.length?"Finished tasks of this team that read alike, with the hours they took:\n"+ex.map(function(t){ return '- "'+String(t.title).slice(0,120)+'": '+estHours(t)+" h"; }).join("\n"):"",
+    'Reply with JSON only: {"hours": <number>, "reason": "<one short sentence in '+(UI_LANG==="id"?"Indonesian":"English")+'>"}'].filter(Boolean).join("\n"); }
+function effortAskAi(id,probe,est){ var c=aiCfg(), ex=c.processing.workspaceContextEnabled&&est&&est.ids?est.ids.map(task).filter(Boolean):[];
+  var call=apiFetch("POST","/api/ai/chat",{messages:[{role:"user",content:effortAiPrompt(probe,ex)}],context:""}), late=new Promise(function(res){ setTimeout(function(){ res(null); },25000); });
+  return Promise.race([call,late]).then(function(r){ if(!r) return false; var txt=String(r.reply||r.text||r.content||""), j=null; try{ j=JSON.parse((txt.match(/\{[\s\S]*\}/)||["null"])[0]); }catch(e){}
+    /* kept within reason: a reply past a working week is read as a full week (it was asked for one task) */
+    var h=j&&+j.hours, t=task(id); if(!(h>0)||!t||taskMeta(t).effortManual||!canI.editTask(t)) return false; h=Math.min(40,h);
+    var auto={src:"ai",basis:ex.length?"alike":"",n:ex.length,low:estRound(h),high:estRound(h),reason:String(j.reason||"").slice(0,200)};
+    return editTaskWith(t,function(x){ if(taskMeta(x).effortManual) return; x.effort=estRound(h); taskMeta(x).effortAuto=auto; }); }).catch(function(){ return false; }); }
+(function(){ if(typeof createDraft!=="function") return; var base=createDraft; createDraft=function(){ var tk=task("T-new"), want=null;
+  if(tk) try{ var el=document.querySelector(".dr-title"), probe=Object.assign({},tk,{title:String((el&&el.textContent)||tk.title||"").trim()}), est=effortEstimate(probe);
+    if(effortApply(tk,est)&&effortWantsAi(est)&&effortAiOk()) want={probe:probe,est:est}; }catch(e){ console.error(e); }
+  var out=base.apply(this,arguments);
+  if(want&&out&&typeof out.then==="function") out.then(function(t){ if(t&&t.id) effortAskAi(t.id,want.probe,want.est); });
+  return out; }; })();
+
+Object.assign(UI_ID,{"auto":"otomatis","Filled in automatically":"Diisi otomatis","Estimated by AI":"Diperkirakan oleh AI","Examples":"Contoh","similar task":"task serupa","similar tasks":"task serupa",
+  "Filled in from":"Diisi dari","finished task like this one":"task serupa yang sudah selesai","finished tasks like this one":"task serupa yang sudah selesai",
+  "finished tasks with the same brief template":"task selesai dengan template brief yang sama","finished tasks of the same team":"task selesai dari tim yang sama",
+  "Type a number to set your own.":"Ketik angka untuk menentukan sendiri.","Typical for a":"Lazimnya untuk","weighed with":"ditimbang dengan"});
 </script>
 <script>
 /* ============================================================

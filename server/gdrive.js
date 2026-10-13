@@ -98,8 +98,8 @@ async function exchangeCode(db, wsId, req, code, userId) {
   const c = config(db, wsId), r = row(db, wsId);
   if (!c.clientId || !r || !r.client_secret) throw err(400, "Google Drive is not configured.");
   const out = await postForm(TOKEN_URL, { code, client_id: c.clientId, client_secret: secrets.decrypt(r.client_secret), redirect_uri: redirectUri(req), grant_type: "authorization_code" });
-  if (!out.ok) throw err(502, "Google refused the connection: " + ((out.json.error_description || out.json.error || out.text || "").slice(0, 300) || "unknown error"));
-  if (!out.json.refresh_token) throw err(502, "Google did not return a refresh token. Remove this app at myaccount.google.com/permissions, then connect again.");
+  if (!out.ok) throw err(424, "Google refused the connection: " + ((out.json.error_description || out.json.error || out.text || "").slice(0, 300) || "unknown error"));
+  if (!out.json.refresh_token) throw err(424, "Google did not return a refresh token. Remove this app at myaccount.google.com/permissions, then connect again.");
   upsert(db, wsId, { refresh_token: secrets.encrypt(out.json.refresh_token), account: emailFromIdToken(out.json.id_token), updated_by: userId || null });
   cache.set(wsId, { token: out.json.access_token, exp: Date.now() + ((out.json.expires_in || 3600) - 120) * 1000 });
   return status(db, wsId);
@@ -118,7 +118,7 @@ async function accessToken(db, wsId) {
        consent screen is still in "Testing", where refresh tokens last only seven days. Drop it so
        the workspace shows as disconnected instead of failing every upload forever. */
     if (String(out.json.error || "") === "invalid_grant") { forget(db, wsId); throw err(409, "Google has revoked the workspace's Drive access. An admin needs to reconnect it in Settings → Cloud storage. If your OAuth consent screen is still in \"Testing\", publish it — refresh tokens expire after seven days there."); }
-    throw err(502, "Could not renew Google access: " + ((out.json.error_description || out.json.error || "unknown error").slice(0, 300)));
+    throw err(424, "Could not renew Google access: " + ((out.json.error_description || out.json.error || "unknown error").slice(0, 300)));
   }
   const token = out.json.access_token, exp = Date.now() + ((out.json.expires_in || 3600) - 120) * 1000;
   cache.set(wsId, { token, exp });
@@ -141,14 +141,14 @@ async function upload(db, wsId, req, meta) {
     headers: { Authorization: "Bearer " + token, "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": mime, "X-Upload-Content-Length": String(bytes) },
     body: JSON.stringify(body), signal: AbortSignal.timeout(30000)
   });
-  if (!start.ok) { const t = await start.text(); if (start.status === 401) cache.delete(wsId); throw err(502, "Drive refused the upload: " + t.slice(0, 300)); }
+  if (!start.ok) { const t = await start.text(); if (start.status === 401) cache.delete(wsId); throw err(424, "Drive refused the upload: " + t.slice(0, 300)); }
   const session = start.headers.get("location");
-  if (!session) throw err(502, "Drive did not open an upload session.");
+  if (!session) throw err(424, "Drive did not open an upload session.");
   const put = await fetch(session, { method: "PUT", headers: { "Content-Type": mime, "Content-Length": String(bytes) }, body: Readable.toWeb(req), duplex: "half" });
   const text = await put.text();
-  if (!put.ok) throw err(502, "Drive rejected the file: " + text.slice(0, 300));
+  if (!put.ok) throw err(424, "Drive rejected the file: " + text.slice(0, 300));
   let file = {}; try { file = JSON.parse(text); } catch {}
-  if (!file.id) throw err(502, "Drive did not return a file id.");
+  if (!file.id) throw err(424, "Drive did not return a file id.");
   if (c.publicLinks === true) {
     /* Deliberately best-effort: the file is already safely uploaded, and a failed share should not
        lose it. The member sees the link either way. */

@@ -1129,3 +1129,25 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .exm-lang>div:first-child{flex:1 1 220px;min-width:0}
 .exm-lang b{display:block;font-size:14px}
 .exm-lang small{display:block;margin-top:2px;color:var(--color-text-secondary);font-size:12px}
+
+/* editing a comment in the box: the box says so, and the comment being edited is marked */
+/* the comment being edited: a tinted card with room around it — the avatar stays in line with the others —
+   and the comment box in place of its words */
+#drawer .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
+#drawer .cmt.cmt-editing .composer{margin-top:8px}
+#drawer .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
+/* a link in a comment's words is a chip: inline with the text */
+#drawer .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
+@media(max-width:760px){#drawer .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+/* Home: Mine · All on each card, small, at the head's end */
+.panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
+.seg.dash-scope button{padding:3px 10px;font-size:12px}
+.rail-head .seg.dash-scope{margin-left:auto}
+.dash .empty .btn{margin-top:10px}
+/* the estimate filled in for the person: a small "auto" beside the hours, its source on hover (or a tap) */
+.est-auto{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:16px;cursor:help;vertical-align:middle;border:0}
+.est-auto.ai{background:color-mix(in srgb,#8B5CF6 16%,transparent);color:#7C3AED}
+[data-theme="dark"] .est-auto.ai{color:#C4B5FD}
+/* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
+.panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
+.panel.ink .empty .h{color:var(--color-ink-text)}

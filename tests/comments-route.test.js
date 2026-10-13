@@ -88,6 +88,12 @@ test('the author edits their comment; it says it was edited; nobody else can', {
   assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'Logo 3x lebih kecil (moderated)' }, s.admin)).status, 200);
   assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_nope', { text: 'x' }, viewer)).status, 404);
   assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'x'.repeat(10001) }, viewer)).status, 413);
+  /* the attachments as the box left them: one taken off, one added; a link that is not https is refused, as when posting */
+  r = await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'Logo 3x lebih kecil', attachments: [{ name: 'Brief', url: 'https://example.org/brief', kind: 'link' }] }, viewer);
+  assert.equal(r.status, 200, await r.clone().text());
+  assert.deepEqual((await s.get(tk.id)).comments.find(x => x.id === 'cm_edit').attachments.map(a => a.url), ['https://example.org/brief']);
+  assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_edit', { text: 'x', attachments: [{ name: 'Bad', url: 'http://example.org/insecure' }] }, viewer)).status, 400);
+  assert.equal((await s.get(tk.id)).comments.find(x => x.id === 'cm_edit').text, 'Logo 3x lebih kecil', 'a refused edit changes nothing');
   r = await s.req('POST', '/api/tasks/' + tk.id + '/comments', { id: 'cm_plain', text: 'Just words' }, viewer);
   assert.equal((await s.req('PUT', '/api/tasks/' + tk.id + '/comments/cm_plain', { text: '   ' }, viewer)).status, 400, 'a comment with nothing in it is refused');
   /* through a task PUT: the stamp is the server's — set when the words change, never taken from the client */

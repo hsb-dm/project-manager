@@ -89,8 +89,8 @@ test("arrows and Enter choose; the full name is written and coloured while typin
 });
 
 /* Enter straight after "@name" picks that person even when typed faster than the picker can keep up
-   — but after Esc has dismissed the picker, Enter is just a new line. */
-test("Esc dismisses the picker, and Enter after it is a new line, not a mention", async ({ page }) => {
+   — but after Esc has dismissed the picker, Enter sends the words as they are written. */
+test("Esc dismisses the picker, and Enter after it sends the words as written, not a mention", async ({ page }) => {
   await signIn(page);
   await openComments(page);
   await page.locator("#cmtText").click();
@@ -99,7 +99,12 @@ test("Esc dismisses the picker, and Enter after it is a new line, not a mention"
   await expect(page.locator("#entityPicker")).toHaveCount(0);
   await expect(page.locator("#drawer"), "Esc closed the picker, not the task").toHaveClass(/open/);
   await page.keyboard.press("Enter");
-  await expect(page.locator("#cmtText")).toHaveValue("email ke @anna\n");
+  await expect.poll(() => page.evaluate(id => task(id).comments.map(c => c.text), taskId), { timeout: 10000 }).toEqual(["email ke @anna"]);
+  await expect(page.locator("#entityPicker")).toHaveCount(0);
+  /* taken off again: the tests below count the comments */
+  const cid = await page.evaluate(id => task(id).comments[0].id, taskId);
+  await page.evaluate(cid => deleteComment(cid), cid);
+  await expect.poll(async () => page.evaluate(async id => (await apiFetch("GET", "/api/tasks/" + id)).comments.length, taskId), { timeout: 10000 }).toBe(0);
   await page.evaluate(() => { window._cmtDraft = ""; window._cmtMentions = []; renderDrawer(); });
 });
 
@@ -143,6 +148,9 @@ test("the old way, @id, still mentions", async ({ page }) => {
   await page.locator("#cmtText").fill("Dari cara lama @" + budi + " juga");
   await page.locator("#drawer .composer .bar .btn.primary").click();
   await expect.poll(() => page.evaluate(id => task(id).comments.length, taskId), { timeout: 10000 }).toBe(2);
+  /* the comment shows at once; the mention is sent once the server has it — wait for that, not for the comment
+     (read right away it raced the server, and failed when the full suite made the server slow) */
+  await expect.poll(() => page.evaluate(() => (window.__notes || []).some(n => n[0] === "mention")), { timeout: 10000 }).toBe(true);
   const mention = (await page.evaluate(() => window.__notes)).find(n => n[0] === "mention");
   expect(mention && mention[1]).toContain(budi);
 });
@@ -157,6 +165,41 @@ test("the @ button opens the picker too, and the box speaks Indonesian", async (
   await page.evaluate(() => { window._cmtDraft = ""; UI_LANG = "id"; renderDrawer(); });
   await expect(page.locator("#cmtText")).toHaveAttribute("placeholder", "Tulis komentar… ketik @ untuk menyebut seseorang");
   await page.evaluate(() => { UI_LANG = "en"; });
+});
+
+/* Enter sends a comment as it sends a chat message; Shift+Enter is a new line; Ctrl+Enter still sends */
+test("Enter sends the comment, Shift+Enter starts a new line, and the box says so", async ({ page }) => {
+  await signIn(page);
+  await openComments(page);
+  const hint = page.locator("#drawer .composer .bar .hint");
+  await expect(hint).toContainText("Enter sends · Shift + Enter new line");
+  const count = () => page.evaluate(id => task(id).comments.length, taskId);
+  const before = await count();
+  await page.locator("#cmtText").click();
+  await page.keyboard.type("Baris satu");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("baris dua");
+  await expect(page.locator("#cmtText")).toHaveValue("Baris satu\nbaris dua");
+  expect(await count(), "Shift+Enter sent nothing").toBe(before);
+  await page.keyboard.press("Enter");
+  await expect.poll(count, { timeout: 10000 }).toBe(before + 1);
+  await expect(page.locator("#cmtText")).toHaveValue("");
+  await expect.poll(() => page.evaluate(async id => (await apiFetch("GET", "/api/tasks/" + id)).comments.some(c => c.text === "Baris satu\nbaris dua"), taskId), { timeout: 10000 }).toBe(true);
+  /* Ctrl+Enter, the old way, still sends */
+  await page.locator("#cmtText").click();
+  await page.keyboard.type("Lagi");
+  await page.keyboard.press("Control+Enter");
+  await expect.poll(count, { timeout: 10000 }).toBe(before + 2);
+  /* an empty box sends nothing */
+  await page.locator("#cmtText").click();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  expect(await count()).toBe(before + 2);
+  /* Indonesian, and the setting says it too */
+  await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
+  await expect(hint).toContainText("Enter mengirim · Shift + Enter baris baru");
+  await page.evaluate(() => { UI_LANG = "en"; closeDrawer(); S.settingsTab = "profile"; go("settings", "profile"); });
+  await expect(page.locator("#content")).toContainText("Comment shortcut: Enter sends · Shift + Enter new line");
 });
 
 test.afterAll(async ({ browser }) => {

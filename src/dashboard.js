@@ -3,9 +3,20 @@
    DASHBOARD — KPI · priorities · team workload · projects · deadlines · review queue · requests · activity (§15–18)
    ============================================================ */
 function kpi(cls,v,k,hint,onclick,icon,sq){ return '<div class="kpi '+cls+'" onclick="'+(onclick||"")+'"><div class="top"><span class="sq '+(sq||"")+'">'+(icon||I.tasks)+'</span><span class="k">'+tr(k)+'</span></div><div class="v">'+v+'</div>'+(hint?'<div class="d">'+tr(hint)+'</div>':'')+'</div>'; }
-function rail(){ var st=localStages(); var counts={}; var max=1; st.forEach(function(s){ counts[s.id]=0; }); visibleBoardTasks().forEach(function(x){ counts[x.status]=(counts[x.status]||0)+1; }); st.forEach(function(s){ if (counts[s.id]>max) max=counts[s.id]; });
-  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Workflow pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':tr("All")+' '+visibleBoardTasks().length+' '+tr("tasks"))+'</div></div></div><div class="rail-track">';
-  st.forEach(function(sg){ var n=counts[sg.id]||0; var over=visibleBoardTasks().filter(function(x){ return x.status===sg.id&&x.due<0&&sg.kind!=="closed"; }).length; var cls=sg.kind==="closed"?"good":sg.kind==="review"?"warn":sg.kind==="revision"?"bad":"";
+/* Every Home card but Needs your review (which is only ever mine) shows Mine or All — Mine unless the person chose
+   All; the choice is remembered per card and travels with them. Mine is the work I am on: assigned, reviewing or
+   created; for projects, the ones I own, belong to or have work in; for teams, the ones I am in or lead; and the
+   inbox also holds new requests sent to my teams. */
+function dashScope(k){ var s=(PEOPLE[ME]&&myPrefs().dashScope)||{}; return s[k]==="all"?"all":"mine"; }
+function setDashScope(k,v){ var pr=myPrefs(); pr.dashScope=Object.assign({},pr.dashScope||{}); pr.dashScope[k]=v==="all"?"all":"mine"; saveMyPrefs(); renderScreen(false); }
+function dashScopeSeg(k){ var s=dashScope(k), b=function(v,l){ return '<button type="button" class="'+(s===v?"on":"")+'" aria-pressed="'+(s===v)+'" onclick="event.stopPropagation();setDashScope(\''+k+'\',\''+v+'\')">'+esc(tr(l))+'</button>'; };
+  return '<div class="seg dash-scope" data-scope="'+k+'" role="group" aria-label="'+attr(tr("Show"))+'">'+b("mine","Mine")+b("all","All")+'</div>'; }
+function dashShowAll(k){ return '<button type="button" class="btn xs" onclick="setDashScope(\''+k+'\',\'all\')">'+esc(tr("Show all"))+'</button>'; }
+function myTeam(tid){ var t=tid&&team(tid); return !!t&&(t.lead===ME||teamsOf(ME).indexOf(tid)>=0); }
+function railTasks(){ var all=visibleBoardTasks(); return dashScope("rail")==="all"?all:all.filter(function(x){ return involved(x,ME); }); }
+function rail(){ var st=localStages(); var counts={}; var max=1; st.forEach(function(s){ counts[s.id]=0; }); railTasks().forEach(function(x){ counts[x.status]=(counts[x.status]||0)+1; }); st.forEach(function(s){ if (counts[s.id]>max) max=counts[s.id]; });
+  var h='<div class="rail"><div class="rail-head"><span class="sq">'+I.kanban+'</span><div><div style="font-weight:700">Workflow pipeline</div><div class="sub">'+(S.railFilter?'Filtered by “'+esc(stageName(S.railFilter))+'” · <a href="#" onclick="S.railFilter=null;renderScreen(false);return false" style="color:var(--color-primary);font-weight:600">Clear</a>':railTasks().length+' '+tr("tasks"))+'</div></div>'+dashScopeSeg("rail")+'</div><div class="rail-track">';
+  st.forEach(function(sg){ var n=counts[sg.id]||0; var over=railTasks().filter(function(x){ return x.status===sg.id&&x.due<0&&sg.kind!=="closed"; }).length; var cls=sg.kind==="closed"?"good":sg.kind==="review"?"warn":sg.kind==="revision"?"bad":"";
     h+='<div class="stage '+cls+(S.railFilter===sg.id?" on":"")+(n===0?" empty":"")+'" onclick="S.railFilter=(S.railFilter===\''+sg.id+'\')?null:\''+sg.id+'\';renderScreen(false)" title="'+attr(sg.name)+'">'+(over?'<span class="flag"></span>':'')+'<div class="n">'+n+'</div><div class="l">'+esc(sg.name)+'</div><div class="bar"><i style="width:'+Math.round(n/max*100)+'%"></i></div></div>'; });
   return h+'</div></div>'; }
 var DASH_DEFAULT=["myspace","kpis","rail","priorities","review","workload","projects","deadlines","requests","activity"];
@@ -22,6 +33,7 @@ function toggleDashCollapse(k){ var pf=dashPrefs(); var c=dashCollapsed().slice(
 /* v19.7 the eight KPI cards are back; each can be shown/hidden per member (myPrefs.kpiHidden) from Customize */
 var KPI_ALL=[["mytasks","My tasks"],["duetoday","Due today"],["inreview","In review"],["overdue","Overdue"],["assetsdone","Assets delivered"],["assetsopen","Assets in production"],["assetlinks","Asset links"],["autohidden","Auto-hidden"]];
 function kpiHidden(){ return myPrefs().kpiHidden||[]; }
+Object.assign(UI_ID,{"Show":"Tampilkan","Show all":"Tampilkan semua","Priorities":"Prioritas","No open tasks":"Tidak ada task terbuka","Only what you are on is shown.":"Hanya yang melibatkan Anda yang ditampilkan.","No teams yet":"Belum ada tim","You are not in a team yet":"Anda belum masuk tim mana pun","No active projects":"Tidak ada proyek aktif","No active projects of yours":"Tidak ada proyek aktif milik Anda","No activity yet":"Belum ada aktivitas"});
 var DASH_NAMES={myspace:"My space",kpis:"KPI cards",rail:"Workflow pipeline",priorities:"My priorities",review:"Needs your review",workload:"Team workload",projects:"Active projects",deadlines:"Upcoming deadlines",requests:"Inbox \u2014 new requests",activity:"Recent activity"};
 /* ---------- one modal: tick everything, then apply ---------- */
 var CUST=null;
@@ -137,15 +149,19 @@ function dStart(e,k){ DDRAG=k; e.dataTransfer.effectAllowed="move"; setTimeout(f
 function dOver(e,el){ e.preventDefault(); el.classList.add("over"); }
 function dDrop(e,k){ e.preventDefault(); document.querySelectorAll("[data-sec].over,[data-sec].drag").forEach(function(x){ x.classList.remove("over","drag"); }); var from=DDRAG; DDRAG=null; if (!from||from===k) return; var o=dashOrder(); o.splice(o.indexOf(from),1); o.splice(o.indexOf(k),0,from); saveDashOrder(o); renderScreen(false); toast("Dashboard layout saved"); }
 function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
-  var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(function(x){ return isReviewer(x,ME)||canI.reviewTask(x); }));
+  var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(reviewMine));
   var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length; var assetsDone=assetsProduced(TASKS.filter(isClosed)); var assetsOpen=assetsProduced(ot);
   var h='<div class="pagehead m-head"><div><div class="date">'+uiDow(d.getDay())+', '+uiMol(d.getMonth())+' '+d.getDate()+'</div><h1>'+tr(g)+', '+first(ME)+'</h1><div class="muted" style="margin-top:4px">'+rev.length+' '+tr("waiting for your review")+' · '+today.length+' '+tr("due today")+' · '+over.length+' '+tr("overdue")+' · '+doneWeek+' '+tr("completed this week")+'</div></div><div class="actions"><button class="btn desktop-only" onclick="openMenu(\'exportMenu\',this)" data-menu>'+I.download+tr("Export")+'</button>'+dashboardCreateAction()+'<button class="btn desktop-only" id="dashCustom" title="'+tr("Choose which cards and menu items you see")+'" onclick="customizeModal()">'+I.tiles+tr("Customize")+((dashHidden().length+navHidden().length)?' <span class="cnt">'+(dashHidden().length+navHidden().length)+'</span>':'')+'</button></div></div>';
   h+=typeof wqHomeCard==="function"?wqHomeCard():"";
   var rf=S.railFilter, inStage=function(x){ return !rf||x.status===rf; };
-  var prioTitle=rf?"Tasks in “"+esc(stageName(rf))+"”":"My priorities"; var prioList=rf?sortTasks(visibleBoardTasks().filter(function(x){ return x.status===rf; })):sortTasks(mine);
+  var sc=function(k,list,isMine){ return dashScope(k)==="all"?list:list.filter(isMine||function(x){ return involved(x,ME); }); };
+  var prioAll=dashScope("priorities")==="all";
+  var prioTitle=rf?"Tasks in “"+esc(stageName(rf))+"”":prioAll?tr("Priorities"):"My priorities"; var prioList=rf?sortTasks(railTasks().filter(function(x){ return x.status===rf; })):sortTasks(prioAll?ot:mine);
   if (rf) rev=rev.filter(inStage);
-  var upcoming=sortTasks(ot.filter(inStage).filter(function(x){ return x.due>=0&&x.due<=7; })).slice(0,6); var openReqs=sortTasks(ot.filter(inStage).filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }));
-  var actAll=ACTIVITY; var actMine=ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&involved(t,ME))||a.who===ME; }); var actList=S.actScope==="all"?actAll:actMine;
+  var upcoming=sortTasks(sc("deadlines",ot.filter(inStage)).filter(function(x){ return x.due>=0&&x.due<=7; })).slice(0,6); var openReqs=sortTasks(sc("requests",ot.filter(inStage),function(t){ return involved(t,ME)||myTeam(t.team); }).filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }));
+  var actAll=ACTIVITY; var actMine=ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&involved(t,ME))||a.who===ME; }); var actList=dashScope("activity")==="all"?actAll:actMine;
+  var projList=sc("projects",liveProjects().filter(function(p){return p.status!=="done";}),projMine), wlTeams=sc("workload",workloadTeams(),function(t){ return myTeam(t.id); });
+  var none=function(k,all,mineText){ return dashScope(k)==="all"?emptyBox(all,""):emptyBox(mineText,tr("Only what you are on is shown."),null,dashShowAll(k)); };
   var sec={
     /* v19.4 My space is a normal Home card: draggable, hideable, collapsible, restorable from Customize */
     myspace:{full:true,html:typeof workbenchHtml==="function"?workbenchHtml():""},
@@ -161,13 +177,13 @@ function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); va
       var shown=KPI_ALL.map(function(k){ return k[0]; }).filter(function(k){ return kh.indexOf(k)<0; }); if(!shown.length) return '<div class="hint" style="padding:6px 2px">'+tr("All KPI cards are hidden.")+' <a href="#" onclick="customizeModal();return false" style="color:var(--color-primary);font-weight:600">'+tr("Customize")+'</a></div>';
       var cols=shown.length>=4?4:shown.length; return '<div class="kpis kpis-4 kpis-n'+cols+'">'+shown.map(function(k){ return cards[k](); }).join("")+'</div>'; })()},
     rail:{full:true,html:rail()},
-    priorities:{html:panel(prioTitle,prioList.length,prioList.length?prioList.slice(0,8).map(function(x){ return taskRow(x,{showAssignee:!!S.railFilter}); }).join(""):emptyBox(S.railFilter?"No tasks in this stage":"No tasks assigned to you",S.railFilter?"Try another stage or clear the filter.":""),"go(\'tasks\')",null,I.tasks)},
+    priorities:{html:panel(prioTitle,prioList.length,prioList.length?prioList.slice(0,8).map(function(x){ return taskRow(x,{showAssignee:!!S.railFilter||prioAll}); }).join(""):S.railFilter?emptyBox("No tasks in this stage","Try another stage or clear the filter."):prioAll?emptyBox(tr("No open tasks"),""):emptyBox("No tasks assigned to you","",null,dashShowAll("priorities")),"go(\'tasks\')",rf?null:dashScopeSeg("priorities"),I.tasks)},
     review:{html:panel("Needs your review",rev.length,rev.length?rev.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Nothing waiting for your review",""),null,null,I.eye,"ink")},
-    workload:{html:panel("Team workload",activeTeams().length,teamWorkloadRows(),"go(\'teams\')",null,I.team)},
-    projects:{html:panel("Active projects",liveProjects().filter(function(p){return p.status!=="done";}).length,projRows(liveProjects().filter(function(p){return p.status!=="done";})),"go(\'projects\')",null,I.projects)},
-    deadlines:{html:panel("Upcoming deadlines",upcoming.length,upcoming.length?upcoming.map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Nothing due this week",""),"go(\'calendar\')",null,I.calendar)},
-    requests:{html:panel("Inbox — new requests",openReqs.length,openReqs.length?openReqs.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):emptyBox("Inbox is empty",""),"S.filters.status=firstStage();S.taskScope=\'all\';go(\'tasks\',\'list\')",null,I.inbox)},
-    activity:{full:true,html:panel("Recent activity",actList.length,actList.length?activityRows(actList,10):emptyBox("No activity on your tasks yet",""),null,'<div class="seg"><button class="'+(S.actScope!=="all"?"on":"")+'" onclick="S.actScope=\'mine\';renderScreen(false)">Mine</button><button class="'+(S.actScope==="all"?"on":"")+'" onclick="S.actScope=\'all\';renderScreen(false)">All</button></div>',I.sync)}
+    workload:{html:panel("Team workload",wlTeams.length,wlTeams.length?teamWorkloadRows(wlTeams):none("workload",tr("No teams yet"),tr("You are not in a team yet")),"go(\'teams\')",dashScopeSeg("workload"),I.team)},
+    projects:{html:panel("Active projects",projList.length,projList.length?projRows(projList):none("projects",tr("No active projects"),tr("No active projects of yours")),"go(\'projects\')",dashScopeSeg("projects"),I.projects)},
+    deadlines:{html:panel("Upcoming deadlines",upcoming.length,upcoming.length?upcoming.map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):none("deadlines","Nothing due this week","Nothing due this week"),"go(\'calendar\')",dashScopeSeg("deadlines"),I.calendar)},
+    requests:{html:panel("Inbox — new requests",openReqs.length,openReqs.length?openReqs.slice(0,6).map(function(x){ return taskRow(x,{showStatus:false}); }).join(""):none("requests","Inbox is empty","Inbox is empty"),"S.filters.status=firstStage();S.taskScope=\'all\';go(\'tasks\',\'list\')",dashScopeSeg("requests"),I.inbox)},
+    activity:{full:true,html:panel("Recent activity",actList.length,actList.length?activityRows(actList,10):none("activity",tr("No activity yet"),"No activity on your tasks yet"),null,dashScopeSeg("activity"),I.sync)}
   };
   var hidden=dashHidden(), collapsed=dashCollapsed();
   var MARK='<span class="spacer"></span>';
@@ -175,6 +191,8 @@ function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); va
     /* Wanted order: icon, title, count, head actions (Mine/All, View all), gap, controls.
        panel() puts every action after the spacer, so move that whole run in front of it
        and park the controls at the end. */
+    /* the pipeline's head has Mine / All at its end: the controls go after it, in the head, not over it */
+    if (html.indexOf('</div><div class="rail-track">')>=0) return html.replace('</div><div class="rail-track">',ctl+'</div><div class="rail-track">');
     var b=html.indexOf('<div class="panel-body');
     if (b<0||html.indexOf('panel-head')<0) return ctl.replace('class="dctl"','class="dctl float"')+html;
     var head=html.slice(0,b), rest=html.slice(b);

@@ -93,8 +93,8 @@ document.addEventListener("input",function(e){
   else if(ep) epClose();
   cmtMirrorSync();
 });
-/* Captured before the box's own key handler, so Enter picks a person rather than starting a new
-   line, and Ctrl+Enter cannot post while the picker is still open. */
+/* Captured before the box's own key handler (Enter sends there), so Enter on "@name" picks a person
+   rather than sending the comment. */
 document.addEventListener("keydown",function(e){
   var ta=e.target; if(!ta||ta.id!=="cmtText") return;
   var ep=cmtPicker(), q=msgCaretMention(ta);
@@ -198,31 +198,54 @@ function cmtMentionsHtml(html){
 }
 
 /* ---------- editing a comment ----------
-   Whoever wrote a comment can change what it says, in place: its words in a box where they were, Save and
-   Cancel under it (Ctrl+Enter saves, Esc cancels). What is being written is kept through a redraw of the panel
-   (S.cmtEdit), and the box keeps its focus (it has an id, see v38.js). Saved, it says "edited"; whoever the new
-   words name and the old ones did not is told. Attachments and replies stay as they were. */
+   A comment is edited where it is: the comment box — the box it was written in — opens in the comment's place, so
+   the @ picker, a link read as its name, the attachments with their remove buttons and the Attach buttons all work
+   as they did when it was written. It has Cancel and Save (Ctrl+Enter saves, Esc lets it go). The box at the bottom
+   steps aside meanwhile; what was being written in it is put aside and comes back when the edit is saved or let go. Saved, the comment says
+   "edited"; whoever the new words name is told; an attachment added that is an asset is filed under Assets &
+   versions, as when posting. */
+function cmtEditLoad(text){ var links=[];
+  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return name; });
+  var mentions=(typeof refMentionIds==="function"?refMentionIds(shown):[]).map(function(id){ return {userId:id,display:person(id).name}; });
+  return {text:shown,links:links,mentions:mentions}; }
 function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
-  S.cmtEdit={task:tk.id,id:id,draft:c.text||""}; renderDrawer();
-  setTimeout(function(){ var ta=document.getElementById("cmtEditText"); if(ta){ ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} } },0); }
-function cmtEditHtml(c){ var d=S.cmtEdit;
-  return '<div class="cmt-edit"><textarea id="cmtEditText" rows="3" maxlength="10000" aria-label="'+attr(tr("Edit comment"))+'" oninput="if(S.cmtEdit)S.cmtEdit.draft=this.value" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){event.preventDefault();cmtEditSave();}else if(event.key===\'Escape\'){event.preventDefault();event.stopPropagation();cmtEditCancel();}">'+esc(d.draft)+'</textarea>'
-    +'<div class="cmt-edit-bar"><span class="hint">'+esc(shortcutCombo?shortcutCombo("Enter"):"Ctrl + Enter")+' '+tr("saves")+' · Esc '+tr("cancels")+'</span><span class="spacer"></span><button type="button" class="btn xs" onclick="cmtEditCancel()">'+tr("Cancel")+'</button><button type="button" class="btn xs primary" id="cmtEditSave" onclick="cmtEditSave()">'+tr("Save")+'</button></div></div>'; }
-function cmtEditCancel(){ S.cmtEdit=null; renderDrawer(); }
-function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), ta=document.getElementById("cmtEditText"); if(!c) return cmtEditCancel();
-  var text=String(ta?ta.value:d.draft).trim(); if(!text&&!(c.attachments||[]).length) return toast(tr("Write something first"),"bad");
-  if(text===(c.text||"")){ S.cmtEdit=null; renderDrawer(); return; }
-  var before=c.text||"", btn=document.getElementById("cmtEditSave"); if(btn) btn.disabled=true;
-  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc)); S.cmtEdit=null; refresh(); toast(tr("Comment updated"));
-    /* whoever the new words name and the old did not */
-    if(typeof refMentionIds==="function"){ var was=refMentionIds(before), now=refMentionIds(text).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); }); if(now.length) notify("mention",now,tk.id); } };
-  if(!API.on){ c.text=text; c.editedAt=new Date().toISOString(); return done(null); }
-  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
-/* a comment being edited is let go when its task is left */
-(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) S.cmtEdit=null; return base.apply(this,arguments); }; })();
+  if(!S.cmtEdit){ var ta=document.getElementById("cmtText"); S.cmtEditStash={text:ta?ta.value:(window._cmtDraft||""),att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null}; }
+  var shown=cmtEditLoad(c.text||"");
+  window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
+  S.cmtEdit={task:tk.id,id:id};
+  renderDrawer(); cmtEditFocus(); }
+function cmtEditFocus(){ setTimeout(function(){ var ta=document.getElementById("cmtText"); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
+  ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} if(typeof cmtMirrorSync==="function") try{ cmtMirrorSync(); }catch(e){} },0); }
+/* the box back to what was being written in it before the edit */
+function cmtEditFinish(){ var st=S.cmtEditStash||{text:"",att:[],links:[],mentions:[],reply:null};
+  window._cmtDraft=st.text; window._cmtAtt=st.att; window._cmtLinks=st.links; window._cmtMentions=st.mentions; S.replyTo=st.reply; S.cmtEdit=null; S.cmtEditStash=null; }
+function cmtEditCancel(){ cmtEditFinish(); renderDrawer(); }
+function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), el=document.getElementById("cmtText"); if(!c||!el){ cmtEditCancel(); return; }
+  var text=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
+  if(!text&&!att.length) return toast(tr("Write something first"),"bad");
+  var key=function(a){ return a?String(a.url||a.preview||a.driveId||(a.ref?a.ref+":"+a.refId:"")||a.name||""):""; };
+  var before=c.text||"", beforeKeys=(c.attachments||[]).map(key);
+  if(text===before&&JSON.stringify(att.map(key))===JSON.stringify(beforeKeys)){ cmtEditCancel(); return; }
+  var added=att.filter(function(a){ return beforeKeys.indexOf(key(a))<0; }), btn=document.querySelector("#drawer .composer .bar .btn.primary"); if(btn) btn.disabled=true;
+  var done=function(doc){ if(doc) replaceInto(tk,hTask(doc));
+    var was=typeof refMentionIds==="function"?refMentionIds(before):[], tell=(typeof refMentionIds==="function"?refMentionIds(text):[]).filter(function(id){ return id!==ME&&was.indexOf(id)<0&&!(c.vis==="internal"&&person(id).stakeholder); });
+    if(tell.length) notify("mention",tell,tk.id);
+    cmtEditFinish();
+    /* filed under Assets & versions as when posting: what was attached, and the links the new words bring — only
+       the new ones, so a link someone took off Assets does not come back with every edit */
+    var was=(typeof messageUrls==="function"?messageUrls(before):[]).map(function(x){ return normalizedAttachUrl(x.url); });
+    var list=typeof cmtAssetsFrom==="function"&&(!API.on||canI.editTask(tk))?cmtAssetsFrom(added,text).filter(function(a){ return added.indexOf(a)>=0||was.indexOf(a.url)<0; }):[], filed=[];
+    if(list.length) editTaskWith(tk,function(t){ filed=cmtFileAssets(t,list); }).then(function(saved){ if(saved!==false&&filed.length&&typeof cmtNameFiledLinks==="function") cmtNameFiledLinks(tk,filed); }); else refresh();
+    toast(tr("Comment updated")); };
+  if(!API.on){ c.text=text; c.attachments=att; c.editedAt=new Date().toISOString(); return done(null); }
+  apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text,attachments:att}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
+/* Esc in the box while editing lets the edit go — unless the @ picker is open, which Esc closes first */
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!t||t.id!=="cmtText"||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
+/* leaving the task lets the edit go, and what was being written comes back */
+(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); return base.apply(this,arguments); }; })();
 
 Object.assign(UI_ID,{
-  "Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
+  "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
   "On this task":"Di task ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",

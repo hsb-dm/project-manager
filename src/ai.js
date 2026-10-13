@@ -841,44 +841,77 @@ function aiSystem(q){
   return "You are AI Intelligence inside ZenCrevia, the creative operations tool for "+(WS.name||"this workspace")+
     ". Answer about the workspace data you are given: tasks, projects, people, deadlines, assets. Be concise and concrete, cite task IDs and names. "+
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
+    "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
-/* a compact, factual snapshot — small enough to send on every turn */
-function aiContext(taskLimit){
-  var open = TASKS.filter(function(t){ return !isClosed(t)&&!t.hidden; });
+/* The snapshot the model reads, made to be read accurately (Oct 2026).
+   - What answers most questions comes first — totals, overdue, due soon, in review, blocked, people, teams,
+     projects, what was finished lately — and the long list of open tasks last. The server keeps AI_CTX_MAX
+     characters; it used to keep 12 000, and in a busy workspace that cut off the people and the overdue list.
+   - Every date is written out beside today's — 2026-10-16 Fri (in 3d) — so "due Friday" is read, not worked out.
+   - A task names all its assignees and reviewers, its team, labels and tags, its estimate and the hours logged.
+   - Open tasks go most urgent first; the ones past taskLimit are still listed in short form, so none is missing.
+   - Everyone in the workspace is there, capacity set or not; a person's hours are their share of a task with
+     several assignees, as the workload screen counts them. */
+var AI_CTX_MAX=40000;
+function aiDay(off){ if(typeof off!=="number"||!isFinite(off)) return "none"; return iso(off)+" "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dateOf(off).getDay()]+" ("+dueTxt(off)+")"; }
+function aiNames(ids){ return (ids||[]).map(function(id){ return person(id).name; }).join(", ")||"none"; }
+function aiUrgency(t){ var d=typeof t.due==="number"?t.due:9999; return (d<0?0:isTaskBlocked(t)?1:stageKind(t.status)==="review"?2:d<=7?3:4)*1e6+(d+5000)*10+((typeof PRANK!=="undefined"&&PRANK[t.prio])||5); }
+function aiTaskLine(t){ var m=t.meta||{}, tm=t.team&&team(t.team), ls=typeof labelsOf==="function"?labelsOf(t).map(function(l){ return l.name; }):[], tg=(t.tags||[]).map(function(x){ return typeof x==="string"?x:(x&&x.name)||""; }).filter(Boolean), flags=[];
+  if(isTaskBlocked(t)) flags.push("BLOCKED-by:"+unresolvedDependencies(t).map(function(d){ return d.id; }).join("+"));
+  if(dependencyRisk(t).length) flags.push("SCHEDULE-RISK");
+  if(typeof isRequestTask==="function"&&isRequestTask(t)) flags.push("REQUEST");
+  return "- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" assignees="+aiNames(assigneesOf(t))+" reviewers="+aiNames(reviewersOf(t))+(tm?" team="+tm.name:"")+" due="+aiDay(t.due)+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")+(ls.length?" labels="+ls.join("/"):"")+(tg.length?" tags="+tg.join("/"):"")+(flags.length?" "+flags.join(" "):""); }
+function aiShortLine(t){ return t.id+" \""+t.title+"\" due="+aiDay(t.due)+" stage="+stageName(t.status)+" assignees="+aiNames(assigneesOf(t)); }
+function aiContext(taskLimit,budget){
+  budget=Math.min(+budget||AI_CTX_MAX,AI_CTX_MAX);
+  var open = TASKS.filter(function(t){ return !t._draft&&!isClosed(t)&&!t.hidden; }).sort(function(a,b){ return aiUrgency(a)-aiUrgency(b); });
   var over = open.filter(function(t){ return t.due<0; });
   var rev  = open.filter(function(t){ return stageKind(t.status)==="review"; });
-  var week = open.filter(function(t){ return t.due>=0&&t.due<=7; });
+  var week = open.filter(function(t){ return t.due>=0&&t.due<=7; }).sort(function(a,b){ return a.due-b.due; });
   var blocked = open.filter(function(t){ return isTaskBlocked(t); });
+  var ref = function(t){ return t.id+" \""+t.title+"\" ("+aiDay(t.due)+", "+aiNames(assigneesOf(t))+")"; };
   var lines = [];
-  lines.push("WORKSPACE: "+WS.name+" \u00b7 today is "+new Date().toDateString());
-  lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") \u2014 refer to this person as \"you\".");
+  lines.push("WORKSPACE: "+WS.name);
+  lines.push("TODAY: "+aiDay(0).replace(" (today)","")+". Dates below are YYYY-MM-DD with the weekday; \"in 3d\" and \"2d overdue\" count from today.");
+  lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") — refer to this person as \"you\".");
   lines.push("STAGES: "+WS.workflow.map(function(s){ return s.name; }).join(" > "));
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
-  lines.push("PROJECTS:");
-  PROJECTS.forEach(function(p){
-    var ts = TASKS.filter(function(t){ return inProject(t,p.id); });
-    lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+dueTxt(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
-  });
-  lines.push("OPEN TASKS ("+open.length+(open.length>(+taskLimit||60)?", showing "+(+taskLimit||60):"")+"):");
-  open.slice(0,Math.max(1,+taskLimit||60)).forEach(function(t){
-    var flags = []; if (isTaskBlocked(t)) flags.push("BLOCKED-by:"+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"));
-    if (dependencyRisk(t).length) flags.push("SCHEDULE-RISK");
-    lines.push("- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" owner="+person(t.assignee).name+" effort="+t.effort+"h due="+dueTxt(t.due)+" assets="+assetCount(t)+(flags.length?" "+flags.join(" "):""));
-  });
-  lines.push("OVERDUE: "+(over.length?over.map(function(t){ return t.id+" ("+dueTxt(t.due)+")"; }).join(", "):"none"));
-  lines.push("DUE WITHIN 7 DAYS: "+(week.length?week.sort(function(a,b){return a.due-b.due;}).map(function(t){ return t.id+" ("+dueTxt(t.due)+")"; }).join(", "):"none"));
-  lines.push("AWAITING REVIEW: "+(rev.length?rev.map(function(t){ return t.id; }).join(", "):"none"));
-  lines.push("BLOCKED: "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
-  lines.push("PEOPLE:");
+  lines.push("OVERDUE ("+over.length+"): "+(over.length?over.map(ref).join("; "):"none"));
+  lines.push("DUE WITHIN 7 DAYS ("+week.length+"): "+(week.length?week.map(ref).join("; "):"none"));
+  lines.push("AWAITING REVIEW ("+rev.length+"): "+(rev.length?rev.map(function(t){ return t.id+" \""+t.title+"\" reviewers="+aiNames(reviewersOf(t)); }).join("; "):"none"));
+  lines.push("BLOCKED ("+blocked.length+"): "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
+  lines.push("PEOPLE (hours are each person's share of open work; capacity is per week):");
   Object.keys(PEOPLE).forEach(function(id){
-    var p=PEOPLE[id]; if (!p.cap) return;
-    var mine=open.filter(function(t){ return isAssignee(t,id); });
-    var h=mine.reduce(function(a,t){return a+t.effort;},0);
-    lines.push("- "+p.name+" ("+p.role+") capacity="+p.cap+"h assigned="+h+"h util="+Math.round(h/p.cap*100)+"% open="+mine.length);
+    var p=PEOPLE[id]; if (!p||p.active===false||p.stakeholder) return;
+    var mine=open.filter(function(t){ return isAssignee(t,id); }), cap=+p.cap||0;
+    var h=Math.round(mine.reduce(function(a,t){ return a+(+t.effort||0)/Math.max(1,assigneesOf(t).length); },0)*10)/10;
+    var tms=(typeof teamsOf==="function"?teamsOf(id):[]).map(function(x){ var tm=team(x); return tm&&!tm.archived?tm.name:""; }).filter(Boolean);
+    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+Math.round(h/cap*100)+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
   });
+  var sh=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false&&PEOPLE[id].stakeholder; });
+  if(sh.length) lines.push("STAKEHOLDERS (requesters, not on the team): "+sh.map(function(id){ return PEOPLE[id].name; }).join(", "));
+  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS:");
+    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; });
+      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length); }); }
+  lines.push("PROJECTS:");
+  var arch=[];
+  PROJECTS.forEach(function(p){
+    if (p.status==="archived"){ arch.push(p.name); return; }
+    var ts = TASKS.filter(function(t){ return !t._draft&&inProject(t,p.id); });
+    lines.push("- "+p.name+" ["+p.status+"] progress="+projectProgress(p)+"% owner="+person(p.owner).name+" due="+aiDay(p.due)+" tasks="+ts.length+" open="+ts.filter(function(t){return !isClosed(t)}).length+" assets="+assetsProduced(ts));
+  });
+  if(arch.length) lines.push("ARCHIVED PROJECTS: "+arch.join(", "));
+  var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
+  lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
+  done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
   lines.push("ASSETS: "+assetsProduced(TASKS)+" produced total, "+assetsProduced(TASKS.filter(isClosed))+" delivered.");
-  return lines.join("\n");
+  /* the open tasks, most urgent first: in full up to taskLimit, then in short form — as many as the room allows */
+  var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
+  var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
+  out+="\n"+head; full.forEach(function(t){ var l="\n"+aiTaskLine(t); if(out.length+l.length<budget-200) out+=l; });
+  if(rest.length){ var n=0; out+="\nMORE OPEN TASKS (short form):"; for(var i=0;i<rest.length;i++){ var l="\n"+aiShortLine(rest[i]); if(out.length+l.length>budget-80) break; out+=l; n++; } if(n<rest.length) out+="\n…and "+(rest.length-n)+" more open tasks not listed here."; }
+  return out;
 }
 /* ============================================================
    Local intelligence — deterministic answers from the same

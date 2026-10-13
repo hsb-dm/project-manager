@@ -70,8 +70,10 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 20000 }
      2.4 → 2.5 MB (October 2026): progress notes, personal themes and an editable, reorderable checklist
      took it 400 bytes past 2.4 MB; compressed it is about 560 KB, the 700 KB limit unchanged.
      2.5 → 2.6 MB (October 2026): people, tasks and projects as chips in the writing and in comments, and the
-     compact task panel took it 3 KB past 2.5 MB; compressed it is about 584 KB, the 700 KB limit unchanged. */
-  assert.ok(html.length < 2.6 * 1024 * 1024, 'uncompressed shell under 2.6 MB, got ' + html.length);
+     compact task panel took it 3 KB past 2.5 MB; compressed it is about 584 KB, the 700 KB limit unchanged.
+     2.6 → 2.7 MB (October 2026): estimated hours filled in from finished work, Mine / All on the Home cards and
+     the fuller AI snapshot took it 5 KB past 2.6 MB; compressed it is about 616 KB, the 700 KB limit unchanged. */
+  assert.ok(html.length < 2.7 * 1024 * 1024, 'uncompressed shell under 2.7 MB, got ' + html.length);
   const again = await fetch(s.base + '/', { headers: { 'if-none-match': etag } });
   assert.equal(again.status, 304);
   const gz = await new Promise((res, rej) => require('node:http').get(s.base + '/', { headers: { 'accept-encoding': 'gzip' } }, m => { const c = []; m.on('data', d => c.push(d)); m.on('end', () => res({ enc: m.headers['content-encoding'], body: Buffer.concat(c) })); m.on('error', rej); }));
