@@ -49,6 +49,9 @@ function open() {
     "ALTER TABLE task_statuses ADD COLUMN require_reviewer INTEGER",
     "ALTER TABLE assets ADD COLUMN preview_icon TEXT",
     "ALTER TABLE comments ADD COLUMN edited_at TEXT",
+    /* sign-ups wait for approval (Oct 2026): a member who registered and is not let in yet; whether a workspace asks */
+    "ALTER TABLE workspace_members ADD COLUMN pending INTEGER DEFAULT 0",
+    "ALTER TABLE workspaces ADD COLUMN require_approval INTEGER DEFAULT 1",
   ].forEach((sql) => { try { db.exec(sql); } catch { /* already there */ } });
   return db;
 }

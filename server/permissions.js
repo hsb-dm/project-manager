@@ -3,6 +3,7 @@
 const CAPS = [
   ["manage_workspace", "Manage workspace settings, theme, workflow, brand"],
   ["manage_members", "Add/remove members, change roles, reset passwords"],
+  ["approve_members", "Approve or turn away people who sign up"],
   ["manage_teams", "Create teams, colors, icons, membership"],
   ["manage_roles", "Create and edit roles"],
   ["create_project", "Create projects"],
@@ -40,7 +41,7 @@ const ALL = CAPS.map(c => c[0]);
 const DEFAULT_ROLES = [
   { id: "admin", name: "Admin", description: "Full workspace access", rank: 100, permissions: ALL },
   { id: "creative_lead", name: "Creative Lead", description: "Create projects/tasks, assign, review, approve, analytics", rank: 80, permissions: ["view_progress_notes", "write_progress_notes", "create_project", "edit_any_project", "delete_project", "create_task", "create_own_task", "edit_any_task", "assign_task", "review_any", "delete_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
-  { id: "team_lead", name: "Team Lead", description: "Manage team workload, assign and review team tasks", rank: 60, permissions: ["view_progress_notes", "write_progress_notes", "create_task", "create_own_task", "edit_team_tasks", "edit_own_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
+  { id: "team_lead", name: "Team Lead", description: "Manage team workload, assign and review team tasks", rank: 60, permissions: ["approve_members", "view_progress_notes", "write_progress_notes", "create_task", "create_own_task", "edit_team_tasks", "edit_own_task", "upload_file", "decide_request", "manage_assets", "manage_knowledge", "view_analytics", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
   { id: "member", name: "Member", description: "Work on assigned tasks, upload, comment, submit for review", rank: 40, permissions: ["view_progress_notes", "write_progress_notes", "create_own_task", "edit_own_task", "upload_file", "manage_assets", "manage_knowledge", "view_all", "submit_request", "use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"] },
   { id: "viewer", name: "Viewer", description: "Views everything; can submit requests (which land in the backlog for triage) and comment. Cannot edit work.", rank: 10, permissions: ["view_all", "submit_request", "view_ai_gallery", "view_progress_notes"] },
 ];
@@ -57,6 +58,7 @@ const draftOwner = (u, t) => !!(t && t.meta && t.meta.draft && t.createdBy === u
 const can = {
   manageWorkspace: (u) => has(u, "manage_workspace"),
   manageMembers:   (u) => has(u, "manage_members"),
+  approveMembers:  (u) => has(u, "approve_members"),
   manageRoles:     (u) => has(u, "manage_roles"),
   manageTeams:     (u) => has(u, "manage_teams"),
   createProject:   (u) => has(u, "create_project"),

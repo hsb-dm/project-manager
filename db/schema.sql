@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, logo TEXT, logo_img TEXT, favicon TEXT, tagline TEXT,
   time_zone TEXT DEFAULT 'Asia/Jakarta', working_days TEXT DEFAULT '[1,2,3,4,5]', work_start TEXT DEFAULT '09:00', work_end TEXT DEFAULT '18:00',
   theme TEXT DEFAULT '{}', brand TEXT DEFAULT '{}', brief_fields TEXT DEFAULT '[]', notif_prefs TEXT DEFAULT '{}', auto_hide TEXT DEFAULT '{}', smtp_settings TEXT DEFAULT '{}', backup_settings TEXT DEFAULT '{}', ai_settings TEXT DEFAULT '{}', labels TEXT DEFAULT '[]', task_fields TEXT DEFAULT '[]', legal TEXT DEFAULT '{}',
-  allow_registration INTEGER DEFAULT 1, default_role_id TEXT DEFAULT 'member', invite_code TEXT,
+  allow_registration INTEGER DEFAULT 1, require_approval INTEGER DEFAULT 1, default_role_id TEXT DEFAULT 'member', invite_code TEXT,
   created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS users (
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS roles (
 CREATE TABLE IF NOT EXISTS workspace_members (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), user_id TEXT NOT NULL REFERENCES users(id),
   role_id TEXT NOT NULL REFERENCES roles(id), job_title TEXT, capacity_hours INTEGER DEFAULT 40, hours_per_day INTEGER DEFAULT 8,
-  is_stakeholder INTEGER DEFAULT 0, prefs TEXT DEFAULT '{}', created_at TEXT DEFAULT (datetime('now')), UNIQUE(workspace_id, user_id)
+  is_stakeholder INTEGER DEFAULT 0, prefs TEXT DEFAULT '{}', pending INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')), UNIQUE(workspace_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS teams (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), name TEXT NOT NULL, description TEXT,

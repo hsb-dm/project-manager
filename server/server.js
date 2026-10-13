@@ -41,6 +41,15 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_progress_notes', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[roles] progress note capabilities: " + e.message); }
+/* sign-ups wait for approval (Oct 2026): approving them is a capability of its own, given to the Team Lead role once
+   (Admin has every capability). Once only, so a choice made later in Roles & permissions sticks. */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='caps_approve_members'").get()) {
+    const r = db.prepare("SELECT permissions FROM roles WHERE id='team_lead'").get();
+    if (r) { let p = []; try { p = JSON.parse(r.permissions || "[]"); } catch (e) {} if (!p.includes("approve_members")) db.prepare("UPDATE roles SET permissions=? WHERE id='team_lead'").run(JSON.stringify(p.concat(["approve_members"]))); }
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_approve_members', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[roles] approve sign-ups capability: " + e.message); }
 /* The default tagline was "Creative operations workspace"; teams outside creative use the workspace too, so it is
    "Team operations workspace" now. A workspace still on the old default gets the new one, once — a tagline anyone
    wrote is left as it is, and it stays editable in Settings → Workspace. */
@@ -90,6 +99,13 @@ const MAIL_TEXT = { assigned: "{who} assigned you “{t}”.", reviewer: "{who} 
 const CHAT_MAIL_SENT = new Map();
 /* a link that reads like its task: /tasks?task=T-101-banner-ramadan (the app reads the id that leads it) */
 const urlSlug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
+/* Sign-ups wait for approval (Oct 2026). Whoever may approve them — the approve_members capability: Admin and Team
+   Lead by default, any role in Roles & permissions — is told in the app, by e-mail and by push. */
+function approverIds() { return db.prepare("SELECT wm.user_id FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND u.is_active=1 AND coalesce(wm.pending,0)=0").all(WS_ID).map(r => r.user_id).filter(id => { const c = userContext(id); return !!c && can.approveMembers(c); }); }
+function notifyApprovers(pendingId, name) {
+  const ids = approverIds().map(r => { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: pendingId, k: "signup", entityType: "user", t: pendingId, message: name }); return id; });
+  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
+}
 function emailNotification(notifId) {
   const n = db.prepare("SELECT n.*, u.email, u.name AS recipient_name FROM notifications n JOIN users u ON u.id=n.recipient_id WHERE n.id=?").get(notifId);
   if (!n || !n.email) return;
@@ -99,6 +115,12 @@ function emailNotification(notifId) {
   /* v38.1 chat: v37 sent one email per direct message, titled with the conversation id
      ("Admin updated “cv_…”"). Now: nothing while the person has ZenCrevia open, at most one email
      per conversation per 30 minutes, and the email quotes the message and links to the chat. */
+  if (n.entity_type === "user") {
+    const who = n.message || actor, text = who + " signed up and is waiting for your approval.";
+    return mailer.send({ to: n.email, subject: "[" + ws.name + "] " + text.replace(/\.$/, ""), text: "Hi " + (n.recipient_name || "").split(" ")[0] + ", " + text, meta: {}, link: mailer.link("/settings/members"), cta: "Review sign-ups", workspace: ws.name })
+      .then(() => db.prepare("UPDATE notifications SET emailed_at=? WHERE id=?").run(now(), n.id))
+      .catch(e => db.prepare("UPDATE notifications SET email_error=? WHERE id=?").run(String(e.message).slice(0, 300), n.id));
+  }
   if (n.entity_type === "message") {
     if (typeof chat !== "undefined" && chat.isOnline && chat.isOnline(n.recipient_id)) return;
     const key = n.recipient_id + "|" + n.entity_id, last = CHAT_MAIL_SENT.get(key) || 0;
@@ -196,7 +218,7 @@ function checkStoredFiles(doc) {
 }
 
 function userContext(id) {
-  const m = db.prepare("SELECT wm.role_id, wm.is_stakeholder, u.name, u.email FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND wm.user_id=? AND u.is_active=1").get(WS_ID, id);
+  const m = db.prepare("SELECT wm.role_id, wm.is_stakeholder, u.name, u.email FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND wm.user_id=? AND u.is_active=1 AND coalesce(wm.pending,0)=0").get(WS_ID, id);
   if (!m) return null;
   const r = db.prepare("SELECT permissions, rank, name AS role_name FROM roles WHERE id=?").get(m.role_id); const caps = {}; (J(r && r.permissions, [])).forEach(c => { caps[c] = true; });
   return { id, name: m.name, email: m.email, role: m.role_id, roleName: r ? r.role_name : m.role_id, rank: r ? (r.rank || 0) : 0, caps, stakeholder: !!m.is_stakeholder, teams: db.prepare("SELECT team_id FROM team_memberships WHERE user_id=?").all(id).map(r => r.team_id), ledTeams: db.prepare("SELECT id FROM teams WHERE workspace_id=? AND team_lead_id=?").all(WS_ID, id).map(r => r.id) };
@@ -404,6 +426,8 @@ function pushNotification(notifId) {
       const c = db.prepare("SELECT name, type FROM conversations WHERE id=?").get(n.entity_id) || {}, where = c.type === "DM" ? "" : "#" + (c.name || "general");
       const head = n.type === "chat_dm" ? actor : n.type === "chat_mention" ? actor + (id ? " menyebutmu di " : " mentioned you in ") + where : n.type === "chat_reply" ? actor + (id ? " membalasmu di " : " replied to you in ") + where : actor + (id ? " di " : " in ") + where;
       payload = { title: head, body: String(info.text || (id ? "Mengirim pesan" : "Sent a message")), url: "/messages/" + encodeURIComponent(n.entity_id) + (info.msg ? "?msg=" + encodeURIComponent(info.msg) : ""), tag: "conv:" + n.entity_id };
+    } else if (n.entity_type === "user") {
+      payload = { title: ws.name || "ZenCrevia", body: (n.message || actor) + (id ? " mendaftar dan menunggu persetujuanmu." : " signed up and is waiting for your approval."), url: "/settings/members", tag: "signup:" + n.entity_id };
     } else {
       let title = n.entity_id, slug = "";
       if (n.entity_type === "request") { const r = db.prepare("SELECT title FROM creative_requests WHERE id=?").get(n.entity_id); if (r) title = r.title; }
@@ -420,16 +444,17 @@ const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => rout
    broken database) and reports 503 while shutting down, so a load balancer stops routing. */
 route("GET", "/api/health", () => { if (typeof shuttingDown !== "undefined" && shuttingDown) throw new HttpError(503, "shutting down"); try { db.prepare("SELECT 1").get(); } catch (e) { throw new HttpError(503, "database unavailable"); } return { ok: true, service: "zencrevia" }; });
 /* auth */
-route("GET", "/api/auth/session", (u, p, q, b, ctx) => { const ws = db.prepare("SELECT name, logo, logo_img, invite_code, allow_registration FROM workspaces WHERE id=?").get(WS_ID); return { user: ctx.sessionUserId ? publicUser(ctx.sessionUserId) : null, workspace: { name: ws.name, logo: ws.logo, logoImg: ws.logo_img, joinCodeRequired: !!ws.invite_code }, canRegister: !!ws.allow_registration, teams: ws.allow_registration ? db.prepare("SELECT id, name FROM teams WHERE workspace_id=? AND coalesce(is_archived,0)=0 ORDER BY sort_order").all(WS_ID) : [] }; });
+route("GET", "/api/auth/session", (u, p, q, b, ctx) => { const ws = db.prepare("SELECT name, logo, logo_img, invite_code, allow_registration, require_approval FROM workspaces WHERE id=?").get(WS_ID); return { approvalRequired: ws.require_approval !== 0, user: ctx.sessionUserId ? publicUser(ctx.sessionUserId) : null, workspace: { name: ws.name, logo: ws.logo, logoImg: ws.logo_img, joinCodeRequired: !!ws.invite_code }, canRegister: !!ws.allow_registration, teams: ws.allow_registration ? db.prepare("SELECT id, name FROM teams WHERE workspace_id=? AND coalesce(is_archived,0)=0 ORDER BY sort_order").all(WS_ID) : [] }; });
 route("POST", "/api/auth/login", (u, p, q, b, ctx) => { const email = String(b.email || "").trim().toLowerCase(); const gate = security.loginStatus(ctx.ip, email); if (!gate.allowed) { const e = new HttpError(429, "Too many sign-in attempts. Try again later."); e.retryAfter = gate.retryAfter; throw e; } const row = db.prepare("SELECT id, password_hash, password_salt, is_active FROM users WHERE lower(email)=?").get(email); /* v31: always spend one scrypt, so response time does not reveal whether the
      address has an account (was ~80 ms vs ~2 ms). */
   const pwOk = row && row.password_hash ? auth.verifyPassword(b.password || "", row.password_salt, row.password_hash) : (auth.verifyPassword(b.password || "", DUMMY_PW.salt, DUMMY_PW.hash), false);
-  if (!row || !row.is_active || !pwOk) { security.loginResult(ctx.ip, email, false); security.log("login_failed", { ip: ctx.ip, email, userAgent: ctx.ua }); throw new HttpError(401, "Email or password is incorrect"); } if (!db.prepare("SELECT 1 FROM workspace_members WHERE user_id=? AND workspace_id=?").get(row.id, WS_ID)) { security.loginResult(ctx.ip, email, false); throw new HttpError(403, "This account is not a member of the workspace"); } security.loginResult(ctx.ip, email, true); const sess = auth.createSession(db, row.id, ctx.ua); ctx.setCookie = auth.cookie(sess.id, sess.exp); security.log("login_succeeded", { ip: ctx.ip, userId: row.id, userAgent: ctx.ua }); return { user: publicUser(row.id) }; });
+  if (!row || !row.is_active || !pwOk) { security.loginResult(ctx.ip, email, false); security.log("login_failed", { ip: ctx.ip, email, userAgent: ctx.ua }); throw new HttpError(401, "Email or password is incorrect"); } if (!db.prepare("SELECT 1 FROM workspace_members WHERE user_id=? AND workspace_id=?").get(row.id, WS_ID)) { security.loginResult(ctx.ip, email, false); throw new HttpError(403, "This account is not a member of the workspace"); } if (db.prepare("SELECT coalesce(pending,0) AS p FROM workspace_members WHERE user_id=? AND workspace_id=?").get(row.id, WS_ID).p) { security.log("login_pending", { ip: ctx.ip, userId: row.id }); throw new HttpError(403, "Your account is waiting for approval. An admin or team lead will let you in, and you will get an e-mail when they do."); } security.loginResult(ctx.ip, email, true); const sess = auth.createSession(db, row.id, ctx.ua); ctx.setCookie = auth.cookie(sess.id, sess.exp); security.log("login_succeeded", { ip: ctx.ip, userId: row.id, userAgent: ctx.ua }); return { user: publicUser(row.id) }; });
 route("POST", "/api/auth/register", (u, p, q, b, ctx) => { const name = String(b.name || "").trim(), email = String(b.email || "").trim().toLowerCase(); const gate = security.loginStatus(ctx.ip, "register:" + email); if (!gate.allowed) throw new HttpError(429, "Too many registration attempts. Try again later."); if (name.length < 2 || name.length > 120) throw new HttpError(400, "Name is required"); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) throw new HttpError(400, "A valid email is required"); passwordError(b.password);
-  const ws = db.prepare("SELECT invite_code AS join_code, default_role_id, allow_registration FROM workspaces WHERE id=?").get(WS_ID); if (!ws.allow_registration) { security.loginResult(ctx.ip, "register:" + email, false); throw new HttpError(403, "Registration is closed — ask an admin to create your account"); } if (ws.join_code && String(b.joinCode || "").trim().toUpperCase() !== ws.join_code.toUpperCase()) { security.loginResult(ctx.ip, "register:" + email, false); security.log("registration_rejected", { ip: ctx.ip, email }); throw new HttpError(403, "Invalid workspace join code — ask your admin"); }
+  const ws = db.prepare("SELECT invite_code AS join_code, default_role_id, allow_registration, require_approval FROM workspaces WHERE id=?").get(WS_ID), pending = ws.require_approval !== 0; if (!ws.allow_registration) { security.loginResult(ctx.ip, "register:" + email, false); throw new HttpError(403, "Registration is closed — ask an admin to create your account"); } if (ws.join_code && String(b.joinCode || "").trim().toUpperCase() !== ws.join_code.toUpperCase()) { security.loginResult(ctx.ip, "register:" + email, false); security.log("registration_rejected", { ip: ctx.ip, email }); throw new HttpError(403, "Invalid workspace join code — ask your admin"); }
   if (db.prepare("SELECT 1 FROM users WHERE lower(email)=?").get(email)) throw new HttpError(409, "An account with this email already exists — sign in instead");
   const id = auth.userIdFor(name, db); const pw = auth.hashPassword(b.password); const ini = name.split(" ").map(s => s[0]).join("").slice(0, 2).toUpperCase(); const roleId = ws.default_role_id !== "admin" && db.prepare("SELECT 1 FROM roles WHERE id=?").get(ws.default_role_id || "member") ? (ws.default_role_id || "member") : "member";
-  tx(db, () => { sz.writePerson(db, WS_ID, id, { name, email, ini, c: db.prepare("SELECT count(*) n FROM users").get().n % 7, role: String(b.jobTitle || "").trim(), perm: roleId, cap: 40, teams: b.teamId && db.prepare("SELECT 1 FROM teams WHERE id=?").get(b.teamId) ? [[b.teamId, true]] : [] }); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, id); });
+  tx(db, () => { sz.writePerson(db, WS_ID, id, { name, email, ini, c: db.prepare("SELECT count(*) n FROM users").get().n % 7, role: String(b.jobTitle || "").trim(), perm: roleId, cap: 40, teams: b.teamId && db.prepare("SELECT 1 FROM teams WHERE id=?").get(b.teamId) ? [[b.teamId, true]] : [] }); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, id); if (pending) db.prepare("UPDATE workspace_members SET pending=1 WHERE workspace_id=? AND user_id=?").run(WS_ID, id); });
+  if (pending) { security.loginResult(ctx.ip, "register:" + email, true); security.log("account_registered_pending", { ip: ctx.ip, userId: id }); notifyApprovers(id, name); return { pending: true }; }
   sz.appendActivity(db, WS_ID, { who: id, k: "member_added", a: { what: name + " registered" } }, "user", id);
   security.loginResult(ctx.ip, "register:" + email, true); const sess = auth.createSession(db, id, ctx.ua); ctx.setCookie = auth.cookie(sess.id, sess.exp); security.log("account_registered", { ip: ctx.ip, userId: id }); return { user: publicUser(id) }; });
 /* v29 self-service password reset by email.
@@ -489,6 +514,52 @@ route("POST", "/api/auth/reset", (u, p, q, b, ctx) => {
 });
 route("POST", "/api/auth/logout", (u, p, q, b, ctx) => { if (u && b && b.pushEndpoint) push.unsubscribe(u.id, b.pushEndpoint); /* a shared device stops getting this person's notifications */ auth.destroySession(db, ctx.token); ctx.setCookie = auth.cookie(null); if (u) security.log("logout", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/auth/password", (u, p, q, b, ctx) => { const row = db.prepare("SELECT password_hash, password_salt FROM users WHERE id=?").get(u.id); if (row.password_hash && !auth.verifyPassword(b.current || "", row.password_salt, row.password_hash)) throw new HttpError(400, "Current password is incorrect"); passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, u.id); db.prepare("DELETE FROM sessions WHERE user_id=? AND id!=?").run(u.id, auth.sessionId(ctx.token)); security.log("password_changed", { userId: u.id, ip: ctx.ip }); return { ok: true }; });
+/* Sign-ups waiting for approval: listed for whoever may approve them, let in — with the role they registered with,
+   or another chosen by someone who manages members (never above their own), and in the team they chose or another
+   the approver picks — or turned away, which frees the e-mail address. The other approvers' notifications are
+   settled either way. */
+const pendingRow = id => db.prepare("SELECT u.name, u.email, wm.role_id FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND wm.user_id=? AND coalesce(wm.pending,0)=1").get(WS_ID, id);
+route("GET", "/api/members/pending", (u) => { forbid(can.approveMembers(u), "approve sign-ups"); return { pending: sz.readPending(db, WS_ID) }; });
+route("POST", "/api/members/:id/approve", (u, p, q, b) => {
+  forbid(can.approveMembers(u), "approve sign-ups");
+  const m = pendingRow(p.id); if (!m) throw new HttpError(404, "Nobody is waiting for approval under this id");
+  let role = m.role_id;
+  if (b && b.role && b.role !== m.role_id) {
+    forbid(can.manageMembers(u), "choose the role of a new member");
+    if (!db.prepare("SELECT 1 FROM roles WHERE id=?").get(b.role)) throw new HttpError(400, "Unknown role");
+    forbidAboveMe(u, b.role, "give this role"); role = b.role;
+  }
+  /* the team they chose — or another, or none — as the approver decides */
+  let teamIds = null;
+  if (b && b.teamId !== undefined) {
+    const tid = String(b.teamId || "");
+    if (tid && !db.prepare("SELECT 1 FROM teams WHERE id=? AND workspace_id=? AND coalesce(is_archived,0)=0").get(tid, WS_ID)) throw new HttpError(400, "Unknown team");
+    teamIds = tid ? [tid] : [];
+  }
+  tx(db, () => {
+    if (teamIds) { db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); teamIds.forEach(t => db.prepare("INSERT OR IGNORE INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,1)").run("tm_" + t + "_" + p.id, t, p.id)); }
+    db.prepare("UPDATE workspace_members SET pending=0, role_id=? WHERE workspace_id=? AND user_id=?").run(role, WS_ID, p.id);
+    db.prepare("UPDATE notifications SET read_at=coalesce(read_at, ?) WHERE workspace_id=? AND type='signup' AND entity_id=?").run(now(), WS_ID, p.id);
+  });
+  sz.appendActivity(db, WS_ID, { who: u.id, k: "member_added", a: { what: m.name + " joined" } }, "user", p.id);
+  security.log("signup_approved", { userId: p.id, by: u.id, role });
+  const ws = sz.readWorkspace(db, WS_ID);
+  if (m.email) setImmediate(() => mailer.send({ to: m.email, subject: "[" + ws.name + "] Your account is approved", text: "Hi " + String(m.name).split(" ")[0] + ", " + u.name + " approved your account. You can sign in now.", meta: {}, link: mailer.link("/"), cta: "Sign in", workspace: ws.name }).catch(e => console.error("[mail] " + e.message)));
+  return { people: sz.readPeople(db, WS_ID), pending: sz.readPending(db, WS_ID) };
+});
+route("POST", "/api/members/:id/decline", (u, p) => {
+  forbid(can.approveMembers(u), "approve sign-ups");
+  const m = pendingRow(p.id); if (!m) throw new HttpError(404, "Nobody is waiting for approval under this id");
+  tx(db, () => {
+    db.prepare("DELETE FROM notifications WHERE workspace_id=? AND type='signup' AND entity_id=?").run(WS_ID, p.id);
+    db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id);
+    db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID);
+    db.prepare("DELETE FROM push_subscriptions WHERE user_id=?").run(p.id);
+    releaseAccount(p.id);
+  });
+  security.log("signup_declined", { userId: p.id, by: u.id });
+  return { pending: sz.readPending(db, WS_ID) };
+});
 route("POST", "/api/members/:id/password", (u, p, q, b, ctx) => { forbid(can.manageMembers(u), "reset passwords"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) forbidAboveMe(u, t.perm, "reset this member's password"); } passwordError(b.password); const pw = auth.hashPassword(b.password); db.prepare("UPDATE users SET password_hash=?, password_salt=? WHERE id=?").run(pw.hash, pw.salt, p.id); db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); act(u, "edited", "user", p.id, { what: "password reset" }); security.log("password_reset_by_admin", { adminId: u.id, userId: p.id, ip: ctx.ip }); return { ok: true }; });
 route("POST", "/api/members/:id/active", (u, p, q, b) => { forbid(can.manageMembers(u), "deactivate members"); if (p.id === u.id) throw new HttpError(400, "You cannot deactivate yourself"); db.prepare("UPDATE users SET is_active=? WHERE id=?").run(b.active ? 1 : 0, p.id); if (!b.active) db.prepare("DELETE FROM sessions WHERE user_id=?").run(p.id); return sz.readPeople(db, WS_ID); });
 /* roles (customizable) */
@@ -537,7 +608,7 @@ route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
   ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
-  savedViews: sz.readViews(db, WS_ID, u.id), notifs: sz.readNotifs(db, WS_ID, u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
+  savedViews: sz.readViews(db, WS_ID, u.id), notifs: sz.readNotifs(db, WS_ID, u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
 }));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */

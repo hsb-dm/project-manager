@@ -242,7 +242,20 @@ function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comme
 /* Esc in the box while editing lets the edit go — unless the @ picker is open, which Esc closes first */
 document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!t||t.id!=="cmtText"||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
 /* leaving the task lets the edit go, and what was being written comes back */
-(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); return base.apply(this,arguments); }; })();
+(function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); cmtDraftSwitch(id); return base.apply(this,arguments); }; })();
+/* A comment being written belongs to its task (Oct 2026): opening another task puts it aside — its words, the
+   attachments and names in it, the comment it replies to — and brings back what was being written there, if anything.
+   It used to follow the person into every task they opened. */
+var CMT_DRAFTS={}, CMT_DRAFT_FOR=null;
+function cmtDraftEmpty(){ return {text:"",att:[],links:[],mentions:[],reply:null}; }
+function cmtDraftSwitch(id){ if(!id||CMT_DRAFT_FOR===id) return;
+  if(CMT_DRAFT_FOR) CMT_DRAFTS[CMT_DRAFT_FOR]={text:window._cmtDraft||"",att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null};
+  var d=CMT_DRAFTS[id]||cmtDraftEmpty(); delete CMT_DRAFTS[id];
+  window._cmtDraft=d.text; window._cmtAtt=d.att; window._cmtLinks=d.links; window._cmtMentions=d.mentions; S.replyTo=d.reply; CMT_DRAFT_FOR=id; }
+/* the comment being replied to, kept with the draft of the task being opened (openTask asks) */
+function cmtDraftReplyFor(id){ return CMT_DRAFT_FOR===id?(S.replyTo||null):null; }
+/* an attachment that finishes uploading after its task was left goes to that task's comment, not this one's */
+function cmtDraftAttach(forTask,a){ if(!forTask||!CMT_DRAFT_FOR||forTask===CMT_DRAFT_FOR){ (window._cmtAtt=window._cmtAtt||[]).push(a); return true; } (CMT_DRAFTS[forTask]=CMT_DRAFTS[forTask]||cmtDraftEmpty()).att.push(a); return false; }
 
 Object.assign(UI_ID,{
   "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",

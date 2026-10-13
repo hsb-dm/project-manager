@@ -165,7 +165,29 @@ test("8 · self-registration: admin turns it on, a colleague signs up at /regist
   await p.locator("#au_pw").fill("Budi!Passw0rd-2026");
   await p.locator(".pw-eye").click(); await expect(p.locator("#au_pw")).toHaveAttribute("type", "text");
   await p.locator("#au_code").fill("HSB2026");
+  await expect(p.locator(".auth-approval-note"), "the page says new accounts are approved first").toBeVisible();
   await p.getByRole("button", { name: "Create account" }).click();
+  /* sign-ups wait for approval: what happens next, in place of the form — not signed in */
+  await expect(p.locator(".auth-pending h3")).toHaveText("Your account is waiting for approval");
+  await expect(p.locator("body")).toHaveClass(/\bauth\b/);
+  await p.getByRole("button", { name: "Back to sign in" }).click();
+  await p.locator("#au_email").fill("budi@e2e.test");
+  await p.locator("#au_pw").fill("Budi!Passw0rd-2026");
+  await p.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(p.locator("#au_err")).toContainText("waiting for approval");
+  /* the admin is told, and decides right on Home: who, the role, the team Budi chose, Approve */
+  await page.goto("/"); await page.waitForFunction(() => window.ZC_READY === true && API.on);
+  expect(await page.evaluate(() => NOTIFS.some(n => n.k === "signup" && n.message === "Budi Santoso")), "a notification").toBe(true);
+  const home = page.locator("#zcPendingHome");
+  await expect(home).toContainText("1 sign-up is waiting for your approval");
+  const row = home.locator(".pending-row", { hasText: "Budi Santoso" });
+  await expect(row).toContainText("budi@e2e.test");
+  await expect(row.locator(".pending-meta")).toContainText("chose Signup Studio");
+  await expect(row.locator('select[id^="pt_"]'), "the team they chose, to review").toHaveValue(team.id);
+  await row.getByRole("button", { name: "Approve" }).click();
+  await expect(page.locator("#zcPendingHome")).toHaveCount(0);
+  /* now Budi is in */
+  await p.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(p.locator("body")).not.toHaveClass(/\bauth\b/);
   await expect(p).toHaveURL(/\/$/);
   await ctx.close();

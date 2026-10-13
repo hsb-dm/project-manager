@@ -1144,6 +1144,32 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .seg.dash-scope button{padding:3px 10px;font-size:12px}
 .rail-head .seg.dash-scope{margin-left:auto}
 .dash .empty .btn{margin-top:10px}
+/* sign-ups waiting for approval: a row each — who, what they told us, when; the role and the two buttons — a line
+   on Home for an approver, and on the sign-in page what happens next */
+.pending-signups .pending-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--color-border)}
+.pending-signups .pending-row:first-of-type{border-top:0}
+.pending-row .av{flex:none}
+.pending-who{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.pending-who b{font-weight:650}
+.pending-meta{color:var(--color-text-secondary);font-size:var(--fs-sm);overflow-wrap:anywhere}
+.pending-acts{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pending-field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pending-field>label,.pending-field>span:first-child{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--color-text-tertiary)}
+.pending-fixed{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:10px;background:var(--color-surface-sunken);font-size:var(--fs-sm);font-weight:600}
+.zc-pending-home{margin-bottom:16px;border-color:color-mix(in srgb,var(--color-primary) 30%,var(--color-border))}
+.zc-pending-home .panel-head .sq{background:var(--color-primary-soft);color:var(--color-primary)}
+.pending-acts select{width:auto;min-width:140px;border:1px solid var(--color-border);border-radius:10px;padding:7px 30px 7px 12px;background-color:var(--color-surface);font:inherit;font-size:var(--fs-sm);font-weight:600;outline:none}
+@media(max-width:760px){.pending-signups .pending-row{flex-wrap:wrap}.pending-acts{width:100%;justify-content:flex-start;padding-left:44px}.pending-field{flex:1 1 100%}.pending-acts select{width:100%}}
+.zc-pending-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--color-primary-soft);color:var(--color-text-primary);border:1px solid color-mix(in srgb,var(--color-primary) 25%,transparent);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px}
+.zc-pending-banner>span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.zc-pending-banner svg{width:16px;height:16px;stroke:var(--color-primary);fill:none;stroke-width:2;flex:none}
+.zc-pending-names{color:var(--color-text-secondary)}
+.auth-approval-note{margin:-2px 0 10px}
+.auth-pending{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0}
+.auth-pending-ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
+.auth-pending-ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2}
+.auth-pending h3{margin:4px 0 0;font-size:18px}
+.auth-pending p{color:var(--color-text-secondary);margin:0 0 6px;line-height:1.5}
 /* the estimate filled in for the person: a small "auto" beside the hours, its source on hover (or a tap) */
 .est-auto{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:10.5px;font-weight:700;letter-spacing:.02em;line-height:16px;cursor:help;vertical-align:middle;border:0}
 .est-auto.ai{background:color-mix(in srgb,#8B5CF6 16%,transparent);color:#7C3AED}

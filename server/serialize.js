@@ -133,7 +133,7 @@ function readWorkspace(db, wsId) {
     workingDays: J(w.working_days, [1,2,3,4,5]), workStart: w.work_start, workEnd: w.work_end, theme: J(w.theme, {}), brand: J(w.brand, {}),
     briefFields: J(w.brief_fields, []), notifPrefs: J(w.notif_prefs, {}), autoHide: Object.assign({ tasks: "month", taskDays: 30, projects: "month", projectDays: 30 }, J(w.auto_hide, {}) || {}),
     ai: maskAI(J(w.ai_settings, {}) || {}),
-    labels: J(w.labels, []), taskFields: J(w.task_fields, []), allowRegistration: !!w.allow_registration, defaultRole: w.default_role_id || "member", joinCode: w.invite_code || "",
+    labels: J(w.labels, []), taskFields: J(w.task_fields, []), allowRegistration: !!w.allow_registration, requireApproval: w.require_approval !== 0, defaultRole: w.default_role_id || "member", joinCode: w.invite_code || "",
     workflow: stageRules(db.prepare("SELECT * FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order").all(wsId)).map(s => ({ id: s.id, name: s.name, nameId: s.name_id || "", kind: s.kind, color: s.color, reviewerOnly: s.reviewerOnly, requireReviewer: s.requireReviewer })),
     briefTemplates: db.prepare("SELECT * FROM brief_templates WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(t => ({ id: t.id, name: t.name, description: t.description, fields: J(t.fields, []), required: J(t.required_fields, []) })),
     customFields: db.prepare("SELECT * FROM custom_fields WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(f => ({ id: f.id, name: f.name, nameId: f.name_id || "", type: f.type, options: J(f.options, []), displayMode: FIELD_MODES.includes(f.display_mode) ? f.display_mode : "secondary" })),
@@ -151,6 +151,7 @@ function readWorkspace(db, wsId) {
 function writeWorkspace(db, wsId, d) {
   db.prepare("UPDATE workspaces SET name=?, logo=?, logo_img=?, favicon=?, tagline=?, time_zone=?, working_days=?, work_start=?, work_end=?, theme=?, brand=?, brief_fields=?, notif_prefs=?, auto_hide=?, ai_settings=?, labels=?, task_fields=?, invite_code=?, default_role_id=?, allow_registration=?, updated_at=? WHERE id=?")
     .run(d.name, d.logo, d.logoImg || null, d.favicon || null, d.tagline || "", d.timeZone || "Asia/Jakarta", S(d.workingDays || [1,2,3,4,5]), d.workStart || "09:00", d.workEnd || "18:00", S(d.theme || {}), S(d.brand || {}), S(d.briefFields || []), S(d.notifPrefs || {}), S(d.autoHide || {}), S(mergeAI(db, wsId, d.ai)), S(d.labels || []), S(d.taskFields || []), d.joinCode || null, d.defaultRole || "member", d.allowRegistration === false ? 0 : 1, now(), wsId);
+  db.prepare("UPDATE workspaces SET require_approval=? WHERE id=?").run(d.requireApproval === false ? 0 : 1, wsId);
   // statuses: upsert + archive missing (tasks keep referencing archived ids until moved)
   const keep = new Set();
   /* A stage keeps its English name in name and its Indonesian one in name_id. name can never be
@@ -191,11 +192,18 @@ function writeTeam(db, wsId, t) {
 }
 function readPeople(db, wsId) {
   const out = {};
-  db.prepare("SELECT u.*, m.role_id, m.job_title, m.capacity_hours, m.hours_per_day, m.is_stakeholder, m.prefs FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? ORDER BY u.name").all(wsId).forEach(r => {
+  db.prepare("SELECT u.*, m.role_id, m.job_title, m.capacity_hours, m.hours_per_day, m.is_stakeholder, m.prefs FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND coalesce(m.pending,0)=0 ORDER BY u.name").all(wsId).forEach(r => {
     out[r.id] = { name: r.name, ini: r.initials, c: r.avatar_color, email: r.email || "", role: r.job_title || "", perm: r.role_id, cap: r.capacity_hours, hoursPerDay: r.hours_per_day, stakeholder: !!r.is_stakeholder, active: r.is_active !== 0, hasPassword: !!r.password_hash, lastLoginAt: r.last_login_at, prefs: J(r.prefs, {}), avatar: r.avatar_data || null, active: !!r.is_active, hasPassword: !!r.password_hash, lastLogin: r.last_login_at,
       teams: db.prepare("SELECT team_id, is_primary FROM team_memberships WHERE user_id=? ORDER BY is_primary DESC").all(r.id).map(m => [m.team_id, !!m.is_primary]) };
   });
   return out;
+}
+/* People who signed up and wait for approval. They are not in readPeople, so no picker, list, count or workload
+   has them until someone lets them in. */
+function readPending(db, wsId) {
+  const at = s => !s ? null : /Z$|[+-]\d\d:?\d\d$/.test(s) ? s : String(s).replace(" ", "T") + "Z";
+  return db.prepare("SELECT u.id, u.name, u.email, u.initials, u.avatar_color, m.job_title, m.role_id, m.created_at FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND coalesce(m.pending,0)=1 AND u.is_active=1 ORDER BY m.created_at").all(wsId)
+    .map(r => ({ id: r.id, name: r.name, email: r.email || "", ini: r.initials, c: r.avatar_color, role: r.job_title || "", perm: r.role_id, createdAt: at(r.created_at), teams: db.prepare("SELECT team_id FROM team_memberships WHERE user_id=?").all(r.id).map(t => t.team_id) }));
 }
 function writePerson(db, wsId, id, p) {
   db.prepare("INSERT INTO users (id,name,email,initials,avatar_color,avatar_data) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, email=excluded.email, initials=excluded.initials, avatar_color=excluded.avatar_color, avatar_data=CASE WHEN excluded.avatar_data IS NULL THEN users.avatar_data ELSE excluded.avatar_data END").run(id, p.name, p.email || null, p.ini, p.c || 0, p.avatar === undefined ? null : (p.avatar || ""));
@@ -394,4 +402,4 @@ function readTaskSlimRows(db, wsId, where, params) {
 /* Merge a slim client copy over the stored task: scalar fields win, collections stay. */
 function mergeSlimTask(stored, incoming) { const out = Object.assign({}, stored); SLIM_FIELDS.forEach(k => { if (incoming[k] !== undefined) out[k] = incoming[k]; }); out.id = stored.id; return out; }
 
-module.exports = { stageRules, readTasksBatch, readTaskSlimRows, mergeSlimTask, SLIM_FIELDS, sweepArchive, readAIRaw, readSmtp, readSmtpRaw, writeSmtp, smtpRuntime, readWorkspace, writeWorkspace, readTeams, writeTeam, readPeople, writePerson, readProjects, writeProject, readTask, writeTask, appendActivity, readActivity, readRequests, writeRequest, readAssets, writeAsset, readFolders, writeFolder, readKnowledge, writePage, readKnowledgeFolders, writeKnowledgeFolder, readViews, writeView, readNotifs, writeNotif };
+module.exports = { readPending, stageRules, readTasksBatch, readTaskSlimRows, mergeSlimTask, SLIM_FIELDS, sweepArchive, readAIRaw, readSmtp, readSmtpRaw, writeSmtp, smtpRuntime, readWorkspace, writeWorkspace, readTeams, writeTeam, readPeople, writePerson, readProjects, writeProject, readTask, writeTask, appendActivity, readActivity, readRequests, writeRequest, readAssets, writeAsset, readFolders, writeFolder, readKnowledge, writePage, readKnowledgeFolders, writeKnowledgeFolder, readViews, writeView, readNotifs, writeNotif };
