@@ -843,8 +843,8 @@ img.emj.custom{object-fit:contain}
 @media(max-width:600px){.asset-icon-grid{gap:5px}.asset-icon-opt{width:32px;height:32px}}
 /* A select shows its chevron. Every select has one; .field select's background shorthand wiped it, so no form
    dropdown showed it could open. In the asset dialog's details (plain text until hovered) it says the value can change. */
-.field select:not([multiple]),.asset-meta select:not(:disabled){background-image:linear-gradient(45deg,transparent 50%,var(--color-text-secondary) 50%),linear-gradient(135deg,var(--color-text-secondary) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.asset-meta select:not(:disabled){background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%;padding-right:24px!important}
+.field select:not([multiple]),.asset-meta select:not(:disabled){background-image:var(--zc-chev);background-position:right 11px center;background-size:14px 14px;background-repeat:no-repeat}
+.asset-meta select:not(:disabled){background-position:right 6px center;padding-right:24px!important}
 
 /* ---------- People, tasks and projects in the writing (description, progress note, brief) ---------- */
 .ref-chip{margin:0 1px;line-height:1.35;max-width:min(100%,340px);vertical-align:-3px;cursor:pointer}
@@ -975,3 +975,148 @@ img.emj.custom{object-fit:contain}
 .link-card .lc-head .brand-ico,.link-card .lc-head .brand-mono,.link-card .lc-head .lc-link{flex:none}
 .link-card .lc-head .lc-link svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .brand-mono{text-transform:none}
+
+/* ---------- The export dialog: a heading, then Period, Scope and Content as cards ---------- */
+#modal.ex-modal{width:min(920px,100%)}
+#modal.ex-modal .modal-head{align-items:flex-start;gap:14px}
+.exm-head-ico{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
+.exm-head-ico svg,.exm-ico svg,.exm-reset svg,.exm-count-ico svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.exm-head-ico svg{width:24px;height:24px}
+.exm-titles{flex:1;min-width:0}
+.exm-titles h3{margin:2px 0 0;font-size:21px;line-height:1.25}
+.exm-sub{margin:4px 0 0;color:var(--color-text-secondary);font-size:13.5px;line-height:1.45}
+.exm-sec{border:1px solid var(--color-border);border-radius:16px;padding:16px 18px;margin:0 0 14px;background:var(--color-surface)}
+.exm-sec:last-child{margin-bottom:0}
+.exm-sec-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.exm-ico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
+.exm-ico svg{width:19px;height:19px}
+.exm-ico.sm{width:34px;height:34px;border-radius:10px}
+.exm-ico.sm svg{width:17px;height:17px}
+.exm-sec-titles{min-width:0}
+.exm-sec-titles h4{margin:1px 0 0;font-size:16px;font-weight:750}
+.exm-sec-titles p{margin:2px 0 0;color:var(--color-text-secondary);font-size:13px}
+.exm-aside{margin:6px 0 0 auto;max-width:330px;text-align:right;color:var(--color-text-tertiary);font-size:12px;line-height:1.4}
+.exm-presets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.exm-presets button{min-height:38px;padding:0 10px;border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-secondary);font-weight:650;font-size:13px;border:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exm-presets button:hover{color:var(--color-text-primary)}
+.exm-presets button.on{background:var(--color-ink);color:var(--color-ink-text)}
+.exm-dates{margin-bottom:0}
+.exm-dates .field{margin-bottom:0}
+.exm-row{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--color-border)}
+.exm-sec-head+.exm-row{border-top:0;padding-top:0}
+.exm-row-label{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.exm-row-label b{display:block;margin-top:7px;font-size:14px}
+.exm-row-label small{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:11.5px;line-height:1.35}
+.exm-row-body{min-width:0;padding-top:2px}
+.exm-row-body .chips{display:flex;flex-wrap:wrap;gap:6px}
+.exm-row-body .chipx{font-size:12.5px;padding:6px 14px;font-weight:600}
+.exm-row-state .exm-row-body select{width:100%}
+.exm-box{border-radius:14px;padding:14px 16px;margin-bottom:12px;background:color-mix(in srgb,var(--color-primary) 7%,var(--color-surface))}
+.exm-box-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.exm-box-head b{display:block;font-size:14px}
+.exm-box-head small{display:block;margin-top:2px;color:var(--color-text-secondary);font-size:12px}
+.exm-box-acts{margin-left:auto;display:flex;gap:6px;flex:none}
+.exm-box-acts .btn{background:var(--color-surface)}
+.exm-box .report-slide-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 10px;border:1px solid color-mix(in srgb,var(--color-primary) 35%,var(--color-border));border-radius:var(--pill);background:var(--color-surface);font-size:12.5px;font-weight:600;cursor:pointer}
+.exm-box .report-slide-chip input{width:16px;height:16px;margin:0;accent-color:var(--color-primary)}
+.exm-box .ex-colgroup+.ex-colgroup{margin-top:10px}
+.exm-pnv{margin-bottom:12px}
+.exm-pnv .field{margin-bottom:4px}
+.exm-csv-note{margin:0 0 12px}
+.exm-count{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font-size:13px}
+.exm-count-ico{display:grid;place-items:center;color:var(--color-text-secondary)}
+.exm-count-ico svg{width:16px;height:16px}
+.exm-count b{color:var(--color-text-primary)}
+.exm-note{margin:8px 2px 0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+.exm-reset{gap:8px}
+.exm-reset svg{width:16px;height:16px}
+@media (max-width:640px){
+  .exm-head-ico{width:40px;height:40px;border-radius:12px}
+  .exm-titles h3{font-size:17px}
+  .exm-sec{padding:14px}
+  .exm-sec-head{flex-wrap:wrap}
+  .exm-aside{flex-basis:100%;margin:0;text-align:left;max-width:none}
+  .exm-presets{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .exm-row{grid-template-columns:minmax(0,1fr);gap:8px}
+  .exm-box-head{flex-wrap:wrap}
+  .exm-box-acts{margin-left:0}
+}
+#modal.ex-modal .modal-head>.spacer{display:none}
+#modal.ex-modal .modal-head>.iconbtn,#modal.ex-modal .modal-head>button:last-child{margin-left:auto;flex:none}
+.exm-sec-titles{flex:1 1 0}
+.exm-row-state select{width:100%;min-height:42px;padding:0 12px;border:1px solid var(--color-border);border-radius:12px;font-size:14px;color:var(--color-text-primary)}
+.exm-row-state select:focus{outline:none;border-color:var(--color-primary)}
+@media (max-width:640px){
+  .exm-presets button{font-size:12px;padding:0 6px;min-height:34px}
+  .exm-sec-head{flex-wrap:wrap}
+  .exm-sec-titles{flex:1 1 0}
+}
+/* ---------- Phone-only pickers show they open ----------
+   The Settings section picker and the Assets folder picker are selects drawn as cards; their "background"
+   wiped the chevron every select has, so on a phone they read as a plain box. The chevron is back. */
+select.settings-mobile-select,select.asset-folder-select{background-image:var(--zc-chev)!important;background-position:right 14px center!important;background-size:14px 14px!important;background-repeat:no-repeat!important;padding-right:38px!important}
+/* each card's heading set off from what it holds by a clear line */
+.exm-sec-head{padding-bottom:14px;border-bottom:1px solid var(--color-border-strong,var(--color-border))}
+.exm-sec-head+*{margin-top:14px}
+.exm-sec-head+.exm-row{padding-top:14px}
+.exm-sec-head+.exm-row{margin-top:0}
+
+/* the scope's chips: chosen (to start with, all of them) or left out */
+.exm-row .chipx{background:var(--color-surface-sunken);color:var(--color-text-tertiary);border:1px solid transparent}
+.exm-row .chipx.on{background:var(--color-primary-soft);color:var(--color-primary);border-color:color-mix(in srgb,var(--color-primary) 30%,transparent)}
+.exm-row .chipx:not(.on){text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 55%,transparent)}
+.exm-all{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;font-weight:600;color:var(--color-text-secondary);cursor:pointer;width:max-content}
+.exm-all input{width:15px;height:15px;margin:0;accent-color:var(--color-primary)}
+
+/* ---------- One dropdown chevron everywhere ----------
+   The user menu's chevron (I.chevd) is the one: every select draws it (it was a filled wedge made of two
+   gradients), and the pill pickers and the phone's stage picker draw it too (they were a turned square's two
+   borders). A select's is an image, so it has a colour per theme; the pickers' takes the text colour. */
+:root{--zc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A6170' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");--zc-chev-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+[data-theme="dark"]{--zc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23D1D5DB' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+select{background-image:var(--zc-chev);background-position:right 11px center;background-size:14px 14px;background-repeat:no-repeat}
+.pillsel:has(select)::after,#drawer .dr-foot .task-stage-select::after{border:0!important;transform:none!important;width:13px!important;height:13px!important;margin-top:0!important;background:currentColor;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat}
+.pillsel:has(select)::after{margin-left:-15px!important}
+/* selects whose own rules cleared the chevron (a stage's kind and colour, a field's type, a member's role in the
+   table, the AI usage filters): they show it like every other */
+.stage-edit select,.color-swatch-field select,.tbl td select,.ag-usage-filters select{background-image:var(--zc-chev)!important;background-repeat:no-repeat!important;background-position:right 9px center!important;background-size:13px 13px!important;padding-right:28px!important}
+
+/* a scope row's Select all / Clear all: at its top right, styled as the Content box's */
+.exm-row.has-acts{grid-template-columns:190px minmax(0,1fr) auto}
+.exm-row-acts{display:flex;gap:6px;flex:none;padding-top:2px}
+.exm-row-acts .btn{background:var(--color-surface)}
+@media (max-width:640px){
+  .exm-row.has-acts{grid-template-columns:minmax(0,1fr) auto}
+  .exm-row.has-acts .exm-row-body{grid-column:1/-1;grid-row:2}
+}
+/* the rest of the dropdown and fold-out markers draw the same chevron (they were a turned square's borders, or a
+   "⌄" character): the pill pickers' (Sort, Group…), the AI details, and the AI studio's panels — each turned as
+   it was (right when folded, down when open) */
+.pillsel-custom .pillsel-chevron,.ai-details>summary:after,.ai-layer-browser>summary::after,.ai-inspector-section>summary::after,.ai-prop-section-head::after{content:"";border:0!important;background:currentColor;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat;flex:none}
+.pillsel-custom .pillsel-chevron{width:13px;height:13px;margin:0 0 0 auto;transform:none}
+.ai-details>summary:after{width:14px;height:14px;font-size:0}
+.ai-layer-browser>summary::after,.ai-inspector-section>summary::after{width:12px;height:12px;transform:rotate(-90deg)}
+.ai-layer-browser[open]>summary::after,.ai-inspector-section[open]>summary::after{transform:rotate(0deg)}
+.ai-prop-section-head::after{width:12px;height:12px;transform:rotate(180deg)}
+
+/* ---------- Settings: one rhythm ----------
+   Fields had a gap only when they sat straight in a panel; inside a section (My profile's Identity, Contact…) a
+   row of fields touched the next row's labels, and the lines between sections sat at odd distances. Now every
+   row of fields is 16px from the next, wherever it is; a section is 20px of room above and below its line; a
+   toggle row and the fields after it are kept apart; labels are labels everywhere. */
+.settings{--set-gap:16px;--set-sec:20px}
+.settings .field-row{gap:var(--set-gap)}
+.settings .field,.settings .field-row{margin-bottom:var(--set-gap)}
+.settings .field-row>.field{margin-bottom:0}
+.settings .field:last-child,.settings .field-row:last-child{margin-bottom:0}
+.settings .field>.hint,.settings .field>label+*+.hint{margin-top:6px}
+.settings .pf-head{padding-bottom:var(--set-sec);margin-bottom:0}
+.settings .pf-section{padding:var(--set-sec) 0;border-bottom:1px solid var(--color-border)}
+.settings .pf-section:last-child{border-bottom:0;padding-bottom:4px}
+.settings .pf-section>.eyebrow{margin-bottom:12px}
+.settings .pref+.field,.settings .pref+.field-row{margin-top:var(--set-gap)}
+/* My profile → Workspace: its three read-outs labelled like fields, the capacity box drawn like one */
+.settings .pf-ws{gap:var(--set-gap)}
+.settings .pf-ws>div>.hint:first-child{display:block;margin-bottom:6px;font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-secondary)}
+.settings #pf_cap{width:120px!important;min-height:40px;padding:8px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);color:var(--color-text-primary);font:inherit}
+.settings #pf_cap:focus{outline:none;border-color:var(--color-primary)}

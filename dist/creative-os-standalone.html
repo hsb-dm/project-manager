@@ -5026,8 +5026,8 @@ img.emj.custom{object-fit:contain}
 @media(max-width:600px){.asset-icon-grid{gap:5px}.asset-icon-opt{width:32px;height:32px}}
 /* A select shows its chevron. Every select has one; .field select's background shorthand wiped it, so no form
    dropdown showed it could open. In the asset dialog's details (plain text until hovered) it says the value can change. */
-.field select:not([multiple]),.asset-meta select:not(:disabled){background-image:linear-gradient(45deg,transparent 50%,var(--color-text-secondary) 50%),linear-gradient(135deg,var(--color-text-secondary) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
-.asset-meta select:not(:disabled){background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%;padding-right:24px!important}
+.field select:not([multiple]),.asset-meta select:not(:disabled){background-image:var(--zc-chev);background-position:right 11px center;background-size:14px 14px;background-repeat:no-repeat}
+.asset-meta select:not(:disabled){background-position:right 6px center;padding-right:24px!important}
 
 /* ---------- People, tasks and projects in the writing (description, progress note, brief) ---------- */
 .ref-chip{margin:0 1px;line-height:1.35;max-width:min(100%,340px);vertical-align:-3px;cursor:pointer}
@@ -5158,6 +5158,151 @@ img.emj.custom{object-fit:contain}
 .link-card .lc-head .brand-ico,.link-card .lc-head .brand-mono,.link-card .lc-head .lc-link{flex:none}
 .link-card .lc-head .lc-link svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .brand-mono{text-transform:none}
+
+/* ---------- The export dialog: a heading, then Period, Scope and Content as cards ---------- */
+#modal.ex-modal{width:min(920px,100%)}
+#modal.ex-modal .modal-head{align-items:flex-start;gap:14px}
+.exm-head-ico{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
+.exm-head-ico svg,.exm-ico svg,.exm-reset svg,.exm-count-ico svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.exm-head-ico svg{width:24px;height:24px}
+.exm-titles{flex:1;min-width:0}
+.exm-titles h3{margin:2px 0 0;font-size:21px;line-height:1.25}
+.exm-sub{margin:4px 0 0;color:var(--color-text-secondary);font-size:13.5px;line-height:1.45}
+.exm-sec{border:1px solid var(--color-border);border-radius:16px;padding:16px 18px;margin:0 0 14px;background:var(--color-surface)}
+.exm-sec:last-child{margin-bottom:0}
+.exm-sec-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.exm-ico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
+.exm-ico svg{width:19px;height:19px}
+.exm-ico.sm{width:34px;height:34px;border-radius:10px}
+.exm-ico.sm svg{width:17px;height:17px}
+.exm-sec-titles{min-width:0}
+.exm-sec-titles h4{margin:1px 0 0;font-size:16px;font-weight:750}
+.exm-sec-titles p{margin:2px 0 0;color:var(--color-text-secondary);font-size:13px}
+.exm-aside{margin:6px 0 0 auto;max-width:330px;text-align:right;color:var(--color-text-tertiary);font-size:12px;line-height:1.4}
+.exm-presets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.exm-presets button{min-height:38px;padding:0 10px;border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-secondary);font-weight:650;font-size:13px;border:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exm-presets button:hover{color:var(--color-text-primary)}
+.exm-presets button.on{background:var(--color-ink);color:var(--color-ink-text)}
+.exm-dates{margin-bottom:0}
+.exm-dates .field{margin-bottom:0}
+.exm-row{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--color-border)}
+.exm-sec-head+.exm-row{border-top:0;padding-top:0}
+.exm-row-label{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.exm-row-label b{display:block;margin-top:7px;font-size:14px}
+.exm-row-label small{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:11.5px;line-height:1.35}
+.exm-row-body{min-width:0;padding-top:2px}
+.exm-row-body .chips{display:flex;flex-wrap:wrap;gap:6px}
+.exm-row-body .chipx{font-size:12.5px;padding:6px 14px;font-weight:600}
+.exm-row-state .exm-row-body select{width:100%}
+.exm-box{border-radius:14px;padding:14px 16px;margin-bottom:12px;background:color-mix(in srgb,var(--color-primary) 7%,var(--color-surface))}
+.exm-box-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.exm-box-head b{display:block;font-size:14px}
+.exm-box-head small{display:block;margin-top:2px;color:var(--color-text-secondary);font-size:12px}
+.exm-box-acts{margin-left:auto;display:flex;gap:6px;flex:none}
+.exm-box-acts .btn{background:var(--color-surface)}
+.exm-box .report-slide-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 10px;border:1px solid color-mix(in srgb,var(--color-primary) 35%,var(--color-border));border-radius:var(--pill);background:var(--color-surface);font-size:12.5px;font-weight:600;cursor:pointer}
+.exm-box .report-slide-chip input{width:16px;height:16px;margin:0;accent-color:var(--color-primary)}
+.exm-box .ex-colgroup+.ex-colgroup{margin-top:10px}
+.exm-pnv{margin-bottom:12px}
+.exm-pnv .field{margin-bottom:4px}
+.exm-csv-note{margin:0 0 12px}
+.exm-count{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font-size:13px}
+.exm-count-ico{display:grid;place-items:center;color:var(--color-text-secondary)}
+.exm-count-ico svg{width:16px;height:16px}
+.exm-count b{color:var(--color-text-primary)}
+.exm-note{margin:8px 2px 0;color:var(--color-text-tertiary);font-size:12px;line-height:1.45}
+.exm-reset{gap:8px}
+.exm-reset svg{width:16px;height:16px}
+@media (max-width:640px){
+  .exm-head-ico{width:40px;height:40px;border-radius:12px}
+  .exm-titles h3{font-size:17px}
+  .exm-sec{padding:14px}
+  .exm-sec-head{flex-wrap:wrap}
+  .exm-aside{flex-basis:100%;margin:0;text-align:left;max-width:none}
+  .exm-presets{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .exm-row{grid-template-columns:minmax(0,1fr);gap:8px}
+  .exm-box-head{flex-wrap:wrap}
+  .exm-box-acts{margin-left:0}
+}
+#modal.ex-modal .modal-head>.spacer{display:none}
+#modal.ex-modal .modal-head>.iconbtn,#modal.ex-modal .modal-head>button:last-child{margin-left:auto;flex:none}
+.exm-sec-titles{flex:1 1 0}
+.exm-row-state select{width:100%;min-height:42px;padding:0 12px;border:1px solid var(--color-border);border-radius:12px;font-size:14px;color:var(--color-text-primary)}
+.exm-row-state select:focus{outline:none;border-color:var(--color-primary)}
+@media (max-width:640px){
+  .exm-presets button{font-size:12px;padding:0 6px;min-height:34px}
+  .exm-sec-head{flex-wrap:wrap}
+  .exm-sec-titles{flex:1 1 0}
+}
+/* ---------- Phone-only pickers show they open ----------
+   The Settings section picker and the Assets folder picker are selects drawn as cards; their "background"
+   wiped the chevron every select has, so on a phone they read as a plain box. The chevron is back. */
+select.settings-mobile-select,select.asset-folder-select{background-image:var(--zc-chev)!important;background-position:right 14px center!important;background-size:14px 14px!important;background-repeat:no-repeat!important;padding-right:38px!important}
+/* each card's heading set off from what it holds by a clear line */
+.exm-sec-head{padding-bottom:14px;border-bottom:1px solid var(--color-border-strong,var(--color-border))}
+.exm-sec-head+*{margin-top:14px}
+.exm-sec-head+.exm-row{padding-top:14px}
+.exm-sec-head+.exm-row{margin-top:0}
+
+/* the scope's chips: chosen (to start with, all of them) or left out */
+.exm-row .chipx{background:var(--color-surface-sunken);color:var(--color-text-tertiary);border:1px solid transparent}
+.exm-row .chipx.on{background:var(--color-primary-soft);color:var(--color-primary);border-color:color-mix(in srgb,var(--color-primary) 30%,transparent)}
+.exm-row .chipx:not(.on){text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 55%,transparent)}
+.exm-all{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;font-weight:600;color:var(--color-text-secondary);cursor:pointer;width:max-content}
+.exm-all input{width:15px;height:15px;margin:0;accent-color:var(--color-primary)}
+
+/* ---------- One dropdown chevron everywhere ----------
+   The user menu's chevron (I.chevd) is the one: every select draws it (it was a filled wedge made of two
+   gradients), and the pill pickers and the phone's stage picker draw it too (they were a turned square's two
+   borders). A select's is an image, so it has a colour per theme; the pickers' takes the text colour. */
+:root{--zc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235A6170' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");--zc-chev-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+[data-theme="dark"]{--zc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23D1D5DB' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
+select{background-image:var(--zc-chev);background-position:right 11px center;background-size:14px 14px;background-repeat:no-repeat}
+.pillsel:has(select)::after,#drawer .dr-foot .task-stage-select::after{border:0!important;transform:none!important;width:13px!important;height:13px!important;margin-top:0!important;background:currentColor;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat}
+.pillsel:has(select)::after{margin-left:-15px!important}
+/* selects whose own rules cleared the chevron (a stage's kind and colour, a field's type, a member's role in the
+   table, the AI usage filters): they show it like every other */
+.stage-edit select,.color-swatch-field select,.tbl td select,.ag-usage-filters select{background-image:var(--zc-chev)!important;background-repeat:no-repeat!important;background-position:right 9px center!important;background-size:13px 13px!important;padding-right:28px!important}
+
+/* a scope row's Select all / Clear all: at its top right, styled as the Content box's */
+.exm-row.has-acts{grid-template-columns:190px minmax(0,1fr) auto}
+.exm-row-acts{display:flex;gap:6px;flex:none;padding-top:2px}
+.exm-row-acts .btn{background:var(--color-surface)}
+@media (max-width:640px){
+  .exm-row.has-acts{grid-template-columns:minmax(0,1fr) auto}
+  .exm-row.has-acts .exm-row-body{grid-column:1/-1;grid-row:2}
+}
+/* the rest of the dropdown and fold-out markers draw the same chevron (they were a turned square's borders, or a
+   "⌄" character): the pill pickers' (Sort, Group…), the AI details, and the AI studio's panels — each turned as
+   it was (right when folded, down when open) */
+.pillsel-custom .pillsel-chevron,.ai-details>summary:after,.ai-layer-browser>summary::after,.ai-inspector-section>summary::after,.ai-prop-section-head::after{content:"";border:0!important;background:currentColor;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat;flex:none}
+.pillsel-custom .pillsel-chevron{width:13px;height:13px;margin:0 0 0 auto;transform:none}
+.ai-details>summary:after{width:14px;height:14px;font-size:0}
+.ai-layer-browser>summary::after,.ai-inspector-section>summary::after{width:12px;height:12px;transform:rotate(-90deg)}
+.ai-layer-browser[open]>summary::after,.ai-inspector-section[open]>summary::after{transform:rotate(0deg)}
+.ai-prop-section-head::after{width:12px;height:12px;transform:rotate(180deg)}
+
+/* ---------- Settings: one rhythm ----------
+   Fields had a gap only when they sat straight in a panel; inside a section (My profile's Identity, Contact…) a
+   row of fields touched the next row's labels, and the lines between sections sat at odd distances. Now every
+   row of fields is 16px from the next, wherever it is; a section is 20px of room above and below its line; a
+   toggle row and the fields after it are kept apart; labels are labels everywhere. */
+.settings{--set-gap:16px;--set-sec:20px}
+.settings .field-row{gap:var(--set-gap)}
+.settings .field,.settings .field-row{margin-bottom:var(--set-gap)}
+.settings .field-row>.field{margin-bottom:0}
+.settings .field:last-child,.settings .field-row:last-child{margin-bottom:0}
+.settings .field>.hint,.settings .field>label+*+.hint{margin-top:6px}
+.settings .pf-head{padding-bottom:var(--set-sec);margin-bottom:0}
+.settings .pf-section{padding:var(--set-sec) 0;border-bottom:1px solid var(--color-border)}
+.settings .pf-section:last-child{border-bottom:0;padding-bottom:4px}
+.settings .pf-section>.eyebrow{margin-bottom:12px}
+.settings .pref+.field,.settings .pref+.field-row{margin-top:var(--set-gap)}
+/* My profile → Workspace: its three read-outs labelled like fields, the capacity box drawn like one */
+.settings .pf-ws{gap:var(--set-gap)}
+.settings .pf-ws>div>.hint:first-child{display:block;margin-bottom:6px;font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--color-text-secondary)}
+.settings #pf_cap{width:120px!important;min-height:40px;padding:8px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);color:var(--color-text-primary);font:inherit}
+.settings #pf_cap:focus{outline:none;border-color:var(--color-primary)}
 
 </style>
 </head>
@@ -5486,7 +5631,7 @@ var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workfl
 var DEMO_CAPS={admin:DEMO_CAP_LIST.map(function(c){ return c[0]; }),creative_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","manage_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","manage_any_message","create_project","edit_any_project","delete_project","create_task","create_own_task","edit_any_task","assign_task","review_any","delete_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],team_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","submit_request","create_task","create_own_task","edit_team_tasks","edit_own_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],member:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","pin_message","submit_request","create_own_task","edit_own_task","upload_file","manage_assets","manage_knowledge","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],viewer:["view_progress_notes","view_messages","send_message","view_all","submit_request","view_ai_gallery"]};
 var S={ screen:"home", sub:null, railFilter:null, taskView:"kanban", taskScope:"mine", sort:"manual", sortDir:1, group:"", filters:{status:"",kind:"",assignee:"",reviewer:"",proj:"",prio:"",team:"",tag:"",dependency:"",due:"",archived:"",hidden:""}, activeView:null, actScope:"mine", gridFields:["status","team","assignee","prio","start","due","effort","tags"],
   calMode:"month", calMonth:TODAY.getMonth(), calYear:TODAY.getFullYear(), calDay:0, calScope:"all", calLabelsOpen:false, drawerTask:null, drawerTab:"brief", drawerVer:null, commentVis:"internal", replyTo:null, revOpen:false, briefEdit:false,
-  projectId:null, projectTab:"overview", teamId:null, memberId:null, assetTab:"library", assetFolder:"all", assetQuery:"", assetView:"grid", kbPage:null, kbEdit:false, kbQuery:"", requestId:null, settingsTab:"workspace", settingsGroup:null, aiSettingsSection:"overview", backupSection:"overview", tagQuery:"", search:"", range:8 };
+  projectId:null, projectTab:"overview", teamId:null, memberId:null, assetTab:"library", assetFolder:"all", assetQuery:"", assetView:"grid", kbPage:null, kbEdit:false, kbQuery:"", requestId:null, settingsTab:"profile", settingsGroup:null, aiSettingsSection:"overview", backupSection:"overview", tagQuery:"", search:"", range:8 };
 var ACCENTS=[{n:"Cobalt",v:"#2F5BFF"},{n:"Violet",v:"#6D3BF5"},{n:"Teal",v:"#0F8F84"},{n:"Coral",v:"#E8533F"},{n:"Amber",v:"#C9860A"},{n:"Rose",v:"#D6336C"},{n:"Forest",v:"#1F7A4D"},{n:"Ink",v:"#111214"}];
 var TEAM_COLORS=["purple","blue","green","orange","red","pink","teal","yellow","gray"];
 var PRIOS=[["low","Low"],["medium","Medium"],["high","High"],["urgent","Urgent"]]; var PRANK={urgent:0,high:1,medium:2,low:3};
@@ -5830,7 +5975,7 @@ function reloadAll(){ if (!API.on) return Promise.resolve(); return apiFetch("GE
 function actAs(id){ if (API.on&&!(API.features&&API.features.impersonation)) return toast("User switching is disabled on this server","bad"); if (API.on&&!(SESSION.user&&SESSION.user.perm==="admin")) return toast("Only admins can act as another member","bad"); ME=id; try { localStorage.setItem("cos.actAs",id); } catch(e){} closePops(); if (API.on){ reloadAll().then(function(saved){ if(saved===false)return false; if(typeof wqSurfaces==="function")wqSurfaces(); toast(ME===SESSION.user.id?"Back to your own account":"Now acting as "+person(ME).name+" — permissions are checked by the server"); }); } else { applyShell(); refresh(); if(typeof wqSurfaces==="function")wqSurfaces(); toast("Now acting as "+person(ME).name); } }
 function signOut(){ closePops(); if (!API.on){ SESSION.user=null; return showLogin(); } apiFetch("POST","/api/auth/logout",{pushEndpoint:(window.PWA&&PWA.endpoint)||undefined}).then(function(saved){ if(saved===false)return false; SESSION.user=null; try { localStorage.removeItem("cos.actAs"); } catch(e){} showLogin(); }).catch(function(e){ fail(e); }); }
 function userMenuHtml(){ var me=person(ME); var r=byId(ROLES,me.perm); var isAdminSession=!API.on||((API.features&&API.features.impersonation)&&SESSION.user&&SESSION.user.perm==="admin"); var h='<div class="mh">Signed in as</div><div style="padding:6px 10px 8px;display:flex;gap:10px;align-items:center">'+av(ME,"lg")+'<div><div style="font-weight:700">'+esc(me.name)+'</div><div class="hint">'+esc(me.role)+' · '+esc(r?r.name:me.perm)+(API.on&&SESSION.user&&ME!==SESSION.user.id?' · acting as (you are '+esc(SESSION.user.name)+')':'')+'</div></div></div>';
-  h+='<button onclick="closePops();go(\'team\',\''+ME+'\')">'+I.user+tr("My profile")+'</button>'+(API.on?'<button onclick="closePops();changePasswordModal()">'+I.lock+tr("Change password")+'</button>':'')+'<div class="mh">'+tr("Language")+'</div><div class="menu-language">'+languagePicker()+'</div>'+'<div class="mh">AI</div>'+'<button data-tour="ai-hub" onclick="closePops();go(\'aihub\')">'+I.sparkle+'AI Hub</button>'+'<button onclick="closePops();go(\'aigallery\')">'+I.gallery+'AI Gallery</button>'+'<button onclick="closePops();aiChatToggle(true)">'+I.sparkle+'AI Intelligence</button>'+'<div class="mh">Workspace</div>'+WorkspaceQuest.profileEntry()+'<button data-tour="nav-knowledge" onclick="closePops();go(\'knowledge\')">'+I.knowledge+tr("Knowledge")+'</button>'+'<button onclick="closePops();go(\'settings\',\'layout\')">'+I.grid+tr("Menu & home layout")+'</button>'+'<button onclick="closePops();go(\'settings\')">'+I.settings+tr("Settings")+'</button>';
+  h+='<button onclick="closePops();go(\'team\',\''+ME+'\')">'+I.user+tr("My profile")+'</button>'+(API.on?'<button onclick="closePops();changePasswordModal()">'+I.lock+tr("Change password")+'</button>':'')+'<div class="mh">'+tr("Language")+'</div><div class="menu-language">'+languagePicker()+'</div>'+'<div class="mh">AI</div>'+'<button data-tour="ai-hub" onclick="closePops();go(\'aihub\')">'+I.sparkle+'AI Hub</button>'+'<button onclick="closePops();go(\'aigallery\')">'+I.gallery+'AI Gallery</button>'+'<button onclick="closePops();aiChatToggle(true)">'+I.sparkle+'AI Intelligence</button>'+'<div class="mh">Workspace</div>'+WorkspaceQuest.profileEntry()+'<button data-tour="nav-knowledge" onclick="closePops();go(\'knowledge\')">'+I.knowledge+tr("Knowledge")+'</button>'+'<button onclick="closePops();go(\'settings\',\'layout\')">'+I.grid+tr("Menu & home layout")+'</button>'+'<button onclick="closePops();go(\'settings\',\'profile\')">'+I.settings+tr("Settings")+'</button>';
   if (isAdminSession) h+='<div class="mh">Switch user</div>'+Object.keys(PEOPLE).map(function(id){ var p=PEOPLE[id]; var rr=byId(ROLES,p.perm); return '<button onclick="actAs(\''+id+'\')">'+av(id)+'<span style="flex:1">'+esc(p.name)+(id===ME?" ✓":"")+'</span><span class="hint">'+esc(rr?rr.name:p.perm)+'</span></button>'; }).join("")+(API.on&&canI.manageWorkspace()?'<button onclick="closePops();resetDemo()">'+I.sync+'Reset demo data</button>':'');
   return h+'<div class="mh"></div><button onclick="signOut()" style="color:var(--color-danger)">'+I.x+tr("Sign out")+'</button>'; }
 function resetDemo(){ confirmModal("Reset the database?","Re-seeds the demo workspace. Everything you changed will be lost.",function(){ apiFetch("POST","/api/reset",{}).then(function(saved){ if(saved===false)return false; return reloadAll(); }).then(function(saved){ if(saved===false)return false; toast("Demo data restored"); }).catch(function(e){ toast(e.message,"bad"); }); },true); }
@@ -6181,7 +6326,7 @@ function renderNav(){ var mine=TASKS.filter(function(x){ return isAssignee(x,ME)
   var tb=document.getElementById("tabbar"); if (tb){ var main=items.slice(0,4); var rest=items.slice(4);
     var more=rest.concat([["notifications","Notifications",I.bell,NOTIFS.filter(function(n){ return !n.read; }).length],["settings","Settings",I.settings,0]]); var moreActive=more.some(function(it){ return it[0]===S.screen; });
     tb.innerHTML=main.map(function(it){ return '<button class="'+(S.screen===it[0]?"active":"")+'" onclick="go(\''+it[0]+'\')">'+it[2]+'<span>'+it[1]+'</span>'+(it[3]?'<span class="cnt">'+it[3]+'</span>':'')+'</button>'; }).join("")+'<button class="'+(moreActive?"active":"")+'" onclick="toggleSheet()"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button>';
-    document.getElementById("sheet").innerHTML=more.map(function(it){ return '<button class="'+(S.screen===it[0]?"active":"")+'" onclick="toggleSheet(false);go(\''+it[0]+'\')">'+it[2]+'<span>'+it[1]+'</span></button>'; }).join("")
+    document.getElementById("sheet").innerHTML=more.map(function(it){ return '<button class="'+(S.screen===it[0]?"active":"")+'" onclick="toggleSheet(false);go(\''+it[0]+'\''+(it[0]==="settings"?',\'profile\'':'')+')">'+it[2]+'<span>'+it[1]+'</span></button>'; }).join("")
       +'<button onclick="toggleSheet(false);go(\'knowledge\')">'+I.knowledge+'<span>Knowledge</span></button>'+'<button data-tour="nav-messages-sheet" onclick="toggleSheet(false);go(\'messages\')"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><span>Messages</span></button>'+'<button onclick="toggleSheet(false);go(\'aihub\')">'+I.sparkle+'<span>AI Hub</span></button>'+'<button onclick="toggleSheet(false);go(\'aigallery\')">'+I.gallery+'<span>AI Gallery</span></button>'+'<button onclick="toggleSheet(false);aiChatToggle(true)">'+I.sparkle+'<span>AI Intelligence</span></button>'
       +'<button onclick="toggleSheet(false);go(\'settings\',\'theme\')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg><span>Theme</span></button>'
       +(hid.length?'<button onclick="toggleSheet(false);go(\'settings\',\'layout\')">'+I.sync+'<span>Menu ('+hid.length+' hidden)</span></button>':'')
@@ -13079,11 +13224,11 @@ function exportTasks(){
 function exInc(key){ return !EXPORT||!EXPORT.include||EXPORT.include[key]!==false; }
 function exScopeLine(){
   if (!EXPORT) return "";
-  var bits=[];
-  if (EXPORT.teams&&EXPORT.teams.length) bits.push(EXPORT.teams.map(function(id){ return teamName(id); }).join(", "));
-  if (EXPORT.projects&&EXPORT.projects.length) bits.push(EXPORT.projects.length+" "+tr(EXPORT.projects.length===1?"project":"projects"));
-  if (EXPORT.labels&&EXPORT.labels.length) bits.push(EXPORT.labels.map(function(id){ return (label(id)||{}).name; }).filter(Boolean).join(", "));
-  if (EXPORT.people&&EXPORT.people.length) bits.push(EXPORT.people.map(function(id){ return person(id).name; }).join(", "));
+  var bits=[], real=function(l){ return (l||[]).filter(function(x){ return x!=="__none__"; }); };
+  if (real(EXPORT.teams).length) bits.push(real(EXPORT.teams).map(function(id){ return teamName(id); }).join(", "));
+  if (real(EXPORT.projects).length) bits.push(real(EXPORT.projects).length+" "+tr(real(EXPORT.projects).length===1?"project":"projects"));
+  if (real(EXPORT.labels).length) bits.push(real(EXPORT.labels).map(function(id){ return (label(id)||{}).name; }).filter(Boolean).join(", "));
+  if (real(EXPORT.people).length) bits.push(real(EXPORT.people).map(function(id){ return person(id).name; }).join(", "));
   if (EXPORT.status&&EXPORT.status!=="all") bits.push(tr(EXPORT.status==="open"?"open only":"completed only"));
   return bits.length?bits.join(" \u00b7 "):tr("All teams");
 }
@@ -13091,11 +13236,23 @@ var EX_SHEETS=[["summary","Summary"],["tasks","Tasks"],["progress","Progress not
 var EX_SLIDES=[["kpis","Headline metrics"],["pipeline","Creative pipeline"],["throughput","Throughput"],["projects","Projects"],["teamload","Workload by team"],["workload","Workload by person"],["people","Performance by person"],["attention","Needs attention"],["airecs","AI recommendations"]];
 var EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{}};
 
+/* The scope's rows start with everything chosen, and each has Select all. EXF[group] stays what the export reads:
+   [] is everything (nothing filtered — tasks with no team or project too), a list is only those, and ["__none__"]
+   is none of them (Select all unticked), which the count then says matches nothing. A chip's click leaves it out
+   or takes it back; choosing them all again is everything. */
+var EXF_ALL={};
+function exIsOn(group,id){ var a=EXF[group]||[]; return !a.length||a.indexOf(id)>=0; }
 function exToggle(group,id,btn){
-  var a=EXF[group], i=a.indexOf(id);
-  if (i>=0) a.splice(i,1); else a.push(id);
-  btn.classList.toggle("on",a.indexOf(id)>=0);
-  exUpdateCount();
+  var all=EXF_ALL[group]||[], a=EXF[group]||[], cur=a.length?a.filter(function(x){ return x!=="__none__"; }):all.slice(), i=cur.indexOf(id);
+  if (i>=0) cur.splice(i,1); else cur.push(id);
+  EXF[group]=cur.length>=all.length&&all.every(function(x){ return cur.indexOf(x)>=0; })?[]:cur.length?cur:["__none__"];
+  exScopePaint(group); exUpdateCount();
+}
+function exAllScope(group,on){ EXF[group]=on?[]:["__none__"]; exScopePaint(group); exUpdateCount(); }
+function exScopePaint(group){
+  document.querySelectorAll('[data-scope="'+group+'"]').forEach(function(b){ var on=exIsOn(group,b.getAttribute("data-id")); b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); });
+  var cb=document.querySelector('[data-scope-all="'+group+'"]'), a=EXF[group]||[];
+  if (cb){ cb.checked=!a.length; cb.indeterminate=!!a.length&&a[0]!=="__none__"; }
 }
 function exToggleInc(key,on){ EXF.include[key]=on; exUpdateCount(); }
 /* the Tasks table's columns: what is left out is remembered for the person (new columns come in on) */
@@ -13110,7 +13267,7 @@ function exAllInc(on){
 }
 function exClearScope(){
   EXF.teams=[]; EXF.projects=[]; EXF.labels=[]; EXF.people=[]; EXF.status="all";
-  document.querySelectorAll("[data-scope]").forEach(function(b){ b.classList.remove("on"); });
+  ["teams","projects","labels","people"].forEach(exScopePaint);   /* everything chosen again */
   var st=document.getElementById("ex_status"); if (st) st.value="all";
   exUpdateCount();
 }
@@ -13133,48 +13290,76 @@ function exUpdateCount(){
     + (n?'':' \u2014 <span style="color:var(--color-danger);font-weight:700">'+tr("nothing matches this scope")+'</span>');
 }
 
+/* The export dialog, for every file it makes (PowerPoint, Excel, CSV): a heading that says what it makes, then
+   three cards — Period (the range, with its presets), Scope (teams, projects, labels, people and task state,
+   each row with its icon; nothing chosen means everything) and Content (the slides or sheets, the Tasks table's
+   columns, the progress note version) — and a line counting what the export will hold. Reset scope, Cancel and
+   Export at the foot. The ids, data- attributes and handlers are the ones the export reads (exUpdateCount,
+   exToggle, runExport…), so only the layout changed. On a phone the rows stack. */
+var EXM_ICON={
+  file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+  tag:'<svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  reset:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+  layers:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>'
+};
 function exportModal(kind){
-  var titles={ppt:"PowerPoint report",xlsx:"Excel workbook",csv:"Tasks CSV"};
+  if(kind==="excel") kind="xlsx";
+  var titles={ppt:"Export PowerPoint report",xlsx:"Export Excel workbook",csv:"Export tasks CSV"};
+  var subs={ppt:"Choose a time period, set the scope, and select the content to include in your report.",xlsx:"Choose a time period, set the scope, and select the sheets and columns to include in your workbook.",csv:"Choose a time period, set the scope, and select the columns of your tasks table."};
   var presets=[["4w","Last 4 weeks"],["8w","Last 8 weeks"],["month","This month"],["lastmonth","Last month"],["quarter","This quarter"],["custom","Custom"]];
   window._exKind=kind;
   EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{},colsOff:((PEOPLE[ME]&&myPrefs().exportColsOff)||[]).slice(),pnv:"latest"};
+  var sec=function(icon,title,sub,body,aside){ return '<section class="exm-sec"><div class="exm-sec-head"><span class="exm-ico">'+icon+'</span><div class="exm-sec-titles"><h4>'+esc(tr(title))+'</h4><p>'+esc(tr(sub))+'</p></div>'+(aside?'<p class="exm-aside">'+esc(tr(aside))+'</p>':'')+'</div>'+body+'</section>'; };
+  EXF_ALL={};
+  /* a row with chips has Select all / Clear all at its top right, as the Content box does */
+  var row=function(icon,label,sub,body,cls,group){ var acts=group&&(EXF_ALL[group]||[]).length;
+    return '<div class="exm-row'+(cls?" "+cls:"")+(acts?" has-acts":"")+'"><div class="exm-row-label"><span class="exm-ico sm">'+icon+'</span><div><b>'+esc(tr(label))+'</b>'+(sub?'<small>'+esc(tr(sub))+'</small>':'')+'</div></div><div class="exm-row-body">'+body+'</div>'
+    +(acts?'<div class="exm-row-acts"><button type="button" class="btn xs" data-scope-act="'+group+':all" onclick="exAllScope(\''+group+'\',true)">'+esc(tr("Select all"))+'</button><button type="button" class="btn xs" data-scope-act="'+group+':none" onclick="exAllScope(\''+group+'\',false)">'+esc(tr("Clear all"))+'</button></div>':'')+'</div>'; };
+  var chips=function(group,items){ EXF_ALL[group]=items.map(function(it){ return it[0]; }); return items.length?'<div class="chips">'+items.map(function(it){
+    return '<button type="button" class="chipx on" aria-pressed="true" data-no-translate data-scope="'+group+'" data-id="'+attr(it[0])+'" onclick="exToggle(\''+group+'\','+jsq(it[0])+',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>':'<span class="hint">'+esc(tr("None yet"))+'</span>'; };
 
-  var period='<div class="field"><label>Period</label><div class="seg" id="ex_presets">'
-    + presets.map(function(p,i){ return '<button class="'+(i===1?"on":"")+'" onclick="exportPreset(\''+p[0]+'\',this)">'+p[1]+'</button>'; }).join("")
-    + '</div></div><div class="field-row">'
+  /* Period */
+  var period=sec(I.calendar,"Period","Set the time range for your report data.",
+    '<div class="exm-presets" id="ex_presets" role="group" aria-label="'+attr(tr("Period"))+'">'
+    + presets.map(function(p,i){ return '<button type="button" class="'+(i===1?"on":"")+'" aria-pressed="'+(i===1)+'" onclick="exportPreset(\''+p[0]+'\',this)">'+esc(tr(p[1]))+'</button>'; }).join("")
+    + '</div><div class="field-row exm-dates">'
     + fieldHtml("ex_from","From",'<input id="ex_from" type="date" value="'+iso(-55)+'" onchange="exCustomPeriod()">')
-    + fieldHtml("ex_to","To",'<input id="ex_to" type="date" value="'+iso(0)+'" onchange="exCustomPeriod()">')+'</div>';
+    + fieldHtml("ex_to","To",'<input id="ex_to" type="date" value="'+iso(0)+'" onchange="exCustomPeriod()">')+'</div>');
 
-  var chips=function(group,items){ return '<div class="chips">'+items.map(function(it){
-    return '<button class="chipx" data-no-translate data-scope onclick="exToggle(\''+group+'\','+jsq(it[0])+',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>'; };
+  /* Scope */
+  var scope=sec(I.filter,"Scope","Choose what to include in your report.",
+    (function(){ var c=chips("teams",activeTeams().map(function(t){ return [t.id,t.name]; })); return row(I.team,"Teams","",c,"","teams"); })()
+    + (function(){ var c=chips("projects",liveProjects().map(function(p){ return [p.id,p.name]; })); return row(I.projects,"Projects","",c,"","projects"); })()
+    + (function(){ var c=chips("labels",allLabels().map(function(l){ return [l.id,l.name]; })); return row(EXM_ICON.tag,"Labels","",c,"","labels"); })()
+    + (function(){ var c=chips("people",Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id].cap; }).map(function(id){ return [id,PEOPLE[id].name]; })); return row(I.user,"People","",c,"","people"); })()
+    + row(I.list,"Task state","",selectHtml("ex_status",[["all",tr("Everything in the period")],["open",tr("Open tasks only")],["closed",tr("Completed tasks only")]],"all",'aria-label="'+attr(tr("Task state"))+'" onchange="exUpdateCount()"'),"exm-row-state"),
+    "Everything is chosen to start with. Leave out what the report should not hold.");
 
-  var scope='<div class="field"><label>Teams <span class="hint" style="font-weight:400">\u00b7 none selected means every team</span></label>'
-    + chips("teams",activeTeams().map(function(t){ return [t.id,t.name]; }))+'</div>'
-    + '<div class="field"><label>Projects</label>'+chips("projects",liveProjects().map(function(p){ return [p.id,p.name]; }))+'</div>'
-    + '<div class="field"><label>Labels</label>'+chips("labels",allLabels().map(function(l){ return [l.id,l.name]; }))+'</div>'
-    + '<div class="field"><label>People</label>'+chips("people",Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id].cap; }).map(function(id){ return [id,PEOPLE[id].name]; }))+'</div>'
-    + fieldHtml("ex_status","Task state",selectHtml("ex_status",[["all","Everything in the period"],["open","Open tasks only"],["closed","Completed tasks only"]],"all",'onchange="exUpdateCount()"'));
-
+  /* Content: the slides or sheets; the Tasks table's columns and the progress note version */
   var list=kind==="ppt"?EX_SLIDES:EX_SHEETS;
-  /* the Tasks table's columns, and which progress note version goes in (the latest unless chosen) */
-  var colsHtml=kind==="ppt"?"":'<div class="field ex-cols"><label>'+tr("Task columns")+' <span class="hint" style="font-weight:400" id="ex_colcount"></span></label>'+TASK_COL_GROUPS.map(function(g){ var cs=taskColumns().filter(function(c){ return c.g===g[0]; }); if(!cs.length) return ""; return '<div class="ex-colgroup"><div class="ex-colgroup-h">'+esc(tr(g[1]))+'</div><div class="report-slide-options">'+cs.map(function(c){ var on=c.lock||EXF.colsOff.indexOf(c.k)<0; return '<label class="report-slide-chip'+(c.lock?" locked":"")+'"><input type="checkbox" data-col="'+attr(c.k)+'"'+(on?" checked":"")+(c.lock?" disabled":"")+' onchange="exToggleCol('+jsq(c.k)+',this.checked)"><span class="report-slide-chip-label"'+(c.raw?' data-no-translate':'')+'>'+esc(c.raw?c.h:tr(c.h))+'</span></label>'; }).join("")+'</div></div>'; }).join("")
-    +'<div class="report-slide-actions"><button class="btn xs" onclick="exAllCols(true)">'+tr("All columns")+'</button><button class="btn xs ghost" onclick="exAllCols(false)">'+tr("Only ID and Title")+'</button></div><div class="hint" style="margin-top:6px">'+tr("ID and Title are always included.")+(kind==="xlsx"?' '+tr("These are the columns of the Tasks sheet."):'')+'</div></div>';
+  var box=function(title,note,acts,body,extra){ return '<div class="exm-box'+(extra?" "+extra:"")+'"><div class="exm-box-head"><div><b>'+title+'</b>'+(note?'<small>'+note+'</small>':'')+'</div>'+(acts?'<div class="exm-box-acts">'+acts+'</div>':'')+'</div>'+body+'</div>'; };
+  var include=kind==="csv"?'<p class="hint exm-csv-note">'+esc(tr("A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows."))+'</p>'
+    : box(esc(tr(kind==="ppt"?"Slides to include":"Sheets to include")),kind==="ppt"?esc(tr("The cover slide is always included.")):"",
+        '<button type="button" class="btn xs" onclick="exAllInc(true)">'+esc(tr("Select all"))+'</button><button type="button" class="btn xs" onclick="exAllInc(false)">'+esc(tr("Clear all"))+'</button>',
+        '<div class="report-slide-options">'+list.map(function(x){ return '<label class="report-slide-chip"><input type="checkbox" data-inc checked onchange="exToggleInc(\''+x[0]+'\',this.checked)"><span class="report-slide-chip-label">'+esc(tr(x[1]))+'</span></label>'; }).join("")+'</div>');
+  var colsHtml=kind==="ppt"?"":box(esc(tr("Task columns"))+' <span class="hint" id="ex_colcount"></span>',esc(tr("ID and Title are always included."))+(kind==="xlsx"?' '+esc(tr("These are the columns of the Tasks sheet.")):''),
+      '<button type="button" class="btn xs" onclick="exAllCols(true)">'+esc(tr("All columns"))+'</button><button type="button" class="btn xs" onclick="exAllCols(false)">'+esc(tr("Only ID and Title"))+'</button>',
+      TASK_COL_GROUPS.map(function(g){ var cs=taskColumns().filter(function(c){ return c.g===g[0]; }); if(!cs.length) return ""; return '<div class="ex-colgroup"><div class="ex-colgroup-h">'+esc(tr(g[1]))+'</div><div class="report-slide-options">'+cs.map(function(c){ var on=c.lock||EXF.colsOff.indexOf(c.k)<0; return '<label class="report-slide-chip'+(c.lock?" locked":"")+'"><input type="checkbox" data-col="'+attr(c.k)+'"'+(on?" checked":"")+(c.lock?" disabled":"")+' onchange="exToggleCol('+jsq(c.k)+',this.checked)"><span class="report-slide-chip-label"'+(c.raw?' data-no-translate':'')+'>'+esc(c.raw?c.h:tr(c.h))+'</span></label>'; }).join("")+'</div></div>'; }).join(""),"ex-cols");
   var maxV=0; TASKS.forEach(function(t){ var l=typeof pnLatest==="function"?pnLatest(t):null; if(l&&l.v>maxV) maxV=l.v; });
-  var pnSel=kind==="ppt"?"":fieldHtml("ex_pnv","Progress note version",'<select id="ex_pnv" onchange="EXF.pnv=this.value">'+[["latest",tr("Latest version")]].concat(kind==="xlsx"?[["all",tr("All versions")]]:[]).concat(Array.apply(null,{length:maxV}).map(function(_,i){ return [String(i+1),"V"+(i+1)]; })).map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===EXF.pnv?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>')
-    +'<div class="hint" style="margin-top:-6px">'+tr("A task without the chosen version is left blank.")+(kind==="xlsx"?' '+tr("All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest."):'')+'</div>';
-  var include=kind==="csv"?'<p class="hint">'+tr("A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows.")+'</p>'
-    : '<div class="field"><label>'+(kind==="ppt"?"Slides":"Sheets")+' to include</label><div class="report-slide-options">'
-      + list.map(function(x){ return '<label class="report-slide-chip"><input type="checkbox" data-inc checked onchange="exToggleInc(\''+x[0]+'\',this.checked)"><span class="report-slide-chip-label">'+esc(x[1])+'</span></label>'; }).join("")
-      + '</div><div class="report-slide-actions"><button class="btn xs" onclick="exAllInc(true)">Select all</button><button class="btn xs ghost" onclick="exAllInc(false)">Clear all</button></div>'
-      + (kind==="ppt"?'<div class="hint" style="margin-top:6px">The cover slide is always included.</div>':'')+'</div>';
+  var pnSel=kind==="ppt"?"":'<div class="exm-pnv">'+fieldHtml("ex_pnv","Progress note version",'<select id="ex_pnv" onchange="EXF.pnv=this.value">'+[["latest",tr("Latest version")]].concat(kind==="xlsx"?[["all",tr("All versions")]]:[]).concat(Array.apply(null,{length:maxV}).map(function(_,i){ return [String(i+1),"V"+(i+1)]; })).map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===EXF.pnv?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>')
+    +'<div class="hint">'+esc(tr("A task without the chosen version is left blank."))+(kind==="xlsx"?' '+esc(tr("All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest.")):'')+'</div></div>';
+  var contentSub={ppt:"Select the report sections to include in your PowerPoint file.",xlsx:"Select the sheets and the columns to include in your Excel file.",csv:"Select the columns of your tasks table."}[kind];
+  var content=sec(EXM_ICON.layers,"Content",contentSub,include+colsHtml+pnSel
+    + '<div class="exm-count"><span class="exm-count-ico">'+I.analytics+'</span><span id="ex_count"></span></div>'
+    + '<p class="exm-note">'+esc(tr("Includes every task still open or not yet due, and finished tasks due in the period. Only work finished before the period began is left out, with manually hidden tasks and archived projects."))+'</p>');
 
-  openModal("Export "+titles[kind],
-    period
-    + '<div class="eyebrow" style="margin:14px 0 8px">Scope</div>'+scope
-    + '<div class="eyebrow" style="margin:16px 0 8px">Contents</div>'+include+colsHtml+pnSel
-    + '<div id="ex_count" class="hint" style="margin-top:12px;padding:9px 12px;border-radius:var(--radius);background:var(--color-surface-sunken)"></div>'
-    + '<p class="hint" style="margin-top:8px">'+tr("Includes every task still open or not yet due, and finished tasks due in the period. Only work finished before the period began is left out, with manually hidden tasks and archived projects.")+'</p>',
-    '<button class="btn ghost" onclick="exClearScope()">Reset scope</button><span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="runExport()">'+I.download+'Export</button>', true);
+  openModal(titles[kind],period+scope+content,
+    '<button type="button" class="btn ghost exm-reset" onclick="exClearScope()">'+EXM_ICON.reset+esc(tr("Reset scope"))+'</button><span class="spacer"></span><button class="btn" onclick="closeModal()">'+esc(tr("Cancel"))+'</button><button class="btn primary" onclick="runExport()">'+I.download+esc(tr("Export"))+'</button>', true);
+  /* the heading: an icon, and a line under the title saying what the dialog is for */
+  var m=document.getElementById("modal"), h=m&&m.querySelector(".modal-head h3");
+  if(m) m.classList.add("ex-modal");
+  if(h&&!m.querySelector(".exm-titles")){ var wrap=document.createElement("div"); wrap.className="exm-titles"; h.parentNode.insertBefore(wrap,h); wrap.appendChild(h);
+    wrap.insertAdjacentHTML("beforeend",'<p class="exm-sub">'+esc(tr(subs[kind]))+'</p>'); wrap.insertAdjacentHTML("beforebegin",'<span class="exm-head-ico">'+EXM_ICON.file+'</span>'); }
   exUpdateCount(); exColCount();
 }
 /* a date picked or typed by hand makes the period a custom one: the tabs say so */
@@ -13668,6 +13853,21 @@ Object.assign(UI_ID,{
   "created": "dibuat",
   "Move to": "Pindah ke",
   "Add a final file": "Tambah file final",
+  "Everything is chosen to start with. Leave out what the report should not hold.": "Semua terpilih sejak awal. Lepaskan yang tidak perlu masuk laporan.",
+  "Choose a time period, set the scope, and select the content to include in your report.": "Pilih periode, atur cakupan, dan pilih isi yang masuk ke laporanmu.",
+  "Choose a time period, set the scope, and select the sheets and columns to include in your workbook.": "Pilih periode, atur cakupan, dan pilih sheet serta kolom yang masuk ke workbook-mu.",
+  "Choose a time period, set the scope, and select the columns of your tasks table.": "Pilih periode, atur cakupan, dan pilih kolom tabel task-mu.",
+  "Set the time range for your report data.": "Atur rentang waktu data laporanmu.",
+  "Choose what to include in your report.": "Pilih apa saja yang masuk ke laporanmu.",
+  "Everything in the period will be included unless you narrow the scope.": "Semua yang ada di periode ini ikut, kecuali kamu mempersempit cakupannya.",
+  "None selected means every team": "Tidak memilih berarti semua tim",
+  "Select the report sections to include in your PowerPoint file.": "Pilih bagian laporan yang masuk ke file PowerPoint-mu.",
+  "Select the sheets and the columns to include in your Excel file.": "Pilih sheet dan kolom yang masuk ke file Excel-mu.",
+  "Select the columns of your tasks table.": "Pilih kolom tabel task-mu.",
+  "The cover slide is always included.": "Slide sampul selalu disertakan.",
+  "None yet": "Belum ada",
+  "Scope": "Cakupan",
+  "Content": "Isi",
   "One link, or many — paste a list, or text with links in it.": "Satu tautan atau banyak — tempel daftar, atau teks yang berisi tautan.",
   "links found — each is attached": "tautan ditemukan — semuanya dilampirkan",
   "1 link found": "1 tautan ditemukan",
@@ -15750,7 +15950,7 @@ function notifRows(){ var l=NOTIFS.slice().sort(function(a,b){ return notifWhen(
   return '<div class="notif-filters">'+filters+'</div>'+out.map(function(x){ return notifRowHtml(x.n,x.bundle&&x.bundle.length>1?x.bundle:null); }).join(""); }
 /* =============== 7.2 COMMAND PALETTE (Ctrl/⌘K) — reuses the search predicate, router and existing actions =============== */
 function paletteSearch(q){ q=q.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; }; var out={tasks:[],projects:[],people:[],conversations:[],assets:[],knowledge:[]}; if(!q) return out; out.tasks=TASKS.filter(function(x){ return !x.hidden&&(m(x.title)||m(x.id)||m((x.tags||[]).join(" "))); }).slice(0,6); out.projects=PROJECTS.filter(function(x){ return m(x.name); }).slice(0,4); out.people=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role); }).slice(0,4); out.conversations=(typeof convVisibleList==="function"?convVisibleList():[]).filter(function(c){ return m(convTitle(c)); }).slice(0,4); out.assets=ASSETS.filter(function(a){ return m(a.name); }).slice(0,4); out.knowledge=KNOWLEDGE.filter(function(k){ return m(k.title); }).slice(0,4); return out; }
-function paletteActions(q){ var acts=[["Create task","newTaskModal("+(S.screen==="projects"&&S.projectId?"{proj:'"+S.projectId+"'}":"{}")+")",I.plus,canI.createTask()||canI.submitRequest()],["New message","newConversationModal()",'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',typeof msgCan==="function"&&msgCan("send_message")],["Open Messages","go('messages')",'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',true],["Open AI Hub","go('aihub')",I.sparkle,has("use_ai_hub")],["AI Intelligence","aiChatToggle(true)",I.sparkle,true],["Open Notifications","openPop('notifPop',document.getElementById('notifBtn'))",I.bell,true],["New project","newProjectModal()",I.projects,canI.createProject?canI.createProject():canI.manageWorkspace()],["New knowledge page","newPageModal()",I.knowledge,canI.manageKnowledge()],["Toggle dark mode","(document.getElementById('themeBtn')||{click:function(){}}).click()",I.moon||I.eye,true],["Settings","go('settings')",I.settings,true],["Knowledge","go('knowledge')",I.knowledge,true]].filter(function(a){ return a[3]&&(!q||a[0].toLowerCase().indexOf(q.toLowerCase())>=0||tr(a[0]).toLowerCase().indexOf(q.toLowerCase())>=0); }); return acts.map(function(a){ return {label:a[0],run:a[1],icon:a[2]}; }); }
+function paletteActions(q){ var acts=[["Create task","newTaskModal("+(S.screen==="projects"&&S.projectId?"{proj:'"+S.projectId+"'}":"{}")+")",I.plus,canI.createTask()||canI.submitRequest()],["New message","newConversationModal()",'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',typeof msgCan==="function"&&msgCan("send_message")],["Open Messages","go('messages')",'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',true],["Open AI Hub","go('aihub')",I.sparkle,has("use_ai_hub")],["AI Intelligence","aiChatToggle(true)",I.sparkle,true],["Open Notifications","openPop('notifPop',document.getElementById('notifBtn'))",I.bell,true],["New project","newProjectModal()",I.projects,canI.createProject?canI.createProject():canI.manageWorkspace()],["New knowledge page","newPageModal()",I.knowledge,canI.manageKnowledge()],["Toggle dark mode","(document.getElementById('themeBtn')||{click:function(){}}).click()",I.moon||I.eye,true],["Settings","go('settings','profile')",I.settings,true],["Knowledge","go('knowledge')",I.knowledge,true]].filter(function(a){ return a[3]&&(!q||a[0].toLowerCase().indexOf(q.toLowerCase())>=0||tr(a[0]).toLowerCase().indexOf(q.toLowerCase())>=0); }); return acts.map(function(a){ return {label:a[0],run:a[1],icon:a[2]}; }); }
 function commandPalette(){ if(ENH.palette){ paletteClose(); return; } var wrap=document.createElement("div"); wrap.id="palette"; wrap.className="palette-wrap"; wrap.innerHTML='<div class="palette" role="dialog" aria-label="'+attr(tr("Command palette"))+'"><div class="palette-head"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="paletteInput" placeholder="'+attr(tr("Search ZenCrevia… tasks, people, projects, actions"))+'" autocomplete="off"><kbd>Esc</kbd></div><div class="palette-list" id="paletteList"></div><div class="palette-foot"><span>↑↓ '+tr("navigate")+'</span><span>↵ '+tr("open")+'</span><span>'+esc(shortcutCombo("K"))+' '+tr("close")+'</span></div></div>'; document.body.appendChild(wrap); ENH.palette={sel:0,items:[]}; var inp=wrap.querySelector("#paletteInput"); inp.addEventListener("input",function(){ ENH.palette.sel=0; paletteRender(); }); inp.addEventListener("keydown",function(e){ var p=ENH.palette; if(e.key==="ArrowDown"){ e.preventDefault(); p.sel=Math.min(p.items.length-1,p.sel+1); paletteRender(); } else if(e.key==="ArrowUp"){ e.preventDefault(); p.sel=Math.max(0,p.sel-1); paletteRender(); } else if(e.key==="Enter"){ e.preventDefault(); paletteRun(p.sel); } else if(e.key==="Escape"){ e.preventDefault(); paletteClose(); } }); wrap.addEventListener("mousedown",function(e){ if(e.target===wrap) paletteClose(); }); paletteRender(); setTimeout(function(){ inp.focus(); },10); }
 function paletteClose(){ var w=document.getElementById("palette"); if(w) w.remove(); ENH.palette=null; }
 function paletteRender(){ var p=ENH.palette; if(!p) return; var q=(document.getElementById("paletteInput")||{}).value||""; var r=paletteSearch(q), items=[], h="", i=0; var add=function(title,list){ if(!list.length) return; h+='<div class="mh">'+tr(title)+'</div>'; list.forEach(function(it){ var on=i===p.sel; items.push(it); if(it.action) h+='<button class="ep-row'+(on?" on":"")+'" data-i="'+i+'" onclick="paletteRun('+i+')"><span class="sq">'+it.icon+'</span><div class="ep-main"><b>'+tr(it.label)+'</b></div><span class="ep-kind">'+tr("Action")+'</span></button>'; else h+=entityRow(it.type,it.id,{i:i,click:"paletteRun("+i+")"},on); i++; }); };

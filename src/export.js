@@ -325,11 +325,11 @@ function exportTasks(){
 function exInc(key){ return !EXPORT||!EXPORT.include||EXPORT.include[key]!==false; }
 function exScopeLine(){
   if (!EXPORT) return "";
-  var bits=[];
-  if (EXPORT.teams&&EXPORT.teams.length) bits.push(EXPORT.teams.map(function(id){ return teamName(id); }).join(", "));
-  if (EXPORT.projects&&EXPORT.projects.length) bits.push(EXPORT.projects.length+" "+tr(EXPORT.projects.length===1?"project":"projects"));
-  if (EXPORT.labels&&EXPORT.labels.length) bits.push(EXPORT.labels.map(function(id){ return (label(id)||{}).name; }).filter(Boolean).join(", "));
-  if (EXPORT.people&&EXPORT.people.length) bits.push(EXPORT.people.map(function(id){ return person(id).name; }).join(", "));
+  var bits=[], real=function(l){ return (l||[]).filter(function(x){ return x!=="__none__"; }); };
+  if (real(EXPORT.teams).length) bits.push(real(EXPORT.teams).map(function(id){ return teamName(id); }).join(", "));
+  if (real(EXPORT.projects).length) bits.push(real(EXPORT.projects).length+" "+tr(real(EXPORT.projects).length===1?"project":"projects"));
+  if (real(EXPORT.labels).length) bits.push(real(EXPORT.labels).map(function(id){ return (label(id)||{}).name; }).filter(Boolean).join(", "));
+  if (real(EXPORT.people).length) bits.push(real(EXPORT.people).map(function(id){ return person(id).name; }).join(", "));
   if (EXPORT.status&&EXPORT.status!=="all") bits.push(tr(EXPORT.status==="open"?"open only":"completed only"));
   return bits.length?bits.join(" \u00b7 "):tr("All teams");
 }
@@ -337,11 +337,23 @@ var EX_SHEETS=[["summary","Summary"],["tasks","Tasks"],["progress","Progress not
 var EX_SLIDES=[["kpis","Headline metrics"],["pipeline","Creative pipeline"],["throughput","Throughput"],["projects","Projects"],["teamload","Workload by team"],["workload","Workload by person"],["people","Performance by person"],["attention","Needs attention"],["airecs","AI recommendations"]];
 var EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{}};
 
+/* The scope's rows start with everything chosen, and each has Select all. EXF[group] stays what the export reads:
+   [] is everything (nothing filtered — tasks with no team or project too), a list is only those, and ["__none__"]
+   is none of them (Select all unticked), which the count then says matches nothing. A chip's click leaves it out
+   or takes it back; choosing them all again is everything. */
+var EXF_ALL={};
+function exIsOn(group,id){ var a=EXF[group]||[]; return !a.length||a.indexOf(id)>=0; }
 function exToggle(group,id,btn){
-  var a=EXF[group], i=a.indexOf(id);
-  if (i>=0) a.splice(i,1); else a.push(id);
-  btn.classList.toggle("on",a.indexOf(id)>=0);
-  exUpdateCount();
+  var all=EXF_ALL[group]||[], a=EXF[group]||[], cur=a.length?a.filter(function(x){ return x!=="__none__"; }):all.slice(), i=cur.indexOf(id);
+  if (i>=0) cur.splice(i,1); else cur.push(id);
+  EXF[group]=cur.length>=all.length&&all.every(function(x){ return cur.indexOf(x)>=0; })?[]:cur.length?cur:["__none__"];
+  exScopePaint(group); exUpdateCount();
+}
+function exAllScope(group,on){ EXF[group]=on?[]:["__none__"]; exScopePaint(group); exUpdateCount(); }
+function exScopePaint(group){
+  document.querySelectorAll('[data-scope="'+group+'"]').forEach(function(b){ var on=exIsOn(group,b.getAttribute("data-id")); b.classList.toggle("on",on); b.setAttribute("aria-pressed",String(on)); });
+  var cb=document.querySelector('[data-scope-all="'+group+'"]'), a=EXF[group]||[];
+  if (cb){ cb.checked=!a.length; cb.indeterminate=!!a.length&&a[0]!=="__none__"; }
 }
 function exToggleInc(key,on){ EXF.include[key]=on; exUpdateCount(); }
 /* the Tasks table's columns: what is left out is remembered for the person (new columns come in on) */
@@ -356,7 +368,7 @@ function exAllInc(on){
 }
 function exClearScope(){
   EXF.teams=[]; EXF.projects=[]; EXF.labels=[]; EXF.people=[]; EXF.status="all";
-  document.querySelectorAll("[data-scope]").forEach(function(b){ b.classList.remove("on"); });
+  ["teams","projects","labels","people"].forEach(exScopePaint);   /* everything chosen again */
   var st=document.getElementById("ex_status"); if (st) st.value="all";
   exUpdateCount();
 }
@@ -379,48 +391,76 @@ function exUpdateCount(){
     + (n?'':' \u2014 <span style="color:var(--color-danger);font-weight:700">'+tr("nothing matches this scope")+'</span>');
 }
 
+/* The export dialog, for every file it makes (PowerPoint, Excel, CSV): a heading that says what it makes, then
+   three cards — Period (the range, with its presets), Scope (teams, projects, labels, people and task state,
+   each row with its icon; nothing chosen means everything) and Content (the slides or sheets, the Tasks table's
+   columns, the progress note version) — and a line counting what the export will hold. Reset scope, Cancel and
+   Export at the foot. The ids, data- attributes and handlers are the ones the export reads (exUpdateCount,
+   exToggle, runExport…), so only the layout changed. On a phone the rows stack. */
+var EXM_ICON={
+  file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+  tag:'<svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  reset:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+  layers:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>'
+};
 function exportModal(kind){
-  var titles={ppt:"PowerPoint report",xlsx:"Excel workbook",csv:"Tasks CSV"};
+  if(kind==="excel") kind="xlsx";
+  var titles={ppt:"Export PowerPoint report",xlsx:"Export Excel workbook",csv:"Export tasks CSV"};
+  var subs={ppt:"Choose a time period, set the scope, and select the content to include in your report.",xlsx:"Choose a time period, set the scope, and select the sheets and columns to include in your workbook.",csv:"Choose a time period, set the scope, and select the columns of your tasks table."};
   var presets=[["4w","Last 4 weeks"],["8w","Last 8 weeks"],["month","This month"],["lastmonth","Last month"],["quarter","This quarter"],["custom","Custom"]];
   window._exKind=kind;
   EXF={teams:[],projects:[],labels:[],people:[],status:"all",include:{},colsOff:((PEOPLE[ME]&&myPrefs().exportColsOff)||[]).slice(),pnv:"latest"};
+  var sec=function(icon,title,sub,body,aside){ return '<section class="exm-sec"><div class="exm-sec-head"><span class="exm-ico">'+icon+'</span><div class="exm-sec-titles"><h4>'+esc(tr(title))+'</h4><p>'+esc(tr(sub))+'</p></div>'+(aside?'<p class="exm-aside">'+esc(tr(aside))+'</p>':'')+'</div>'+body+'</section>'; };
+  EXF_ALL={};
+  /* a row with chips has Select all / Clear all at its top right, as the Content box does */
+  var row=function(icon,label,sub,body,cls,group){ var acts=group&&(EXF_ALL[group]||[]).length;
+    return '<div class="exm-row'+(cls?" "+cls:"")+(acts?" has-acts":"")+'"><div class="exm-row-label"><span class="exm-ico sm">'+icon+'</span><div><b>'+esc(tr(label))+'</b>'+(sub?'<small>'+esc(tr(sub))+'</small>':'')+'</div></div><div class="exm-row-body">'+body+'</div>'
+    +(acts?'<div class="exm-row-acts"><button type="button" class="btn xs" data-scope-act="'+group+':all" onclick="exAllScope(\''+group+'\',true)">'+esc(tr("Select all"))+'</button><button type="button" class="btn xs" data-scope-act="'+group+':none" onclick="exAllScope(\''+group+'\',false)">'+esc(tr("Clear all"))+'</button></div>':'')+'</div>'; };
+  var chips=function(group,items){ EXF_ALL[group]=items.map(function(it){ return it[0]; }); return items.length?'<div class="chips">'+items.map(function(it){
+    return '<button type="button" class="chipx on" aria-pressed="true" data-no-translate data-scope="'+group+'" data-id="'+attr(it[0])+'" onclick="exToggle(\''+group+'\','+jsq(it[0])+',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>':'<span class="hint">'+esc(tr("None yet"))+'</span>'; };
 
-  var period='<div class="field"><label>Period</label><div class="seg" id="ex_presets">'
-    + presets.map(function(p,i){ return '<button class="'+(i===1?"on":"")+'" onclick="exportPreset(\''+p[0]+'\',this)">'+p[1]+'</button>'; }).join("")
-    + '</div></div><div class="field-row">'
+  /* Period */
+  var period=sec(I.calendar,"Period","Set the time range for your report data.",
+    '<div class="exm-presets" id="ex_presets" role="group" aria-label="'+attr(tr("Period"))+'">'
+    + presets.map(function(p,i){ return '<button type="button" class="'+(i===1?"on":"")+'" aria-pressed="'+(i===1)+'" onclick="exportPreset(\''+p[0]+'\',this)">'+esc(tr(p[1]))+'</button>'; }).join("")
+    + '</div><div class="field-row exm-dates">'
     + fieldHtml("ex_from","From",'<input id="ex_from" type="date" value="'+iso(-55)+'" onchange="exCustomPeriod()">')
-    + fieldHtml("ex_to","To",'<input id="ex_to" type="date" value="'+iso(0)+'" onchange="exCustomPeriod()">')+'</div>';
+    + fieldHtml("ex_to","To",'<input id="ex_to" type="date" value="'+iso(0)+'" onchange="exCustomPeriod()">')+'</div>');
 
-  var chips=function(group,items){ return '<div class="chips">'+items.map(function(it){
-    return '<button class="chipx" data-no-translate data-scope onclick="exToggle(\''+group+'\','+jsq(it[0])+',this)">'+esc(it[1])+'</button>'; }).join("")+'</div>'; };
+  /* Scope */
+  var scope=sec(I.filter,"Scope","Choose what to include in your report.",
+    (function(){ var c=chips("teams",activeTeams().map(function(t){ return [t.id,t.name]; })); return row(I.team,"Teams","",c,"","teams"); })()
+    + (function(){ var c=chips("projects",liveProjects().map(function(p){ return [p.id,p.name]; })); return row(I.projects,"Projects","",c,"","projects"); })()
+    + (function(){ var c=chips("labels",allLabels().map(function(l){ return [l.id,l.name]; })); return row(EXM_ICON.tag,"Labels","",c,"","labels"); })()
+    + (function(){ var c=chips("people",Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id].cap; }).map(function(id){ return [id,PEOPLE[id].name]; })); return row(I.user,"People","",c,"","people"); })()
+    + row(I.list,"Task state","",selectHtml("ex_status",[["all",tr("Everything in the period")],["open",tr("Open tasks only")],["closed",tr("Completed tasks only")]],"all",'aria-label="'+attr(tr("Task state"))+'" onchange="exUpdateCount()"'),"exm-row-state"),
+    "Everything is chosen to start with. Leave out what the report should not hold.");
 
-  var scope='<div class="field"><label>Teams <span class="hint" style="font-weight:400">\u00b7 none selected means every team</span></label>'
-    + chips("teams",activeTeams().map(function(t){ return [t.id,t.name]; }))+'</div>'
-    + '<div class="field"><label>Projects</label>'+chips("projects",liveProjects().map(function(p){ return [p.id,p.name]; }))+'</div>'
-    + '<div class="field"><label>Labels</label>'+chips("labels",allLabels().map(function(l){ return [l.id,l.name]; }))+'</div>'
-    + '<div class="field"><label>People</label>'+chips("people",Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id].cap; }).map(function(id){ return [id,PEOPLE[id].name]; }))+'</div>'
-    + fieldHtml("ex_status","Task state",selectHtml("ex_status",[["all","Everything in the period"],["open","Open tasks only"],["closed","Completed tasks only"]],"all",'onchange="exUpdateCount()"'));
-
+  /* Content: the slides or sheets; the Tasks table's columns and the progress note version */
   var list=kind==="ppt"?EX_SLIDES:EX_SHEETS;
-  /* the Tasks table's columns, and which progress note version goes in (the latest unless chosen) */
-  var colsHtml=kind==="ppt"?"":'<div class="field ex-cols"><label>'+tr("Task columns")+' <span class="hint" style="font-weight:400" id="ex_colcount"></span></label>'+TASK_COL_GROUPS.map(function(g){ var cs=taskColumns().filter(function(c){ return c.g===g[0]; }); if(!cs.length) return ""; return '<div class="ex-colgroup"><div class="ex-colgroup-h">'+esc(tr(g[1]))+'</div><div class="report-slide-options">'+cs.map(function(c){ var on=c.lock||EXF.colsOff.indexOf(c.k)<0; return '<label class="report-slide-chip'+(c.lock?" locked":"")+'"><input type="checkbox" data-col="'+attr(c.k)+'"'+(on?" checked":"")+(c.lock?" disabled":"")+' onchange="exToggleCol('+jsq(c.k)+',this.checked)"><span class="report-slide-chip-label"'+(c.raw?' data-no-translate':'')+'>'+esc(c.raw?c.h:tr(c.h))+'</span></label>'; }).join("")+'</div></div>'; }).join("")
-    +'<div class="report-slide-actions"><button class="btn xs" onclick="exAllCols(true)">'+tr("All columns")+'</button><button class="btn xs ghost" onclick="exAllCols(false)">'+tr("Only ID and Title")+'</button></div><div class="hint" style="margin-top:6px">'+tr("ID and Title are always included.")+(kind==="xlsx"?' '+tr("These are the columns of the Tasks sheet."):'')+'</div></div>';
+  var box=function(title,note,acts,body,extra){ return '<div class="exm-box'+(extra?" "+extra:"")+'"><div class="exm-box-head"><div><b>'+title+'</b>'+(note?'<small>'+note+'</small>':'')+'</div>'+(acts?'<div class="exm-box-acts">'+acts+'</div>':'')+'</div>'+body+'</div>'; };
+  var include=kind==="csv"?'<p class="hint exm-csv-note">'+esc(tr("A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows."))+'</p>'
+    : box(esc(tr(kind==="ppt"?"Slides to include":"Sheets to include")),kind==="ppt"?esc(tr("The cover slide is always included.")):"",
+        '<button type="button" class="btn xs" onclick="exAllInc(true)">'+esc(tr("Select all"))+'</button><button type="button" class="btn xs" onclick="exAllInc(false)">'+esc(tr("Clear all"))+'</button>',
+        '<div class="report-slide-options">'+list.map(function(x){ return '<label class="report-slide-chip"><input type="checkbox" data-inc checked onchange="exToggleInc(\''+x[0]+'\',this.checked)"><span class="report-slide-chip-label">'+esc(tr(x[1]))+'</span></label>'; }).join("")+'</div>');
+  var colsHtml=kind==="ppt"?"":box(esc(tr("Task columns"))+' <span class="hint" id="ex_colcount"></span>',esc(tr("ID and Title are always included."))+(kind==="xlsx"?' '+esc(tr("These are the columns of the Tasks sheet.")):''),
+      '<button type="button" class="btn xs" onclick="exAllCols(true)">'+esc(tr("All columns"))+'</button><button type="button" class="btn xs" onclick="exAllCols(false)">'+esc(tr("Only ID and Title"))+'</button>',
+      TASK_COL_GROUPS.map(function(g){ var cs=taskColumns().filter(function(c){ return c.g===g[0]; }); if(!cs.length) return ""; return '<div class="ex-colgroup"><div class="ex-colgroup-h">'+esc(tr(g[1]))+'</div><div class="report-slide-options">'+cs.map(function(c){ var on=c.lock||EXF.colsOff.indexOf(c.k)<0; return '<label class="report-slide-chip'+(c.lock?" locked":"")+'"><input type="checkbox" data-col="'+attr(c.k)+'"'+(on?" checked":"")+(c.lock?" disabled":"")+' onchange="exToggleCol('+jsq(c.k)+',this.checked)"><span class="report-slide-chip-label"'+(c.raw?' data-no-translate':'')+'>'+esc(c.raw?c.h:tr(c.h))+'</span></label>'; }).join("")+'</div></div>'; }).join(""),"ex-cols");
   var maxV=0; TASKS.forEach(function(t){ var l=typeof pnLatest==="function"?pnLatest(t):null; if(l&&l.v>maxV) maxV=l.v; });
-  var pnSel=kind==="ppt"?"":fieldHtml("ex_pnv","Progress note version",'<select id="ex_pnv" onchange="EXF.pnv=this.value">'+[["latest",tr("Latest version")]].concat(kind==="xlsx"?[["all",tr("All versions")]]:[]).concat(Array.apply(null,{length:maxV}).map(function(_,i){ return [String(i+1),"V"+(i+1)]; })).map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===EXF.pnv?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>')
-    +'<div class="hint" style="margin-top:-6px">'+tr("A task without the chosen version is left blank.")+(kind==="xlsx"?' '+tr("All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest."):'')+'</div>';
-  var include=kind==="csv"?'<p class="hint">'+tr("A CSV is a single table of tasks. Choose its columns below; use the scope above to narrow the rows.")+'</p>'
-    : '<div class="field"><label>'+(kind==="ppt"?"Slides":"Sheets")+' to include</label><div class="report-slide-options">'
-      + list.map(function(x){ return '<label class="report-slide-chip"><input type="checkbox" data-inc checked onchange="exToggleInc(\''+x[0]+'\',this.checked)"><span class="report-slide-chip-label">'+esc(x[1])+'</span></label>'; }).join("")
-      + '</div><div class="report-slide-actions"><button class="btn xs" onclick="exAllInc(true)">Select all</button><button class="btn xs ghost" onclick="exAllInc(false)">Clear all</button></div>'
-      + (kind==="ppt"?'<div class="hint" style="margin-top:6px">The cover slide is always included.</div>':'')+'</div>';
+  var pnSel=kind==="ppt"?"":'<div class="exm-pnv">'+fieldHtml("ex_pnv","Progress note version",'<select id="ex_pnv" onchange="EXF.pnv=this.value">'+[["latest",tr("Latest version")]].concat(kind==="xlsx"?[["all",tr("All versions")]]:[]).concat(Array.apply(null,{length:maxV}).map(function(_,i){ return [String(i+1),"V"+(i+1)]; })).map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===EXF.pnv?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>')
+    +'<div class="hint">'+esc(tr("A task without the chosen version is left blank."))+(kind==="xlsx"?' '+esc(tr("All versions: one row per version in the Progress notes sheet; the Tasks sheet keeps the latest.")):'')+'</div></div>';
+  var contentSub={ppt:"Select the report sections to include in your PowerPoint file.",xlsx:"Select the sheets and the columns to include in your Excel file.",csv:"Select the columns of your tasks table."}[kind];
+  var content=sec(EXM_ICON.layers,"Content",contentSub,include+colsHtml+pnSel
+    + '<div class="exm-count"><span class="exm-count-ico">'+I.analytics+'</span><span id="ex_count"></span></div>'
+    + '<p class="exm-note">'+esc(tr("Includes every task still open or not yet due, and finished tasks due in the period. Only work finished before the period began is left out, with manually hidden tasks and archived projects."))+'</p>');
 
-  openModal("Export "+titles[kind],
-    period
-    + '<div class="eyebrow" style="margin:14px 0 8px">Scope</div>'+scope
-    + '<div class="eyebrow" style="margin:16px 0 8px">Contents</div>'+include+colsHtml+pnSel
-    + '<div id="ex_count" class="hint" style="margin-top:12px;padding:9px 12px;border-radius:var(--radius);background:var(--color-surface-sunken)"></div>'
-    + '<p class="hint" style="margin-top:8px">'+tr("Includes every task still open or not yet due, and finished tasks due in the period. Only work finished before the period began is left out, with manually hidden tasks and archived projects.")+'</p>',
-    '<button class="btn ghost" onclick="exClearScope()">Reset scope</button><span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="runExport()">'+I.download+'Export</button>', true);
+  openModal(titles[kind],period+scope+content,
+    '<button type="button" class="btn ghost exm-reset" onclick="exClearScope()">'+EXM_ICON.reset+esc(tr("Reset scope"))+'</button><span class="spacer"></span><button class="btn" onclick="closeModal()">'+esc(tr("Cancel"))+'</button><button class="btn primary" onclick="runExport()">'+I.download+esc(tr("Export"))+'</button>', true);
+  /* the heading: an icon, and a line under the title saying what the dialog is for */
+  var m=document.getElementById("modal"), h=m&&m.querySelector(".modal-head h3");
+  if(m) m.classList.add("ex-modal");
+  if(h&&!m.querySelector(".exm-titles")){ var wrap=document.createElement("div"); wrap.className="exm-titles"; h.parentNode.insertBefore(wrap,h); wrap.appendChild(h);
+    wrap.insertAdjacentHTML("beforeend",'<p class="exm-sub">'+esc(tr(subs[kind]))+'</p>'); wrap.insertAdjacentHTML("beforebegin",'<span class="exm-head-ico">'+EXM_ICON.file+'</span>'); }
   exUpdateCount(); exColCount();
 }
 /* a date picked or typed by hand makes the period a custom one: the tabs say so */
