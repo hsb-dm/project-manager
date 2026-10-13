@@ -6,6 +6,8 @@
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 
+/* the ways to attach are one paperclip with a menu: open it and choose */
+const attach = async (page, label) => { await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.m-attach-menu button", { hasText: new RegExp("^\\s*" + label + "\\s*$") }).click(); };
 test("many links at once; http and bare addresses taken; every link written is a link; up to 50", async ({ page }) => {
   await page.goto("/");
   await page.locator("#au_email").fill(ADMIN.email);
@@ -15,7 +17,7 @@ test("many links at once; http and bare addresses taken; every link written is a
   const id = await page.evaluate(async () => { const d = await apiFetch("POST", "/api/tasks", { title: "Many links", status: WS.workflow[1].id, prio: "medium", assignee: ME, assignees: [ME] }); TASKS.push(hTask(d)); openTask(d.id); S.drawerTab = "comments"; window._cmtAtt = []; renderDrawer(); return d.id; });
   try {
     /* a list pasted at once — with an http:// link, two bare addresses, a repeat and words in between */
-    await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Attach link" }).click();
+    await attach(page, "Attach link");
     await page.locator("#cmt_url").fill("Referensi:\nhttps://www.figma.com/design/A1/KV-Insurance\nhttp://example.org/brief-2026\nbit.ly/3abcXYZ dan figma.com/file/B2/Logo\nhttps://www.figma.com/design/A1/KV-Insurance");
     await expect(page.locator("#cmt_found")).toHaveText("4 links found — each is attached");
     await expect(page.locator("#cmt_name_wrap")).toBeHidden();
@@ -24,7 +26,7 @@ test("many links at once; http and bare addresses taken; every link written is a
     expect(urls).toEqual(["https://www.figma.com/design/A1/KV-Insurance", "https://example.org/brief-2026", "https://bit.ly/3abcXYZ", "https://figma.com/file/B2/Logo"]);
     await expect(page.locator("#drawer .composer .att.att-chip")).toHaveCount(4);
     /* one address without its https:// is taken on its own too, with its name field */
-    await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Attach link" }).click();
+    await attach(page, "Attach link");
     await page.locator("#cmt_url").fill("canva.com/design/DAF123/view");
     await expect(page.locator("#cmt_found")).toHaveText("1 link found");
     await expect(page.locator("#cmt_name_wrap")).toBeVisible();

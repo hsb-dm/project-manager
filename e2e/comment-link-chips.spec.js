@@ -77,13 +77,13 @@ for (const vp of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     });
     const phone = vp.width < 761;
     const pick = async (kind, q) => {
-      if (phone) { await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.open button", { hasText: kind === "task" ? "Task" : "Project" }).click(); }
-      else await page.locator(`#drawer .composer .cmt-ref-btn[data-ref-kind="${kind}"]`).click();
+      /* one paperclip with a menu, on a laptop as on a phone */
+      await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.open button", { hasText: kind === "task" ? "Task" : "Project" }).click();
       await expect(page.locator("#entityPicker")).toBeVisible();
       const box = await page.locator("#entityPicker").boundingBox();
       expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1, "the picker is on screen").toBe(true);
-      /* by the button it came from — on a phone the visible attach button, not the hidden one it pressed */
-      const from = await page.locator(phone ? "#drawer .composer .m-attach" : `#drawer .composer .cmt-ref-btn[data-ref-kind="${kind}"]`).boundingBox();
+      /* by the button it came from: the visible paperclip, not the hidden one it pressed */
+      const from = await page.locator("#drawer .composer .m-attach").boundingBox();
       expect(Math.min(Math.abs(box.y - (from.y + from.height)), Math.abs(box.y + box.height - from.y)), "next to its button").toBeLessThan(24);
       await page.locator("#entityPicker .ep-search").fill(q);
       await page.locator("#entityPicker .ep-row").first().click();

@@ -52,21 +52,27 @@ test("a task to comment on", async ({ page }) => {
   taskId = await page.evaluate(() => TASKS.find(t => t.title === "Comment target").id);
 });
 
-test("the comment box has the same five ways in as Assets & versions, and a task or a project", async ({ page }) => {
+/* the ways to attach are one paperclip with a menu: open it and choose */
+const attach = async (page, label) => { await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.m-attach-menu button", { hasText: new RegExp("^\\s*" + label + "\\s*$") }).click(); };
+const attachLabels = async page => { await page.locator("#drawer .composer .m-attach").click(); const l = (await page.locator("#ctxMenu.m-attach-menu button").allInnerTexts()).map(s => s.trim()); await page.evaluate(() => closePops()); return l; };
+test("the comment box has the same five ways in as Assets & versions, and a task or a project — in one paperclip", async ({ page }) => {
   await signIn(page);
   await openComments(page);
-  const labels = await page.locator("#drawer .composer .cmt-tools .btn").allInnerTexts();
-  expect(labels.map(s => s.trim())).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library", "Task", "Project"]);
+  /* one paperclip on a laptop too, not a row of seven buttons */
+  await expect(page.locator("#drawer .composer .m-attach")).toBeVisible();
+  await expect(page.locator("#drawer .composer .cmt-tools")).toBeHidden();
+  const labels = await attachLabels(page);
+  expect(labels).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library", "Task", "Project"]);
   await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
-  const id = await page.locator("#drawer .composer .cmt-tools .btn").allInnerTexts();
-  expect(id.map(s => s.trim())).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka", "Task", "Project"]);   /* the workspace's Indonesian keeps Task and Project */
+  const id = await attachLabels(page);
+  expect(id).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka", "Task", "Project"]);   /* the workspace's Indonesian keeps Task and Project */
   await page.evaluate(() => { UI_LANG = "en"; });
 });
 
 test("a shared Drive folder is named by itself, shown short, and filed under Assets", async ({ page }) => {
   await signIn(page);
   await openComments(page);
-  await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Link Google Drive" }).click();
+  await attach(page, "Link Google Drive");
   await page.locator("#cmt_url").fill(SHARED);
   await expect(page.locator("#cmt_name"), "the name is read from Drive").toHaveValue("Q4 Campaign", { timeout: 5000 });
   await page.locator("#modal .btn.primary").click();
@@ -86,7 +92,7 @@ test("a shared Drive folder is named by itself, shown short, and filed under Ass
 test("a private Drive folder, whose name cannot be read, says what it is", async ({ page }) => {
   await signIn(page);
   await openComments(page);
-  await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Link Google Drive" }).click();
+  await attach(page, "Link Google Drive");
   await page.locator("#cmt_url").fill(PRIVATE);
   await expect(page.locator("#cmt_name_hint"), "it explains why there is no name").toContainText("could not be read", { timeout: 5000 });
   await page.locator("#modal .btn.primary").click();
@@ -98,7 +104,7 @@ test("a private Drive folder, whose name cannot be read, says what it is", async
 test("a typed name is kept as typed", async ({ page }) => {
   await signIn(page);
   await openComments(page);
-  await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Link Google Drive" }).click();
+  await attach(page, "Link Google Drive");
   await page.locator("#cmt_name").fill("Moodboard — final");
   await page.locator("#cmt_url").fill("https://drive.google.com/drive/folders/Q4SHAREDFOLDER2");
   await page.waitForTimeout(700);
@@ -109,7 +115,7 @@ test("a link to a reference page stays on the comment; a link to a file is an as
   await signIn(page);
   await openComments(page);
   for (const url of ["https://example.org/blog/how-we-do-banners", "https://example.org/files/brand-guide.pdf"]) {
-    await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Attach link" }).click();
+    await attach(page, "Attach link");
     await page.locator("#cmt_url").fill(url);
     await page.locator("#modal .btn.primary").click();
   }
@@ -150,7 +156,7 @@ test("Upload images from the comment box lands in Assets", async ({ page }) => {
   await signIn(page);
   await openComments(page);
   const chooser = page.waitForEvent("filechooser");
-  await page.locator("#drawer .composer .cmt-tools .btn", { hasText: "Upload images" }).click();
+  await attach(page, "Upload images");
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   await (await chooser).setFiles({ name: "from-comment.png", mimeType: "image/png", buffer: png });
   await expect(page.locator("#drawer .composer .att")).toContainText("from-comment.png", { timeout: 5000 });
