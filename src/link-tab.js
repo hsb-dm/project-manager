@@ -45,7 +45,7 @@ function linkAtCaret(ta){
   if(ta.selectionEnd!==pos) return null;
   var hit=null;
   (typeof messageUrls==="function"?messageUrls(v):[]).forEach(function(x){
-    if(isGoogleLink(x.url)&&(pos===x.end||(pos===x.end+1&&/\s/.test(v.charAt(x.end))))) hit=x;
+    if(linkNameable(x.url)&&(pos===x.end||(pos===x.end+1&&/\s/.test(v.charAt(x.end))))) hit=x;
   });
   return hit;
 }
@@ -54,13 +54,14 @@ function linkAtCaret(ta){
    keeps its place relative to the text around it. The box is never focused from here: someone who
    moved on to another field keeps it. */
 function linkNameSwap(ta,x,o){
-  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, known=driveLinkKnown(url);
-  if(!known&&o.tell) toast(tr("Reading the name from Google Drive…"));
+  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, google=isGoogleLink(url), known=linkNameKnown(url);
+  if(!known&&o.tell) toast(tr(google?"Reading the name from Google Drive…":"Reading the name…"));
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
-  return Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
+  return Promise.race([known?Promise.resolve(linkLabelNow(url)):driveLinkName(url),wait]).then(function(name){
     var live=document.getElementById(id); if(!live) return;
     var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
-    var display=name||driveLinkLabel(url), d=display.length-raw.length, end=at+raw.length;
+    var display=name||(google?driveLinkLabel(url):""); if(!display) return;
+    var d=display.length-raw.length, end=at+raw.length;
     var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
     live.value=live.value.slice(0,at)+display+live.value.slice(end);
     var b=linkTabBox(live);
@@ -87,7 +88,7 @@ document.addEventListener("paste",function(e){
   setTimeout(function(){
     var live=document.getElementById(ta.id); if(!live) return;
     (typeof messageUrls==="function"?messageUrls(live.value):[]).forEach(function(x){
-      if(isGoogleLink(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
+      if(linkNameable(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
     });
   },0);
 });

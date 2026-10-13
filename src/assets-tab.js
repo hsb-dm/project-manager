@@ -30,7 +30,9 @@
    in one save. A name somebody chose is never touched — only the stand-ins. */
 var AV_HEALED={};
 function avIsStandIn(f){
-  if(!f||!f.url||typeof isGoogleLink!=="function"||!isGoogleLink(f.url)) return false;
+  if(!f||!f.url||typeof isGoogleLink!=="function") return false;
+  /* a Figma file (or a video, a board) filed under the words of its address, before its name was read */
+  if(!isGoogleLink(f.url)) return typeof linkNameable==="function"&&linkNameable(f.url)&&f.name===cmtLinkLabel(f.url);
   var p=detectProvider(f.url); if(!p) return false;
   var s=smartSubtitle(p); return f.name===s||f.name===tr(s);
 }
@@ -61,7 +63,7 @@ function avVersionSection(tk,ed){
   S.drawerVer=v.n; /* versionsView draws curVer(), and the box only ever shows the latest */
   var acts=ed?'<button class="btn sm" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link from Google Drive")+'</button><button class="btn sm" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button><button class="btn sm primary" data-short="'+attr(tr("Upload"))+'" onclick="uploadVersion()">'+I.up+tr("Upload new version")+'</button>':'';
   return '<section class="av-sec av-version">'
-    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
+    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(ed?verEditLinkBtn(tk,v):'')+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
     + versionsView(tk,{onlyPreview:true})
     + verNotesHtml(tk,v)
     + avSteps(tk,v)
@@ -355,7 +357,7 @@ function saveRevised(){
 /* The next version, from a link or a stored picture — nothing is uploaded again. It is not in review
    until it is submitted (avDecision), and there is no limit: V2, V3 … as many rounds as it takes. */
 function nextVersionNo(tk){ return tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; }
-function pushVersionFrom(tk,src,note){
+function pushVersionFrom(tk,src,note,quiet){
   var sent=false, n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   S.drawerVer=n; S.drawerTab="files";
   return editTaskWith(tk,function(t){
@@ -372,7 +374,7 @@ function pushVersionFrom(tk,src,note){
   }).then(function(saved){
     if(saved===false) return false;
     if(sent){ notifyMoved(tk); toast(tr("Version")+" "+n+" "+tr("sent for review")); }
-    else toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
+    else if(!quiet) toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
     return n;
   });
 }
@@ -408,9 +410,10 @@ function useAsVersionModal(fid){
    or, for someone who cannot, sent to review for the reviewer to approve. */
 function useAsFinalHtml(tk,f){
   var as=typeof fileLinkedVersions==="function"?fileLinkedVersions(tk,f):[];
-  if(as.length){ var fin=as.filter(function(v){ return v.state==="approved"; })[0]; return '<span class="badge av-is-ver'+(fin?' ok':'')+'">'+tr("Version")+' '+(fin||as[as.length-1]).n+(fin?' · '+tr("Final"):'')+'</span>'; }
-  if(!fileVersionSource(f)||!canI.editTask(tk)) return '';
-  return '<button class="btn xs av-make-final" onclick="finalVersionModal('+jsq(f.id)+')">'+I.check+tr("Make final version")+'</button>';
+  if(as.length){ var fin=as.filter(function(v){ return v.state==="approved"; })[0]; return '<span class="badge av-is-ver av-state'+(fin?' ok':' not-final')+'">'+tr("Version")+' '+(fin||as[as.length-1]).n+' · '+tr(fin?"Final":"Not final yet")+'</span>'; }
+  var notYet='<span class="badge av-state not-final">'+tr("Not final yet")+'</span>';
+  if(!fileVersionSource(f)||!canI.editTask(tk)) return notYet;
+  return notYet+'<button class="btn xs av-make-final" onclick="finalVersionModal('+jsq(f.id)+')">'+I.check+tr("Make final version")+'</button>';
 }
 function finalVersionText(key,n,name,stage){ var id=UI_LANG==="id", q="“"+name+"”";
   return {
@@ -435,7 +438,7 @@ function finalVersionModal(fid){
 }
 function saveFinalVersion(fid,approve,submit){
   var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); closeModal(); if(!src) return;
-  pushVersionFrom(tk,src,f.name).then(function(n){
+  pushVersionFrom(tk,src,f.name,!!(approve&&canI.reviewTask(tk))).then(function(n){
     if(n===false) return;
     if(approve&&canI.reviewTask(tk)){
       if(reviewersOf(tk).length) return approveTask();
@@ -504,7 +507,7 @@ function saveLinkVersion(){
   var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   closeModal(); S.drawerVer=n; S.drawerTab="files";
   editTaskWith(tk,function(t){
-    var v=V(n,ME,0,"pending",cols[n%cols.length],note||(drive?tr("Linked from Google Drive"):host));
+    var v=V(n,ME,0,"pending",cols[n%cols.length],note||(drive?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):host)));
     /* drive_url is the column every version keeps its source address in, Drive or not */
     v.driveUrl=url;
     if(drive){ var id=(url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) v.driveId=id; }
@@ -523,9 +526,40 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)});
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)});
   }).join("")+'</section>';
 }
+
+/* ---------- a link, changed ----------
+   A link filed under Assets — or attached as a version still to be decided — can be changed: another address, another
+   name. Its name is read again from the new address (Drive, Figma…) unless the name was typed by somebody. An
+   approved version keeps the link it was approved with. */
+function avIsLink(f){ return !!(f&&f.url&&/^https:\/\//i.test(f.url)&&!f.preview&&(f.source==="link"||f.source==="gdrive"&&/^(link|tautan)$/i.test(String(f.size||""))||/^(link|tautan)$/i.test(String(f.size||"")))); }
+function avEditLinkBtn(tk,f,ed){ return ed&&avIsLink(f)?'<button class="btn xs ghost av-edit-link" onclick="avEditLinkModal('+jsq(f.id)+')">'+I.edit+tr("Edit link")+'</button>':''; }
+function avLinkModal(title,url,nameLabel,name,auto,save){
+  openModal(title,fieldHtml("el_url",tr("Link"),'<input id="el_url" inputmode="url" value="'+attr(url)+'" oninput="if(typeof linkNameSoon===\'function\')linkNameSoon(\'el_url\',\'el_name\',\'el_hint\')">')
+    + fieldHtml("el_name",tr(nameLabel),'<input id="el_name" value="'+attr(name)+'"'+(auto?' data-auto="'+attr(name)+'"':'')+'>')
+    + '<p class="hint" id="el_hint" style="min-height:1.3em;margin:-6px 0 0"></p>',
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="'+save+'">'+I.check+tr("Save")+'</button>');
+  focusSoon("el_url",40); }
+/* the Drive id a Google address carries, for a link that is now a Drive file */
+function avDriveIdOf(url){ return isGoogleLink(url)?((url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]||null):null; }
+function avEditLinkModal(fid){ var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid); if(!f) return;
+  var auto=typeof linkLabelNow==="function"&&f.name===linkLabelNow(f.url);
+  avLinkModal(tr("Edit link"),f.url,"Display name",f.name,auto,"avSaveLink("+jsq(fid)+")"); }
+function avSaveLink(fid){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
+  var tk=task(S.drawerTask); if(!tk||!byId(tk.files||[],fid)) return closeModal(); var typed=val("el_name").trim(); closeModal();
+  (typed?Promise.resolve(typed):linkNameFor(url,"")).then(function(name){ name=name||(typeof linkLabelNow==="function"?linkLabelNow(url):url);
+    editTaskWith(tk,function(t){ var x=byId(t.files||[],fid); if(!x) return; x.url=url; x.name=name; x.driveId=avDriveIdOf(url); x.source=isGoogleLink(url)?"gdrive":"link"; log(t,"edited",{what:"a link"}); })
+      .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }); }
+function verEditLinkBtn(tk,v){ return v&&/^https:\/\//i.test(v.driveUrl||"")&&!v.img&&v.state!=="approved"?'<button class="btn xs ghost ver-edit-link" onclick="verEditLinkModal('+v.n+')">'+I.edit+tr("Edit link")+'</button>':''; }
+function verEditLinkModal(n){ var tk=task(S.drawerTask), v=tk&&tk.versions.filter(function(x){ return x.n===n; })[0]; if(!v) return;
+  var auto=!v.note||(typeof linkLabelNow==="function"&&v.note===linkLabelNow(v.driveUrl))||v.note===tr("Linked from Google Drive");
+  avLinkModal(tr("Edit the link of Version")+" "+n,v.driveUrl,"Version note (optional)",v.note||"",auto,"verSaveLink("+n+")"); }
+function verSaveLink(n){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
+  var tk=task(S.drawerTask); if(!tk) return closeModal(); var note=val("el_name").trim(); closeModal();
+  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return; x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
+    .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }
 
 /* ---------- 3. from comments ---------- */
 function avFileComment(tk,f){
@@ -602,7 +636,7 @@ Object.assign(UI_ID,{
   "the brief":"brief",
   "the priority":"prioritas",
   "Final files":"File final",
-  "From comments":"Dari komentar",
+  "From comments":"Dari komentar","Not final yet":"Belum final","Edit the link of Version":"Edit tautan Versi","approved":"disetujui",
   "Screenshots and links shared in the comments — references, not delivered work. Mark one as final if it is.":"Screenshot dan tautan yang dibagikan di komentar — referensi, bukan hasil kerja yang diserahkan. Tandai sebagai final jika memang final.",
   "in a comment":"di komentar",
   "View comment":"Lihat komentar",

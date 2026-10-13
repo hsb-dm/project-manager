@@ -1183,5 +1183,7 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
 .panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
 .panel.ink .empty .h{color:var(--color-ink-text)}
+/* Assets & versions: where each delivered file stands — the final version (green) or not yet */
+.av-state.not-final{background:var(--color-surface-sunken);color:var(--color-text-secondary)}
 /* a refused SMTP sign-in says what to do, under the error */
 .smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}

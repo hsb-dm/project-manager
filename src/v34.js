@@ -39,16 +39,18 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
     timer=null; var ids=Object.keys(pending); var evs=pending; pending={};
     ids.forEach(function(id){
       var ev=evs[id], cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];   /* one being created carries a proposed number, not this task */
-      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } refresh(); } return; }
+      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } liveRefresh(); } return; }
       if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
       apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
         var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
         if (now){ if (now._draft) return; replaceInto(now,t); } else TASKS.push(t);
-        AN=null; refresh();
+        AN=null; liveRefresh();
         if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
       }).catch(function(){});
     });
   }
+  /* a colleague's change: drawn again without losing the reader's place (src/live-redraw.js) */
+  function liveRefresh(){ if(typeof bgRedraw==="function") bgRedraw(refresh); else refresh(); }
   function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if (!ev||ev.type!=="task_changed"||!API.on) return; pending[ev.id]=ev; if (!timer) timer=setTimeout(flush,250); }
   var ES=window.EventSource; if (typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };

@@ -44,7 +44,7 @@ test("a final file becomes the approved final version, or goes to review", async
     await expect.poll(async () => { const s = await server(); const v = s.versions.find(x => x.n === 2); return v ? v.state + ":" + v.driveUrl : ""; }).toBe("pending:" + FOLDER);
     const review = await page.evaluate(() => (WS.workflow.find(s => s.kind === "review") || {}).id);
     if (review) await expect.poll(async () => (await server()).status).toBe(review);
-    await expect(row("Badge Award").locator(".av-is-ver")).toHaveText("Version 2");
+    /* in review: a version, and it says it is not final yet */ await expect(row("Badge Award").locator(".av-is-ver")).toHaveText("Version 2 · Not final yet");
     await page.evaluate(() => { canI.reviewTask = window._review; });
 
     /* in Indonesian */

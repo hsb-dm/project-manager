@@ -104,8 +104,9 @@ module.exports = function (db, ws, route, deps) {
      page Google serves for a link shared with "anyone with the link" carries the name in its title,
      so that is where it comes from. A private link redirects to Google's sign-in page, whose title
      is not a name, and gets no answer — the label falls back to "Google Drive folder".
-     Only Google's two hosts are fetched, so this is not a general fetch-any-URL endpoint, and the
-     same guarded fetch, cache and rate limit as message previews apply. */
+     Only Google's two hosts are fetched for this — and, below, the oEmbed addresses of a few named services — so
+     this is not a general fetch-any-URL endpoint, and the same guarded fetch, cache and rate limit as message
+     previews apply. */
   const GOOGLE_LINK_HOSTS = new Set(['drive.google.com', 'docs.google.com']);
   /* Google names its own product after the dash, in the reader's language ("- Google Drive",
      "- Google Spreadsheet", "- Google Dokumen"), so any " - Google …" ending is dropped. */
@@ -138,20 +139,52 @@ module.exports = function (db, ws, route, deps) {
     const title = metaTag(head, 'og:title') || htmlText((head.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
     return { hostname: target.hostname, title: String(title || '').slice(0, 200) };
   };
+  /* Figma, YouTube, Vimeo, Loom and Miro name what is shared through oEmbed — an address of their own that answers
+     with the title of anything shared publicly. Their pages are behind bot protection and carry no name in the HTML,
+     so it is oEmbed or nothing: a private Figma file is "Not found" there and keeps the words in its link. Only these
+     hosts' own oEmbed addresses are fetched, with the same guards, cache and rate limit as everything else here. */
+  const OEMBED = [
+    [/^(www\.)?figma\.com$/, u => /^\/(file|design|proto|board|slides|make|deck)\/[^/]+/.test(u.pathname), 'https://www.figma.com/api/oembed?url='],
+    [/^(www\.|m\.)?youtube\.com$|^youtu\.be$/, u => u.hostname === 'youtu.be' || /^\/(watch|shorts|live)\b/.test(u.pathname), 'https://www.youtube.com/oembed?format=json&url='],
+    [/^(www\.)?vimeo\.com$/, u => /^\/\d+/.test(u.pathname), 'https://vimeo.com/api/oembed.json?url='],
+    [/^(www\.)?loom\.com$/, u => /^\/share\//.test(u.pathname), 'https://www.loom.com/v1/oembed?url='],
+    [/^(www\.)?miro\.com$/, u => /^\/app\/board\//.test(u.pathname), 'https://miro.com/api/v1/oembed?url=']
+  ];
+  const oembedFor = url => { const u = new URL(url), h = u.hostname.toLowerCase(), m = OEMBED.find(o => o[0].test(h) && o[1](u)); return m ? m[2] + encodeURIComponent(url) : null; };
+  /* the service's own name alone, or a sign-in page's, is no file's name */
+  const oembedName = raw => { const t = htmlText(String(raw || '')).trim(); if (!t || /^(figma|miro|loom|youtube|vimeo|untitled|log ?in|sign ?in|masuk)$/i.test(t)) return ''; return t.slice(0, 160); };
+  const fetchOembedTitle = async endpoint => {
+    let target = await safeTarget(endpoint); if (!target) return '';
+    let res;
+    for (let redirects = 0; redirects <= 3; redirects++) {
+      const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 3500);
+      try { res = await pinnedFetch(target, ac.signal, { Accept: 'application/json', 'User-Agent': 'ZenCrevia-LinkPreview/1.0' }); } finally { clearTimeout(timer); }
+      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { target = await safeTarget(new URL(res.headers.get('location'), target).toString()); if (!target) return ''; continue; }
+      break;
+    }
+    if (!res || !res.ok || !res.body) return '';
+    let j = null; try { j = JSON.parse(await limitedText(res)); } catch (e) { return ''; }
+    return oembedName(j && j.title);
+  };
   route('GET', '/api/links/title', async (u, p, q) => {
     const url = normalizeUrl(q.url);
     if (!url) error(400, 'Give a link.');
-    if (!GOOGLE_LINK_HOSTS.has(new URL(url).hostname.toLowerCase())) error(400, 'Only Google Drive and Docs links are looked up.');
+    const google = GOOGLE_LINK_HOSTS.has(new URL(url).hostname.toLowerCase()), oembed = google ? null : oembedFor(url);
+    if (!google && !oembed) error(400, 'Only Google Drive and Docs, Figma, YouTube, Vimeo, Loom and Miro links are looked up.');
+    const clean = google ? googleName : oembedName;
     const cached = db.prepare('SELECT * FROM link_metadata_cache WHERE normalized_url=? AND expires_at>?').get(url, now());
-    if (cached) return { title: cached.status === 'ok' ? googleName(cached.title) : '' };
+    if (cached) return { title: cached.status === 'ok' ? clean(cached.title) : '' };
     const minute = Math.floor(Date.now() / 60000);
     if (previewRate.at !== minute) { previewRate.at = minute; previewRate.n = 0; }
     if (previewRate.n >= 20) return { title: '' };
     previewRate.n++;
-    let meta = null; try { meta = await fetchHeadTitle(url); } catch (e) {}
-    /* A redirect that ends anywhere but Google's own pages (the sign-in host, say) is not the link's page. */
-    const ok = !!(meta && GOOGLE_LINK_HOSTS.has(String(meta.hostname || '').toLowerCase()));
-    const name = ok ? googleName(meta.title) : '';
+    let name = '';
+    if (google) {
+      let meta = null; try { meta = await fetchHeadTitle(url); } catch (e) {}
+      /* A redirect that ends anywhere but Google's own pages (the sign-in host, say) is not the link's page. */
+      const ok = !!(meta && GOOGLE_LINK_HOSTS.has(String(meta.hostname || '').toLowerCase()));
+      name = ok ? googleName(meta.title) : '';
+    } else { try { name = await fetchOembedTitle(oembed); } catch (e) {} }
     const at = now(), exp = new Date(Date.now() + (name ? 12 : 1) * 3600e3).toISOString();
     db.prepare('INSERT INTO link_metadata_cache(normalized_url,hostname,title,description,favicon_url,image_url,status,fetched_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(normalized_url) DO UPDATE SET title=excluded.title,status=excluded.status,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at')
       .run(url, new URL(url).hostname, name, '', '', '', name ? 'ok' : 'blocked', at, exp);

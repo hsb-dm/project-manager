@@ -1140,7 +1140,10 @@ function sanitizeVersions(prevVersions, bodyVersions, u, decided) {
     const stateChanged = old.state !== v.state;
     const annots = sanitizeNotes(old.annots, v.annots, u);
     if (stateChanged && okDecision.has(v.n)) return Object.assign({}, old, { state: v.state, note: v.note != null ? v.note : old.note, reason: v.reason, decidedBy: u.id, decidedAt: now(), annots });
-    return Object.assign({}, old, { note: v.note != null && (old.by === u.id) ? v.note : old.note, state: old.state, decidedBy: old.decidedBy, decidedAt: old.decidedAt, by: old.by, annots });
+    /* a version attached as a link, still undecided, may point somewhere else (Assets & versions → Edit link); an
+       uploaded file's address and an approved version's link stay as they were */
+    const relink = !old.img && old.state !== "approved" && !!old.driveUrl && !filestore.isStoredUrl(db, old.driveUrl) && typeof v.driveUrl === "string" && /^https:\/\//i.test(v.driveUrl) && v.driveUrl !== old.driveUrl;
+    return Object.assign({}, old, { note: v.note != null && (old.by === u.id) ? v.note : old.note, state: old.state, decidedBy: old.decidedBy, decidedAt: old.decidedAt, by: old.by, annots, driveUrl: relink ? v.driveUrl : old.driveUrl, driveId: relink ? (v.driveId || null) : old.driveId });
   });
 }
 function sanitizeTaskWrite(cur, b, u, decided) {

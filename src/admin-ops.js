@@ -31,7 +31,7 @@ function loadSmtp(){
   if(!API.on) return;
   apiFetch("GET","/api/mail/smtp").then(function(r){
     SMTP.loaded=true; SMTP.cfg=r.config; SMTP.secretsReady=r.secretsReady!==false;
-    if(S.screen==="settings"&&S.settingsTab==="notifications") renderScreen(false);
+    if(S.screen==="settings"&&S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); });
   }).catch(function(){ SMTP.loaded=true; });
 }
 /* Applying a preset fills the server fields but never touches what the admin
@@ -91,6 +91,8 @@ function smtpSave(){
   if(v.enabled&&!v.host) return toast(tr("Enter the SMTP host"),"bad");
   if(v.enabled&&!v.fromEmail) return toast(tr("Enter the sender email address"),"bad");
   apiFetch("PUT","/api/mail/smtp",v).then(function(cfg){
+    /* saved: the password field empties (it is never shown again), and the redraw does not keep it */
+    var pe=document.getElementById("smtp_pass"); if(pe) pe.value="";
     SMTP.cfg=cfg; toast(tr("SMTP settings saved")); renderScreen(false);
   }).catch(function(e){ toast(e.message,"bad"); });
 }
@@ -148,7 +150,7 @@ function setSmtp(){
 var MAIL_LOG=null;
 function setMailLog(){
   if(!API.on||!canI.manageWorkspace()) return "";
-  if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") renderScreen(false); }).catch(function(){}); }
+  if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); }); }).catch(function(){}); }
   var rows=(MAIL_LOG||[]).slice(0,12).map(function(e){
     return '<div class="pref"><div class="pl"><b>'+esc((person(e.to)||{}).name||e.to)+' <span class="badge'+(e.error?" bad":" ok")+'">'+tr(e.error?"Failed":"Sent")+'</span></b>'
       + '<span>'+esc(e.kind||"")+' · '+esc(whenLabel(e.at))+(e.error?' · <span style="color:var(--color-danger)">'+esc(e.error)+'</span>':'')+'</span></div></div>'; }).join("");
@@ -175,7 +177,7 @@ function loadBackups(force){
   if(BK.loaded&&!force) return;
   BK.loaded=true;
   apiFetch("GET","/api/backups").then(function(r){
-    BK.data=r; if(S.screen==="settings"&&S.settingsTab==="backup") renderScreen(false);
+    BK.data=r; if(S.screen==="settings"&&S.settingsTab==="backup") bgRedraw(function(){ renderScreen(false); });
   }).catch(function(e){ BK.data={error:e.message}; if(S.settingsTab==="backup") renderScreen(false); });
 }
 function setBackup(){

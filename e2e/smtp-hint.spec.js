@@ -32,3 +32,30 @@ test("a refused SMTP sign-in says what to do — for Gmail, an App Password", as
   expect(await page.evaluate(r => smtpAuthHint(r, "smtp.gmail.com"), REFUSED)).toContain("Pakai App Password 16 huruf");
   await page.evaluate(() => { UI_LANG = "en"; });
 });
+
+/* The password typed went out empty: Settings are drawn again whenever the workspace changes, and the password field
+   — never filled from the server — came back empty, so Test connection sent pass:"" and the stored one was tried. */
+test("what is typed in Settings survives a redraw: Test connection sends the password typed", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#au_email").fill(ADMIN.email);
+  await page.locator("#au_pw").fill(ADMIN.pw);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForFunction(() => window.ZC_READY === true && API.on);
+  await page.goto("/settings/notifications"); await page.waitForFunction(() => window.ZC_READY === true && API.on);
+  const sent = [];
+  await page.route("**/api/mail/smtp/test", r => { sent.push(r.request().postDataJSON()); r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, encryption: "STARTTLS", authenticated: true }) }); });
+  await page.locator("#smtp_host").fill("smtp.gmail.com");
+  await page.locator("#smtp_user").fill("notif@gmail.com");
+  await page.locator("#smtp_pass").fill("abcd efgh ijkl mnop");
+  /* something changes in the workspace while the admin is here: the page is drawn again from elsewhere */
+  await page.evaluate(() => bgRedraw(refresh));
+  await expect(page.locator("#smtp_pass"), "the password typed is still there").toHaveValue("abcd efgh ijkl mnop");
+  await expect(page.locator("#smtp_host")).toHaveValue("smtp.gmail.com");
+  await expect(page.locator("#smtp_pass"), "and still being typed in").toBeFocused();
+  await page.locator("#smtpTestBtn").click();
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toMatchObject({ host: "smtp.gmail.com", user: "notif@gmail.com", pass: "abcd efgh ijkl mnop" });
+  /* another tab starts from what is saved */
+  await page.evaluate(() => { S.settingsTab = "profile"; renderScreen(false); S.settingsTab = "notifications"; renderScreen(false); });
+  await expect(page.locator("#smtp_pass")).toHaveValue("");
+});

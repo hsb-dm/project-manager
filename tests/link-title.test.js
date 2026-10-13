@@ -73,3 +73,25 @@ test('it will not fetch anything that is not Google Drive or Docs', async () => 
     await assert.rejects(call(url), e => e.status === 400, 'refused: ' + url);
   }
 });
+
+/* Figma, YouTube, Vimeo, Loom and Miro are named by their own oEmbed (Oct 2026): a Figma link shows its file's name,
+   not only the words in its address. Only their file, video and board addresses are looked up. */
+test('a Figma file, a YouTube video: their own names; the service name alone is no name', async () => {
+  const { call, seed } = setup();
+  const figma = 'https://www.figma.com/design/AbCdEf123456/KV-Insurance';
+  seed(figma, 'Key Visual — Insurance Q4');
+  assert.deepEqual(await call(figma), { title: 'Key Visual — Insurance Q4' });
+  const yt = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  seed(yt, 'Brand film 2026');
+  assert.deepEqual(await call(yt), { title: 'Brand film 2026' });
+  const bare = 'https://www.figma.com/file/ZzYy987/Untitled';
+  seed(bare, 'Figma');
+  assert.deepEqual(await call(bare), { title: '' }, 'the service name alone');
+});
+
+test('only their files, videos and boards are looked up — not any page on those hosts', async () => {
+  const { call } = setup();
+  for (const url of ['https://www.figma.com/community/file/123', 'https://www.figma.com/pricing', 'https://www.youtube.com/@channel', 'https://miro.com/pricing', 'https://www.figma.com.evil.test/design/a/b']) {
+    await assert.rejects(call(url), e => e.status === 400, 'refused: ' + url);
+  }
+});

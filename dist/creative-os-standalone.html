@@ -5366,6 +5366,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the dark Needs your review card: its empty message reads light on dark (the dark theme turns the card light and has its own) */
 .panel.ink .empty{color:color-mix(in srgb,var(--color-ink-text) 70%,transparent)}
 .panel.ink .empty .h{color:var(--color-ink-text)}
+/* Assets & versions: where each delivered file stands — the final version (green) or not yet */
+.av-state.not-final{background:var(--color-surface-sunken);color:var(--color-text-secondary)}
 /* a refused SMTP sign-in says what to do, under the error */
 .smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}
 
@@ -7945,7 +7947,7 @@ function assetsTab(tk){
 function versionsView(tk,o){ o=o||{}; var ed=canI.editTask(tk); if (!tk.versions.length) return '<div class="empty" style="padding:48px 20px"><div class="ico">'+I.assets+'</div><div class="h">No versions uploaded yet</div><p>Upload the first version or link an existing file from Google Drive — the preview and approval flow work for both.</p>'+(ed?'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn primary" onclick="uploadVersion()">'+I.up+tr("Upload version")+'</button><button class="btn" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link Google Drive")+'</button>'+(typeof linkVersionModal==="function"?'<button class="btn" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button>':'')+'</div>':'')+'</div>';
   var v=curVer(tk); var isLast=v.n===tk.versions[tk.versions.length-1].n; var h='';
   if (ed&&!o.onlyPreview) h+='<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px"><button class="btn sm" onclick="linkDriveVersionModal()">'+I.link+'Link Google Drive version</button><button class="btn sm primary" onclick="uploadVersion()">'+I.up+'Upload new version</button></div>';
-  var foot='<div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago,v.createdAt)+(v.note?' · '+esc(v.note):'')+'</span><span class="spacer"></span><button class="btn xs" onclick="previewVersion('+v.n+')">'+I.eye+tr("Full view")+'</button>'+(v.driveUrl?'<button class="btn xs ghost" onclick="openExternal('+jsq(v.driveUrl)+')">'+I.ext+origLabel(v.driveUrl,true)+'</button>':'<button class="btn xs ghost" onclick="downloadVersion('+v.n+')">'+I.download+tr("Download")+'</button>')+(o.onlyPreview?'':verBadge(v))+'</div>';
+  var foot='<div class="pbar-foot">'+av(v.by)+'<span>'+esc(person(v.by).name)+' · '+ago(v.ago,v.createdAt)+(v.note?' · '+esc(v.note):'')+'</span><span class="spacer"></span><button class="btn xs" onclick="previewVersion('+v.n+')">'+I.eye+tr("Full view")+'</button>'+(v.driveUrl?'<button class="btn xs ghost" onclick="openExternal('+jsq(v.driveUrl)+')">'+I.ext+origLabel(v.driveUrl,true)+'</button>':'<button class="btn xs ghost" onclick="downloadVersion('+v.n+')">'+I.download+tr("Download")+'</button>')+(ed&&!o.onlyPreview&&typeof verEditLinkBtn==="function"?verEditLinkBtn(tk,v):'')+(o.onlyPreview?'':verBadge(v))+'</div>';
   h+=versionPreviewHtml(tk,v,{foot:foot});
   /* the simplified Assets & versions tab takes the preview and its pins from here, and draws the
      rest — the version switcher, the decision and the actions — its own way (src/assets-tab.js) */
@@ -7968,7 +7970,7 @@ function linkDriveVersionModal(){ var tk=task(S.drawerTask); openModal("Link ver
 function saveDriveVersion(){ if (!require(["ldv_url"])) return; var url=val("ldv_url"), note=val("ldv_name"); if (!isDriveUrl(url)) return toast("Use a Google Drive share link","bad"); var tk=task(S.drawerTask), n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1, id=(url.match(/\/d\/([^/?]+)/)||[])[1]||""; closeModal(); S.drawerVer=n; S.drawerTab="versions"; editTaskWith(tk,function(t){ var v=V(n,ME,0,"pending",["#7C3AED","#0F766E","#B45309"][n%3],note||"Linked from Google Drive"); v.driveUrl=url; v.driveId=id; t.versions.push(v); t.files.push(F("Version "+n,"document","gdrive","—",0,url,{driveId:id})); log(t,"upload",{v:n}); }).then(function(saved){ if(saved===false)return false; notifyTask("upload",tk); toast("Google Drive version linked"); }); }
 function submitReview(){ var tk=task(S.drawerTask); var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="review") target=s.id; }); if (!target){ toast("Add a review stage in Settings → Workflow","bad"); return; } var go_=function(){ S.drawerTab="versions"; setStatus(tk.id,target,function(ok){ if(!ok) return; toast("Submitted for review"); }); }; if (!tk.versions.length) pushVersion(tk,null,"",true).then(function(r){ if(r!==false) go_(); }); else go_(); }
 function approveTask(){ var tk=task(S.drawerTask); var v=tk.versions[tk.versions.length-1]; if (!v) return; var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="closed") target=s.id; }); target=target||tk.status; var from=tk.status; S.drawerVer=v.n; S.revOpen=false;
-  editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="approved"; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.completedAt=stageKind(target)==="closed"?new Date().toISOString():null; log(t,"approved",{v:lv.n}); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("approved",tk); toast("Version "+v.n+" approved"); }); }
+  editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="approved"; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.completedAt=stageKind(target)==="closed"?new Date().toISOString():null; log(t,"approved",{v:lv.n}); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("approved",tk); toast(tr("Version")+" "+v.n+" "+tr("approved")); }); }
 function sendRevision(){ var tk=task(S.drawerTask); if (!require(["revReason","revFeedback"])) return; var reason=val("revReason"), fb=val("revFeedback"), pr=val("revPrio"); var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="revision") target=s.id; }); if (!target) target=(WS.workflow.filter(function(s){ return s.kind==="work"; })[0]||WS.workflow[0]).id; var from=tk.status; S.revOpen=false;
   editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="revision"; lv.reason=reason; lv.feedback=fb; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.prio=pr; t.comments.push(C(ME,0,S.commentVis,reason+" — "+fb)); log(t,"revision"); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("revision",tk); toast("Revision request sent","bad"); }); }
 
@@ -10766,13 +10768,14 @@ function smartCacheKey(){ return "cos.smartlink.cache."+(WS.id||"ws"); }
 function smartCacheGet(id){ try{ var c=JSON.parse(localStorage.getItem(smartCacheKey())||"{}")[id]; if(c&&c.expiresAt>Date.now()) return c; }catch(e){} return null; }
 function smartCachePut(id,meta){ try{ var all=JSON.parse(localStorage.getItem(smartCacheKey())||"{}"); all[id]=Object.assign({fetchedAt:Date.now(),expiresAt:Date.now()+12*3600e3},meta); var ks=Object.keys(all); if(ks.length>300) ks.slice(0,ks.length-300).forEach(function(k){ delete all[k]; }); localStorage.setItem(smartCacheKey(),JSON.stringify(all)); }catch(e){} }
 /* §39 resolveSmartLink: parse now, placeholder now, metadata later (§57.4). */
-function resolveSmartLink(url){ var p=detectProvider(url); if(!p) return Promise.resolve(null); var ref={type:/^GOOGLE_/.test(p.provider)?"DRIVE_LINK":"URL",url:p.url,normalizedUrl:p.url,provider:p.provider,resourceType:p.resourceType,resourceId:p.resourceId,title:"",subtitle:smartSubtitle(p),state:"pending"}; var cached=p.resourceId?smartCacheGet(p.provider+":"+p.resourceId):null; if(cached){ Object.assign(ref,cached,{state:"ok"}); return Promise.resolve(ref); }
+function resolveSmartLink(url){ var p=detectProvider(url); if(!p) return Promise.resolve(null); var ref={type:/^GOOGLE_/.test(p.provider)?"DRIVE_LINK":"URL",url:p.url,normalizedUrl:p.url,provider:p.provider,resourceType:p.resourceType,resourceId:p.resourceId,title:"",subtitle:smartSubtitle(p),state:"pending"}; var google=/^GOOGLE_/.test(p.provider), key=google?(p.resourceId?p.provider+":"+p.resourceId:""):"url:"+p.url, cached=key?smartCacheGet(key):null; if(cached){ Object.assign(ref,cached,{state:"ok"}); return Promise.resolve(ref); }
   /* Without a Google token of their own — which members of a workspace on the shared Drive account
      never have — the server reads the name from the page Google serves for a link shared with
      "anyone with the link". A private link gets no name and keeps the state it had. */
   var fromServer=function(fallback){ if(typeof API==="undefined"||!API.on) { ref.state=fallback; return Promise.resolve(ref); }
-    return apiFetch("GET","/api/links/title?url="+encodeURIComponent(p.url)).then(function(r){ if(r&&r.title){ ref.title=r.title; ref.state="ok"; smartCachePut(p.provider+":"+p.resourceId,{title:r.title}); } else ref.state=fallback; return ref; }).catch(function(){ ref.state=fallback; return ref; }); };
+    return apiFetch("GET","/api/links/title?url="+encodeURIComponent(p.url)).then(function(r){ if(r&&r.title){ ref.title=r.title; ref.state="ok"; smartCachePut(key,{title:r.title}); } else ref.state=fallback; return ref; }).catch(function(){ ref.state=fallback; return ref; }); };
   if(/^GOOGLE_/.test(p.provider)){ var connected=typeof gdReady==="function"&&gdReady()&&GD&&GD.token; if(!connected){ return fromServer(typeof gdReady==="function"&&gdReady()?"auth":"unavailable"); } return gdToken().then(function(tok){ return fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(p.resourceId)+"?fields=name,mimeType",{headers:{Authorization:"Bearer "+tok}}).then(function(r){ if(!r.ok) throw new Error("perm"); return r.json(); }); }).then(function(j){ ref.title=j.name; ref.state="ok"; smartCachePut(p.provider+":"+p.resourceId,{title:j.name,mimeType:j.mimeType}); return ref; }).catch(function(){ return fromServer("unavailable"); }); }
+  if(typeof linkNameable==="function"&&linkNameable(p.url)) return fromServer("unavailable");
   if(p.provider==="GENERIC"){ ref.title=p.resourceId; ref.state="ok"; } else ref.state="unavailable"; return Promise.resolve(ref); }
 function smartCardHtml(ref,compact){ var p=ref.provider||"GENERIC", title=ref.title||(ref.state==="pending"?tr("Fetching link…"):smartSubtitle(ref)), sub=ref.subtitle||ref.hostname||smartSubtitle(ref), drive=/^GOOGLE_/.test(p); return '<div class="msg-card msg-link'+(compact?" compact":"")+'">'+(ref.faviconUrl?'<img class="msg-link-favicon" src="'+attr(ref.faviconUrl)+'" alt="" loading="lazy">':'<span class="msg-card-ico'+(drive?" drive":"")+'">'+(drive&&typeof googleIcon==="function"?googleIcon({provider:p,resourceType:ref.resourceType||(ref.url&&/\/folders\//.test(ref.url)?"folder":"")}):(ref.url&&typeof brandIconHtml==="function"&&brandIconHtml(ref.url,18))||SMART_ICON[p]||"🔗")+'</span>')+'<div class="msg-card-body"><b data-no-translate>'+esc(title)+'</b><span>'+esc(tr(sub))+(ref.description?' · '+esc(ref.description.slice(0,120)):'')+(ref.updated?' · '+tr("Updated")+' '+esc(ref.updated):'')+(ref.state==="unavailable"&&!ref.title?' · '+tr("Preview unavailable"):'')+'</span></div>'+(ref.state==="auth"?'<button class="btn xs" onclick="event.stopPropagation();gdToken().then(function(){renderMessages()}).catch(function(e){toast(e.message,\'bad\')})">'+tr("Connect Google Drive")+'</button>':'')+'<a class="btn xs'+(drive?" primary":"")+'" href="'+attr(ref.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation();event.preventDefault();msgOpenLink(this.href)">'+tr(drive?"Open in Drive":"Open")+'</a></div>'; }
 /* v19.6 links in chat open through the same confirm popup as the project asset links (no silent new tab) */
@@ -12484,7 +12487,7 @@ function loadSmtp(){
   if(!API.on) return;
   apiFetch("GET","/api/mail/smtp").then(function(r){
     SMTP.loaded=true; SMTP.cfg=r.config; SMTP.secretsReady=r.secretsReady!==false;
-    if(S.screen==="settings"&&S.settingsTab==="notifications") renderScreen(false);
+    if(S.screen==="settings"&&S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); });
   }).catch(function(){ SMTP.loaded=true; });
 }
 /* Applying a preset fills the server fields but never touches what the admin
@@ -12544,6 +12547,8 @@ function smtpSave(){
   if(v.enabled&&!v.host) return toast(tr("Enter the SMTP host"),"bad");
   if(v.enabled&&!v.fromEmail) return toast(tr("Enter the sender email address"),"bad");
   apiFetch("PUT","/api/mail/smtp",v).then(function(cfg){
+    /* saved: the password field empties (it is never shown again), and the redraw does not keep it */
+    var pe=document.getElementById("smtp_pass"); if(pe) pe.value="";
     SMTP.cfg=cfg; toast(tr("SMTP settings saved")); renderScreen(false);
   }).catch(function(e){ toast(e.message,"bad"); });
 }
@@ -12601,7 +12606,7 @@ function setSmtp(){
 var MAIL_LOG=null;
 function setMailLog(){
   if(!API.on||!canI.manageWorkspace()) return "";
-  if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") renderScreen(false); }).catch(function(){}); }
+  if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); }); }).catch(function(){}); }
   var rows=(MAIL_LOG||[]).slice(0,12).map(function(e){
     return '<div class="pref"><div class="pl"><b>'+esc((person(e.to)||{}).name||e.to)+' <span class="badge'+(e.error?" bad":" ok")+'">'+tr(e.error?"Failed":"Sent")+'</span></b>'
       + '<span>'+esc(e.kind||"")+' · '+esc(whenLabel(e.at))+(e.error?' · <span style="color:var(--color-danger)">'+esc(e.error)+'</span>':'')+'</span></div></div>'; }).join("");
@@ -12628,7 +12633,7 @@ function loadBackups(force){
   if(BK.loaded&&!force) return;
   BK.loaded=true;
   apiFetch("GET","/api/backups").then(function(r){
-    BK.data=r; if(S.screen==="settings"&&S.settingsTab==="backup") renderScreen(false);
+    BK.data=r; if(S.screen==="settings"&&S.settingsTab==="backup") bgRedraw(function(){ renderScreen(false); });
   }).catch(function(e){ BK.data={error:e.message}; if(S.settingsTab==="backup") renderScreen(false); });
 }
 function setBackup(){
@@ -16723,16 +16728,18 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
     timer=null; var ids=Object.keys(pending); var evs=pending; pending={};
     ids.forEach(function(id){
       var ev=evs[id], cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];   /* one being created carries a proposed number, not this task */
-      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } refresh(); } return; }
+      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } liveRefresh(); } return; }
       if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
       apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
         var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
         if (now){ if (now._draft) return; replaceInto(now,t); } else TASKS.push(t);
-        AN=null; refresh();
+        AN=null; liveRefresh();
         if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
       }).catch(function(){});
     });
   }
+  /* a colleague's change: drawn again without losing the reader's place (src/live-redraw.js) */
+  function liveRefresh(){ if(typeof bgRedraw==="function") bgRedraw(refresh); else refresh(); }
   function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if (!ev||ev.type!=="task_changed"||!API.on) return; pending[ev.id]=ev; if (!timer) timer=setTimeout(flush,250); }
   var ES=window.EventSource; if (typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
@@ -17930,6 +17937,16 @@ function driveLinkLabel(url){
   return (c&&c.title)||tr(smartSubtitle(p));
 }
 function driveLinkKnown(url){ var p=detectProvider(url); var c=p&&p.resourceId?smartCacheGet(p.provider+":"+p.resourceId):null; return !!(c&&c.title); }
+/* Links whose name can be read (server/messages.js /api/links/title): Google's, from the page Google serves, and
+   Figma files, YouTube and Vimeo videos, Loom recordings and Miro boards, from their own oEmbed. */
+function linkNameable(url){ if(isGoogleLink(url)) return true; var u; try{ u=new URL(url); }catch(e){ return false; }
+  var h=u.hostname.toLowerCase().replace(/^(www|m)\./,""), p=u.pathname;
+  return h==="figma.com"?/^\/(file|design|proto|board|slides|make|deck)\/[^/]+/.test(p):h==="youtube.com"?/^\/(watch|shorts|live)\b/.test(p):h==="youtu.be"?p.length>1:h==="vimeo.com"?/^\/\d+/.test(p):h==="loom.com"?/^\/share\//.test(p):h==="miro.com"?/^\/app\/board\//.test(p):false; }
+/* the key its name is remembered under: a Google file by its id, anything else by its address */
+function linkNameKey(url){ var p=typeof detectProvider==="function"?detectProvider(url):null; return p&&/^GOOGLE_/.test(p.provider)&&p.resourceId?p.provider+":"+p.resourceId:"url:"+((p&&p.url)||url); }
+function linkNameKnown(url){ if(isGoogleLink(url)) return driveLinkKnown(url); var c=typeof smartCacheGet==="function"?smartCacheGet(linkNameKey(url)):null; return !!(c&&c.title); }
+/* what a link reads as right now: its remembered name; else, for Google, what kind of thing it is; else the words in its address */
+function linkLabelNow(url){ if(isGoogleLink(url)) return driveLinkLabel(url); var c=typeof smartCacheGet==="function"?smartCacheGet(linkNameKey(url)):null; return (c&&c.title)||cmtLinkLabel(url); }
 /* One lookup per link however many times it is drawn. */
 var DRIVE_NAME_JOBS={};
 function driveLinkName(url){
@@ -17971,7 +17988,7 @@ function driveChipsFill(){
   Array.prototype.forEach.call(document.querySelectorAll('[data-drive-pending="1"]'),function(a){
     a.removeAttribute("data-drive-pending");
     var url=a.getAttribute("href");
-    driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector("span"); if(s) s.textContent=name; });
+    driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector(".lc-name")||a.querySelector("span"); if(s) s.textContent=name; });
   });
 }
 new MutationObserver(function(){ if(!DRIVE_CHIP_SCAN&&document.querySelector('[data-drive-pending="1"]')) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
@@ -18035,12 +18052,12 @@ function linkNameSoon(urlId,nameId,hintId){
   clearTimeout(LINK_NAME_T[urlId]);
   LINK_NAME_T[urlId]=setTimeout(function(){
     var url=normalizedAttachUrl(val(urlId)), hint=document.getElementById(hintId), nameEl=document.getElementById(nameId);
-    if(!url||!isGoogleLink(url)||!nameEl){ if(hint) hint.textContent=""; return; }
-    if(hint) hint.textContent=tr("Reading the name from Google Drive…");
+    if(!url||!linkNameable(url)||!nameEl){ if(hint) hint.textContent=""; return; }
+    var google=isGoogleLink(url); if(hint) hint.textContent=tr(google?"Reading the name from Google Drive…":"Reading the name…");
     driveLinkName(url).then(function(name){
       var h=document.getElementById(hintId), n=document.getElementById(nameId); if(!n) return;
       if(name){ if(!n.value.trim()||n.value===n.getAttribute("data-auto")){ n.value=name; n.setAttribute("data-auto",name); } if(h) h.textContent=""; }
-      else if(h) h.textContent=tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+driveLinkLabel(url)+"”.";
+      else if(h) h.textContent=tr(google?"The name could not be read — the link is probably not shared with anyone who has it. It will show as":"The name could not be read — the link is probably private. It will show as")+" “"+linkLabelNow(url)+"”.";
     });
   },350);
 }
@@ -18048,9 +18065,9 @@ function linkNameSoon(urlId,nameId,hintId){
    way, so a quick Save does not file the link as "Google Drive Folder" — else what kind of link it is. */
 function linkNameFor(url,typed){
   if(typed) return Promise.resolve(typed);
-  if(!isGoogleLink(url)) return Promise.resolve("");
+  if(!linkNameable(url)) return Promise.resolve("");
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },2500); });
-  return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||driveLinkLabel(url); });
+  return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||(isGoogleLink(url)?driveLinkLabel(url):""); });
 }
 /* Every link in what was pasted — a list, or text with links in it: http:// as https://, an address without its
    https:// as a link, each once. One link keeps the name field; several are named by themselves (a Drive link by
@@ -18128,7 +18145,7 @@ function cmtFileAssets(t,list){
    typed a name for it, which is theirs to keep. */
 function cmtNameFiledLinks(tk,files){
   files.forEach(function(f){
-    if(!f.url||!isGoogleLink(f.url)||f.name!==driveLinkLabel(f.url)||driveLinkKnown(f.url)) return;
+    if(!f.url||!linkNameable(f.url)||(isGoogleLink(f.url)?(f.name!==driveLinkLabel(f.url)||driveLinkKnown(f.url)):f.name!==cmtLinkLabel(f.url))) return;
     driveLinkName(f.url).then(function(name){
       if(!name) return;
       var live=task(tk.id); if(!live) return;
@@ -18152,9 +18169,9 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   if(isGoogleLink(url)) return driveChipHtml(url,a.named||(name&&name!==url&&!/^https?:/i.test(name))?name:"");
   var p=typeof detectProvider==="function"?detectProvider(url):null, badge=p&&CMT_LINK_BADGE[p.provider], host="";
   try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
-  var label=name&&name!==url?name:cmtLinkLabel(url);
-  return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
-    +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span>'+esc(label)+'</span></a>'; }
+  var named=!!(name&&name!==url), label=named?name:linkLabelNow(url), pending=!named&&linkNameable(url)&&!linkNameKnown(url);
+  return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip"'+(pending?' data-drive-pending="1"':'')+' target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
+    +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span class="lc-name">'+esc(label)+'</span></a>'; }
 /* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
@@ -18169,7 +18186,10 @@ function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a
    (example.org › guidelines 2026), or its site alone. An id-like part (a long run of letters and digits) is no name. */
 function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String(url||""); }
   var host=u.hostname.replace(/^www\./,""), segs=u.pathname.split("/").filter(Boolean).map(function(x){ try{ return decodeURIComponent(x); }catch(e){ return x; } });
-  var words=null; for(var i=segs.length-1;i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
+  var words=null;
+  /* figma.com/design/KEY/File-Name: the name is the part after the key, whatever it looks like */
+  if(/(^|\.)figma\.com$/i.test(u.hostname)&&/^(file|design|proto|board|slides|make|deck)$/.test(segs[0]||"")&&segs[2]) words=segs[2].replace(/[-_]+/g," ").replace(/\s+/g," ").trim();
+  for(var i=segs.length-1;!words&&i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
@@ -18197,6 +18217,8 @@ Object.assign(UI_ID,{
   "Filled in from Drive when it can be read":"Diisi otomatis dari Drive jika bisa dibaca",
   "Optional":"Opsional",
   "Reading the name from Google Drive…":"Membaca nama dari Google Drive…",
+  "Reading the name…":"Membaca nama…",
+  "The name could not be read — the link is probably private. It will show as":"Nama tidak terbaca — link-nya kemungkinan privat. Akan tampil sebagai",
   "The name could not be read — the link is probably not shared with anyone who has it. It will show as":"Namanya tidak bisa dibaca — kemungkinan tautan tidak dibagikan ke siapa pun yang memilikinya. Akan tampil sebagai",
   "The asset library is empty":"Pustaka aset masih kosong",
   "Use a Google Drive, Docs, Sheets, or Slides share link":"Gunakan tautan berbagi Google Drive, Docs, Sheets, atau Slides"
@@ -18516,7 +18538,7 @@ function linkAtCaret(ta){
   if(ta.selectionEnd!==pos) return null;
   var hit=null;
   (typeof messageUrls==="function"?messageUrls(v):[]).forEach(function(x){
-    if(isGoogleLink(x.url)&&(pos===x.end||(pos===x.end+1&&/\s/.test(v.charAt(x.end))))) hit=x;
+    if(linkNameable(x.url)&&(pos===x.end||(pos===x.end+1&&/\s/.test(v.charAt(x.end))))) hit=x;
   });
   return hit;
 }
@@ -18525,13 +18547,14 @@ function linkAtCaret(ta){
    keeps its place relative to the text around it. The box is never focused from here: someone who
    moved on to another field keeps it. */
 function linkNameSwap(ta,x,o){
-  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, known=driveLinkKnown(url);
-  if(!known&&o.tell) toast(tr("Reading the name from Google Drive…"));
+  o=o||{}; var id=ta.id, url=x.url, raw=x.raw, google=isGoogleLink(url), known=linkNameKnown(url);
+  if(!known&&o.tell) toast(tr(google?"Reading the name from Google Drive…":"Reading the name…"));
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },4000); });
-  return Promise.race([known?Promise.resolve(driveLinkLabel(url)):driveLinkName(url),wait]).then(function(name){
+  return Promise.race([known?Promise.resolve(linkLabelNow(url)):driveLinkName(url),wait]).then(function(name){
     var live=document.getElementById(id); if(!live) return;
     var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
-    var display=name||driveLinkLabel(url), d=display.length-raw.length, end=at+raw.length;
+    var display=name||(google?driveLinkLabel(url):""); if(!display) return;
+    var d=display.length-raw.length, end=at+raw.length;
     var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
     live.value=live.value.slice(0,at)+display+live.value.slice(end);
     var b=linkTabBox(live);
@@ -18558,7 +18581,7 @@ document.addEventListener("paste",function(e){
   setTimeout(function(){
     var live=document.getElementById(ta.id); if(!live) return;
     (typeof messageUrls==="function"?messageUrls(live.value):[]).forEach(function(x){
-      if(isGoogleLink(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
+      if(linkNameable(x.url)&&text.indexOf(x.raw)>=0) linkNameSwap(live,x);
     });
   },0);
 });
@@ -18854,7 +18877,9 @@ Object.assign(UI_ID,{"Open preview":"Buka pratinjau"});
    in one save. A name somebody chose is never touched — only the stand-ins. */
 var AV_HEALED={};
 function avIsStandIn(f){
-  if(!f||!f.url||typeof isGoogleLink!=="function"||!isGoogleLink(f.url)) return false;
+  if(!f||!f.url||typeof isGoogleLink!=="function") return false;
+  /* a Figma file (or a video, a board) filed under the words of its address, before its name was read */
+  if(!isGoogleLink(f.url)) return typeof linkNameable==="function"&&linkNameable(f.url)&&f.name===cmtLinkLabel(f.url);
   var p=detectProvider(f.url); if(!p) return false;
   var s=smartSubtitle(p); return f.name===s||f.name===tr(s);
 }
@@ -18885,7 +18910,7 @@ function avVersionSection(tk,ed){
   S.drawerVer=v.n; /* versionsView draws curVer(), and the box only ever shows the latest */
   var acts=ed?'<button class="btn sm" onclick="linkDriveVersionModal()">'+(typeof driveIcon==="function"?driveIcon():I.link)+tr("Link from Google Drive")+'</button><button class="btn sm" onclick="linkVersionModal()">'+I.link+tr("Attach link")+'</button><button class="btn sm primary" data-short="'+attr(tr("Upload"))+'" onclick="uploadVersion()">'+I.up+tr("Upload new version")+'</button>':'';
   return '<section class="av-sec av-version">'
-    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
+    + '<div class="av-head"><h3>'+tr("Version")+' '+v.n+(v.state==="approved"?' · '+tr("Final"):'')+'</h3>'+verStateBadge(tk,v)+'<span class="spacer"></span>'+acts+(ed?verEditLinkBtn(tk,v):'')+(verCanDelete(tk,v)?'<button class="iconbtn flat sm av-ver-del" title="'+attr(tr("Delete version"))+'" aria-label="'+attr(tr("Delete version"))+'" onclick="deleteVersion()">'+I.trash+'</button>':'')+'</div>'
     + versionsView(tk,{onlyPreview:true})
     + verNotesHtml(tk,v)
     + avSteps(tk,v)
@@ -19179,7 +19204,7 @@ function saveRevised(){
 /* The next version, from a link or a stored picture — nothing is uploaded again. It is not in review
    until it is submitted (avDecision), and there is no limit: V2, V3 … as many rounds as it takes. */
 function nextVersionNo(tk){ return tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; }
-function pushVersionFrom(tk,src,note){
+function pushVersionFrom(tk,src,note,quiet){
   var sent=false, n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   S.drawerVer=n; S.drawerTab="files";
   return editTaskWith(tk,function(t){
@@ -19196,7 +19221,7 @@ function pushVersionFrom(tk,src,note){
   }).then(function(saved){
     if(saved===false) return false;
     if(sent){ notifyMoved(tk); toast(tr("Version")+" "+n+" "+tr("sent for review")); }
-    else toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
+    else if(!quiet) toast(tr("Version")+" "+n+" "+tr("is ready")+" — "+tr("submit it for review when you are done."));
     return n;
   });
 }
@@ -19232,9 +19257,10 @@ function useAsVersionModal(fid){
    or, for someone who cannot, sent to review for the reviewer to approve. */
 function useAsFinalHtml(tk,f){
   var as=typeof fileLinkedVersions==="function"?fileLinkedVersions(tk,f):[];
-  if(as.length){ var fin=as.filter(function(v){ return v.state==="approved"; })[0]; return '<span class="badge av-is-ver'+(fin?' ok':'')+'">'+tr("Version")+' '+(fin||as[as.length-1]).n+(fin?' · '+tr("Final"):'')+'</span>'; }
-  if(!fileVersionSource(f)||!canI.editTask(tk)) return '';
-  return '<button class="btn xs av-make-final" onclick="finalVersionModal('+jsq(f.id)+')">'+I.check+tr("Make final version")+'</button>';
+  if(as.length){ var fin=as.filter(function(v){ return v.state==="approved"; })[0]; return '<span class="badge av-is-ver av-state'+(fin?' ok':' not-final')+'">'+tr("Version")+' '+(fin||as[as.length-1]).n+' · '+tr(fin?"Final":"Not final yet")+'</span>'; }
+  var notYet='<span class="badge av-state not-final">'+tr("Not final yet")+'</span>';
+  if(!fileVersionSource(f)||!canI.editTask(tk)) return notYet;
+  return notYet+'<button class="btn xs av-make-final" onclick="finalVersionModal('+jsq(f.id)+')">'+I.check+tr("Make final version")+'</button>';
 }
 function finalVersionText(key,n,name,stage){ var id=UI_LANG==="id", q="“"+name+"”";
   return {
@@ -19259,7 +19285,7 @@ function finalVersionModal(fid){
 }
 function saveFinalVersion(fid,approve,submit){
   var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid), src=fileVersionSource(f); closeModal(); if(!src) return;
-  pushVersionFrom(tk,src,f.name).then(function(n){
+  pushVersionFrom(tk,src,f.name,!!(approve&&canI.reviewTask(tk))).then(function(n){
     if(n===false) return;
     if(approve&&canI.reviewTask(tk)){
       if(reviewersOf(tk).length) return approveTask();
@@ -19328,7 +19354,7 @@ function saveLinkVersion(){
   var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   closeModal(); S.drawerVer=n; S.drawerTab="files";
   editTaskWith(tk,function(t){
-    var v=V(n,ME,0,"pending",cols[n%cols.length],note||(drive?tr("Linked from Google Drive"):host));
+    var v=V(n,ME,0,"pending",cols[n%cols.length],note||(drive?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):host)));
     /* drive_url is the column every version keeps its source address in, Drive or not */
     v.driveUrl=url;
     if(drive){ var id=(url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) v.driveId=id; }
@@ -19347,9 +19373,40 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)});
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)});
   }).join("")+'</section>';
 }
+
+/* ---------- a link, changed ----------
+   A link filed under Assets — or attached as a version still to be decided — can be changed: another address, another
+   name. Its name is read again from the new address (Drive, Figma…) unless the name was typed by somebody. An
+   approved version keeps the link it was approved with. */
+function avIsLink(f){ return !!(f&&f.url&&/^https:\/\//i.test(f.url)&&!f.preview&&(f.source==="link"||f.source==="gdrive"&&/^(link|tautan)$/i.test(String(f.size||""))||/^(link|tautan)$/i.test(String(f.size||"")))); }
+function avEditLinkBtn(tk,f,ed){ return ed&&avIsLink(f)?'<button class="btn xs ghost av-edit-link" onclick="avEditLinkModal('+jsq(f.id)+')">'+I.edit+tr("Edit link")+'</button>':''; }
+function avLinkModal(title,url,nameLabel,name,auto,save){
+  openModal(title,fieldHtml("el_url",tr("Link"),'<input id="el_url" inputmode="url" value="'+attr(url)+'" oninput="if(typeof linkNameSoon===\'function\')linkNameSoon(\'el_url\',\'el_name\',\'el_hint\')">')
+    + fieldHtml("el_name",tr(nameLabel),'<input id="el_name" value="'+attr(name)+'"'+(auto?' data-auto="'+attr(name)+'"':'')+'>')
+    + '<p class="hint" id="el_hint" style="min-height:1.3em;margin:-6px 0 0"></p>',
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="'+save+'">'+I.check+tr("Save")+'</button>');
+  focusSoon("el_url",40); }
+/* the Drive id a Google address carries, for a link that is now a Drive file */
+function avDriveIdOf(url){ return isGoogleLink(url)?((url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]||null):null; }
+function avEditLinkModal(fid){ var tk=task(S.drawerTask), f=tk&&byId(tk.files||[],fid); if(!f) return;
+  var auto=typeof linkLabelNow==="function"&&f.name===linkLabelNow(f.url);
+  avLinkModal(tr("Edit link"),f.url,"Display name",f.name,auto,"avSaveLink("+jsq(fid)+")"); }
+function avSaveLink(fid){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
+  var tk=task(S.drawerTask); if(!tk||!byId(tk.files||[],fid)) return closeModal(); var typed=val("el_name").trim(); closeModal();
+  (typed?Promise.resolve(typed):linkNameFor(url,"")).then(function(name){ name=name||(typeof linkLabelNow==="function"?linkLabelNow(url):url);
+    editTaskWith(tk,function(t){ var x=byId(t.files||[],fid); if(!x) return; x.url=url; x.name=name; x.driveId=avDriveIdOf(url); x.source=isGoogleLink(url)?"gdrive":"link"; log(t,"edited",{what:"a link"}); })
+      .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }); }
+function verEditLinkBtn(tk,v){ return v&&/^https:\/\//i.test(v.driveUrl||"")&&!v.img&&v.state!=="approved"?'<button class="btn xs ghost ver-edit-link" onclick="verEditLinkModal('+v.n+')">'+I.edit+tr("Edit link")+'</button>':''; }
+function verEditLinkModal(n){ var tk=task(S.drawerTask), v=tk&&tk.versions.filter(function(x){ return x.n===n; })[0]; if(!v) return;
+  var auto=!v.note||(typeof linkLabelNow==="function"&&v.note===linkLabelNow(v.driveUrl))||v.note===tr("Linked from Google Drive");
+  avLinkModal(tr("Edit the link of Version")+" "+n,v.driveUrl,"Version note (optional)",v.note||"",auto,"verSaveLink("+n+")"); }
+function verSaveLink(n){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
+  var tk=task(S.drawerTask); if(!tk) return closeModal(); var note=val("el_name").trim(); closeModal();
+  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return; x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
+    .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }
 
 /* ---------- 3. from comments ---------- */
 function avFileComment(tk,f){
@@ -19426,7 +19483,7 @@ Object.assign(UI_ID,{
   "the brief":"brief",
   "the priority":"prioritas",
   "Final files":"File final",
-  "From comments":"Dari komentar",
+  "From comments":"Dari komentar","Not final yet":"Belum final","Edit the link of Version":"Edit tautan Versi","approved":"disetujui",
   "Screenshots and links shared in the comments — references, not delivered work. Mark one as final if it is.":"Screenshot dan tautan yang dibagikan di komentar — referensi, bukan hasil kerja yang diserahkan. Tandai sebagai final jika memang final.",
   "in a comment":"di komentar",
   "View comment":"Lihat komentar",
@@ -20648,6 +20705,59 @@ Object.assign(UI_ID,{"Waiting for approval":"Menunggu persetujuan","They signed 
   "Thanks":"Terima kasih","Your account is waiting for approval":"Akunmu menunggu persetujuan","An admin or team lead will let you in. You will get an e-mail when they do.":"Admin atau team lead akan menyetujuinya. Kamu akan mendapat e-mail saat sudah disetujui.","Back to sign in":"Kembali ke halaman masuk",
   "New accounts are approved by an admin or team lead before they can sign in.":"Akun baru perlu disetujui admin atau team lead sebelum bisa masuk.",
   "Your account is waiting for approval. An admin or team lead will let you in, and you will get an e-mail when they do.":"Akunmu menunggu persetujuan. Admin atau team lead akan menyetujuinya, dan kamu akan mendapat e-mail saat sudah disetujui."});
+</script>
+<script>
+/* ============================================================
+   A REDRAW FROM ELSEWHERE KEEPS WHAT YOU ARE DOING (Oct 2026)
+   The screen is drawn again when the workspace changes under it — a colleague saves a task (the live board,
+   src/v34.js), a server event arrives, a list finishes loading — and each redraw rebuilt the page from what is
+   saved: a board scrolled sideways jumped back to its first column, a long column to its top, and a field being
+   typed in went back to what was saved. The SMTP password, never sent back to the page, went back to empty, so
+   Test connection sent pass:"" and the server tried the stored one ("535 Username and Password not accepted").
+   - Any redraw of the same view keeps where each inner scroller was: the board, its columns, lists and tables.
+   - A redraw from elsewhere (bgRedraw) also keeps what is typed in fields somebody changed, and the field being
+     typed in with its caret. A redraw after the person's own action — a save, an add — is left alone, so a field
+     that empties after adding still does.
+   ============================================================ */
+var BG_REDRAW=0;
+function bgRedraw(fn){ BG_REDRAW++; try{ return fn(); } finally{ BG_REDRAW--; } }
+function redrawView(){ return [S.screen,S.sub||"",S.settingsTab||"",S.taskView||"",S.projectId||"",S.projectTab||"",S.projView||""].join("|"); }
+/* classes that say how something looks right now, not what it is */
+var REDRAW_STATE=/^(on|open|drag|over|active|hover|sel|selected|focus|focused|dim|empty|collapsed|full|expanded|kb-grabbed|loading)$/;
+function redrawKey(el,root){ var parts=[], n=el;
+  while(n&&n!==root&&parts.length<7){
+    var cls=typeof n.className==="string"?n.className.split(/\s+/).filter(function(c){ return c&&!REDRAW_STATE.test(c); }).sort().join("."):"";
+    var d=n.getAttribute?(n.getAttribute("data-status")||n.getAttribute("data-sec")||n.getAttribute("data-col")||n.getAttribute("data-team")||n.getAttribute("data-day")||""):"";
+    parts.unshift(n.tagName+(n.id?"#"+n.id:"")+(cls?"."+cls:"")+(d?"["+d+"]":"")); n=n.parentElement; }
+  return parts.join(">"); }
+/* the elements that can scroll, each with its key and its place among those sharing the key */
+function redrawScrollers(root,fn){ var seen={};
+  Array.prototype.forEach.call(root.querySelectorAll("*"),function(el){
+    if(el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1) return;
+    var k=redrawKey(el,root); seen[k]=(seen[k]||0)+1; fn(el,k+"#"+seen[k]); }); }
+function redrawFieldDirty(el){ if(el.type==="checkbox"||el.type==="radio") return el.checked!==el.defaultChecked;
+  if(el.tagName==="SELECT"){ var d=Array.prototype.filter.call(el.options,function(o){ return o.defaultSelected; })[0]; return (d?d.value:(el.options[0]||{}).value)!==el.value; }
+  return el.value!==el.defaultValue; }
+function redrawCapture(){ var root=document.getElementById("content"); if(!root) return null;
+  var st={view:redrawView(),scroll:{},any:false,fields:null,focus:null};
+  redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
+  if(BG_REDRAW){ st.fields={};
+    Array.prototype.forEach.call(root.querySelectorAll("input[id],select[id],textarea[id]"),function(el){ if(el.type==="file"||el.type==="hidden") return; if(redrawFieldDirty(el)) st.fields[el.id]={v:el.value,c:el.checked}; });
+    var a=document.activeElement; if(a&&a.id&&root.contains(a)) st.focus={id:a.id,s:a.selectionStart,e:a.selectionEnd}; }
+  return st; }
+function redrawRestore(st){ var root=document.getElementById("content"); if(!st||!root||st.view!==redrawView()) return;
+  if(st.any) redrawScrollers(root,function(el,k){ var p=st.scroll[k]; if(p){ el.scrollTop=p[0]; el.scrollLeft=p[1]; } });
+  if(st.fields) Object.keys(st.fields).forEach(function(id){ var el=document.getElementById(id); if(!el||!root.contains(el)) return; if(el.type==="checkbox"||el.type==="radio") el.checked=st.fields[id].c; else el.value=st.fields[id].v; });
+  var f=st.focus, el=f&&document.getElementById(f.id);
+  if(el&&root.contains(el)&&document.activeElement!==el){ try{ el.focus({preventScroll:true}); if(f.s!=null&&el.setSelectionRange) el.setSelectionRange(f.s,f.e); }catch(x){} } }
+(function(){ if(typeof renderScreen!=="function") return; var base=renderScreen;
+  renderScreen=function(){ var st=null; try{ st=redrawCapture(); }catch(e){} var r=base.apply(this,arguments); try{ redrawRestore(st); }catch(e){ console.error(e); } return r; }; })();
+/* whatever a server event redraws is a redraw from elsewhere */
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(){ var self=this, args=arguments; return bgRedraw(function(){ return base.apply(self,args); }); }; })();
+/* The eye on a password field moves the field into a wrapper, and a field moved in the page loses its focus: a
+   password being typed lost it at every redraw. It keeps it, and its caret. */
+(function(){ if(typeof pwToggleAttach!=="function") return; var base=pwToggleAttach; pwToggleAttach=function(inp){ var had=document.activeElement===inp, s=had?inp.selectionStart:null, e=had?inp.selectionEnd:null, r=base.apply(this,arguments);
+  if(had&&document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); if(s!=null) inp.setSelectionRange(s,e); }catch(x){} } return r; }; })();
 </script>
 <script>
 /* ============================================================

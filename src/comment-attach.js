@@ -37,6 +37,16 @@ function driveLinkLabel(url){
   return (c&&c.title)||tr(smartSubtitle(p));
 }
 function driveLinkKnown(url){ var p=detectProvider(url); var c=p&&p.resourceId?smartCacheGet(p.provider+":"+p.resourceId):null; return !!(c&&c.title); }
+/* Links whose name can be read (server/messages.js /api/links/title): Google's, from the page Google serves, and
+   Figma files, YouTube and Vimeo videos, Loom recordings and Miro boards, from their own oEmbed. */
+function linkNameable(url){ if(isGoogleLink(url)) return true; var u; try{ u=new URL(url); }catch(e){ return false; }
+  var h=u.hostname.toLowerCase().replace(/^(www|m)\./,""), p=u.pathname;
+  return h==="figma.com"?/^\/(file|design|proto|board|slides|make|deck)\/[^/]+/.test(p):h==="youtube.com"?/^\/(watch|shorts|live)\b/.test(p):h==="youtu.be"?p.length>1:h==="vimeo.com"?/^\/\d+/.test(p):h==="loom.com"?/^\/share\//.test(p):h==="miro.com"?/^\/app\/board\//.test(p):false; }
+/* the key its name is remembered under: a Google file by its id, anything else by its address */
+function linkNameKey(url){ var p=typeof detectProvider==="function"?detectProvider(url):null; return p&&/^GOOGLE_/.test(p.provider)&&p.resourceId?p.provider+":"+p.resourceId:"url:"+((p&&p.url)||url); }
+function linkNameKnown(url){ if(isGoogleLink(url)) return driveLinkKnown(url); var c=typeof smartCacheGet==="function"?smartCacheGet(linkNameKey(url)):null; return !!(c&&c.title); }
+/* what a link reads as right now: its remembered name; else, for Google, what kind of thing it is; else the words in its address */
+function linkLabelNow(url){ if(isGoogleLink(url)) return driveLinkLabel(url); var c=typeof smartCacheGet==="function"?smartCacheGet(linkNameKey(url)):null; return (c&&c.title)||cmtLinkLabel(url); }
 /* One lookup per link however many times it is drawn. */
 var DRIVE_NAME_JOBS={};
 function driveLinkName(url){
@@ -78,7 +88,7 @@ function driveChipsFill(){
   Array.prototype.forEach.call(document.querySelectorAll('[data-drive-pending="1"]'),function(a){
     a.removeAttribute("data-drive-pending");
     var url=a.getAttribute("href");
-    driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector("span"); if(s) s.textContent=name; });
+    driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector(".lc-name")||a.querySelector("span"); if(s) s.textContent=name; });
   });
 }
 new MutationObserver(function(){ if(!DRIVE_CHIP_SCAN&&document.querySelector('[data-drive-pending="1"]')) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
@@ -142,12 +152,12 @@ function linkNameSoon(urlId,nameId,hintId){
   clearTimeout(LINK_NAME_T[urlId]);
   LINK_NAME_T[urlId]=setTimeout(function(){
     var url=normalizedAttachUrl(val(urlId)), hint=document.getElementById(hintId), nameEl=document.getElementById(nameId);
-    if(!url||!isGoogleLink(url)||!nameEl){ if(hint) hint.textContent=""; return; }
-    if(hint) hint.textContent=tr("Reading the name from Google Drive…");
+    if(!url||!linkNameable(url)||!nameEl){ if(hint) hint.textContent=""; return; }
+    var google=isGoogleLink(url); if(hint) hint.textContent=tr(google?"Reading the name from Google Drive…":"Reading the name…");
     driveLinkName(url).then(function(name){
       var h=document.getElementById(hintId), n=document.getElementById(nameId); if(!n) return;
       if(name){ if(!n.value.trim()||n.value===n.getAttribute("data-auto")){ n.value=name; n.setAttribute("data-auto",name); } if(h) h.textContent=""; }
-      else if(h) h.textContent=tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+driveLinkLabel(url)+"”.";
+      else if(h) h.textContent=tr(google?"The name could not be read — the link is probably not shared with anyone who has it. It will show as":"The name could not be read — the link is probably private. It will show as")+" “"+linkLabelNow(url)+"”.";
     });
   },350);
 }
@@ -155,9 +165,9 @@ function linkNameSoon(urlId,nameId,hintId){
    way, so a quick Save does not file the link as "Google Drive Folder" — else what kind of link it is. */
 function linkNameFor(url,typed){
   if(typed) return Promise.resolve(typed);
-  if(!isGoogleLink(url)) return Promise.resolve("");
+  if(!linkNameable(url)) return Promise.resolve("");
   var wait=new Promise(function(r){ setTimeout(function(){ r(""); },2500); });
-  return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||driveLinkLabel(url); });
+  return Promise.race([driveLinkName(url),wait]).then(function(name){ return name||(isGoogleLink(url)?driveLinkLabel(url):""); });
 }
 /* Every link in what was pasted — a list, or text with links in it: http:// as https://, an address without its
    https:// as a link, each once. One link keeps the name field; several are named by themselves (a Drive link by
@@ -235,7 +245,7 @@ function cmtFileAssets(t,list){
    typed a name for it, which is theirs to keep. */
 function cmtNameFiledLinks(tk,files){
   files.forEach(function(f){
-    if(!f.url||!isGoogleLink(f.url)||f.name!==driveLinkLabel(f.url)||driveLinkKnown(f.url)) return;
+    if(!f.url||!linkNameable(f.url)||(isGoogleLink(f.url)?(f.name!==driveLinkLabel(f.url)||driveLinkKnown(f.url)):f.name!==cmtLinkLabel(f.url))) return;
     driveLinkName(f.url).then(function(name){
       if(!name) return;
       var live=task(tk.id); if(!live) return;
@@ -259,9 +269,9 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   if(isGoogleLink(url)) return driveChipHtml(url,a.named||(name&&name!==url&&!/^https?:/i.test(name))?name:"");
   var p=typeof detectProvider==="function"?detectProvider(url):null, badge=p&&CMT_LINK_BADGE[p.provider], host="";
   try{ host=new URL(url,location.href).hostname.replace(/^www\./,""); }catch(e){}
-  var label=name&&name!==url?name:cmtLinkLabel(url);
-  return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip" target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
-    +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span>'+esc(label)+'</span></a>'; }
+  var named=!!(name&&name!==url), label=named?name:linkLabelNow(url), pending=!named&&linkNameable(url)&&!linkNameKnown(url);
+  return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip"'+(pending?' data-drive-pending="1"':'')+' target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
+    +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span class="lc-name">'+esc(label)+'</span></a>'; }
 /* A task or a project goes with a comment the way chat attaches one: picked from the Task and Project buttons,
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
@@ -276,7 +286,10 @@ function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a
    (example.org › guidelines 2026), or its site alone. An id-like part (a long run of letters and digits) is no name. */
 function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String(url||""); }
   var host=u.hostname.replace(/^www\./,""), segs=u.pathname.split("/").filter(Boolean).map(function(x){ try{ return decodeURIComponent(x); }catch(e){ return x; } });
-  var words=null; for(var i=segs.length-1;i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
+  var words=null;
+  /* figma.com/design/KEY/File-Name: the name is the part after the key, whatever it looks like */
+  if(/(^|\.)figma\.com$/i.test(u.hostname)&&/^(file|design|proto|board|slides|make|deck)$/.test(segs[0]||"")&&segs[2]) words=segs[2].replace(/[-_]+/g," ").replace(/\s+/g," ").trim();
+  for(var i=segs.length-1;!words&&i>=0;i--){ var sg=segs[i].replace(/\.[a-z0-9]{2,5}$/i,""); if(/[a-z]{3,}/i.test(sg)&&!(sg.length>=16&&!/[-_ ]/.test(sg))){ words=sg.replace(/[-_]+/g," ").replace(/\s+/g," ").trim(); break; } }
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
@@ -304,6 +317,8 @@ Object.assign(UI_ID,{
   "Filled in from Drive when it can be read":"Diisi otomatis dari Drive jika bisa dibaca",
   "Optional":"Opsional",
   "Reading the name from Google Drive…":"Membaca nama dari Google Drive…",
+  "Reading the name…":"Membaca nama…",
+  "The name could not be read — the link is probably private. It will show as":"Nama tidak terbaca — link-nya kemungkinan privat. Akan tampil sebagai",
   "The name could not be read — the link is probably not shared with anyone who has it. It will show as":"Namanya tidak bisa dibaca — kemungkinan tautan tidak dibagikan ke siapa pun yang memilikinya. Akan tampil sebagai",
   "The asset library is empty":"Pustaka aset masih kosong",
   "Use a Google Drive, Docs, Sheets, or Slides share link":"Gunakan tautan berbagi Google Drive, Docs, Sheets, atau Slides"
