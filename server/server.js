@@ -78,6 +78,8 @@ try { const moved = uploads.migrate(db); if (moved) console.log("[uploads] moved
 /* v17 §P1-4 — load any dashboard-configured SMTP at boot so notifications use
    it immediately, without a restart or an environment variable. */
 try { mailer.setStoredConfig(sz.smtpRuntime(db, WS_ID, secrets)); } catch (e) { console.warn("[mail] stored SMTP config unavailable:", e.message); }
+/* Emails carry the dashboard's logo and accent colour, read when each one is written. */
+mailer.setBrand(() => { const w = db.prepare("SELECT name, logo, logo_img, theme FROM workspaces WHERE id=?").get(WS_ID) || {}; let th = {}; try { th = JSON.parse(w.theme || "{}") || {}; } catch {} return { name: w.name, logo: w.logo, logoImg: w.logo_img, accent: th.accent }; });
 // Requests were merged into tasks: any open creative_requests rows become tasks in the first queue stage (rejected → 'declined').
 (function migrateRequests() {
   const rows = db.prepare("SELECT * FROM creative_requests WHERE workspace_id=? AND (converted_task_id IS NULL OR converted_task_id='')").all(WS_ID); if (!rows.length) return;
@@ -1428,8 +1430,10 @@ route("POST", "/api/mail/smtp/send-test", (u, p, q, b) => {
   const stored = sz.smtpStored(db, WS_ID, secrets);
   const form = smtpFromBody(b || {}, stored);
   const ws = sz.readWorkspace(db, WS_ID);
-  const conf = { transport: "smtp", from: form.fromName ? form.fromName + " <" + form.fromEmail + ">" : form.fromEmail, smtp: { host: form.host, port: form.port, user: form.user, pass: form.pass, secure: form.secure } };
-  return mailer.sendWith(conf, { to, subject: "[" + ws.name + "] SMTP test", text: "This is a test message from ZenCrevia. If you can read it, your SMTP settings work.", meta: { Host: form.host, Port: String(form.port) }, link: mailer.link("/"), workspace: ws.name })
+  const conf = { transport: "smtp", from: form.fromName ? form.fromName + " <" + form.fromEmail + ">" : form.fromEmail, replyTo: form.replyTo, smtp: { host: form.host, port: form.port, user: form.user, pass: form.pass, secure: form.secure } };
+  /* a known provider by its name: a bare host name such as smtp.gmail.com turns into a link in Gmail and Outlook */
+  const preset = Object.values(mailer.PROVIDER_PRESETS).find(x => x.host && x.host === String(form.host).trim().toLowerCase());
+  return mailer.sendWith(conf, { to, subject: "[" + ws.name + "] SMTP test", text: "This is a test message from ZenCrevia. If you can read it, your SMTP settings work.", meta: { Server: preset ? preset.label : form.host, Port: String(form.port) }, link: mailer.link("/"), workspace: ws.name })
     .then(() => ({ ok: true, to }))
     .catch(e => { throw new HttpError(424, "Send failed: " + e.message); });
 });

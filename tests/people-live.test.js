@@ -82,6 +82,6 @@ test('status goes out live; every channel can be renamed', { timeout: 30000 }, a
   const slug = tk.title.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
   assert.equal((await json('POST', '/api/notifications', { k: 'assigned', recipients: ['zein'], t: tk.id, entityType: 'task' }, admin)).status, 200);
   const box = path.join(temp, 'outbox'); let text = '';
-  for (let i = 0; i < 40 && !text.includes('task='); i++) { await wait(100); const files = fs.existsSync(box) ? fs.readdirSync(box).filter(f => f.includes('zein')) : []; text = files.map(f => fs.readFileSync(path.join(box, f), 'utf8').split(/\r?\n\r?\n/).map(part => { try { return Buffer.from(part.replace(/\s+/g, ''), 'base64').toString('utf8'); } catch { return ''; } }).join('\n')).join('\n'); }
+  for (let i = 0; i < 40 && !text.includes('task='); i++) { await wait(100); const files = fs.existsSync(box) ? fs.readdirSync(box).filter(f => f.includes('zein')) : []; text = files.map(f => require('./mail-text').readMail(fs.readFileSync(path.join(box, f), 'utf8')).text).join('\n'); }
   assert.ok(text.includes('/tasks?task=' + encodeURIComponent(tk.id + '-' + slug)), 'the link carries the title: ' + (text.match(/\/tasks\?task=[^\s"<]+/) || [''])[0] + ' want ' + tk.id + '-' + slug);
 });

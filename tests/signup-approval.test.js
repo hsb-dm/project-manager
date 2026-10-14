@@ -66,8 +66,8 @@ test('a sign-up waits for an approver; approvers are told; a team lead lets them
   /* the approver's e-mail */
   const outbox = path.join(s.temp, 'outbox');
   await new Promise(res => setTimeout(res, 300));
-  /* each mail as "To: … | its subject" (the subject is written base64-encoded) */
-  const mails = () => fs.existsSync(outbox) ? fs.readdirSync(outbox).map(f => { const m = fs.readFileSync(path.join(outbox, f), 'utf8'), sub = (m.match(/^Subject: =\?UTF-8\?B\?([^?]+)\?=/m) || [])[1]; return (m.match(/^To: .*$/m) || [''])[0] + ' | ' + (sub ? Buffer.from(sub, 'base64').toString() : ''); }) : [];
+  /* each mail as "To: … | its subject" */
+  const mails = () => fs.existsSync(outbox) ? fs.readdirSync(outbox).map(f => { const m = fs.readFileSync(path.join(outbox, f), 'utf8'); return (m.match(/^To: .*$/m) || [''])[0] + ' | ' + require('./mail-text').readMail(m).subject; }) : [];
   assert.ok(mails().some(m => /Pending Person signed up and is waiting for your approval/.test(m)), 'approvers are e-mailed');
   /* a team lead lets them in — with the role they registered with; choosing another is for whoever manages members */
   assert.equal((await s.req('POST', '/api/members/' + pid + '/approve', { role: 'admin' }, lead)).status, 403, 'not above their own');

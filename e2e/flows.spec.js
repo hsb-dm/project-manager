@@ -131,7 +131,7 @@ test("7 · forgot password: email link → new password → sign in", async ({ p
   await expect(page.locator(".auth-note")).toBeVisible();
   const outbox = path.join(require("os").tmpdir(), "zencrevia-e2e-" + (process.env.E2E_PORT || "3310"), "outbox");
   let token = null;
-  await expect.poll(() => { const f = fs.existsSync(outbox) ? fs.readdirSync(outbox).filter(n => n.includes("rina@e2e.test")).sort().pop() : null; if (!f) return null; const raw = fs.readFileSync(path.join(outbox, f), "utf8"); const text = raw + (raw.match(/^[A-Za-z0-9+\/=\r\n]{60,}$/gm) || []).map(b => Buffer.from(b.replace(/\s/g, ""), "base64").toString("utf8")).join("\n"); const m = text.match(/reset=([a-f0-9]{64})/); token = m && m[1]; return token; }).not.toBeNull();
+  await expect.poll(() => { const f = fs.existsSync(outbox) ? fs.readdirSync(outbox).filter(n => n.includes("rina@e2e.test")).sort().pop() : null; if (!f) return null; const raw = fs.readFileSync(path.join(outbox, f), "utf8"); const text = require("../tests/mail-text.js").readMail(raw).text; const m = text.match(/reset=([a-f0-9]{64})/); token = m && m[1]; return token; }).not.toBeNull();
   await page.goto("/?reset=" + token);
   await expect(page).not.toHaveURL(/reset=/);                                            /* token leaves the address bar */
   RINA.pw = "Rina!NewPassword-2026";

@@ -37,14 +37,14 @@ async function startServer(t, extraEnv, reuseDir) {
   return { base, req, login, temp, stop };
 }
 
-/* The "log" mail transport writes base64 MIME parts; decode them and pull the reset token. */
+/* The "log" mail transport writes MIME files; read them back and pull the reset token. */
 async function resetTokenFor(dir, email, minFiles) {
   const box = path.join(dir, 'outbox');
   for (let i = 0; i < 40; i++) {
     const files = fs.existsSync(box) ? fs.readdirSync(box).filter(f => f.includes(email.replace(/[^a-z0-9@.]/gi, '_'))).sort() : [];
     if (files.length && files.length >= (minFiles || 1)) {
       const raw = fs.readFileSync(path.join(box, files[files.length - 1]), 'utf8');
-      const text = raw.split(/\r?\n\r?\n/).map(part => { try { return Buffer.from(part.replace(/\s+/g, ''), 'base64').toString('utf8'); } catch { return ''; } }).join('\n');
+      const text = require('./mail-text').readMail(raw).text;
       const m = text.match(/\/\?reset=([a-f0-9]{64})/);
       if (m) return { token: m[1], files: files.length, text };
     }

@@ -26,9 +26,7 @@ function mails(email, title) {
   if (!fs.existsSync(OUTBOX)) return [];
   return fs.readdirSync(OUTBOX).filter(f => f.includes(email.replace(/[^a-z0-9@.]/gi, "_"))).map(f => {
     const raw = fs.readFileSync(path.join(OUTBOX, f), "utf8");
-    const text = raw.split(/\r?\n\r?\n/).map(part => { try { return Buffer.from(part.replace(/\s+/g, ""), "base64").toString("utf8"); } catch { return ""; } }).join("\n") + raw;
-    const subj = (raw.match(/^Subject: (.*)$/m) || [])[1] || "";
-    const dec = /=\?UTF-8\?B\?([^?]+)\?=/i.exec(subj); return { subject: dec ? Buffer.from(dec[1], "base64").toString("utf8") : subj, text };
+    return require("../tests/mail-text.js").readMail(raw);
   }).filter(m => m.text.includes(title));
 }
 let admin, doer, checker;
