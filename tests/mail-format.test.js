@@ -48,7 +48,9 @@ test('an email reads well in Outlook and Gmail: tables, the dashboard logo insid
   assert.ok(top.includes('HSB Investasi'), 'the workspace name heads the email');
   assert.ok(!/ZenCrevia/.test(top.split('<body')[1]), 'no ZenCrevia in the header');
   assert.match(html.body, /<h1[^>]*>Dimas assigned you a task<\/h1>/, 'the heading drops the [workspace] prefix');
-  assert.match(html.body, /font-size:11px[^>]*>You receive this because[^<]*<br><span[^>]*>ZenCrevia<\/span><\/td>/, 'ZenCrevia closes the small footer');
+  /* the footer centred, a sentence a line; ZenCrevia apart beneath it, centred too */
+  assert.match(html.body, /<td align="center"[^>]*font-size:11px[^>]*text-align:center">You receive this because you are involved in this work\.<br>Change email preferences in Settings → Notifications\.<\/td><\/tr>\s*<tr><td align="center" style="padding:14px[^>]*text-align:center">ZenCrevia<\/td><\/tr>/, 'the footer centred, ZenCrevia apart');
+  assert.ok(text.body.replace(/\r\n/g, '\n').includes('You receive this because you are involved in this work.\nChange email preferences in Settings → Notifications.\n\nZenCrevia'), 'the plain-text footer the same way');
   /* the button is a cell in the accent colour, white text on a dark accent */
   assert.match(html.body, /<td bgcolor="#0f121a"[^>]*><a href="https:\/\/app\.hsb\.example\.com\/tasks\?task=t1-launch-poster"[^>]*color:#FFFFFF/);
   /* the plain-text part says what the HTML says */

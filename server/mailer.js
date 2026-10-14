@@ -60,6 +60,8 @@ const DEFAULT_FOOTER = "You receive this because you are involved in this work. 
 function render(m, cid) {
   const b = brand(m), logo = cid ? logoPart(b.logoImg) : null, title = heading(m, b.name), footer = m.footer || DEFAULT_FOOTER, cta = m.cta || "Open in ZenCrevia";
   const meta = m.meta && Object.keys(m.meta).length ? Object.entries(m.meta) : [];
+  /* the footer, centred, each sentence on a line of its own; ZenCrevia a little apart beneath it */
+  const footerLines = String(footer).split(/(?<=[.!?])\s+(?=[A-Z])/);
   const mark = logo
     ? (logo.width === logo.height
         ? `<td width="40" height="40" bgcolor="${b.accent}" style="width:40px;height:40px;background:${b.accent};border-radius:11px"><img src="cid:${cid}" width="40" height="40" alt="${esc(b.name)}" style="display:block;width:40px;height:40px;border:0;border-radius:11px"></td>`
@@ -88,14 +90,15 @@ function render(m, cid) {
 <p style="margin:0 0 20px;font-family:${FONT};font-size:15px;line-height:1.55;color:#111214">${esc(m.text).replace(/\n/g, "<br>")}</p>
 ${meta.length ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px">${meta.map(([k, v]) => `<tr><td style="padding:3px 16px 3px 0;font-family:${FONT};font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;white-space:nowrap">${esc(k)}</td><td style="padding:3px 0;font-family:${FONT};font-size:13px;color:#111214">${esc(v)}</td></tr>`).join("")}</table>\n` : ""}<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${b.accent}" style="background:${b.accent};border-radius:999px"><a href="${esc(m.link)}" target="_blank" style="display:inline-block;padding:11px 22px;font-family:${FONT};font-size:14px;font-weight:600;line-height:1.2;color:${b.ink};text-decoration:none;border-radius:999px">${esc(cta)}</a></td></tr></table>
 </td></tr>
-<tr><td style="padding:16px 28px 0;font-family:${FONT};font-size:11px;line-height:1.5;color:#9CA3AF">${esc(footer)}<br><span style="font-weight:600;color:#6B7280">ZenCrevia</span></td></tr>
+<tr><td align="center" style="padding:18px 28px 0;font-family:${FONT};font-size:11px;line-height:1.6;color:#9CA3AF;text-align:center">${footerLines.map(esc).join("<br>")}</td></tr>
+<tr><td align="center" style="padding:14px 28px 0;font-family:${FONT};font-size:11px;line-height:1.4;font-weight:600;color:#6B7280;text-align:center">ZenCrevia</td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
 </table>
 </body>
 </html>`;
-  const text = `${b.name}\n\n${title}\n\n${m.text}\n\n${meta.length ? meta.map(([k, v]) => `${k}: ${v}`).join("\n") + "\n\n" : ""}${cta}: ${m.link}\n\n${footer}\nZenCrevia\n`;
+  const text = `${b.name}\n\n${title}\n\n${m.text}\n\n${meta.length ? meta.map(([k, v]) => `${k}: ${v}`).join("\n") + "\n\n" : ""}${cta}: ${m.link}\n\n${footerLines.join("\n")}\n\nZenCrevia\n`;
   return { html, text, logo };
 }
 /* quoted-printable (RFC 2045): lines of at most 76 characters, "=" ending a line that continues. */
