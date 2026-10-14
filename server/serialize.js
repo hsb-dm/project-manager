@@ -68,6 +68,15 @@ function smtpRuntime(db, wsId, secrets) {
   return { enabled: true, host: c.host, port: c.port, secure: !!c.secure, user: c.user,
            pass: c.pass ? secrets.decrypt(c.pass) : "", fromName: c.fromName, fromEmail: c.fromEmail, replyTo: c.replyTo };
 }
+/* The stored settings, decrypted, whether or not sending is switched on — for Test connection and Send test email,
+   which are tried before anyone switches SMTP on. smtpRuntime answered nothing while the switch was off, so after
+   Save a test sent an empty password and Gmail refused it ("535 Username and Password not accepted"), as if the
+   password had been lost. Server-side only. */
+function smtpStored(db, wsId, secrets) {
+  const c = readSmtpRaw(db, wsId);
+  return { host: c.host || "", port: c.port || 587, secure: !!c.secure, user: c.user || "",
+           pass: c.pass ? secrets.decrypt(c.pass) : "", fromName: c.fromName || "", fromEmail: c.fromEmail || "", replyTo: c.replyTo || "" };
+}
 function readAIRaw(db, wsId) {
   const w = db.prepare("SELECT ai_settings FROM workspaces WHERE id=?").get(wsId);
   return J(w && w.ai_settings, {}) || {};
@@ -402,4 +411,4 @@ function readTaskSlimRows(db, wsId, where, params) {
 /* Merge a slim client copy over the stored task: scalar fields win, collections stay. */
 function mergeSlimTask(stored, incoming) { const out = Object.assign({}, stored); SLIM_FIELDS.forEach(k => { if (incoming[k] !== undefined) out[k] = incoming[k]; }); out.id = stored.id; return out; }
 
-module.exports = { readPending, stageRules, readTasksBatch, readTaskSlimRows, mergeSlimTask, SLIM_FIELDS, sweepArchive, readAIRaw, readSmtp, readSmtpRaw, writeSmtp, smtpRuntime, readWorkspace, writeWorkspace, readTeams, writeTeam, readPeople, writePerson, readProjects, writeProject, readTask, writeTask, appendActivity, readActivity, readRequests, writeRequest, readAssets, writeAsset, readFolders, writeFolder, readKnowledge, writePage, readKnowledgeFolders, writeKnowledgeFolder, readViews, writeView, readNotifs, writeNotif };
+module.exports = { smtpStored, readPending, stageRules, readTasksBatch, readTaskSlimRows, mergeSlimTask, SLIM_FIELDS, sweepArchive, readAIRaw, readSmtp, readSmtpRaw, writeSmtp, smtpRuntime, readWorkspace, writeWorkspace, readTeams, writeTeam, readPeople, writePerson, readProjects, writeProject, readTask, writeTask, appendActivity, readActivity, readRequests, writeRequest, readAssets, writeAsset, readFolders, writeFolder, readKnowledge, writePage, readKnowledgeFolders, writeKnowledgeFolder, readViews, writeView, readNotifs, writeNotif };

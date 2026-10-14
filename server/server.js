@@ -1414,7 +1414,7 @@ route("PUT", "/api/mail/smtp", (u, p, q, b, ctx) => {
 });
 route("POST", "/api/mail/smtp/test", (u, p, q, b) => {
   forbid(can.manageWorkspace(u), "test email settings");
-  const stored = sz.smtpRuntime(db, WS_ID, secrets) || {};
+  const stored = sz.smtpStored(db, WS_ID, secrets);
   const conf = smtpFromBody(b || {}, stored);
   return mailer.verifySmtp(conf)
     .then(r => ({ ok: true, encryption: r.encryption, authenticated: r.authenticated }))
@@ -1425,7 +1425,7 @@ route("POST", "/api/mail/smtp/send-test", (u, p, q, b) => {
   const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id);
   const to = String((b && b.to) || (me && me.email) || "").trim();
   if (!to) throw new HttpError(400, "Enter an address to send the test to");
-  const stored = sz.smtpRuntime(db, WS_ID, secrets) || {};
+  const stored = sz.smtpStored(db, WS_ID, secrets);
   const form = smtpFromBody(b || {}, stored);
   const ws = sz.readWorkspace(db, WS_ID);
   const conf = { transport: "smtp", from: form.fromName ? form.fromName + " <" + form.fromEmail + ">" : form.fromEmail, smtp: { host: form.host, port: form.port, user: form.user, pass: form.pass, secure: form.secure } };
