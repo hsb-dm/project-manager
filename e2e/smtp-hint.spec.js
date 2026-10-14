@@ -21,6 +21,13 @@ test("a refused SMTP sign-in says what to do — for Gmail, an App Password", as
   await expect(result).toContainText("535-5.7.8 Username and Password not accepted");
   await expect(result.locator(".smtp-hint")).toContainText("Use a 16-letter App Password");
   await expect(result.locator(".smtp-hint")).toContainText("a blank password field keeps the one already stored");
+  /* the password field was left empty: it says that the stored password is what was refused */
+  await expect(result.locator(".smtp-hint-blank")).toHaveText("The password field was empty, so the password stored earlier was tried — and refused. Type the App Password in the password field and test again.");
+  /* typed: not that sentence */
+  await page.locator("#smtp_pass").fill("abcd efgh ijkl mnop");
+  await page.locator("#smtpTestBtn").click();
+  await expect(result.locator(".smtp-hint")).toContainText("Use a 16-letter App Password");
+  await expect(result.locator(".smtp-hint-blank")).toHaveCount(0);
   /* another server: the general words */
   await page.locator("#smtp_host").fill("smtp.office365.com");
   await page.locator("#smtpTestBtn").click();
@@ -30,6 +37,7 @@ test("a refused SMTP sign-in says what to do — for Gmail, an App Password", as
   /* Indonesian */
   await page.evaluate(() => { UI_LANG = "id"; });
   expect(await page.evaluate(r => smtpAuthHint(r, "smtp.gmail.com"), REFUSED)).toContain("Pakai App Password 16 huruf");
+  expect(await page.evaluate(r => smtpAuthHint(r, "smtp.gmail.com", true), REFUSED)).toContain("Kolom password kosong");
   await page.evaluate(() => { UI_LANG = "en"; });
 });
 
