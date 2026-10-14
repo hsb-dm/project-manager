@@ -50,6 +50,22 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_approve_members', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[roles] approve sign-ups capability: " + e.message); }
+/* e-mail, cloud storage and backups have capabilities of their own (Oct 2026): every role that could manage the workspace
+   gets them once, so nobody loses what they could do; from then on they are given or taken one by one */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='caps_settings_areas'").get()) {
+    db.prepare("SELECT id, permissions FROM roles").all().forEach(r => { let p = []; try { p = JSON.parse(r.permissions || "[]"); } catch (e) {} if (!p.includes("manage_workspace")) return; const add = ["manage_email", "manage_cloud_storage", "manage_backups", "manage_notification_settings"].filter(c => !p.includes(c)); if (add.length) db.prepare("UPDATE roles SET permissions=? WHERE id=?").run(JSON.stringify(p.concat(add)), r.id); });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_settings_areas', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[roles] settings capabilities: " + e.message); }
+/* choosing one's own notifications (Oct 2026): given to every role once — nobody loses the browser switches they had —
+   and from then on it is the admin's, per role, in Roles & permissions */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='caps_choose_notifications'").get()) {
+    db.prepare("SELECT id, permissions FROM roles").all().forEach(r => { let p = []; try { p = JSON.parse(r.permissions || "[]"); } catch (e) {} if (!p.includes("choose_notifications")) db.prepare("UPDATE roles SET permissions=? WHERE id=?").run(JSON.stringify(p.concat(["choose_notifications"])), r.id); });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_choose_notifications', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[roles] choose notifications capability: " + e.message); }
 /* The default tagline was "Creative operations workspace"; teams outside creative use the workspace too, so it is
    "Team operations workspace" now. A workspace still on the old default gets the new one, once — a tagline anyone
    wrote is left as it is, and it stays editable in Settings → Workspace. */
@@ -97,7 +113,7 @@ const swept = sz.sweepArchive(db, WS_ID); if (swept) console.log("Auto-archived 
 setInterval(() => { try { sz.sweepArchive(db, WS_ID); } catch (e) { console.error(e); } }, 6 * 3600 * 1000);
 
 /* ---------- email notifications (§52) ---------- */
-const MAIL_TEXT = { assigned: "{who} assigned you “{t}”.", reviewer: "{who} asked you to review “{t}”.", review: "{who} sent “{t}” for your review.", progress: "{who} updated the progress note on “{t}”.", mention: "{who} mentioned you in a comment on “{t}”.", comment: "{who} commented on “{t}”.", revision: "{who} requested a revision on “{t}”.", approved: "{who} approved “{t}”.", upload: "{who} uploaded a new version of “{t}”.", status: "{who} moved “{t}” to a new stage.", file: "{who} attached a file to “{t}”.", deadline: "“{t}” is due today.", missed: "“{t}” missed its deadline.", request: "{who} submitted a creative request: “{t}”.", request_status: "{who} updated the status of your request “{t}”." };
+const MAIL_TEXT = { completed: "{who} finished “{t}”.", blocker: "“{t}” can start — {who} finished the task it was waiting on.", assigned: "{who} assigned you “{t}”.", reviewer: "{who} asked you to review “{t}”.", review: "{who} sent “{t}” for your review.", progress: "{who} updated the progress note on “{t}”.", mention: "{who} mentioned you in a comment on “{t}”.", comment: "{who} commented on “{t}”.", revision: "{who} requested a revision on “{t}”.", approved: "{who} approved “{t}”.", upload: "{who} uploaded a new version of “{t}”.", status: "{who} moved “{t}” to a new stage.", file: "{who} attached a file to “{t}”.", deadline: "“{t}” is due today.", missed: "“{t}” missed its deadline.", request: "{who} submitted a creative request: “{t}”.", request_status: "{who} updated the status of your request “{t}”." };
 const CHAT_MAIL_SENT = new Map();
 /* a link that reads like its task: /tasks?task=T-101-banner-ramadan (the app reads the id that leads it) */
 const urlSlug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60).replace(/-+$/, "");
@@ -106,13 +122,13 @@ const urlSlug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").to
 function approverIds() { return db.prepare("SELECT wm.user_id FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND u.is_active=1 AND coalesce(wm.pending,0)=0").all(WS_ID).map(r => r.user_id).filter(id => { const c = userContext(id); return !!c && can.approveMembers(c); }); }
 function notifyApprovers(pendingId, name) {
   const ids = approverIds().map(r => { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: pendingId, k: "signup", entityType: "user", t: pendingId, message: name }); return id; });
-  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
+  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && readNotifsFor(row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
 }
 /* Notifications the server raises itself (a project's discussion): stored, then e-mailed, pushed and shown at once,
    as /api/notifications does with the ones a page asks for. */
 function deliverNotifs(list, o) {
   const ids = list.map(x => { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: x.recipient, who: o.who, k: x.k, entityType: o.entityType, t: o.t, message: x.message || "" }); return id; });
-  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
+  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && readNotifsFor(row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
 }
 /* A project discussion notification: what it says, and the link to that comment on the project's Discussion tab. */
 function projectNotice(n, actor, lang) {
@@ -124,6 +140,7 @@ function projectNotice(n, actor, lang) {
 function emailNotification(notifId) {
   const n = db.prepare("SELECT n.*, u.email, u.name AS recipient_name FROM notifications n JOIN users u ON u.id=n.recipient_id WHERE n.id=?").get(notifId);
   if (!n || !n.email) return;
+  if (!notifWanted(n.recipient_id, n.type, "email")) return;   /* they chose not to have this kind by e-mail */
   const ws = sz.readWorkspace(db, WS_ID); const prefs = ws.notifPrefs || {};
   if (prefs.email === false || prefs[n.type] === false) return;
   const actor = n.actor_id ? (db.prepare("SELECT name FROM users WHERE id=?").get(n.actor_id) || {}).name : "ZenCrevia";
@@ -205,7 +222,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/emoji(\/|$)/, "emoji"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/emoji(\/|$)/, "emoji"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -425,11 +442,25 @@ function pwaManifest() { const { ws, live } = pwaIcons(), v = live ? live.hash :
 /* Web Push (server/push.js): the VAPID subject is the first admin's address unless COS_VAPID_SUBJECT says otherwise */
 const push = require("./push")(db, { subject: () => process.env.COS_VAPID_SUBJECT || (() => { try { const a = db.prepare("SELECT u.email FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND u.email IS NOT NULL AND u.email<>'' LIMIT 1").get(WS_ID); return a ? "mailto:" + a.email : ""; } catch (e) { return ""; } })() });
 /* Web Push: the same notification on the person's devices, the app closed (server/push.js) — in their language */
-const PUSH_TEXT_ID = { assigned: "{who} menugaskan “{t}” kepadamu.", reviewer: "{who} memintamu me-review “{t}”.", review: "{who} mengirim “{t}” untuk kamu review.", progress: "{who} memperbarui catatan progres “{t}”.", mention: "{who} menyebutmu di komentar “{t}”.", comment: "{who} berkomentar di “{t}”.", revision: "{who} meminta revisi pada “{t}”.", approved: "{who} menyetujui “{t}”.", upload: "{who} mengunggah versi baru “{t}”.", status: "{who} memindahkan “{t}” ke tahap baru.", file: "{who} melampirkan file ke “{t}”.", deadline: "“{t}” jatuh tempo hari ini.", missed: "“{t}” melewati tenggat.", request: "{who} mengajukan permintaan kreatif: “{t}”.", request_status: "{who} memperbarui status permintaanmu “{t}”." };
+const PUSH_TEXT_ID = { completed: "{who} menyelesaikan “{t}”.", blocker: "“{t}” bisa dimulai — {who} menyelesaikan task yang ditunggunya.", assigned: "{who} menugaskan “{t}” kepadamu.", reviewer: "{who} memintamu me-review “{t}”.", review: "{who} mengirim “{t}” untuk kamu review.", progress: "{who} memperbarui catatan progres “{t}”.", mention: "{who} menyebutmu di komentar “{t}”.", comment: "{who} berkomentar di “{t}”.", revision: "{who} meminta revisi pada “{t}”.", approved: "{who} menyetujui “{t}”.", upload: "{who} mengunggah versi baru “{t}”.", status: "{who} memindahkan “{t}” ke tahap baru.", file: "{who} melampirkan file ke “{t}”.", deadline: "“{t}” jatuh tempo hari ini.", missed: "“{t}” melewati tenggat.", request: "{who} mengajukan permintaan kreatif: “{t}”.", request_status: "{who} memperbarui status permintaanmu “{t}”." };
+/* EACH PERSON'S OWN NOTIFICATIONS (Oct 2026). Every kind of notification belongs to one of the rows a person sees in
+   Settings → Notifications → "What reaches me", and each row can be on or off in the bell, by e-mail and in the
+   browser. A row turned off there is not shown in their bell, not e-mailed and not pushed to them. Whoever's role does
+   not have choose_notifications receives everything the workspace sends; what they chose before is kept, not used.
+   The workspace's own switches (Notifications & email, admin) come first: what the workspace does not send, nobody gets.
+   Announcement e-mails are not notifications and always go. */
+const NOTIF_CATEGORY = { completed: "task_completed", blocker: "blocker", assigned: "task_assigned", reviewer: "task_assigned", review: "approval", approved: "approval", revision: "approval", mention: "comment_mention", comment: "comment_reply", deadline: "task_due", missed: "task_due", status: "project_updates", upload: "project_updates", file: "project_updates", progress: "project_updates", watch: "project_updates", transition: "project_updates", request: "requests", request_status: "requests", signup: "signup", chat_dm: "chat_dm", chat_mention: "chat_mention", chat_reply: "chat_reply", chat_group: "chat_group", chat_team_general: "chat_team_general" };
+function notifWanted(userId, type, way) {
+  const cat = NOTIF_CATEGORY[type]; if (!cat) return true;
+  const c = userContext(userId); if (!c || !can.chooseNotifications(c)) return true;
+  const np = memberPrefs(userId).notif || {};
+  return np[way === "push" ? cat : cat + ":" + way] !== false;   /* the browser's are the switches people had before: one name each */
+}
+/* what someone's bell holds: what they want to see there */
+const readNotifsFor = (userId) => sz.readNotifs(db, WS_ID, userId).filter(n => notifWanted(userId, n.k, "app"));
 function memberPrefs(userId) { try { const m = db.prepare("SELECT prefs FROM workspace_members WHERE workspace_id=? AND user_id=?").get(WS_ID, userId); return JSON.parse((m && m.prefs) || "{}") || {}; } catch (e) { return {}; } }
 function userLang(userId) { return memberPrefs(userId).language === "id" ? "id" : "en"; }
 /* each kind follows the person's own switch in Settings → Notifications (notify-delivery.js NOTIF_PREF_DEFAULT) */
-const PUSH_PREF = { chat_dm: "chat_dm", chat_mention: "chat_mention", chat_reply: "chat_reply", chat_group: "chat_group", chat_team_general: "chat_team_general", assigned: "task_assigned", reviewer: "task_assigned", deadline: "task_due", missed: "task_due", approved: "approval", revision: "approval", review: "approval", mention: "chat_mention", comment: "chat_reply" };
 function pushNotification(notifId) {
   if (typeof push === "undefined" || !push) return;
   try {
@@ -439,7 +470,7 @@ function pushNotification(notifId) {
     if (prefs.push === false || prefs[n.type] === false) return;
     /* the person's own switches: browser notifications on, and this kind on */
     const mine = memberPrefs(n.recipient_id), np = mine.notif || {};
-    if (np.browser !== true || np[PUSH_PREF[n.type] || "project_updates"] === false) return;
+    if (np.browser !== true || !notifWanted(n.recipient_id, n.type, "push")) return;
     const id = mine.language === "id", actor = n.actor_id ? ((db.prepare("SELECT name FROM users WHERE id=?").get(n.actor_id) || {}).name || "") : "";
     let payload;
     if (n.entity_type === "message") {
@@ -462,7 +493,7 @@ function pushNotification(notifId) {
     push.sendToUser(n.recipient_id, payload).catch(e => console.error("[push] " + e.message));
   } catch (e) { console.error("[push] " + e.message); }
 }
-const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: sz.readNotifs, writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id) });
+const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: (d, w, userId) => readNotifsFor(userId), writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id) });
 /* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
 require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security });
 /* a project's discussion: its own comments, routes and notifications (server/project-discussion.js) */
@@ -608,6 +639,8 @@ route("GET", "/api/live/:kind", (u, p) => {
     case "workspace": return { ws: workspaceFor(u) };
     case "roles": return { roles: readRoles() };
     case "emoji": return { customEmoji: readEmoji() };
+    /* someone's own bell, after they changed what they want to see in it */
+    case "notifs": return { notifs: readNotifsFor(u.id) };
     default: throw new HttpError(404, "Unknown collection");
   }
 });
@@ -638,7 +671,7 @@ route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
   ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
-  savedViews: sz.readViews(db, WS_ID, u.id), notifs: sz.readNotifs(db, WS_ID, u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
+  savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
 }));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */
@@ -931,7 +964,18 @@ route("POST", "/api/ai/expand", async (u, p, q, b) => {
   return { imageUrl: url };
 });
 
-route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
+/* The workspace's own notifications — which events send in the app and by e-mail (Settings → Notifications & email)
+   — for whoever holds manage_notification_settings, without the rest of the workspace (Oct 2026). Switches only:
+   a name and on or off. */
+route("PUT", "/api/workspace/notif-prefs", (u, p, q, b) => {
+  forbid(can.manageNotificationSettings(u), "change the workspace's notifications");
+  const next = {}; Object.entries((b && b.notifPrefs) || {}).forEach(([k, v]) => { if (/^[a-z_]{1,40}$/.test(k) && typeof v === "boolean") next[k] = v; });
+  const merged = Object.assign({}, (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}, next);
+  db.prepare("UPDATE workspaces SET notif_prefs=?, updated_at=? WHERE id=?").run(JSON.stringify(merged), now(), WS_ID);
+  act(u, "edited", "workspace", WS_ID, { what: "notification settings" });
+  return { notifPrefs: merged };
+});
+route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */
@@ -1018,16 +1062,16 @@ route("DELETE", "/api/emoji/:name", (u, p) => {
   return readEmoji();
 });
 /* ---- Shared Google Drive (server/gdrive.js): one admin account for the whole workspace ---- */
-route("GET", "/api/cloud/gdrive/status", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "view cloud storage settings"); return Object.assign(gdrive.status(db, WS_ID), { redirectUri: gdrive.redirectUri(ctx.req), maxUploadMB: Math.round(gdrive.MAX_UPLOAD_BYTES / 1048576) }); });
+route("GET", "/api/cloud/gdrive/status", (u, p, q, b, ctx) => { forbid(can.manageCloudStorage(u), "view cloud storage settings"); return Object.assign(gdrive.status(db, WS_ID), { redirectUri: gdrive.redirectUri(ctx.req), maxUploadMB: Math.round(gdrive.MAX_UPLOAD_BYTES / 1048576) }); });
 /* The secret is write-only: it goes in encrypted and is never read back out to any browser. */
-route("PUT", "/api/cloud/gdrive/secret", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change cloud storage settings"); const v = String(b.clientSecret || "").trim(); if (!v) gdrive._upsert(db, WS_ID, { client_secret: null, updated_by: u.id }); else { if (v.length < 8) throw new HttpError(400, "That does not look like a Google client secret."); gdrive._upsert(db, WS_ID, { client_secret: secrets.encrypt(v), updated_by: u.id }); } security.log("drive_client_secret_changed", { userId: u.id, ip: ctx.ip, cleared: !v }); return gdrive.status(db, WS_ID); });
-route("POST", "/api/cloud/gdrive/connect", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "connect cloud storage"); return gdrive.authUrl(db, WS_ID, ctx.req, u.id); });
+route("PUT", "/api/cloud/gdrive/secret", (u, p, q, b, ctx) => { forbid(can.manageCloudStorage(u), "change cloud storage settings"); const v = String(b.clientSecret || "").trim(); if (!v) gdrive._upsert(db, WS_ID, { client_secret: null, updated_by: u.id }); else { if (v.length < 8) throw new HttpError(400, "That does not look like a Google client secret."); gdrive._upsert(db, WS_ID, { client_secret: secrets.encrypt(v), updated_by: u.id }); } security.log("drive_client_secret_changed", { userId: u.id, ip: ctx.ip, cleared: !v }); return gdrive.status(db, WS_ID); });
+route("POST", "/api/cloud/gdrive/connect", (u, p, q, b, ctx) => { forbid(can.manageCloudStorage(u), "connect cloud storage"); return gdrive.authUrl(db, WS_ID, ctx.req, u.id); });
 /* Google sends the admin back here as a top-level navigation. The session cookie is SameSite=Lax,
    so it arrives; the signed state proves the trip started on this server and by this admin. */
 route("GET", "/api/cloud/gdrive/callback", async (u, p, q, b, ctx) => {
   const back = (msg, ok) => { security.applyHeaders(ctx.res); ctx.res.writeHead(302, { Location: "/settings/integrations?gdrive=" + (ok ? "ok" : "error") + (msg ? "&msg=" + encodeURIComponent(String(msg).slice(0, 300)) : ""), "Cache-Control": "no-store" }); ctx.res.end(); return { __raw: true }; };
   try {
-    forbid(can.manageWorkspace(u), "connect cloud storage");
+    forbid(can.manageCloudStorage(u), "connect cloud storage");
     if (q.error) throw new HttpError(400, q.error === "access_denied" ? "You declined the Google permission request." : String(q.error));
     const st = gdrive.readState(q.state);
     if (st.u !== u.id) throw new HttpError(400, "That sign-in was started by a different account. Start again from Settings.");
@@ -1038,7 +1082,7 @@ route("GET", "/api/cloud/gdrive/callback", async (u, p, q, b, ctx) => {
     return back("", true);
   } catch (e) { return back(e.message || "Could not connect Google Drive", false); }
 });
-route("DELETE", "/api/cloud/gdrive/shared", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "disconnect cloud storage"); gdrive.disconnect(db, WS_ID); security.log("drive_shared_account_disconnected", { userId: u.id, ip: ctx.ip }); act(u, "edited", "workspace", WS_ID, { what: "disconnected the shared Google Drive account" }); return gdrive.status(db, WS_ID); });
+route("DELETE", "/api/cloud/gdrive/shared", (u, p, q, b, ctx) => { forbid(can.manageCloudStorage(u), "disconnect cloud storage"); gdrive.disconnect(db, WS_ID); security.log("drive_shared_account_disconnected", { userId: u.id, ip: ctx.ip }); act(u, "edited", "workspace", WS_ID, { what: "disconnected the shared Google Drive account" }); return gdrive.status(db, WS_ID); });
 /* Any signed-in member may upload -- that is the point of a shared account. The bytes stream
    straight through to Drive (RAW_BODY keeps readBody away from this path). */
 route("POST", "/api/cloud/gdrive/upload", async (u, p, q, b, ctx) => { const out = await gdrive.upload(db, WS_ID, ctx.req, { name: q.name, mime: q.mime || ctx.req.headers["content-type"] }); security.log("drive_upload", { userId: u.id, ip: ctx.ip, driveId: out.driveId, bytes: +(ctx.req.headers["content-length"] || 0) }); return Object.assign(out, { uploadedBy: u.id }); });
@@ -1390,10 +1434,10 @@ route("DELETE", "/api/views/:id", (u, p) => { db.prepare("DELETE FROM saved_view
 /* v29 client-raised notifications: they trigger real email, so they must point at a real
    entity, use a known kind, reach a bounded number of people and be rate limited per
    sender. Free text is not accepted; the email body is built from the entity. */
-const NOTIF_KINDS = new Set(["approved", "assigned", "reviewer", "review", "progress", "comment", "file", "mention", "request", "revision", "status", "upload", "watch", "deadline", "transition", "request_status"]);
+const NOTIF_KINDS = new Set(["completed", "blocker", "approved", "assigned", "reviewer", "review", "progress", "comment", "file", "mention", "request", "revision", "status", "upload", "watch", "deadline", "transition", "request_status"]);
 const notifRate = new Map();
 route("POST", "/api/notifications", (u, p, q, b) => { const k = String(b.k || ""); if (!NOTIF_KINDS.has(k)) throw new HttpError(400, "Unknown notification type"); const entityType = ["task", "project", "request"].includes(b.entityType || "task") ? (b.entityType || "task") : null; if (!entityType) throw new HttpError(400, "Unsupported notification target"); const table = { task: "tasks", project: "projects", request: "creative_requests" }[entityType]; b.t = String(b.t || ""); if (!db.prepare("SELECT 1 FROM " + table + " WHERE id=? AND workspace_id=?").get(b.t, WS_ID)) throw new HttpError(404, "The item for this notification does not exist"); const recips = [...new Set((Array.isArray(b.recipients) ? b.recipients : [b.recipient]).filter(Boolean).map(String))]; if (recips.length > 25) throw new HttpError(400, "Too many recipients"); const minute = Math.floor(Date.now() / 60000), rk = u.id, rs = notifRate.get(rk); const cur = rs && rs.minute === minute ? rs : { minute, n: 0 }; if (cur.n + recips.length > 60) throw new HttpError(429, "Too many notifications. Try again in a minute."); cur.n += recips.length; notifRate.set(rk, cur); b = { k, t: b.t, entityType, recipients: recips }; const ids = []; recips.forEach(r => { if (r !== u.id && db.prepare("SELECT 1 FROM workspace_members WHERE user_id=? AND workspace_id=?").get(r, WS_ID)) { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: u.id, k: b.k, t: b.t, entityType: b.entityType }); ids.push(id); } }); /* each recipient hears of it at once — it used to wait for their next reload */
-  setImmediate(() => { ids.forEach(emailNotification); ids.forEach(pushNotification); ids.forEach(id => { try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* live delivery is best effort; the bell has it on the next load */ } }); }); return sz.readNotifs(db, WS_ID, u.id); });
+  setImmediate(() => { ids.forEach(emailNotification); ids.forEach(pushNotification); ids.forEach(id => { try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && readNotifsFor(row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* live delivery is best effort; the bell has it on the next load */ } }); }); return readNotifsFor(u.id); });
 /* Web Push: each browser that turns notifications on registers its subscription; a test sends one to all of the person's devices */
 route("GET", "/api/push/key", (u) => ({ publicKey: push.publicKey(), devices: push.count(u.id) }));
 route("POST", "/api/push/subscribe", (u, p, q, b, ctx) => { push.subscribe(u.id, b && b.subscription, ctx && ctx.req && ctx.req.headers["user-agent"]); return { ok: true, devices: push.count(u.id) }; });
@@ -1406,9 +1450,9 @@ route("PUT", "/api/workspace/pwa-icons", (u, p, q, b) => { forbid(can.manageWork
   if (!ws.favicon || String((b && b.hash) || "") !== strHash(ws.favicon)) throw new HttpError(409, "The favicon has changed since these icons were drawn");
   const icons = {}; for (const k of Object.keys(PWA_ICON_FILES)) { const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String((b.icons || {})[k] || "")); if (!m) throw new HttpError(400, "Icon " + k + " must be a PNG"); const buf = Buffer.from(m[1], "base64"); if (buf.length > 700000 || buf.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") throw new HttpError(400, "Icon " + k + " is not a valid PNG"); icons[k] = m[1]; }
   db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('pwa_icons', ?)").run(JSON.stringify({ hash: String(b.hash), icons })); return { ok: true, hash: String(b.hash) }; });
-route("GET", "/api/mail/status", (u) => { forbid(can.manageWorkspace(u), "view email diagnostics"); return { transport: mailer.cfg.transport, from: mailer.cfg.from, outbox: mailer.cfg.transport === "log" ? mailer.cfg.outbox : null, sent: mailer.state.sent, failed: mailer.state.failed, lastError: mailer.state.lastError, lastTo: mailer.state.lastTo, lastAt: mailer.state.lastAt, pending: db.prepare("SELECT count(*) n FROM notifications WHERE emailed_at IS NULL AND email_error IS NOT NULL").get().n }; });
-route("POST", "/api/mail/test", (u) => { forbid(can.manageWorkspace(u), "send test email"); const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id); if (!me || !me.email) throw new HttpError(400, "Your user has no email address"); const ws = sz.readWorkspace(db, WS_ID); return mailer.send({ to: me.email, subject: "[" + ws.name + "] Test email from ZenCrevia", text: "Hi " + me.name.split(" ")[0] + ", this is a test message. If you can read this, email notifications work.", meta: { Transport: mailer.cfg.transport }, link: mailer.link("/"), workspace: ws.name }).then(r => ({ ok: true, transport: mailer.cfg.transport, result: r && r.file ? { file: path.basename(r.file) } : r })).catch(e => { throw new HttpError(424, "Send failed: " + e.message); }); });
-route("POST", "/api/notifications/read", (u, p, q, b) => { if (b.all) db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(now(), u.id); else (b.ids || []).forEach(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(now(), id, u.id)); if (b.entityId) db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(now(), b.entityId, u.id); return sz.readNotifs(db, WS_ID, u.id); });
+route("GET", "/api/mail/status", (u) => { forbid(can.manageEmail(u), "view email diagnostics"); return { transport: mailer.cfg.transport, from: mailer.cfg.from, outbox: mailer.cfg.transport === "log" ? mailer.cfg.outbox : null, sent: mailer.state.sent, failed: mailer.state.failed, lastError: mailer.state.lastError, lastTo: mailer.state.lastTo, lastAt: mailer.state.lastAt, pending: db.prepare("SELECT count(*) n FROM notifications WHERE emailed_at IS NULL AND email_error IS NOT NULL").get().n }; });
+route("POST", "/api/mail/test", (u) => { forbid(can.manageEmail(u), "send test email"); const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id); if (!me || !me.email) throw new HttpError(400, "Your user has no email address"); const ws = sz.readWorkspace(db, WS_ID); return mailer.send({ to: me.email, subject: "[" + ws.name + "] Test email from ZenCrevia", text: "Hi " + me.name.split(" ")[0] + ", this is a test message. If you can read this, email notifications work.", meta: { Transport: mailer.cfg.transport }, link: mailer.link("/"), workspace: ws.name }).then(r => ({ ok: true, transport: mailer.cfg.transport, result: r && r.file ? { file: path.basename(r.file) } : r })).catch(e => { throw new HttpError(424, "Send failed: " + e.message); }); });
+route("POST", "/api/notifications/read", (u, p, q, b) => { if (b.all) db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(now(), u.id); else (b.ids || []).forEach(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(now(), id, u.id)); if (b.entityId) db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(now(), b.entityId, u.id); return readNotifsFor(u.id); });
 route("POST", "/api/activity", (u, p, q, b) => { const allowed = new Set(["created","edited","moved","assigned","deadline","commented","mentioned","uploaded","approved","revision","file","request","request_submitted","request_approved","request_rejected","hidden","unhidden","team","asset","project_created","member_team"]); if (!allowed.has(String(b.k || ""))) throw new HttpError(400, "Unknown activity type"); if (b.entityType === "task") throw new HttpError(400, "A task's history is written by the server"); const entityType = ["workspace","project","asset","request"].includes(b.entityType) ? b.entityType : "workspace"; const a = {}; Object.keys(b.a && typeof b.a === "object" ? b.a : {}).slice(0, 8).forEach(k => { const v = b.a[k]; if (typeof v === "string") a[String(k).slice(0, 30)] = v.slice(0, 200); else if (typeof v === "number" || typeof v === "boolean") a[String(k).slice(0, 30)] = v; }); act(u, b.k, entityType, String(b.entityId || WS_ID).slice(0, 100), a); return sz.readActivity(db, WS_ID, 200); });
 /* ============================================================
    v17 §P1-4 — SMTP setup from the Admin dashboard
@@ -1428,11 +1472,11 @@ const smtpFromBody = (b, stored) => ({
   replyTo: String(b.replyTo || "").trim()
 });
 route("GET", "/api/mail/smtp", (u) => {
-  forbid(can.manageWorkspace(u), "view email settings");
+  forbid(can.manageEmail(u), "view email settings");
   return { config: sz.readSmtp(db, WS_ID), presets: mailer.PROVIDER_PRESETS, active: mailer.activeConfig().source, secretsReady: !!process.env.COS_SECRET_KEY };
 });
 route("PUT", "/api/mail/smtp", (u, p, q, b, ctx) => {
-  forbid(can.manageWorkspace(u), "change email settings");
+  forbid(can.manageEmail(u), "change email settings");
   if (b.enabled && !String(b.host || "").trim()) throw new HttpError(400, "Enter the SMTP host");
   if (b.enabled && !String(b.fromEmail || "").trim()) throw new HttpError(400, "Enter the sender email address");
   if (b.fromEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(b.fromEmail).trim())) throw new HttpError(400, "The sender email address is not valid");
@@ -1443,7 +1487,7 @@ route("PUT", "/api/mail/smtp", (u, p, q, b, ctx) => {
   return saved;
 });
 route("POST", "/api/mail/smtp/test", (u, p, q, b) => {
-  forbid(can.manageWorkspace(u), "test email settings");
+  forbid(can.manageEmail(u), "test email settings");
   const stored = sz.smtpStored(db, WS_ID, secrets);
   const conf = smtpFromBody(b || {}, stored);
   return mailer.verifySmtp(conf)
@@ -1451,7 +1495,7 @@ route("POST", "/api/mail/smtp/test", (u, p, q, b) => {
     .catch(e => { throw new HttpError(424, "Could not connect: " + e.message); });
 });
 route("POST", "/api/mail/smtp/send-test", (u, p, q, b) => {
-  forbid(can.manageWorkspace(u), "send a test email");
+  forbid(can.manageEmail(u), "send a test email");
   const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id);
   const to = String((b && b.to) || (me && me.email) || "").trim();
   if (!to) throw new HttpError(400, "Enter an address to send the test to");
@@ -1467,7 +1511,7 @@ route("POST", "/api/mail/smtp/send-test", (u, p, q, b) => {
 });
 /* §10 delivery logs — what actually happened to the last messages. */
 route("GET", "/api/mail/log", (u) => {
-  forbid(can.manageWorkspace(u), "view delivery logs");
+  forbid(can.manageEmail(u), "view delivery logs");
   /* the columns are recipient_id and type — an older name for them here made
      every call to this endpoint raise a SQLite error, so the Delivery log panel
      silently stayed empty (the browser swallows the failure). */
@@ -1489,7 +1533,7 @@ const backupSettings = () => {
   catch { return {}; }
 };
 route("GET", "/api/backups", (u) => {
-  forbid(can.manageWorkspace(u), "view backups");
+  forbid(can.manageBackups(u), "view backups");
   const settings = backupSettings();
   const items = backups.list().map(b => Object.assign({}, b, { integrityStatus: backups.verifyStored(b.name).status }));
   return {
@@ -1502,13 +1546,13 @@ route("GET", "/api/backups", (u) => {
   };
 });
 route("GET", "/api/backups/:name", (u, p) => {
-  forbid(can.manageWorkspace(u), "view backups");
+  forbid(can.manageBackups(u), "view backups");
   const meta = backups.readMeta(p.name);
   if (!meta || !meta.name) throw new HttpError(404, "That backup no longer exists");
   return Object.assign({}, meta, { integrity: backups.verifyStored(p.name) });
 });
 route("PUT", "/api/backups/settings", (u, p, q, b, ctx) => {
-  forbid(can.manageWorkspace(u), "change backup settings");
+  forbid(can.manageBackups(u), "change backup settings");
   const cur = backupSettings();
   const next = Object.assign({}, cur, {
     keep: Math.max(3, Math.min(365, +b.keep || backups.retention(cur))),
@@ -1522,7 +1566,7 @@ route("PUT", "/api/backups/settings", (u, p, q, b, ctx) => {
 /* §P1-5 restore is staged, takes a safety backup first, and rolls back on
    failure. It never silently overwrites the live database. */
 route("POST", "/api/backups/:name/restore", (u, p, q, b, ctx) => {
-  forbid(can.manageWorkspace(u), "restore backups");
+  forbid(can.manageBackups(u), "restore backups");
   if (!process.env.COS_BACKUP_KEY) throw new HttpError(400, "Encrypted backups are not configured. Set COS_BACKUP_KEY on the server.");
   if (!b || b.confirm !== p.name) throw new HttpError(400, "Type the backup name to confirm the restore");
   const { DB_PATH } = require("./db");
@@ -1556,17 +1600,17 @@ route("POST", "/api/backups/:name/restore", (u, p, q, b, ctx) => {
   }
 });
 route("POST", "/api/backups/:name/verify", (u, p) => {
-  forbid(can.manageWorkspace(u), "verify backups");
+  forbid(can.manageBackups(u), "verify backups");
   return backups.verifyStored(p.name);
 });
 route("DELETE", "/api/backups/:name", (u, p, q, b, ctx) => {
-  forbid(can.manageWorkspace(u), "delete backups");
+  forbid(can.manageBackups(u), "delete backups");
   const r = backups.remove(p.name);
   security.log("backup_deleted", { userId: u.id, ip: ctx && ctx.ip, name: p.name });
   return r;
 });
 route("POST", "/api/backups", (u, p, q, b, ctx) => {
-  forbid(can.manageWorkspace(u), "create backups");
+  forbid(can.manageBackups(u), "create backups");
   if (!process.env.COS_BACKUP_KEY) throw new HttpError(400, "Encrypted backups are not configured. Set COS_BACKUP_KEY on the server.");
   const result = backups.create(db, { kind: (b && b.kind === "pre-import") ? "pre-import" : "manual", userId: u.id, reason: b && b.reason, settings: backupSettings() });
   security.log("backup_created", { userId: u.id, ip: ctx.ip, name: result.name, bytes: result.bytes, kind: result.kind });

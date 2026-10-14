@@ -2,10 +2,19 @@
 // (except that the "admin" role always has every capability). The client keeps a mirror only to hide buttons — the server decides.
 const CAPS = [
   ["manage_workspace", "Manage workspace settings, theme, workflow, brand"],
+  /* Oct 2026: the system settings, each its own — so one can be handed over without the rest. Given once to every
+     role that could already manage the workspace. */
+  ["manage_email", "Set up e-mail delivery (SMTP), see the delivery log"],
+  ["manage_cloud_storage", "Connect and set up cloud storage (Google Drive)"],
+  ["manage_backups", "See, create, verify and restore backups"],
   ["manage_members", "Add/remove members, change roles, reset passwords"],
   ["approve_members", "Approve or turn away people who sign up"],
   /* Oct 2026: an e-mail to every member (Settings → Notifications). No role but Admin has it until it is given one. */
   ["send_announcements", "Send announcement emails to every member"],
+  /* Oct 2026: each person picks which notifications reach them, and how — in the bell, by e-mail, in the browser.
+     Without it they receive what the workspace sends. Given to every role once; an admin takes it away per role. */
+  ["choose_notifications", "Choose which notifications they receive, and how"],
+  ["manage_notification_settings", "Set which events the workspace sends, in the app and by e-mail"],
   ["manage_teams", "Create teams, colors, icons, membership"],
   ["manage_roles", "Create and edit roles"],
   ["create_project", "Create projects"],
@@ -59,9 +68,14 @@ const ownTask = (u, t) => has(u, "edit_own_task") && (isAssignee(u, t) || isRevi
 const draftOwner = (u, t) => !!(t && t.meta && t.meta.draft && t.createdBy === u.id) && (has(u, "create_task") || has(u, "create_own_task"));
 const can = {
   manageWorkspace: (u) => has(u, "manage_workspace"),
+  manageEmail: (u) => has(u, "manage_email"),
+  manageCloudStorage: (u) => has(u, "manage_cloud_storage"),
+  manageBackups: (u) => has(u, "manage_backups"),
   manageMembers:   (u) => has(u, "manage_members"),
   approveMembers:  (u) => has(u, "approve_members"),
   sendAnnouncements: (u) => has(u, "send_announcements"),
+  chooseNotifications: (u) => has(u, "choose_notifications"),
+  manageNotificationSettings: (u) => has(u, "manage_notification_settings"),
   manageRoles:     (u) => has(u, "manage_roles"),
   manageTeams:     (u) => has(u, "manage_teams"),
   createProject:   (u) => has(u, "create_project"),

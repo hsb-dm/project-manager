@@ -1247,3 +1247,93 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ann-panel .ann-to label.ann-check{gap:8px}
 .ann-panel .ann-to label.ann-person .ann-pn b{text-transform:none}
 .ann-panel .ann-to input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:none;margin:0;padding:0}
+/* What reaches me (src/notif-choices.js): a row per kind, a column per way — in the bell, e-mail, browser */
+.nc-table{display:flex;flex-direction:column}
+.nc-row{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,84px);align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--color-border)}
+.nc-row.nc-head{border-top:0;padding:0 0 6px;position:sticky;top:0;background:var(--color-surface);z-index:1}
+.nc-way{font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-secondary);text-align:center}
+.nc-group{font-size:var(--fs-sm);font-weight:700;margin:14px 0 2px;color:var(--color-text-primary)}
+.nc-what{display:flex;flex-direction:column;min-width:0}
+.nc-what b{font-weight:600;font-size:var(--fs-sm)}
+.nc-what span{font-size:12px;color:var(--color-text-tertiary)}
+.nc-cell{display:flex;justify-content:center;align-items:center;min-height:28px;cursor:pointer}
+.nc-cell input{width:17px;height:17px;margin:0;cursor:pointer}
+.nc-cell input:disabled{cursor:not-allowed}
+.nc-na{color:var(--color-text-tertiary);cursor:default}
+.nc-locked .nc-what{opacity:.75}
+.nc-note{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:var(--radius);background:var(--color-surface-sunken);font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.nc-note svg{width:14px;height:14px;flex:none}
+.nc-hint{margin:-4px 0 10px}
+/* on a phone a kind takes the whole width, its three boxes under the three headings */
+@media (max-width:760px){.nc-row{grid-template-columns:repeat(3,1fr);gap:6px 4px}.nc-row .nc-what{grid-column:1/-1}.nc-row.nc-head>span:first-child{display:none}.nc-way{font-size:10px;letter-spacing:0}}
+/* Roles & permissions: capabilities in groups by what they are for (src/settings-access.js) */
+.cap-group{border:1px solid var(--color-border);border-radius:var(--radius);padding:4px 12px 2px;margin-bottom:10px}
+.cap-group-head{display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--color-border)}
+.cap-group-head b{font-size:var(--fs-sm);font-weight:700}
+.cap-count{font-size:11px;font-weight:650;color:var(--color-text-secondary);background:var(--color-surface-sunken);border-radius:var(--pill);padding:1px 7px}
+.cap-row{padding:7px 0}
+.cap-row .pl b{font-weight:500;font-size:var(--fs-sm)}
+.cap-row .cap-id{font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary)}
+.cap-group .cap-row+.cap-row{border-top:1px dashed var(--color-border)}
+/* groups stand apart: a box each, headed by a band with the group's mark, name and size (What reaches me; Roles) */
+.nc-panel .nc-head{padding:0 13px 6px}
+.nc-group-box{border:1px solid var(--color-border);border-radius:var(--radius);margin-top:12px;overflow:hidden;background:var(--color-surface)}
+.nc-group{display:flex;align-items:center;gap:10px;margin:0;padding:9px 12px;background:var(--color-surface-sunken);border-bottom:1px solid var(--color-border);font-size:var(--fs-sm);font-weight:700;color:var(--color-text-primary)}
+.nc-group-ico,.cap-group-ico{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-secondary)}
+.nc-group-ico svg,.cap-group-ico svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+.nc-group-n{font-size:11px;font-weight:650;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--pill);padding:0 7px}
+.nc-group-box .nc-row{padding:9px 12px}
+.nc-group-box .nc-group+.nc-row{border-top:0}
+.cap-group{padding:0;overflow:hidden}
+.cap-group-head{padding:8px 12px;background:var(--color-surface-sunken)}
+.cap-group .cap-row{padding:7px 12px}
+@media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
+/* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the
+   meta line the project's name is what shortens, with an ellipsis, while the id, team and stage keep their width */
+.row .r .lbls-stack{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
+.row .r .lbls-stack .lbls-line{display:flex;align-items:center;gap:3px}
+.row .r .lbls-stack .lbl{margin:0}
+.lbl-more{font-size:10px;font-weight:700;color:var(--color-text-secondary);background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--pill);padding:0 6px;line-height:16px}
+.row .m>*{flex:none}
+.row .m>.m-proj{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* a task's row, its right-hand side in slots of a fixed width so labels, files, due dates and people line up down a
+   list; a slot no task in the list fills folds away. On a phone the row keeps its own wrapping layout. */
+.row .r.r-cells{display:grid;grid-template-columns:var(--rc-labels,120px) var(--rc-assets,44px) 128px var(--rc-who-w,60px);column-gap:10px;align-items:center;justify-content:end}
+.row .r.r-cells .rcell{display:flex;align-items:center;min-width:0}
+.row .r.r-cells .rcell-labels{justify-content:flex-end}
+.row .r.r-cells .rcell-due .due{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r.r-cells .rcell-who{justify-content:flex-end}
+.row .r.r-cells .rcell-labels .lbl{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel:not(:has(.rcell-labels:not(:empty))) .row .r.r-cells{--rc-labels:0px}
+.panel:not(:has(.rcell-assets:not(:empty))) .row .r.r-cells{--rc-assets:0px}
+.panel:not(:has(.rcell-who .av)) .row .r.r-cells{--rc-who-w:0px}
+.panel:has(.rcell-who .av) .row .r.r-cells{--rc-who:52px}
+/* when the line is short the project gives way first, then the team; the stage never */
+.row .m>.tbadge{flex:0 1 auto;min-width:56px;overflow:hidden}
+@media (max-width:760px){
+  .row.task-row:not(:has(>.meta-grid)) .r>.rcell{display:contents}
+  .row.task-row:not(:has(>.meta-grid))>.r>.rcell>*{order:1;flex:none}
+  .row.task-row:not(:has(>.meta-grid)) .m>.m-proj{display:none}
+  .row.task-row:not(:has(>.meta-grid)) .lbls-stack{flex-direction:row;align-items:center}
+  .row.task-row:not(:has(>.meta-grid)) .lbls-stack .lbls-line{display:contents}
+}
+/* A narrow row (a Home card beside others) has no room for four slots and its stage: there the right side is one
+   small column, flush right — the due date and the people on top, the first label (+N) below; the file count waits
+   for the task itself. Phones keep their own layout. */
+.row.task-row{container:zrow/inline-size}
+.lbl-more-narrow{display:none}
+@media (min-width:761px){
+  @container zrow (max-width:880px){
+    .row .r.r-cells{grid-template-columns:auto var(--rc-who,0px);grid-template-areas:"due who" "labels labels";justify-items:end;row-gap:5px;column-gap:0}
+    .row .r.r-cells .rcell-who{padding-left:8px}
+    .row .r.r-cells .rcell-due{grid-area:due}
+    .row .r.r-cells .rcell-who{grid-area:who}
+    .row .r.r-cells .rcell-labels{grid-area:labels}
+    .row .r.r-cells .rcell-assets{display:none}
+    .row .r.r-cells .lbls-stack{flex-direction:row;align-items:center;gap:3px}
+    .row .r.r-cells .lbls-stack .lbls-line{display:none}
+    .row .r.r-cells .lbl-more-narrow{display:inline-block}
+    .row .r.r-cells .rcell:empty{display:none}
+  }
+}
+.row .m>.m-proj{flex-shrink:100}

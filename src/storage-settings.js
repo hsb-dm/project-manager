@@ -8,7 +8,7 @@
    language switch cannot make it flash. */
 function stoCfg(){ var c=cloudOf("gdrive"); c.config=c.config||{}; return c.config; }
 function stoPanel(){
-  if(typeof canI==="undefined"||!canI||typeof canI.manageWorkspace!=="function"||!canI.manageWorkspace()) return "";
+  if(typeof canI==="undefined"||!canI||typeof canI.manageCloudStorage!=="function"||!canI.manageCloudStorage()) return "";
   return sp("File storage",'<div id="stoBody">'+stoMarkup()+'</div>',"",I.cloud);
 }
 function stoSeg(mode,label,on){ return '<button type="button" class="'+(on?"on":"")+'" aria-pressed="'+(on?"true":"false")+'" data-storage="'+mode+'" onclick="stoSet(\''+mode+'\')">'+tr(label)+'</button>'; }

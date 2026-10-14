@@ -5430,6 +5430,96 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ann-panel .ann-to label.ann-check{gap:8px}
 .ann-panel .ann-to label.ann-person .ann-pn b{text-transform:none}
 .ann-panel .ann-to input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:none;margin:0;padding:0}
+/* What reaches me (src/notif-choices.js): a row per kind, a column per way — in the bell, e-mail, browser */
+.nc-table{display:flex;flex-direction:column}
+.nc-row{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,84px);align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--color-border)}
+.nc-row.nc-head{border-top:0;padding:0 0 6px;position:sticky;top:0;background:var(--color-surface);z-index:1}
+.nc-way{font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-secondary);text-align:center}
+.nc-group{font-size:var(--fs-sm);font-weight:700;margin:14px 0 2px;color:var(--color-text-primary)}
+.nc-what{display:flex;flex-direction:column;min-width:0}
+.nc-what b{font-weight:600;font-size:var(--fs-sm)}
+.nc-what span{font-size:12px;color:var(--color-text-tertiary)}
+.nc-cell{display:flex;justify-content:center;align-items:center;min-height:28px;cursor:pointer}
+.nc-cell input{width:17px;height:17px;margin:0;cursor:pointer}
+.nc-cell input:disabled{cursor:not-allowed}
+.nc-na{color:var(--color-text-tertiary);cursor:default}
+.nc-locked .nc-what{opacity:.75}
+.nc-note{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:var(--radius);background:var(--color-surface-sunken);font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.nc-note svg{width:14px;height:14px;flex:none}
+.nc-hint{margin:-4px 0 10px}
+/* on a phone a kind takes the whole width, its three boxes under the three headings */
+@media (max-width:760px){.nc-row{grid-template-columns:repeat(3,1fr);gap:6px 4px}.nc-row .nc-what{grid-column:1/-1}.nc-row.nc-head>span:first-child{display:none}.nc-way{font-size:10px;letter-spacing:0}}
+/* Roles & permissions: capabilities in groups by what they are for (src/settings-access.js) */
+.cap-group{border:1px solid var(--color-border);border-radius:var(--radius);padding:4px 12px 2px;margin-bottom:10px}
+.cap-group-head{display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--color-border)}
+.cap-group-head b{font-size:var(--fs-sm);font-weight:700}
+.cap-count{font-size:11px;font-weight:650;color:var(--color-text-secondary);background:var(--color-surface-sunken);border-radius:var(--pill);padding:1px 7px}
+.cap-row{padding:7px 0}
+.cap-row .pl b{font-weight:500;font-size:var(--fs-sm)}
+.cap-row .cap-id{font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary)}
+.cap-group .cap-row+.cap-row{border-top:1px dashed var(--color-border)}
+/* groups stand apart: a box each, headed by a band with the group's mark, name and size (What reaches me; Roles) */
+.nc-panel .nc-head{padding:0 13px 6px}
+.nc-group-box{border:1px solid var(--color-border);border-radius:var(--radius);margin-top:12px;overflow:hidden;background:var(--color-surface)}
+.nc-group{display:flex;align-items:center;gap:10px;margin:0;padding:9px 12px;background:var(--color-surface-sunken);border-bottom:1px solid var(--color-border);font-size:var(--fs-sm);font-weight:700;color:var(--color-text-primary)}
+.nc-group-ico,.cap-group-ico{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--color-surface);border:1px solid var(--color-border);color:var(--color-text-secondary)}
+.nc-group-ico svg,.cap-group-ico svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+.nc-group-n{font-size:11px;font-weight:650;color:var(--color-text-secondary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--pill);padding:0 7px}
+.nc-group-box .nc-row{padding:9px 12px}
+.nc-group-box .nc-group+.nc-row{border-top:0}
+.cap-group{padding:0;overflow:hidden}
+.cap-group-head{padding:8px 12px;background:var(--color-surface-sunken)}
+.cap-group .cap-row{padding:7px 12px}
+@media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
+/* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the
+   meta line the project's name is what shortens, with an ellipsis, while the id, team and stage keep their width */
+.row .r .lbls-stack{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
+.row .r .lbls-stack .lbls-line{display:flex;align-items:center;gap:3px}
+.row .r .lbls-stack .lbl{margin:0}
+.lbl-more{font-size:10px;font-weight:700;color:var(--color-text-secondary);background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:var(--pill);padding:0 6px;line-height:16px}
+.row .m>*{flex:none}
+.row .m>.m-proj{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* a task's row, its right-hand side in slots of a fixed width so labels, files, due dates and people line up down a
+   list; a slot no task in the list fills folds away. On a phone the row keeps its own wrapping layout. */
+.row .r.r-cells{display:grid;grid-template-columns:var(--rc-labels,120px) var(--rc-assets,44px) 128px var(--rc-who-w,60px);column-gap:10px;align-items:center;justify-content:end}
+.row .r.r-cells .rcell{display:flex;align-items:center;min-width:0}
+.row .r.r-cells .rcell-labels{justify-content:flex-end}
+.row .r.r-cells .rcell-due .due{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r.r-cells .rcell-who{justify-content:flex-end}
+.row .r.r-cells .rcell-labels .lbl{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel:not(:has(.rcell-labels:not(:empty))) .row .r.r-cells{--rc-labels:0px}
+.panel:not(:has(.rcell-assets:not(:empty))) .row .r.r-cells{--rc-assets:0px}
+.panel:not(:has(.rcell-who .av)) .row .r.r-cells{--rc-who-w:0px}
+.panel:has(.rcell-who .av) .row .r.r-cells{--rc-who:52px}
+/* when the line is short the project gives way first, then the team; the stage never */
+.row .m>.tbadge{flex:0 1 auto;min-width:56px;overflow:hidden}
+@media (max-width:760px){
+  .row.task-row:not(:has(>.meta-grid)) .r>.rcell{display:contents}
+  .row.task-row:not(:has(>.meta-grid))>.r>.rcell>*{order:1;flex:none}
+  .row.task-row:not(:has(>.meta-grid)) .m>.m-proj{display:none}
+  .row.task-row:not(:has(>.meta-grid)) .lbls-stack{flex-direction:row;align-items:center}
+  .row.task-row:not(:has(>.meta-grid)) .lbls-stack .lbls-line{display:contents}
+}
+/* A narrow row (a Home card beside others) has no room for four slots and its stage: there the right side is one
+   small column, flush right — the due date and the people on top, the first label (+N) below; the file count waits
+   for the task itself. Phones keep their own layout. */
+.row.task-row{container:zrow/inline-size}
+.lbl-more-narrow{display:none}
+@media (min-width:761px){
+  @container zrow (max-width:880px){
+    .row .r.r-cells{grid-template-columns:auto var(--rc-who,0px);grid-template-areas:"due who" "labels labels";justify-items:end;row-gap:5px;column-gap:0}
+    .row .r.r-cells .rcell-who{padding-left:8px}
+    .row .r.r-cells .rcell-due{grid-area:due}
+    .row .r.r-cells .rcell-who{grid-area:who}
+    .row .r.r-cells .rcell-labels{grid-area:labels}
+    .row .r.r-cells .rcell-assets{display:none}
+    .row .r.r-cells .lbls-stack{flex-direction:row;align-items:center;gap:3px}
+    .row .r.r-cells .lbls-stack .lbls-line{display:none}
+    .row .r.r-cells .lbl-more-narrow{display:inline-block}
+    .row .r.r-cells .rcell:empty{display:none}
+  }
+}
+.row .m>.m-proj{flex-shrink:100}
 
 </style>
 </head>
@@ -5762,8 +5852,8 @@ var S={ screen:"home", sub:null, railFilter:null, taskView:"kanban", taskScope:"
 var ACCENTS=[{n:"Cobalt",v:"#2F5BFF"},{n:"Violet",v:"#6D3BF5"},{n:"Teal",v:"#0F8F84"},{n:"Coral",v:"#E8533F"},{n:"Amber",v:"#C9860A"},{n:"Rose",v:"#D6336C"},{n:"Forest",v:"#1F7A4D"},{n:"Ink",v:"#111214"}];
 var TEAM_COLORS=["purple","blue","green","orange","red","pink","teal","yellow","gray"];
 var PRIOS=[["low","Low"],["medium","Medium"],["high","High"],["urgent","Urgent"]]; var PRANK={urgent:0,high:1,medium:2,low:3};
-var NTEXT={ signup:"{t} signed up and is waiting for your approval", assigned:"{who} assigned you “{t}”", reviewer:"{who} asked you to review “{t}”", review:"{who} sent “{t}” for your review", progress:"{who} updated the progress note on “{t}”", mention:"{who} mentioned you in “{t}”", revision:"{who} requested revision on “{t}”", deadline:"“{t}” is due today", approved:"{who} approved “{t}”", upload:"{who} uploaded a new version of “{t}”", comment:"{who} commented on “{t}”", missed:"“{t}” missed its deadline", request:"{who} submitted a request: “{t}”", request_status:"{who} updated your request “{t}”", declined:"{who} declined “{t}”", status:"{who} moved “{t}”", file:"{who} attached a file to “{t}”", chat_dm:"{who} sent you a message", chat_mention:"{who} mentioned you in {t}", chat_reply:"{who} replied to you in {t}", chat_group:"{who} sent a message in {t}", chat_team_general:"{who} posted in {t}", gallery_quota:"{t}" };
-var NTEXT_ID={ signup:"{t} mendaftar dan menunggu persetujuanmu", assigned:"{who} menugaskan “{t}” kepadamu", reviewer:"{who} memintamu me-review “{t}”", review:"{who} mengirim “{t}” untuk kamu review", progress:"{who} memperbarui catatan progres “{t}”", mention:"{who} menyebutmu di “{t}”", revision:"{who} meminta revisi pada “{t}”", deadline:"“{t}” jatuh tempo hari ini", approved:"{who} menyetujui “{t}”", upload:"{who} mengunggah versi baru “{t}”", comment:"{who} berkomentar di “{t}”", missed:"“{t}” melewati tenggat", request:"{who} mengajukan permintaan: “{t}”", request_status:"{who} memperbarui permintaanmu “{t}”", declined:"{who} menolak “{t}”", status:"{who} memindahkan “{t}”", file:"{who} melampirkan file ke “{t}”", chat_dm:"{who} mengirimimu pesan", chat_mention:"{who} menyebutmu di {t}", chat_reply:"{who} membalasmu di {t}", chat_group:"{who} mengirim pesan di {t}", chat_team_general:"{who} memposting di {t}", gallery_quota:"{t}" };
+var NTEXT={ completed:"{who} finished “{t}”", blocker:"“{t}” can start — {who} finished the task it was waiting on", signup:"{t} signed up and is waiting for your approval", assigned:"{who} assigned you “{t}”", reviewer:"{who} asked you to review “{t}”", review:"{who} sent “{t}” for your review", progress:"{who} updated the progress note on “{t}”", mention:"{who} mentioned you in “{t}”", revision:"{who} requested revision on “{t}”", deadline:"“{t}” is due today", approved:"{who} approved “{t}”", upload:"{who} uploaded a new version of “{t}”", comment:"{who} commented on “{t}”", missed:"“{t}” missed its deadline", request:"{who} submitted a request: “{t}”", request_status:"{who} updated your request “{t}”", declined:"{who} declined “{t}”", status:"{who} moved “{t}”", file:"{who} attached a file to “{t}”", chat_dm:"{who} sent you a message", chat_mention:"{who} mentioned you in {t}", chat_reply:"{who} replied to you in {t}", chat_group:"{who} sent a message in {t}", chat_team_general:"{who} posted in {t}", gallery_quota:"{t}" };
+var NTEXT_ID={ completed:"{who} menyelesaikan “{t}”", blocker:"“{t}” bisa dimulai — {who} menyelesaikan task yang ditunggunya", signup:"{t} mendaftar dan menunggu persetujuanmu", assigned:"{who} menugaskan “{t}” kepadamu", reviewer:"{who} memintamu me-review “{t}”", review:"{who} mengirim “{t}” untuk kamu review", progress:"{who} memperbarui catatan progres “{t}”", mention:"{who} menyebutmu di “{t}”", revision:"{who} meminta revisi pada “{t}”", deadline:"“{t}” jatuh tempo hari ini", approved:"{who} menyetujui “{t}”", upload:"{who} mengunggah versi baru “{t}”", comment:"{who} berkomentar di “{t}”", missed:"“{t}” melewati tenggat", request:"{who} mengajukan permintaan: “{t}”", request_status:"{who} memperbarui permintaanmu “{t}”", declined:"{who} menolak “{t}”", status:"{who} memindahkan “{t}”", file:"{who} melampirkan file ke “{t}”", chat_dm:"{who} mengirimimu pesan", chat_mention:"{who} menyebutmu di {t}", chat_reply:"{who} membalasmu di {t}", chat_group:"{who} mengirim pesan di {t}", chat_team_general:"{who} memposting di {t}", gallery_quota:"{t}" };
 /* a notification sentence in the reader's language */
 function ntext(k){ return (UI_LANG==="id"&&NTEXT_ID[k])||NTEXT[k]||k; }
 var ATEXT={ brief_removed:"<b>{who}</b> removed the creative brief", progress:"<b>{who}</b> wrote progress note V{v}", progress_edited:"<b>{who}</b> updated progress note V{v}", progress_removed:"<b>{who}</b> removed progress note V{v}", moved:"<b>{who}</b> moved task from {from} → {to}", upload:"<b>{who}</b> uploaded Version {v}", revision:"<b>{who}</b> requested revision", approved:"<b>{who}</b> approved Version {v}", deadline:"<b>{who}</b> changed the dates", comment:"<b>{who}</b> commented", assigned:"<b>{who}</b> assigned the task to {to}", created:"<b>{who}</b> created the task", brief:"<b>{who}</b> added a creative brief", file:"<b>{who}</b> attached {name}", edited:"<b>{who}</b> edited {what}", deleted:"<b>{who}</b> deleted {what}", team:"<b>{who}</b> changed the team to {to}", dependency_added:"<b>{who}</b> added dependency {what}", dependency_removed:"<b>{who}</b> removed dependency {what}", request:"<b>{who}</b> submitted a request", request_under_review:"<b>{who}</b> started reviewing a request", request_accepted:"<b>{who}</b> accepted a request", request_rejected:"<b>{who}</b> rejected a request", request_converted:"<b>{who}</b> converted a request into a task", team_created:"<b>{who}</b> created team {what}", declined:"<b>{who}</b> declined the request", hidden:"<b>{who}</b> hid the task", unhidden:"<b>{who}</b> unhid the task", project_archived:"<b>{who}</b> archived {what}", project_restored:"<b>{who}</b> restored {what}", team_color:"<b>{who}</b> changed the {what}", member_added:"<b>{who}</b> added {what}", member_team:"<b>{who}</b> updated a team membership", project_created:"<b>{who}</b> created project {what}", asset:"<b>{who}</b> added asset {what}", link:"<b>{who}</b> attached the link {name}" }
@@ -5928,6 +6018,12 @@ function allLabels(){ var l=(WS&&WS.labels); return (l&&l.length)?l:LABELS_DEFAU
 function label(id){ var l=allLabels(); for (var i=0;i<l.length;i++) if (l[i].id===id) return l[i]; return null; }
 function labelsOf(t){ return ((t&&t.labels)||[]).map(label).filter(Boolean); }
 function labelChip(l,click){ return '<span class="lbl" style="--lc:'+attr(l.color)+'"'+(click?' onclick="event.stopPropagation();filterByLabel(\''+l.id+'\')" title="Filter by '+attr(l.name)+'"':'')+'>'+esc(l.name)+'</span>'; }
+/* A task row's labels on its right, stacked — two lines at most, the rest counted as +N (Oct 2026). Side by side they
+   took the width the row's stage needs, and the stage, what matters most at a glance, was cut off ("Internal Rev…"). */
+function labelStack(t,click){ var ls=labelsOf(t); if(!ls.length) return ""; var more=ls.slice(2);
+  /* in a narrow row only the first shows, the rest counted (lbl-more-narrow); in a wide one two, stacked (lbl-more-wide) */
+  var count=function(list,cls){ return list.length?'<span class="lbl-more '+cls+'" title="'+attr(list.map(function(l){ return l.name; }).join(", "))+'">+'+list.length+'</span>':''; };
+  return '<span class="lbls lbls-stack">'+labelChip(ls[0],click)+count(ls.slice(1),"lbl-more-narrow")+(ls[1]?'<span class="lbls-line">'+labelChip(ls[1],click)+count(more,"lbl-more-wide")+'</span>':'')+'</span>'; }
 function labelChips(t,click){ var ls=labelsOf(t); if (!ls.length) return ""; return '<span class="lbls">'+ls.map(function(l){ return labelChip(l,click); }).join("")+'</span>'; }
 function labelPills(t){
   var ls=labelsOf(t); if (!ls.length) return "";
@@ -6203,7 +6299,7 @@ function teamOpts(withNone){ return (withNone?[["","No team"]]:[]).concat(active
 
 /* ---------- per-person preferences (dashboard cards, nav menu) ---------- */
 function myPrefs(){ var p=PEOPLE[ME]; if (!p) return {}; p.prefs=p.prefs||{}; if (!p.prefs._loaded){ try { var l=JSON.parse(localStorage.getItem("cos.prefs."+ME)||"null"); if (l) for (var k in l) if (p.prefs[k]===undefined) p.prefs[k]=l[k]; } catch(e){} p.prefs._loaded=true; } return p.prefs; }
-function saveMyPrefs(){ var p=PEOPLE[ME]; if (!p) return; var c=clone(p.prefs||{}); delete c._loaded; try { localStorage.setItem("cos.prefs."+ME,JSON.stringify(c)); } catch(e){} if (API.on){ var body=clone(p); body.prefs=c; apiFetch("PUT","/api/members/"+ME+"?prefsOnly=1",Object.assign({id:ME},body)).catch(function(){}); } }
+function saveMyPrefs(){ var p=PEOPLE[ME]; if (!p) return; var c=clone(p.prefs||{}); delete c._loaded; try { localStorage.setItem("cos.prefs."+ME,JSON.stringify(c)); } catch(e){} if (API.on){ var body=clone(p); body.prefs=c; return apiFetch("PUT","/api/members/"+ME+"?prefsOnly=1",Object.assign({id:ME},body)).catch(function(){}); } return Promise.resolve(); }
 function detectedShortcutStyle(){var platform="";try{platform=(navigator.userAgentData&&navigator.userAgentData.platform)||navigator.platform||navigator.userAgent||"";}catch(e){}return /Mac|iPhone|iPad|iPod/i.test(platform)?"mac":"ctrl";}
 function shortcutStyle(){var pref=(myPrefs().shortcutStyle||"auto");return pref==="mac"?"mac":pref==="ctrl"?"ctrl":detectedShortcutStyle();}
 function shortcutModifier(){return shortcutStyle()==="mac"?"⌘":"Ctrl";}
@@ -6640,7 +6736,7 @@ function taskRow(tk,opts){
   var openAction=opts.openAction||"openTask(taskIdFrom(this))";
   /* a closed task already says so with its stage (Approved, Delivered…); "Completed" beside it said it twice */
   var depBadge=isClosed(tk)&&opts.showStatus!==false?'':dependencyBadge(tk,false);
-  var head='<div class="row task-row'+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'" onclick="'+openAction+'"><div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span>'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
+  var head='<div class="row task-row'+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'" onclick="'+openAction+'"><div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span class="m-proj" title="'+attr(projName(tk))+'">'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
   /* In a wrapping flex row the right-hand metadata lands in a different place
      on every line, because each task carries a different mix of chips. Where
      rows are read as a list (the calendar "see more" sheet), each piece gets a
@@ -6659,7 +6755,10 @@ function taskRow(tk,opts){
       + cell("who",opts.showAssignee!==false?avStack(assigneesOf(tk)):'')
       + '</div></div>';
   }
-  return head+'<div class="r">'+depBadge+labelChips(tk,true)+(assetCount(tk)?assetBadge(tk):'')+'<span class="due '+dueCls(tk.due,tk)+'">'+dueTxt(tk.due)+'</span>'+(opts.showAssignee!==false?avStack(assigneesOf(tk)):'')+'</div></div>';
+  /* the right-hand side in slots of a fixed width — labels, files, due date, people — so each lines up down a list
+     whatever every task carries; a slot that no task in the list fills folds away (v38.css) */
+  var slot=function(name,content){ return '<span class="rcell rcell-'+name+'">'+(content||'')+'</span>'; };
+  return head+'<div class="r r-cells">'+slot("labels",depBadge+labelStack(tk,true))+slot("assets",assetCount(tk)?assetBadge(tk):'')+slot("due",'<span class="due '+dueCls(tk.due,tk)+'">'+dueTxt(tk.due)+'</span>')+slot("who",opts.showAssignee!==false?avStack(assigneesOf(tk)):'')+'</div></div>';
 }
 function projRows(list){ return list.map(function(p){ var cls=p.status==="risk"?"bad":(p.status==="done"?"good":""),progress=projectProgress(p); return '<div class="proj" onclick="go(\'projects\',\''+p.id+'\')"><div style="min-width:0"><div class="t">'+esc(p.name)+'</div><div class="m">'+projOpen(p).length+' '+tr("open")+' · '+tr("due")+' '+dueDate(p.due)+' · '+esc(first(p.owner))+'</div></div><div class="pbar '+cls+'"><i style="width:'+progress+'%"></i></div><div class="pct">'+progress+'%</div></div>'; }).join(""); }
 /* A task's projects: its own first, then the others it is also in (one task can serve two campaigns).
@@ -8030,7 +8129,7 @@ function linkDriveVersionModal(){ var tk=task(S.drawerTask); openModal("Link ver
 function saveDriveVersion(){ if (!require(["ldv_url"])) return; var url=val("ldv_url"), note=val("ldv_name"); if (!isDriveUrl(url)) return toast("Use a Google Drive share link","bad"); var tk=task(S.drawerTask), n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1, id=(url.match(/\/d\/([^/?]+)/)||[])[1]||""; closeModal(); S.drawerVer=n; S.drawerTab="versions"; editTaskWith(tk,function(t){ var v=V(n,ME,0,"pending",["#7C3AED","#0F766E","#B45309"][n%3],note||"Linked from Google Drive"); v.driveUrl=url; v.driveId=id; t.versions.push(v); t.files.push(F("Version "+n,"document","gdrive","—",0,url,{driveId:id})); log(t,"upload",{v:n}); }).then(function(saved){ if(saved===false)return false; notifyTask("upload",tk); toast("Google Drive version linked"); }); }
 function submitReview(){ var tk=task(S.drawerTask); var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="review") target=s.id; }); if (!target){ toast("Add a review stage in Settings → Workflow","bad"); return; } var go_=function(){ S.drawerTab="versions"; setStatus(tk.id,target,function(ok){ if(!ok) return; toast("Submitted for review"); }); }; if (!tk.versions.length) pushVersion(tk,null,"",true).then(function(r){ if(r!==false) go_(); }); else go_(); }
 function approveTask(){ var tk=task(S.drawerTask); var v=tk.versions[tk.versions.length-1]; if (!v) return; var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="closed") target=s.id; }); target=target||tk.status; var from=tk.status; S.drawerVer=v.n; S.revOpen=false;
-  editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="approved"; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.completedAt=stageKind(target)==="closed"?new Date().toISOString():null; log(t,"approved",{v:lv.n}); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("approved",tk); toast(tr("Version")+" "+v.n+" "+tr("approved")); }); }
+  editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="approved"; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.completedAt=stageKind(target)==="closed"?new Date().toISOString():null; log(t,"approved",{v:lv.n}); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("approved",tk); if(typeof notifyUnblocked==="function") notifyUnblocked(tk); toast(tr("Version")+" "+v.n+" "+tr("approved")); }); }
 function sendRevision(){ var tk=task(S.drawerTask); if (!require(["revReason","revFeedback"])) return; var reason=val("revReason"), fb=val("revFeedback"), pr=val("revPrio"); var target=null; WS.workflow.forEach(function(s){ if (!target&&s.kind==="revision") target=s.id; }); if (!target) target=(WS.workflow.filter(function(s){ return s.kind==="work"; })[0]||WS.workflow[0]).id; var from=tk.status; S.revOpen=false;
   editTaskWith(tk,function(t){ var lv=t.versions[t.versions.length-1]; lv.state="revision"; lv.reason=reason; lv.feedback=fb; lv.decidedAgo=0; lv.decidedBy=ME; t.status=target; t.prio=pr; t.comments.push(C(ME,0,S.commentVis,reason+" — "+fb)); log(t,"revision"); log(t,"moved",{from:from,to:target}); }).then(function(saved){ if(saved===false)return false; notifyTask("revision",tk); toast("Revision request sent","bad"); }); }
 
@@ -10671,7 +10770,7 @@ function deliverNotification(evt){ if(!evt) return; if(!notifEventAllowed(evt)) 
   return out; }
 /* Existing task/comment events (notify() in core.js) flow through the same
    pipeline in standalone mode so they reach the browser and the chime too. */
-function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",reviewer:"TASK_ASSIGNED",review:"APPROVAL_REQUESTED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); return deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:n.k==="mention"?"chat_mention":undefined,title:"ZenCrevia",body:fmt(ntext(n.k),{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
+function deliverLegacyNotif(n){ var map={assigned:"TASK_ASSIGNED",reviewer:"TASK_ASSIGNED",review:"APPROVAL_REQUESTED",deadline:"TASK_DUE",missed:"TASK_DUE",approved:"APPROVAL_APPROVED",revision:"APPROVAL_REJECTED",mention:"CHAT_MENTION",comment:"CHAT_REPLY"}; var tk=task(n.t); return deliverNotification({type:map[n.k]||"PROJECT_UPDATED",prefKey:(typeof NC_CATEGORY!=="undefined"&&NC_CATEGORY[n.k])||(n.k==="mention"?"chat_mention":undefined),title:"ZenCrevia",body:fmt(ntext(n.k),{who:n.who?first(n.who):"",t:tk?tk.title:n.t}).replace(/[“”]/g,'"'),actor:n.who,inApp:false,target:{taskId:tk?tk.id:null}}); }
 /* ---------- pop-ups that stay long enough to read ----------
    A notification that pops up inside the app stays for NOTIF_POP_MS, waits while the pointer is on
    it, and has its own close button; a click opens what it is about. The browser's own notification
@@ -11458,7 +11557,9 @@ function renderSettings(){ var tabs=[
   ["fields","Custom fields"],["labels","Labels"],["tags","Tags"],
   ["members","Members"],["roles","Roles & permissions"],["teams","Teams"],
   ["ai","AI & integrations"],["notifications","Notifications & email"],["integrations","Cloud storage"],["backup","Backup & data"]];
-  var h='<div class="pagehead"><div><h1>'+tr("Settings")+'</h1><div class="muted" style="margin-top:4px">'+""+(canI.manageWorkspace()?'':' · <span class="badge">'+I.lock+tr("read-only for your role")+'</span>')+'</div></div></div><div class="settings"><select class="settings-mobile-select mobile-only" aria-label="'+attr(tr("Settings"))+'" onchange="S.settingsTab=this.value;renderScreen(false)">'+tabs.map(function(t){ return '<option value="'+t[0]+'"'+(S.settingsTab===t[0]?" selected":"")+'>'+esc(tr(t[1]))+'</option>'; }).join("")+'</select><div class="snav">'+tabs.map(function(t){ return '<button class="'+(S.settingsTab===t[0]?"on":"")+'" onclick="S.settingsTab=\''+t[0]+'\';renderScreen(false)">'+tr(t[1])+'</button>'; }).join("")+'</div><div style="display:flex;flex-direction:column;gap:var(--sp-4)">'+({profile:setProfile,workspace:setWorkspace,theme:setThemeTab,workflow:setWorkflow,briefs:setBriefs,fields:setFields,labels:setLabels,tags:setTags,ai:setAI,automation:setAutomation,layout:setLayout,members:setMembers,roles:setRoles,teams:setTeamsTab,notifications:setNotifications,integrations:setIntegrations,backup:setBackup})[S.settingsTab]()+'</div></div>';
+  /* each tab only for whoever may do what it is for (src/settings-access.js) */
+  if(typeof settingsTabAllowed==="function"){ tabs=tabs.filter(function(t){ return settingsTabAllowed(t[0]); }); if(!tabs.some(function(t){ return t[0]===S.settingsTab; })) S.settingsTab=tabs[0][0]; }
+  var h='<div class="pagehead"><div><h1>'+tr("Settings")+'</h1></div></div><div class="settings"><select class="settings-mobile-select mobile-only" aria-label="'+attr(tr("Settings"))+'" onchange="S.settingsTab=this.value;renderScreen(false)">'+tabs.map(function(t){ return '<option value="'+t[0]+'"'+(S.settingsTab===t[0]?" selected":"")+'>'+esc(tr(t[1]))+'</option>'; }).join("")+'</select><div class="snav">'+tabs.map(function(t){ return '<button class="'+(S.settingsTab===t[0]?"on":"")+'" onclick="S.settingsTab=\''+t[0]+'\';renderScreen(false)">'+tr(t[1])+'</button>'; }).join("")+'</div><div style="display:flex;flex-direction:column;gap:var(--sp-4)">'+({profile:setProfile,workspace:setWorkspace,theme:setThemeTab,workflow:setWorkflow,briefs:setBriefs,fields:setFields,labels:setLabels,tags:setTags,ai:setAI,automation:setAutomation,layout:setLayout,members:setMembers,roles:setRoles,teams:setTeamsTab,notifications:setNotifications,integrations:setIntegrations,backup:setBackup})[S.settingsTab]()+'</div></div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){enableHorizontalDrag(document.querySelector(".settings .snav"));},0); }
 function sp(title,body,foot,icon,cls){ return '<section class="panel'+(cls?' '+cls:'')+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+tr(title)+'</h2></div><div class="panel-body pad">'+body+'</div>'+(foot?'<div class="panel-foot">'+foot+'</div>':'')+'</section>'; }
 function saveWS(msg){ persistWS().then(function(saved){ if(saved===false)return false; toast(msg||"Saved"); }); }
@@ -12085,7 +12186,7 @@ function resetPasswordModal(id){ openModal("Reset password for "+esc(person(id).
 function removeMember(id){ var n=TASKS.filter(function(t){ return t.assignee===id||t.reviewer===id; }).length; confirmModal("Remove "+esc(person(id).name)+"?",(n?"They are on "+n+" tasks — those will be reassigned to you. ":"")+"Their account can no longer sign in.",function(){ TASKS.forEach(function(t){ if (t.assignee===id) t.assignee=ME; if (t.reviewer===id) t.reviewer=ME; }); PROJECTS.forEach(function(p){ p.team=p.team.filter(function(m){ return m!==id; }); if (p.owner===id) p.owner=ME; }); delete PEOPLE[id]; toast("Member removed","bad"); refresh(); if (API.on) apiFetch("DELETE","/api/members/"+id).then(function(d){ PEOPLE=d; WS.people=PEOPLE; reloadAll(); }).catch(function(e){ fail(e); reloadAll(); }); },true); }
 /* roles */
 function setRoles(){ var ed=canI.manageRoles(); return sp("Roles & permissions",'<p class="hint" style="margin-bottom:10px">Roles control what each member can do. Admin has full access. Built-in roles can be edited but cannot be deleted.</p>'+ROLES.map(function(r){ var n=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id].perm===r.id; }).length; return '<div class="pref"><span class="sq '+(r.id==="admin"?"ink":"")+'">'+I.lock+'</span><div class="pl"><b>'+esc(r.name)+(r.system?' <span class="badge">system</span>':'')+'</b><span><span data-no-translate>'+esc(roleDescription(r))+'</span> · '+uiCount(n,"member","members")+' · '+(r.id==="admin"?tr("Full access"):uiCount((r.permissions||[]).length,"permission","permissions"))+'</span></div>'+(ed?'<button class="btn sm" onclick="roleModal(\''+r.id+'\')">'+I.edit+'Edit</button>':'')+'</div>'; }).join(""),ed?'<button class="btn" onclick="roleModal()">'+I.plus+'New role</button>':'',I.lock); }
-function roleModal(id){ var r=id?byId(ROLES,id):{name:"",description:"",permissions:[]}; var all=id==="admin"; openModal(id?"Edit role":"New role",'<div class="field-row">'+fieldHtml("rl_name","Name",'<input id="rl_name" value="'+attr(r.name)+'" placeholder="e.g. Photographer">')+fieldHtml("rl_desc","Description",'<input id="rl_desc" value="'+attr(r.description||"")+'">')+'</div><div class="field"><label>Capabilities</label>'+CAPS.map(function(c){ var on=all||(r.permissions||[]).indexOf(c[0])>=0; return '<div class="pref" style="padding:7px 0"><div class="pl"><b style="font-family:var(--font-mono);font-size:12px">'+c[0]+'</b><span>'+esc(c[1])+'</span></div><button class="switch'+(on?" on":"")+'" data-cap="'+c[0]+'" '+(all?'disabled':'onclick="this.classList.toggle(\'on\')"')+'></button></div>'; }).join("")+'</div>',(id&&!r.system?'<button class="btn danger-soft" onclick="deleteRole(\''+id+'\')">Delete role</button>':'')+'<span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveRole('+(id?"'"+id+"'":"null")+')">Save</button>',true); }
+function roleModal(id){ var r=id?byId(ROLES,id):{name:"",description:"",permissions:[]}; var all=id==="admin"; openModal(id?"Edit role":"New role",'<div class="field-row">'+fieldHtml("rl_name","Name",'<input id="rl_name" value="'+attr(r.name)+'" placeholder="e.g. Photographer">')+fieldHtml("rl_desc","Description",'<input id="rl_desc" value="'+attr(r.description||"")+'">')+'</div><div class="field"><label>Capabilities</label>'+capGroupsHtml(r,all)+'</div>',(id&&!r.system?'<button class="btn danger-soft" onclick="deleteRole(\''+id+'\')">Delete role</button>':'')+'<span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveRole('+(id?"'"+id+"'":"null")+')">Save</button>',true); }
 function saveRole(id){ if (!require(["rl_name"])) return; var perms=[]; document.querySelectorAll("[data-cap].on").forEach(function(b){ perms.push(b.getAttribute("data-cap")); }); var body={name:val("rl_name"),description:val("rl_desc"),permissions:perms}; closeModal();
   if (!API.on){ if (id){ Object.assign(byId(ROLES,id),body); } else { body.id="role_"+body.name.toLowerCase().replace(/[^a-z0-9]+/g,"_"); body.system=false; ROLES.push(body); } refresh(); return toast("Role saved (demo)"); }
   apiFetch(id?"PUT":"POST",id?"/api/roles/"+id:"/api/roles",body).then(function(list){ ROLES=list; refresh(); toast("Role saved"); }).catch(function(e){ fail(e); }); }
@@ -12095,18 +12196,17 @@ function setTeamsTab(){ var ed=canI.manageTeams(); return sp("Teams",'<p class="
 function restoreTeam(id){ var t=team(id); t.archived=false; t.sort=activeTeams().length+1; refresh(); toast(t.name+" restored"); persistTeam(t,false); }
 function moveTeam(i,d){ var order=activeTeams(); var j=i+d; if (j<0||j>=order.length) return; var t=order[i]; order[i]=order[j]; order[j]=t; order.forEach(function(x,k){ x.sort=k+1; }); refresh(); persistTeamOrder(); }
 /* notifications & email */
-function setNotifications(){ var ed=canI.manageWorkspace(); var items=[["assigned","Task assigned to me",""],["reviewer","Asked to review a task",""],["review","Task sent to me for review",""],["progress","Progress note updated on my task",""],["mention","I am @mentioned",""],["comment","New comment on my tasks",""],["revision","Revision requested on my work",""],["approved","My work approved",""],["upload","New version uploaded to a task I review",""],["status","Task moved to a new stage","Noisy — off by default"],["file","File attached",""],["request","New creative request (leads)",""],["request_status","My request changed status",""],["deadline","Deadline approaching (24h)",""],["missed","Deadline missed",""]];
-  var mail='<div id="mailStatus" class="hint">Checking email transport…</div>'; if (API.on) setTimeout(loadMailStatus,10); else mail='<div class="hint">Email delivery needs the server (npm start). Configure SMTP or Resend with environment variables — see README.</div>';
+function setNotifications(){ var ed=canI.manageNotificationSettings?canI.manageNotificationSettings():canI.manageWorkspace(); var items=[["assigned","Task assigned to me",""],["reviewer","Asked to review a task",""],["review","Task sent to me for review",""],["progress","Progress note updated on my task",""],["mention","I am @mentioned",""],["comment","New comment on my tasks",""],["revision","Revision requested on my work",""],["approved","My work approved",""],["upload","New version uploaded to a task I review",""],["status","Task moved to a new stage","Noisy — off by default"],["file","File attached",""],["request","New creative request (leads)",""],["request_status","My request changed status",""],["deadline","Deadline approaching (24h)",""],["missed","Deadline missed",""],["completed","Task finished (Done or Delivered)",""],["blocker","A task it depended on is finished",""]];
+  var mail='<div id="mailStatus" class="hint">Checking email transport…</div>'; if (API.on&&canI.manageEmail()) setTimeout(loadMailStatus,10); else mail='<div class="hint">Email delivery needs the server (npm start). Configure SMTP or Resend with environment variables — see README.</div>';
   /* v18 §20–22 personal delivery preferences — per member, on top of the
      workspace-level event switches below. One sound exists: the ZenCrevia chime. */
   var np=notifPrefs(), perm=notifPermission(), sw=function(k,label,help){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b>'+(help?'<span>'+tr(help)+'</span>':'')+'</div><button class="switch'+(np[k]!==false?" on":"")+'" role="switch" aria-checked="'+(np[k]!==false)+'" aria-label="'+attr(tr(label))+'" onclick="setNotifPref(\''+k+'\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button></div>'; };
   var browser='<div class="pref"><div class="pl"><b>'+tr("Enable browser notifications")+'</b><span>'+tr("Status")+': <b>'+notifPermissionLabel()+'</b>'+(perm==="denied"?' · '+tr("Allow notifications for this site in the browser settings to turn them back on."):'')+'</span></div>'+(perm==="granted"?'<button class="switch'+(np.browser?" on":"")+'" role="switch" aria-checked="'+(!!np.browser)+'" onclick="setNotifPref(\'browser\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button>':perm==="default"?'<button class="btn sm primary" onclick="notifPrePrompt(\'settings\',true)">'+I.bell+tr("Enable notifications")+'</button>':'<span class="badge">'+notifPermissionLabel()+'</span>')+'</div>'
     +'<div class="pref"><div class="pl"><b>'+tr("Notification sound")+'</b><span>'+tr("ZenCrevia chime — the one sound used for every notification. Plays only after you have interacted with the page, as browsers require.")+'</span></div><button class="btn sm ghost" onclick="zenSoundUnlock();zenSoundPlay(true)">'+I.bell+tr("Play")+'</button><button class="switch'+(np.sound!==false?" on":"")+'" role="switch" aria-checked="'+(np.sound!==false)+'" aria-label="'+attr(tr("Notification sound"))+'" onclick="setNotifPref(\'sound\',!this.classList.contains(\'on\'));this.classList.toggle(\'on\')"></button></div>';
-  var personal=sp("Browser notifications & sound",'<p class="hint" style="margin-bottom:10px">'+tr("Personal to your account. In-app notifications in the bell always work; these decide whether the browser and the chime join in.")+'</p>'+browser+(typeof pwaDeviceHtml==="function"?pwaDeviceHtml():""),null,I.bell)
-    + sp("Chat",sw("chat_dm","Direct messages","")+sw("chat_mention","Mentions","@you and @everyone")+sw("chat_reply","Replies to my messages","")+sw("chat_group","Group messages","")+sw("chat_team_general","Team #general messages","Per conversation you can still pick All / Mentions only / Mute."),null,'<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>')
-    + sp("Tasks",sw("task_assigned","Assigned to me","")+sw("task_due","Due soon","")+sw("task_completed","Task completed","")+sw("blocker","Blocker update",""),null,I.tasks)
-    + sp("Projects",sw("project_updates","Project updates","")+sw("approval","Approval requests",""),null,I.projects);
-  return personal+sp("In-app & email notifications",'<div class="pref"><div class="pl"><b>Send emails to everyone involved</b><span>Assignee, reviewer, mentioned people and requesters get an email for the events below, in addition to the in-app notification.</span></div><button class="switch'+(WS.notifPrefs.email!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs.email=!(WS.notifPrefs.email!==false);this.classList.toggle(\'on\');saveWS()"':'disabled')+'></button></div>'+items.map(function(it){ return '<div class="pref"><div class="pl"><b>'+it[1]+'</b><span>'+it[2]+'</span></div><button class="switch'+(WS.notifPrefs[it[0]]!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs[\''+it[0]+'\']=!(WS.notifPrefs[\''+it[0]+'\']!==false);this.classList.toggle(\'on\');saveWS()"':'disabled')+' aria-label="'+it[1]+'"></button></div>'; }).join(""),null,I.bell)+sp("Email delivery",mail,API.on&&canI.manageWorkspace()?'<button class="btn" onclick="apiFetch(\'POST\',\'/api/mail/test\',{}).then(function(r){toast(\'Test email sent via \'+r.transport)}).catch(function(e){toast(e.message,\'bad\')});setTimeout(loadMailStatus,800)">'+I.sync+'Send me a test email</button>':'',I.sync)
+  var personal=sp("Browser notifications & sound",'<p class="hint" style="margin-bottom:10px">'+tr("Personal to your account: whether the browser and the chime join in. What reaches you, and how, is chosen below.")+'</p>'+browser+(typeof pwaDeviceHtml==="function"?pwaDeviceHtml():""),null,I.bell)
+    /* each kind of notification, in the bell, by e-mail, in the browser — the switches that were here are its Browser column (src/notif-choices.js) */
+    + (typeof notifChoicesHtml==="function"?notifChoicesHtml():"");
+  return personal+(ed?sp("In-app & email notifications",'<div class="pref"><div class="pl"><b>Send emails to everyone involved</b><span>Assignee, reviewer, mentioned people and requesters get an email for the events below, in addition to the in-app notification.</span></div><button class="switch'+(WS.notifPrefs.email!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs.email=!(WS.notifPrefs.email!==false);this.classList.toggle(\'on\');saveNotifDefaults()"':'disabled')+'></button></div>'+items.map(function(it){ return '<div class="pref"><div class="pl"><b>'+it[1]+'</b><span>'+it[2]+'</span></div><button class="switch'+(WS.notifPrefs[it[0]]!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs[\''+it[0]+'\']=!(WS.notifPrefs[\''+it[0]+'\']!==false);this.classList.toggle(\'on\');saveNotifDefaults()"':'disabled')+' aria-label="'+it[1]+'"></button></div>'; }).join(""),null,I.bell):"")+(canI.manageEmail()?sp("Email delivery",mail,API.on&&canI.manageEmail()?'<button class="btn" onclick="apiFetch(\'POST\',\'/api/mail/test\',{}).then(function(r){toast(\'Test email sent via \'+r.transport)}).catch(function(e){toast(e.message,\'bad\')});setTimeout(loadMailStatus,800)">'+I.sync+'Send me a test email</button>':'',I.sync):"")
     + (typeof annSection==="function"?annSection():"")
     + setSmtp();
 }
@@ -12116,7 +12216,7 @@ function loadMailStatus(){ apiFetch("GET","/api/mail/status").then(function(m){ 
 /* integrations */
 /* Google Drive is the only storage destination exposed in Settings. */
 function setIntegrations(){
-  var c=typeof driveOnly==="function"?driveOnly():byId(WS.cloud,"gdrive"),ed=canI.manageWorkspace();
+  var c=typeof driveOnly==="function"?driveOnly():byId(WS.cloud,"gdrive"),ed=canI.manageCloudStorage();
   var step=function(n,title,text){return '<div class="drive-step"><b>'+n+'</b><div><strong>'+esc(tr(title))+'</strong><span>'+esc(tr(text))+'</span></div></div>';};
   var access=function(who,result,tone){return '<div class="drive-access-row"><span>'+esc(tr(who))+'</span><b class="'+tone+'">'+esc(tr(result))+'</b></div>';};
   var body='<p class="hint" style="margin-bottom:14px">'+esc(tr("Files stay in Google Drive. ZenCrevia stores their links and displays previews when available."))+'</p>'
@@ -12629,7 +12729,8 @@ function smtpSave(){
   }).catch(function(e){ toast(e.message,"bad"); });
 }
 function setSmtp(){
-  var ed=canI.manageWorkspace();
+  if(!canI.manageEmail()) return "";
+  var ed=canI.manageEmail();
   if(!API.on) return sp("SMTP",serverOnlyNotice("Start the server (npm start) to configure email delivery from here.")
     + '<p class="hint">'+tr("In standalone demo mode there is no mail transport, so notification emails are not sent.")+'</p>',null,I.inbox||I.bell);
   if(!SMTP.loaded){ setTimeout(loadSmtp,0); return sp("SMTP",'<div class="hint">'+tr("Loading email settings…")+'</div>',null,I.inbox||I.bell); }
@@ -12681,7 +12782,7 @@ function setSmtp(){
 /* §10 delivery logs and retry status */
 var MAIL_LOG=null;
 function setMailLog(){
-  if(!API.on||!canI.manageWorkspace()) return "";
+  if(!API.on||!canI.manageEmail()) return "";
   if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); }); }).catch(function(){}); }
   var rows=(MAIL_LOG||[]).slice(0,12).map(function(e){
     return '<div class="pref"><div class="pl"><b>'+esc((person(e.to)||{}).name||e.to)+' <span class="badge'+(e.error?" bad":" ok")+'">'+tr(e.error?"Failed":"Sent")+'</span></b>'
@@ -12705,7 +12806,7 @@ var BACKUP_SECTIONS = [
 var BK = { loaded:false, data:null, busy:false };
 function backupSection(){ var v=S.backupSection; return BACKUP_SECTIONS.some(function(x){ return x[0]===v; })?v:"overview"; }
 function loadBackups(force){
-  if(!API.on||!canI.manageWorkspace()) return;
+  if(!API.on||!canI.manageBackups()) return;
   if(BK.loaded&&!force) return;
   BK.loaded=true;
   apiFetch("GET","/api/backups").then(function(r){
@@ -12716,12 +12817,12 @@ function setBackup(){
   var cur=backupSection();
   var nav='<div class="subnav" role="tablist">'+BACKUP_SECTIONS.map(function(x){
     return '<button role="tab" aria-selected="'+(cur===x[0]?"true":"false")+'" class="'+(cur===x[0]?"on":"")+'" onclick="S.backupSection=\''+x[0]+'\';renderScreen(false)">'+tr(x[1])+'</button>'; }).join("")+'</div>';
-  if(API.on&&canI.manageWorkspace()) setTimeout(function(){ loadBackups(false); },0);
+  if(API.on&&canI.manageBackups()) setTimeout(function(){ loadBackups(false); },0);
   return nav+({overview:bkOverview,history:bkHistory,io:bkImportExport,auto:bkAuto,retention:bkRetention,storage:bkStorage}[cur])();
 }
 function bkNotReady(){
   if(!API.on) return sp("Backup & data",serverOnlyNotice("Encrypted backups, history and restore need the server. In standalone demo mode you can still download and load a JSON snapshot from Import / Export."),null,I.lock);
-  if(!canI.manageWorkspace()) return sp("Backup & data",'<p class="hint">'+tr("Your role cannot view backups.")+'</p>',null,I.lock);
+  if(!canI.manageBackups()) return sp("Backup & data",'<p class="hint">'+tr("Your role cannot view backups.")+'</p>',null,I.lock);
   if(!BK.data) return sp("Backup & data",'<div class="hint">'+tr("Loading backup status…")+'</div>',null,I.lock);
   if(BK.data.error) return sp("Backup & data",'<div class="banner warn">'+esc(BK.data.error)+'</div>',null,I.lock);
   if(!BK.data.configured) return sp("Backup & data",
@@ -12741,7 +12842,7 @@ function bkOverview(){
     + (function(){ var sc=d.schedule||{}, h=+sc.intervalHours||0, lbl=!h?"Off":(h===24?"Daily":h===168?"Weekly":"Every "+h+"h"); return row("Automatic backups", tr(lbl)+(sc.source==="environment"?' · '+tr("set by server"):''), !h?'<span class="badge warn">'+tr("Manual only")+'</span>':''); })()
     + row("Integrity", bad?bad+" "+tr("need attention"):tr("all verified"), bad?'<span class="badge bad">'+tr("Check Backup History")+'</span>':'<span class="badge ok">'+tr("Checksums match")+'</span>')
     + row("Off-server copy", (d.settings||{}).offsite?tr("configured"):tr("not configured"), (d.settings||{}).offsite?'':'<span class="badge warn">'+tr("A copy on the same disk does not survive losing the disk")+'</span>'),
-    canI.manageWorkspace()?'<button class="btn primary" onclick="createServerBackup()">'+I.lock+tr("Create backup now")+'</button>':'', I.lock);
+    canI.manageBackups()?'<button class="btn primary" onclick="createServerBackup()">'+I.lock+tr("Create backup now")+'</button>':'', I.lock);
 }
 function bkKindBadge(kind){
   var map={manual:["Manual",""],scheduled:["Scheduled","ok"],"pre-restore":["Safety copy","warn"],"pre-import":["Safety copy","warn"]};
@@ -12870,7 +12971,7 @@ function bkPreImportBackup(){
 }
 function bkAuto(){
   var gate=bkNotReady(); if(gate) return gate;
-  var d=BK.data.settings||{}, sch=BK.data.schedule||{}, envLock=sch.source==="environment", ed=canI.manageWorkspace()&&!envLock;
+  var d=BK.data.settings||{}, sch=BK.data.schedule||{}, envLock=sch.source==="environment", ed=canI.manageBackups()&&!envLock;
   var shown=envLock?(sch.intervalHours?"":"off"):(sch.mode||d.auto||"off");
   return sp("Automatic Backups",
     '<p class="hint" style="margin-bottom:10px">'+tr("A scheduled backup runs on the server. It uses the same encryption and retention as a manual one.")+'</p>'
@@ -12882,7 +12983,7 @@ function bkAuto(){
 }
 function bkRetention(){
   var gate=bkNotReady(); if(gate) return gate;
-  var d=BK.data.settings||{}, ed=canI.manageWorkspace();
+  var d=BK.data.settings||{}, ed=canI.manageBackups();
   return sp("Retention",
     '<p class="hint" style="margin-bottom:10px">'+tr("How many backups to keep. The oldest are removed once the limit is passed — except safety copies taken before a restore or import, which are always kept.")+'</p>'
     + '<div class="pref"><div class="pl"><b>'+tr("Backups to keep")+'</b><span>'+tr("Recommended")+': 14.</span></div>'
@@ -12891,7 +12992,7 @@ function bkRetention(){
 }
 function bkStorage(){
   var gate=bkNotReady(); if(gate) return gate;
-  var st=BK.data.storage||{}, d=BK.data.settings||{}, ed=canI.manageWorkspace();
+  var st=BK.data.storage||{}, d=BK.data.settings||{}, ed=canI.manageBackups();
   return sp("Storage",
     '<div class="pref"><div class="pl"><b>'+tr("Backup directory")+'</b><span class="mono">'+esc(st.dir||"—")+'</span></div></div>'
     + '<div class="pref"><div class="pl"><b>'+tr("Stored")+'</b><span>'+(st.count||0)+' '+tr("backups")+' · '+esc(bytesLabel(st.bytes))+'</span></div></div>'
@@ -19783,7 +19884,7 @@ function restoreDo(type,id,actId){
 var GDS = { status: null };
 function gdsPanel(){
   if(typeof canI==="undefined"||!canI||typeof canI.manageWorkspace!=="function") return "";
-  if(!canI.manageWorkspace()) return "";
+  if(!(canI.manageCloudStorage?canI.manageCloudStorage():canI.manageWorkspace())) return "";
   setTimeout(gdsRefresh,0);   /* keeps it fresh; repaints nothing when the answer is unchanged */
   var body=GDS.status?gdsMarkup(GDS.status):'<p class="hint">'+tr("Checking…")+'</p>';
   return sp("Shared Google Drive account",'<div id="gdsBody">'+body+'</div>',"",I.cloud);
@@ -19949,7 +20050,7 @@ function legSave(){
    language switch cannot make it flash. */
 function stoCfg(){ var c=cloudOf("gdrive"); c.config=c.config||{}; return c.config; }
 function stoPanel(){
-  if(typeof canI==="undefined"||!canI||typeof canI.manageWorkspace!=="function"||!canI.manageWorkspace()) return "";
+  if(typeof canI==="undefined"||!canI||typeof canI.manageCloudStorage!=="function"||!canI.manageCloudStorage()) return "";
   return sp("File storage",'<div id="stoBody">'+stoMarkup()+'</div>',"",I.cloud);
 }
 function stoSeg(mode,label,on){ return '<button type="button" class="'+(on?"on":"")+'" aria-pressed="'+(on?"true":"false")+'" data-storage="'+mode+'" onclick="stoSet(\''+mode+'\')">'+tr(label)+'</button>'; }
@@ -21115,6 +21216,139 @@ Object.assign(UI_ID,{
   "This e-mail goes to {n} person. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.","This e-mail goes to {n} people. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.",
   "Test sent to {to}":"Tes terkirim ke {to}","Sending to {n} people…":"Mengirim ke {n} orang…","Sending…":"Mengirim…","Sent to {n}":"Terkirim ke {n}","{n} failed":"{n} gagal",
   "Write a subject":"Tulis subjeknya","Write a message":"Tulis pesannya","The link must start with https://":"Link harus diawali https://"
+});
+</script>
+<script>
+/* WHAT REACHES ME (Oct 2026) — Settings → Notifications, for each person: every kind of notification is a row, and
+   each row is on or off in the bell, by e-mail and in the browser. The server keeps to it (server.js notifWanted):
+   what is off is not in the bell, not e-mailed, not pushed. The browser column is the switches people had before,
+   under the same names. Whoever's role lacks choose_notifications sees the table as it stands and receives what the
+   workspace sends; an admin gives or takes the choice per role, in Roles & permissions. */
+var NC_ROWS=[
+  ["Tasks & projects",[
+    ["task_assigned","Assigned to me, or asked to review","","aep"],
+    ["approval","Reviews and approvals","Sent for my review, approved, changes asked for","aep"],
+    ["comment_mention","Mentioned in a comment or a project discussion","","aep"],
+    ["comment_reply","Comments on my work, and replies to me","","aep"],
+    ["task_due","Due soon and overdue","","aep"],
+    ["project_updates","Other updates","Stage changes, new versions, files, progress notes, tasks I watch","aep"],
+    ["requests","Requests","New requests, and my request's status","aep"],
+    ["task_completed","Task completed","Moved to Done or Delivered","aep"],
+    ["blocker","Blocker update","A task it depended on is finished — it can start","aep"]]],
+  ["Chat",[
+    ["chat_dm","Direct messages","E-mailed only while you are away","aep"],
+    ["chat_mention","Mentions","@you and @everyone","aep"],
+    ["chat_reply","Replies to my messages","","ap"],
+    ["chat_group","Group messages","","ap"],
+    ["chat_team_general","Team #general messages","Per conversation you can still pick All / Mentions only / Mute.","ap"]]],
+  ["Workspace",[
+    ["signup","Sign-ups waiting for my approval","","aep"]]]
+];
+/* which row each kind of notification is — the same as the server's (server.js NOTIF_CATEGORY) */
+var NC_CATEGORY={completed:"task_completed",blocker:"blocker",assigned:"task_assigned",reviewer:"task_assigned",review:"approval",approved:"approval",revision:"approval",mention:"comment_mention",comment:"comment_reply",deadline:"task_due",missed:"task_due",status:"project_updates",upload:"project_updates",file:"project_updates",progress:"project_updates",watch:"project_updates",transition:"project_updates",request:"requests",request_status:"requests",signup:"signup"};
+/* a role that may not choose gets every kind in the browser too, whatever was chosen before (as the server does) */
+(function(){ if(typeof notifPref!=="function") return; var base=notifPref, rows={}; NC_ROWS.forEach(function(g){ g[1].forEach(function(r){ rows[r[0]]=1; }); }); notifPref=function(k){ if(rows[k]&&API.on&&!has("choose_notifications")) return true; return base.apply(this,arguments); }; })();
+var NC_WAYS=[["a","app","In the bell"],["e","email","Email"],["p","push","Browser"]];
+function ncCanChoose(){ return !API.on||has("choose_notifications"); }
+function ncKey(cat,way){ return way==="push"?cat:cat+":"+way; }
+var NC_CHAT_ICON='<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>';
+function ncGroupIcon(name){ return name==="Chat"?NC_CHAT_ICON:name==="Workspace"?I.team:I.tasks; }
+function notifChoicesHtml(){ var np=notifPrefs(), ok=ncCanChoose(), browserOn=typeof notifBrowserAllowed==="function"&&notifBrowserAllowed();
+  var head='<div class="nc-row nc-head"><span></span>'+NC_WAYS.map(function(w){ return '<span class="nc-way">'+tr(w[2])+'</span>'; }).join("")+'</div>';
+  var groups=NC_ROWS.map(function(g){ var rows=g[1].filter(function(r){ return r[0]!=="signup"||has("approve_members"); }); if(!rows.length) return "";
+    /* each group a box of its own, headed by its mark, its name and how many kinds are in it */
+    return '<div class="nc-group-box"><div class="nc-group"><span class="nc-group-ico" aria-hidden="true">'+ncGroupIcon(g[0])+'</span><span>'+tr(g[0])+'</span><span class="nc-group-n">'+rows.length+'</span></div>'+rows.map(function(r){ var cat=r[0];
+      return '<div class="nc-row" data-cat="'+attr(cat)+'"><div class="nc-what"><b>'+tr(r[1])+'</b>'+(r[2]?'<span>'+tr(r[2])+'</span>':'')+'</div>'+NC_WAYS.map(function(w){
+        if(r[3].indexOf(w[0])<0) return '<span class="nc-cell nc-na" title="'+attr(tr("Not sent this way"))+'">—</span>';
+        var k=ncKey(cat,w[1]), on=np[k]!==false, off=!ok||(w[1]==="push"&&!browserOn);
+        return '<label class="nc-cell"><input type="checkbox" data-way="'+w[1]+'"'+(on?' checked':'')+(off?' disabled':'')+' aria-label="'+attr(tr(r[1])+" — "+tr(w[2]))+'" onchange="ncSet('+jsq(k)+',this.checked,'+jsq(w[1])+')"></label>'; }).join("")+'</div>'; }).join("")+'</div>'; }).join("");
+  var note=!ok?'<p class="nc-note">'+I.lock+'<span>'+tr("Your role receives every notification the workspace sends. An admin can let your role choose, in Roles & permissions.")+'</span></p>'
+    :(!browserOn?'<p class="hint nc-hint">'+tr("The Browser column works once browser notifications are on, above.")+'</p>':'');
+  return sp("What reaches me",'<p class="hint" style="margin-bottom:10px">'+tr("Personal to your account. Turn a kind off where you do not want it — in the bell, by e-mail or in the browser. What the workspace does not send does not come either way.")+'</p>'+note+'<div class="nc-table'+(ok?'':' nc-locked')+'" role="group" aria-label="'+attr(tr("What reaches me"))+'">'+head+groups+'</div>',null,I.bell,"nc-panel"); }
+/* saved to the account; a kind turned off or back on in the bell changes the bell at once */
+function ncSet(k,on,way){ if(!ncCanChoose()) return; notifPrefs()[k]=!!on; var saved=saveMyPrefs();
+  if(way==="app"&&API.on&&saved&&saved.then) saved.then(function(){ return apiFetch("GET","/api/live/notifs"); }).then(function(d){ if(!d||!d.notifs) return; NOTIFS=d.notifs.map(hNotif); syncNotifDot(); renderNav(); var np=document.getElementById("notifPop"); if(np&&np.classList.contains("open")) renderNotifs(); }).catch(function(){}); }
+/* A TASK FINISHED, AND WHAT WAITED ON IT (Oct 2026). Moved into a finishing stage (Done, Delivered — not Declined), everyone
+   the task concerns hears it is finished ("completed": the Task completed row) rather than that it moved; and the people
+   on each task that depended on it hear it can start ("blocker": the Blocker update row). An approval says "approved"
+   itself, and tells those waiting too (approveTask). */
+function taskFinished(tk){ return !!tk&&stageKind(tk.status)==="closed"&&String(tk.status).toLowerCase()!=="declined"; }
+function notifyUnblocked(tk){ if(!tk||typeof blockingTasksOf!=="function") return; blockingTasksOf(tk).filter(function(d){ return !d._draft&&!isClosed(d); }).forEach(function(d){ notify("blocker",taskPeople(d,["assignees","reviewers"]),d.id); }); }
+(function(){ if(typeof notifyMoved!=="function") return; var base=notifyMoved; notifyMoved=function(tk){ if(!tk||tk._draft||!taskFinished(tk)) return base.apply(this,arguments);
+  var told=taskPeople(tk); notify("completed",told,tk.id);
+  var ws=((tk.meta&&tk.meta.watchers)||[]).filter(function(u){ return u!==ME&&told.indexOf(u)<0; }); if(ws.length) notify("watch",ws,tk.id);
+  notifyUnblocked(tk); }; })();
+Object.assign(UI_ID,{
+  "Moved to Done or Delivered":"Dipindah ke Done atau Delivered","Task finished (Done or Delivered)":"Task selesai (Done atau Delivered)","A task it depended on is finished":"Task yang ditunggunya sudah selesai","A task it depended on is finished — it can start":"Task yang ditunggunya sudah selesai — bisa dimulai",
+  "What reaches me":"Yang ingin saya terima","In the bell":"Di lonceng","Email":"Email","Browser":"Browser","Not sent this way":"Tidak dikirim lewat cara ini",
+  "Personal to your account. Turn a kind off where you do not want it — in the bell, by e-mail or in the browser. What the workspace does not send does not come either way.":"Berlaku untuk akunmu saja. Matikan jenis yang tidak ingin kamu terima — di lonceng, lewat email, atau di browser. Yang tidak dikirim workspace tetap tidak datang.",
+  "Your role receives every notification the workspace sends. An admin can let your role choose, in Roles & permissions.":"Role-mu menerima semua notifikasi yang dikirim workspace. Admin bisa mengizinkan role-mu memilih, di Role & izin.",
+  "The Browser column works once browser notifications are on, above.":"Kolom Browser aktif setelah notifikasi browser dinyalakan di atas.",
+  "Tasks & projects":"Task & project","Assigned to me, or asked to review":"Ditugaskan ke saya, atau diminta me-review","Reviews and approvals":"Review dan persetujuan","Sent for my review, approved, changes asked for":"Dikirim untuk saya review, disetujui, diminta revisi",
+  "Mentioned in a comment or a project discussion":"Disebut di komentar atau diskusi project","Comments on my work, and replies to me":"Komentar di pekerjaan saya, dan balasan untuk saya","Due soon and overdue":"Mendekati tenggat dan terlambat",
+  "Other updates":"Update lainnya","Stage changes, new versions, files, progress notes, tasks I watch":"Perpindahan tahap, versi baru, file, catatan progres, task yang saya pantau","Requests":"Permintaan","New requests, and my request's status":"Permintaan baru, dan status permintaan saya",
+  "Task completed":"Task selesai","Blocker update":"Update blocker","Chat":"Chat","Direct messages":"Pesan langsung","E-mailed only while you are away":"Email hanya dikirim saat kamu sedang tidak aktif","Mentions":"Mention","@you and @everyone":"@kamu dan @everyone",
+  "Replies to my messages":"Balasan untuk pesan saya","Group messages":"Pesan grup","Team #general messages":"Pesan #general tim","Workspace":"Workspace","Sign-ups waiting for my approval":"Pendaftar yang menunggu persetujuan saya",
+  "Choose which notifications they receive, and how":"Memilih notifikasi yang diterima, dan caranya",
+  "Personal to your account: whether the browser and the chime join in. What reaches you, and how, is chosen below.":"Berlaku untuk akunmu saja: apakah browser dan suara ikut memberi tahu. Apa yang kamu terima, dan caranya, dipilih di bawah."
+});
+</script>
+<script>
+/* WHO SEES WHICH SETTINGS, AND ROLES IN GROUPS (Oct 2026).
+
+   Settings showed every tab to everyone — a member could open the AI providers, cloud storage, SMTP and backups,
+   read-only. Now each tab is there only for whoever may do what it is for: the personal ones (profile, menu &
+   home, the look, notifications) for everyone; the workspace's for whoever manages the workspace; Members, Roles
+   and Teams for whoever manages them; Cloud storage, e-mail delivery and Backups each by a capability of its own
+   (manage_cloud_storage, manage_email, manage_backups — given once to every role that could manage the workspace),
+   so one can be handed over without the rest. The server asks for the same capabilities.
+
+   In Roles & permissions the capabilities stand in groups by what they are for, each group with how many are on
+   and one button to turn them all on or off. */
+canI.manageEmail=function(){ return has("manage_email"); };
+canI.manageCloudStorage=function(){ return has("manage_cloud_storage"); };
+canI.manageBackups=function(){ return has("manage_backups"); };
+canI.manageNotificationSettings=function(){ return has("manage_notification_settings"); };
+/* the workspace's notification switches are saved on their own (they have a capability of their own) */
+function saveNotifDefaults(){ if(!API.on) return; apiFetch("PUT","/api/workspace/notif-prefs",{notifPrefs:WS.notifPrefs}).then(function(d){ if(d&&d.notifPrefs) WS.notifPrefs=d.notifPrefs; toast(tr("Saved")); }).catch(function(e){ toast(e.message,"bad"); }); }
+var SETTINGS_ACCESS={profile:null,layout:null,theme:null,notifications:null,
+  workspace:["manage_workspace"],workflow:["manage_workspace"],automation:["manage_workspace"],briefs:["manage_workspace"],fields:["manage_workspace"],labels:["manage_workspace"],tags:["manage_workspace"],ai:["manage_workspace"],
+  members:["manage_members","approve_members"],roles:["manage_roles"],teams:["manage_teams"],integrations:["manage_cloud_storage"],backup:["manage_backups"]};
+function settingsTabAllowed(id){ if(!API.on) return true; var need=SETTINGS_ACCESS[id]; if(need===undefined) return canI.manageWorkspace(); return !need||need.some(function(c){ return has(c); }); }
+
+var CAP_GROUPS=[
+  ["Workspace & settings",["manage_workspace","manage_email","manage_cloud_storage","manage_backups","manage_roles"]],
+  ["People & teams",["manage_members","approve_members","manage_teams"]],
+  ["Notifications",["choose_notifications","manage_notification_settings","send_announcements"]],
+  ["Projects",["create_project","edit_any_project","delete_project"]],
+  ["Tasks",["view_all","create_task","create_own_task","edit_any_task","edit_team_tasks","edit_own_task","assign_task","delete_task","upload_file"]],
+  ["Reviews & requests",["review_any","submit_request","decide_request"]],
+  ["Progress notes",["view_progress_notes","write_progress_notes"]],
+  ["Assets & knowledge",["manage_assets","manage_knowledge"]],
+  ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery"]],
+  ["Insights",["view_analytics"]]];
+var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Other":"more"};
+/* the capabilities of a role, in their groups; any the list does not name yet go under Other */
+function capGroupsHtml(r,all){ var seen={}, has_=function(id){ return all||(r.permissions||[]).indexOf(id)>=0; };
+  var groups=CAP_GROUPS.map(function(g){ return [g[0],g[1].map(function(id){ seen[id]=1; return CAPS.filter(function(c){ return c[0]===id; })[0]; }).filter(Boolean)]; });
+  var rest=CAPS.filter(function(c){ return !seen[c[0]]; }); if(rest.length) groups.push(["Other",rest]);
+  return groups.filter(function(g){ return g[1].length; }).map(function(g){ var on=g[1].filter(function(c){ return has_(c[0]); }).length;
+    return '<div class="cap-group"><div class="cap-group-head"><span class="cap-group-ico" aria-hidden="true">'+(I[CAP_GROUP_ICON[g[0]]]||I.lock)+'</span><b>'+esc(tr(g[0]))+'</b><span class="cap-count">'+on+'/'+g[1].length+'</span><span class="spacer"></span>'+(all?'':'<button type="button" class="btn xs ghost cap-all" onclick="capGroupToggle(this)">'+tr(on===g[1].length?"Turn all off":"Turn all on")+'</button>')+'</div>'
+      +g[1].map(function(c){ var o=has_(c[0]); return '<div class="pref cap-row"><div class="pl"><b>'+esc(tr(c[1]))+'</b><span class="cap-id" data-no-translate>'+esc(c[0])+'</span></div><button type="button" class="switch'+(o?" on":"")+'" data-cap="'+attr(c[0])+'" role="switch" aria-checked="'+o+'" aria-label="'+attr(tr(c[1]))+'" '+(all?'disabled':'onclick="capToggle(this)"')+'></button></div>'; }).join("")+'</div>'; }).join(""); }
+function capToggle(b){ b.classList.toggle("on"); b.setAttribute("aria-checked",String(b.classList.contains("on"))); capGroupSync(b.closest(".cap-group")); }
+function capGroupToggle(btn){ var g=btn.closest(".cap-group"), sw=g.querySelectorAll("[data-cap]"), allOn=Array.prototype.every.call(sw,function(s){ return s.classList.contains("on"); });
+  Array.prototype.forEach.call(sw,function(s){ s.classList.toggle("on",!allOn); s.setAttribute("aria-checked",String(!allOn)); }); capGroupSync(g); }
+function capGroupSync(g){ if(!g) return; var n=g.querySelectorAll("[data-cap]").length, on=g.querySelectorAll("[data-cap].on").length, c=g.querySelector(".cap-count"), b=g.querySelector(".cap-all");
+  if(c) c.textContent=on+"/"+n; if(b) b.textContent=tr(on===n?"Turn all off":"Turn all on"); }
+
+Object.assign(UI_ID,{
+  "Workspace & settings":"Workspace & pengaturan","People & teams":"Orang & tim","Notifications":"Notifikasi","Projects":"Project","Tasks":"Task","Reviews & requests":"Review & permintaan","Progress notes":"Catatan progres","Assets & knowledge":"Aset & knowledge","AI Hub & gallery":"AI Hub & galeri","Insights":"Analitik","Other":"Lainnya",
+  "Turn all on":"Nyalakan semua","Set which events the workspace sends, in the app and by e-mail":"Mengatur event yang dikirim workspace, di aplikasi dan lewat email","Saved":"Tersimpan","Turn all off":"Matikan semua",
+  "Set up e-mail delivery (SMTP), see the delivery log":"Mengatur pengiriman email (SMTP), melihat log pengiriman",
+  "Connect and set up cloud storage (Google Drive)":"Menghubungkan dan mengatur cloud storage (Google Drive)",
+  "See, create, verify and restore backups":"Melihat, membuat, memeriksa, dan memulihkan backup","Submit a request (a task in the first stage, unassigned) for the creative team to triage":"Mengajukan permintaan (task di tahap pertama, tanpa penanggung jawab) untuk disortir tim kreatif",
+  "Open AI Hub and generate visuals":"Membuka AI Hub dan membuat visual","Browse the shared AI Gallery":"Menjelajah AI Gallery bersama","Publish their own designs to the AI Gallery":"Menerbitkan desain sendiri ke AI Gallery",
+  "Duplicate someone else's gallery design":"Menduplikat desain galeri milik orang lain","Rename, archive and delete their own designs":"Mengganti nama, mengarsipkan, dan menghapus desain sendiri","Manage any member's gallery design":"Mengelola desain galeri anggota mana pun"
 });
 </script>
 <script>

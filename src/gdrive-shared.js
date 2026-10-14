@@ -11,7 +11,7 @@
 var GDS = { status: null };
 function gdsPanel(){
   if(typeof canI==="undefined"||!canI||typeof canI.manageWorkspace!=="function") return "";
-  if(!canI.manageWorkspace()) return "";
+  if(!(canI.manageCloudStorage?canI.manageCloudStorage():canI.manageWorkspace())) return "";
   setTimeout(gdsRefresh,0);   /* keeps it fresh; repaints nothing when the answer is unchanged */
   var body=GDS.status?gdsMarkup(GDS.status):'<p class="hint">'+tr("Checking…")+'</p>';
   return sp("Shared Google Drive account",'<div id="gdsBody">'+body+'</div>',"",I.cloud);

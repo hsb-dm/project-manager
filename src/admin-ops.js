@@ -99,7 +99,8 @@ function smtpSave(){
   }).catch(function(e){ toast(e.message,"bad"); });
 }
 function setSmtp(){
-  var ed=canI.manageWorkspace();
+  if(!canI.manageEmail()) return "";
+  var ed=canI.manageEmail();
   if(!API.on) return sp("SMTP",serverOnlyNotice("Start the server (npm start) to configure email delivery from here.")
     + '<p class="hint">'+tr("In standalone demo mode there is no mail transport, so notification emails are not sent.")+'</p>',null,I.inbox||I.bell);
   if(!SMTP.loaded){ setTimeout(loadSmtp,0); return sp("SMTP",'<div class="hint">'+tr("Loading email settings…")+'</div>',null,I.inbox||I.bell); }
@@ -151,7 +152,7 @@ function setSmtp(){
 /* §10 delivery logs and retry status */
 var MAIL_LOG=null;
 function setMailLog(){
-  if(!API.on||!canI.manageWorkspace()) return "";
+  if(!API.on||!canI.manageEmail()) return "";
   if(MAIL_LOG===null){ MAIL_LOG=[]; apiFetch("GET","/api/mail/log").then(function(r){ MAIL_LOG=r.entries||[]; MAIL_LOG.state=r.state; if(S.settingsTab==="notifications") bgRedraw(function(){ renderScreen(false); }); }).catch(function(){}); }
   var rows=(MAIL_LOG||[]).slice(0,12).map(function(e){
     return '<div class="pref"><div class="pl"><b>'+esc((person(e.to)||{}).name||e.to)+' <span class="badge'+(e.error?" bad":" ok")+'">'+tr(e.error?"Failed":"Sent")+'</span></b>'
@@ -175,7 +176,7 @@ var BACKUP_SECTIONS = [
 var BK = { loaded:false, data:null, busy:false };
 function backupSection(){ var v=S.backupSection; return BACKUP_SECTIONS.some(function(x){ return x[0]===v; })?v:"overview"; }
 function loadBackups(force){
-  if(!API.on||!canI.manageWorkspace()) return;
+  if(!API.on||!canI.manageBackups()) return;
   if(BK.loaded&&!force) return;
   BK.loaded=true;
   apiFetch("GET","/api/backups").then(function(r){
@@ -186,12 +187,12 @@ function setBackup(){
   var cur=backupSection();
   var nav='<div class="subnav" role="tablist">'+BACKUP_SECTIONS.map(function(x){
     return '<button role="tab" aria-selected="'+(cur===x[0]?"true":"false")+'" class="'+(cur===x[0]?"on":"")+'" onclick="S.backupSection=\''+x[0]+'\';renderScreen(false)">'+tr(x[1])+'</button>'; }).join("")+'</div>';
-  if(API.on&&canI.manageWorkspace()) setTimeout(function(){ loadBackups(false); },0);
+  if(API.on&&canI.manageBackups()) setTimeout(function(){ loadBackups(false); },0);
   return nav+({overview:bkOverview,history:bkHistory,io:bkImportExport,auto:bkAuto,retention:bkRetention,storage:bkStorage}[cur])();
 }
 function bkNotReady(){
   if(!API.on) return sp("Backup & data",serverOnlyNotice("Encrypted backups, history and restore need the server. In standalone demo mode you can still download and load a JSON snapshot from Import / Export."),null,I.lock);
-  if(!canI.manageWorkspace()) return sp("Backup & data",'<p class="hint">'+tr("Your role cannot view backups.")+'</p>',null,I.lock);
+  if(!canI.manageBackups()) return sp("Backup & data",'<p class="hint">'+tr("Your role cannot view backups.")+'</p>',null,I.lock);
   if(!BK.data) return sp("Backup & data",'<div class="hint">'+tr("Loading backup status…")+'</div>',null,I.lock);
   if(BK.data.error) return sp("Backup & data",'<div class="banner warn">'+esc(BK.data.error)+'</div>',null,I.lock);
   if(!BK.data.configured) return sp("Backup & data",
@@ -211,7 +212,7 @@ function bkOverview(){
     + (function(){ var sc=d.schedule||{}, h=+sc.intervalHours||0, lbl=!h?"Off":(h===24?"Daily":h===168?"Weekly":"Every "+h+"h"); return row("Automatic backups", tr(lbl)+(sc.source==="environment"?' · '+tr("set by server"):''), !h?'<span class="badge warn">'+tr("Manual only")+'</span>':''); })()
     + row("Integrity", bad?bad+" "+tr("need attention"):tr("all verified"), bad?'<span class="badge bad">'+tr("Check Backup History")+'</span>':'<span class="badge ok">'+tr("Checksums match")+'</span>')
     + row("Off-server copy", (d.settings||{}).offsite?tr("configured"):tr("not configured"), (d.settings||{}).offsite?'':'<span class="badge warn">'+tr("A copy on the same disk does not survive losing the disk")+'</span>'),
-    canI.manageWorkspace()?'<button class="btn primary" onclick="createServerBackup()">'+I.lock+tr("Create backup now")+'</button>':'', I.lock);
+    canI.manageBackups()?'<button class="btn primary" onclick="createServerBackup()">'+I.lock+tr("Create backup now")+'</button>':'', I.lock);
 }
 function bkKindBadge(kind){
   var map={manual:["Manual",""],scheduled:["Scheduled","ok"],"pre-restore":["Safety copy","warn"],"pre-import":["Safety copy","warn"]};
@@ -340,7 +341,7 @@ function bkPreImportBackup(){
 }
 function bkAuto(){
   var gate=bkNotReady(); if(gate) return gate;
-  var d=BK.data.settings||{}, sch=BK.data.schedule||{}, envLock=sch.source==="environment", ed=canI.manageWorkspace()&&!envLock;
+  var d=BK.data.settings||{}, sch=BK.data.schedule||{}, envLock=sch.source==="environment", ed=canI.manageBackups()&&!envLock;
   var shown=envLock?(sch.intervalHours?"":"off"):(sch.mode||d.auto||"off");
   return sp("Automatic Backups",
     '<p class="hint" style="margin-bottom:10px">'+tr("A scheduled backup runs on the server. It uses the same encryption and retention as a manual one.")+'</p>'
@@ -352,7 +353,7 @@ function bkAuto(){
 }
 function bkRetention(){
   var gate=bkNotReady(); if(gate) return gate;
-  var d=BK.data.settings||{}, ed=canI.manageWorkspace();
+  var d=BK.data.settings||{}, ed=canI.manageBackups();
   return sp("Retention",
     '<p class="hint" style="margin-bottom:10px">'+tr("How many backups to keep. The oldest are removed once the limit is passed — except safety copies taken before a restore or import, which are always kept.")+'</p>'
     + '<div class="pref"><div class="pl"><b>'+tr("Backups to keep")+'</b><span>'+tr("Recommended")+': 14.</span></div>'
@@ -361,7 +362,7 @@ function bkRetention(){
 }
 function bkStorage(){
   var gate=bkNotReady(); if(gate) return gate;
-  var st=BK.data.storage||{}, d=BK.data.settings||{}, ed=canI.manageWorkspace();
+  var st=BK.data.storage||{}, d=BK.data.settings||{}, ed=canI.manageBackups();
   return sp("Storage",
     '<div class="pref"><div class="pl"><b>'+tr("Backup directory")+'</b><span class="mono">'+esc(st.dir||"—")+'</span></div></div>'
     + '<div class="pref"><div class="pl"><b>'+tr("Stored")+'</b><span>'+(st.count||0)+' '+tr("backups")+' · '+esc(bytesLabel(st.bytes))+'</span></div></div>'
