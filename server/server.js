@@ -108,6 +108,19 @@ function notifyApprovers(pendingId, name) {
   const ids = approverIds().map(r => { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: r, who: pendingId, k: "signup", entityType: "user", t: pendingId, message: name }); return id; });
   setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
 }
+/* Notifications the server raises itself (a project's discussion): stored, then e-mailed, pushed and shown at once,
+   as /api/notifications does with the ones a page asks for. */
+function deliverNotifs(list, o) {
+  const ids = list.map(x => { const id = uid("nt"); sz.writeNotif(db, WS_ID, { id, recipient: x.recipient, who: o.who, k: x.k, entityType: o.entityType, t: o.t, message: x.message || "" }); return id; });
+  setImmediate(() => ids.forEach(id => { emailNotification(id); pushNotification(id); try { const row = db.prepare("SELECT recipient_id FROM notifications WHERE id=?").get(id); const n = row && sz.readNotifs(db, WS_ID, row.recipient_id).find(x => x.id === id); if (n && typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers([row.recipient_id], { type: "notification_created", notification: n }); } catch (e) { /* the bell has it on the next load */ } }));
+}
+/* A project discussion notification: what it says, and the link to that comment on the project's Discussion tab. */
+function projectNotice(n, actor, lang) {
+  const pr = db.prepare("SELECT name FROM projects WHERE id=?").get(n.entity_id) || {}; let info = {}; try { info = JSON.parse(n.message || "{}") || {}; } catch (e) {}
+  const name = pr.name || n.entity_id, id = lang === "id";
+  const line = n.type === "mention" ? (id ? "{who} menyebutmu di diskusi “{t}”." : "{who} mentioned you in the discussion on “{t}”.") : info.reply ? (id ? "{who} membalas komentarmu di diskusi “{t}”." : "{who} replied to your comment in the discussion on “{t}”.") : (id ? "{who} berkomentar di diskusi “{t}”." : "{who} commented in the discussion on “{t}”.");
+  return { name, text: line.replace("{who}", actor || "ZenCrevia").replace("{t}", name), quote: String(info.text || ""), link: "/projects/" + encodeURIComponent(n.entity_id + (urlSlug(name) ? "-" + urlSlug(name) : "")) + "?tab=discussion" + (info.comment ? "&comment=" + encodeURIComponent(info.comment) : "") };
+}
 function emailNotification(notifId) {
   const n = db.prepare("SELECT n.*, u.email, u.name AS recipient_name FROM notifications n JOIN users u ON u.id=n.recipient_id WHERE n.id=?").get(notifId);
   if (!n || !n.email) return;
@@ -131,6 +144,12 @@ function emailNotification(notifId) {
     const mention = n.type === "chat_mention";
     const text = actor + (mention ? " mentioned you in a conversation" : " sent you a message") + (info.text ? ": “" + String(info.text).slice(0, 160) + "”" : ".");
     return mailer.send({ to: n.email, subject: "[" + ws.name + "] " + actor + (mention ? " mentioned you" : " sent you a message"), text: "Hi " + (n.recipient_name || "").split(" ")[0] + ", " + text, meta: {}, link: mailer.link("/messages/" + encodeURIComponent(n.entity_id) + (info.msg ? "?msg=" + encodeURIComponent(info.msg) : "")), workspace: ws.name })
+      .then(() => db.prepare("UPDATE notifications SET emailed_at=? WHERE id=?").run(now(), n.id))
+      .catch(e => db.prepare("UPDATE notifications SET email_error=? WHERE id=?").run(String(e.message).slice(0, 300), n.id));
+  }
+  if (n.entity_type === "project") {
+    const pn = projectNotice(n, actor, "en");
+    return mailer.send({ to: n.email, subject: "[" + ws.name + "] " + pn.text.replace(/\.$/, ""), text: "Hi " + (n.recipient_name || "").split(" ")[0] + ", " + pn.text + (pn.quote ? "\n\n“" + pn.quote + "”" : ""), meta: { Project: pn.name }, link: mailer.link(pn.link), cta: "Open the discussion", workspace: ws.name })
       .then(() => db.prepare("UPDATE notifications SET emailed_at=? WHERE id=?").run(now(), n.id))
       .catch(e => db.prepare("UPDATE notifications SET email_error=? WHERE id=?").run(String(e.message).slice(0, 300), n.id));
   }
@@ -186,7 +205,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/emoji(\/|$)/, "emoji"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/emoji(\/|$)/, "emoji"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -428,6 +447,9 @@ function pushNotification(notifId) {
       const c = db.prepare("SELECT name, type FROM conversations WHERE id=?").get(n.entity_id) || {}, where = c.type === "DM" ? "" : "#" + (c.name || "general");
       const head = n.type === "chat_dm" ? actor : n.type === "chat_mention" ? actor + (id ? " menyebutmu di " : " mentioned you in ") + where : n.type === "chat_reply" ? actor + (id ? " membalasmu di " : " replied to you in ") + where : actor + (id ? " di " : " in ") + where;
       payload = { title: head, body: String(info.text || (id ? "Mengirim pesan" : "Sent a message")), url: "/messages/" + encodeURIComponent(n.entity_id) + (info.msg ? "?msg=" + encodeURIComponent(info.msg) : ""), tag: "conv:" + n.entity_id };
+    } else if (n.entity_type === "project") {
+      const pn = projectNotice(n, actor, id ? "id" : "en");
+      payload = { title: ws.name || "ZenCrevia", body: pn.text + (pn.quote ? " “" + pn.quote.slice(0, 120) + "”" : ""), url: pn.link, tag: "project:" + n.entity_id };
     } else if (n.entity_type === "user") {
       payload = { title: ws.name || "ZenCrevia", body: (n.message || actor) + (id ? " mendaftar dan menunggu persetujuanmu." : " signed up and is waiting for your approval."), url: "/settings/members", tag: "signup:" + n.entity_id };
     } else {
@@ -441,6 +463,12 @@ function pushNotification(notifId) {
   } catch (e) { console.error("[push] " + e.message); }
 }
 const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: sz.readNotifs, writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id) });
+/* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
+require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security });
+/* a project's discussion: its own comments, routes and notifications (server/project-discussion.js) */
+require("./project-discussion")(db, WS_ID, { route, HttpError, forbid, can, has: require("./permissions").has, tooLong, validateStoredFiles, uid, now, J, S, userContext,
+  notifyUsers: (list, o) => deliverNotifs(list.map(x => ({ recipient: x.id, k: x.k, message: JSON.stringify(Object.assign({ comment: o.comment, text: o.text }, x.reply ? { reply: true } : {})) })), o),
+  publish: ev => { try { chat.publishToUsers(db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id), ev); } catch (e) { /* live updates are best effort */ } } });
 
 /* v36: the health check proves the database answers (an uptime monitor saw "ok" even with a
    broken database) and reports 503 while shutting down, so a load balancer stops routing. */

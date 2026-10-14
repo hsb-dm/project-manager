@@ -2196,7 +2196,7 @@ body.auth .nav-messages{display:none!important}
 .kpis.kpis-n1{grid-template-columns:minmax(0,1fr)}.kpis.kpis-n2{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis.kpis-n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:900px){.kpis.kpis-n3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* v19.9 pasted-image chips in comments */
-#drawer .composer .att{display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--color-surface-sunken);padding:3px 8px;border-radius:var(--pill);margin:8px 6px 0 0;max-width:100%}#drawer .composer .att button{color:var(--color-text-secondary)}
+:is(#drawer,.pd-box) .composer .att{display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--color-surface-sunken);padding:3px 8px;border-radius:var(--pill);margin:8px 6px 0 0;max-width:100%}:is(#drawer,.pd-box) .composer .att button{color:var(--color-text-secondary)}
 .cmt .att.att-img,.composer .att.att-img{padding:2px 8px 2px 2px}.cmt .att.att-img{cursor:pointer}.att.att-img img{width:26px;height:26px;object-fit:cover;border-radius:6px;display:block;flex:none}
 /* v19.11 save buttons */
 .msg-card.msg-file .msg-file-save{border:0;flex:none}
@@ -4403,9 +4403,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 @media(prefers-reduced-motion:reduce){.gear-toggle>i,.gear-toggle>i::after{transition:none}}
 
 /* The comment box's attach row — the same five ways in as Assets & versions. */
-#drawer .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
-#drawer .composer .cmt-tools .btn{gap:5px}
-#drawer .composer .cmt-tools .drive-logo,#drawer .composer .cmt-tools svg{width:13px;height:13px}
+:is(#drawer,.pd-box) .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+:is(#drawer,.pd-box) .composer .cmt-tools .btn{gap:5px}
+:is(#drawer,.pd-box) .composer .cmt-tools .drive-logo,:is(#drawer,.pd-box) .composer .cmt-tools svg{width:13px;height:13px}
 /* A Drive link drawn as its name: the Drive mark and a short label instead of a long URL. */
 .drive-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:1px 8px 1px 5px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary);text-decoration:none;font-size:.95em;line-height:1.5;vertical-align:baseline}
 .drive-chip:hover{border-color:var(--color-primary);color:var(--color-primary)}
@@ -4416,16 +4416,16 @@ body.paste-resizing .desc-img{pointer-events:none}
 /* @mentions in the comment box: the text is drawn by a layer behind the transparent textarea, as in
    chat. Mentions keep the textarea's own weight — chat's bold is wider than the letters above it,
    which walks the caret off the text after a mention. */
-#drawer .composer .cmt-ta-wrap{position:relative}
-#drawer .composer .cmt-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;box-sizing:border-box;border-style:solid;border-color:transparent;color:var(--color-text-primary)}
-#drawer .composer .cmt-ta-wrap textarea{position:relative;z-index:1;display:block;box-sizing:border-box}
-#drawer .composer textarea.cmt-mirrored{color:transparent;caret-color:var(--color-text-primary)}
-#drawer .composer textarea.cmt-mirrored::placeholder{color:var(--color-text-tertiary)}
-#drawer .composer textarea.cmt-mirrored::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
-#drawer .composer .cmt-ta-mirror .msg-mention{font-weight:inherit;padding:0 2px;margin:0 -2px;border-radius:4px}
-#drawer .composer .cmt-at svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
+:is(#drawer,.pd-box) .composer .cmt-ta-wrap{position:relative}
+:is(#drawer,.pd-box) .composer .cmt-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;box-sizing:border-box;border-style:solid;border-color:transparent;color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer .cmt-ta-wrap textarea{position:relative;z-index:1;display:block;box-sizing:border-box}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored{color:transparent;caret-color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored::placeholder{color:var(--color-text-tertiary)}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
+:is(#drawer,.pd-box) .composer .cmt-ta-mirror .msg-mention{font-weight:inherit;padding:0 2px;margin:0 -2px;border-radius:4px}
+:is(#drawer,.pd-box) .composer .cmt-at svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
 /* In a posted comment the whole name is the mention. */
-#drawer .cmt .body .msg-mention{padding:0 3px;border-radius:4px}
+:is(#drawer,.pd-box) .cmt .body .msg-mention{padding:0 3px;border-radius:4px}
 
 /* ---- Assets & versions, simplified (src/assets-tab.js) ---- */
 .av-sec{margin:0 0 18px}
@@ -4452,9 +4452,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 .av-count .hint{font-weight:500}
 .av-count input{width:64px;border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;background:var(--color-surface);font:inherit;font-weight:700;text-align:right}
 /* the comment a file came from, found again */
-#drawer .cmt.cmt-flash{animation:cmtFlash 1.8s ease}
+:is(#drawer,.pd-box) .cmt.cmt-flash{animation:cmtFlash 1.8s ease}
 @keyframes cmtFlash{0%,40%{background:var(--color-primary-soft)}100%{background:transparent}}
-@media(prefers-reduced-motion:reduce){#drawer .cmt.cmt-flash{animation:none;outline:2px solid var(--color-primary)}}
+@media(prefers-reduced-motion:reduce){:is(#drawer,.pd-box) .cmt.cmt-flash{animation:none;outline:2px solid var(--color-primary)}}
 /* a version's preview: the service's own embed (src/version-preview.js). Nothing is clicked onto
    the picture any more, so it is not a crosshair. */
 .preview .canvas{cursor:default}
@@ -4745,8 +4745,8 @@ img.emj.custom{object-fit:contain}
 /* The comment box shows its text through a mirror layer (mentions drawn as chips) under a see-through
    textarea. Dark mode gives every textarea a background, which hid that layer: what was typed could not
    be read. The textarea stays see-through; the mirror carries the background. */
-#drawer .composer textarea.cmt-mirrored{background-color:transparent}
-[data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored{background-color:transparent}
+[data-theme="dark"] :is(#drawer,.pd-box) .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
 /* checklist: an item's text is edited where it stands; the whole row drags it to another place */
 .chk .chk-item[draggable=true]{cursor:grab}.chk .chk-item[draggable=true]:active{cursor:grabbing}.chk .chk-item .chk-box,.chk .chk-item .iconbtn{cursor:pointer}
 .chk .chk-item .drag-handle{flex:none;width:16px;height:22px;margin:0 -4px;border-radius:5px;opacity:0;transition:opacity .12s}
@@ -4826,8 +4826,8 @@ img.emj.custom{object-fit:contain}
   #drawer .btn[data-short]:not(:has(svg))::after{margin-left:0}
   /* one attach button with a menu */
   #drawer .m-attach{display:inline-flex}
-  #drawer .av-tools,#drawer .composer .cmt-tools{display:none}
-  #drawer .composer .bar>.av,#drawer .composer .bar>.hint{display:none}
+  #drawer .av-tools,:is(#drawer,.pd-box) .composer .cmt-tools{display:none}
+  :is(#drawer,.pd-box) .composer .bar>.av,:is(#drawer,.pd-box) .composer .bar>.hint{display:none}
   .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
   /* tidy rows: a version's name and state, its actions under them; a file's actions in one row under its name */
   #drawer .av-version>.av-head{flex-wrap:wrap;row-gap:8px}
@@ -5082,10 +5082,10 @@ img.emj.custom{object-fit:contain}
 .link-chip .link-chip-ico{display:inline-grid;place-items:center;width:15px;height:15px;flex:none;color:var(--color-text-secondary)}
 .link-chip .link-chip-ico svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .link-chip:hover .link-chip-ico{color:inherit}
-#drawer .composer .att.att-chip{display:inline-flex;align-items:center;gap:2px;margin:8px 6px 0 0;max-width:100%;vertical-align:middle;min-width:0;padding:0;background:transparent;font-size:inherit}
-#drawer .composer .att.att-chip .drive-chip{min-width:0;max-width:280px}
-#drawer .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
-#drawer .composer .att.att-chip .att-x:hover,#drawer .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer .att.att-chip{display:inline-flex;align-items:center;gap:2px;margin:8px 6px 0 0;max-width:100%;vertical-align:middle;min-width:0;padding:0;background:transparent;font-size:inherit}
+:is(#drawer,.pd-box) .composer .att.att-chip .drive-chip{min-width:0;max-width:280px}
+:is(#drawer,.pd-box) .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
+:is(#drawer,.pd-box) .composer .att.att-chip .att-x:hover,:is(#drawer,.pd-box) .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
 
 /* ---------- The task panel's foot: a stage that is done shows a tick, not a filled shape ----------
    Done stages carried the class "star", and the favourites' rule (.views button.star svg) filled the tick's
@@ -5131,12 +5131,12 @@ img.emj.custom{object-fit:contain}
 
 /* ---------- A task or a project attached to a comment ---------- */
 .cmt-links .ref-chip,.att-chip .ref-chip{font-size:12px;line-height:1.6;padding:2px 9px 2px 6px;max-width:min(100%,300px);vertical-align:middle}
-#drawer .composer .att.att-chip .ref-chip{cursor:default}
+:is(#drawer,.pd-box) .composer .att.att-chip .ref-chip{cursor:default}
 .cmt-ref-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* seven ways in now (a task and a project too): a little tighter, so they stay one line in the laptop panel */
 @media (min-width:761px){
-  #drawer .composer .cmt-tools{gap:4px}
-  #drawer .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
+  :is(#drawer,.pd-box) .composer .cmt-tools{gap:4px}
+  :is(#drawer,.pd-box) .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
 }
 
 /* ---------- Editing a comment ---------- */
@@ -5316,12 +5316,12 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* editing a comment in the box: the box says so, and the comment being edited is marked */
 /* the comment being edited: a tinted card with room around it — the avatar stays in line with the others —
    and the comment box in place of its words */
-#drawer .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
-#drawer .cmt.cmt-editing .composer{margin-top:8px}
-#drawer .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
+:is(#drawer,.pd-box) .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
+:is(#drawer,.pd-box) .cmt.cmt-editing .composer{margin-top:8px}
+:is(#drawer,.pd-box) .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
 /* a link in a comment's words is a chip: inline with the text */
-#drawer .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
-@media(max-width:760px){#drawer .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+:is(#drawer,.pd-box) .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
+@media(max-width:760px){:is(#drawer,.pd-box) .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
 /* Home: Mine · All on each card, small, at the head's end */
 .panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
 .seg.dash-scope button{padding:3px 10px;font-size:12px}
@@ -5330,8 +5330,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the comment box: the seven ways to attach (upload images, a file, Drive, a link, the library, a task, a project) are
    one paperclip with a menu — on a laptop as on a phone and as in chat; the menu lists the same buttons and presses
    them, so each does what it did */
-#drawer .composer .m-attach{display:inline-flex}
-#drawer .composer .cmt-tools{display:none}
+:is(#drawer,.pd-box) .composer .m-attach{display:inline-flex}
+:is(#drawer,.pd-box) .composer .cmt-tools{display:none}
 .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
 /* sign-ups waiting for approval: a row each — who, what they told us, when; the role and the two buttons — a line
    on Home for an approver, and on the sign-in page what happens next */
@@ -5370,6 +5370,66 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .av-state.not-final{background:var(--color-surface-sunken);color:var(--color-text-secondary)}
 /* a refused SMTP sign-in says what to do, under the error */
 .smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}
+/* a project's discussion (src/project-discussion.js): a task's comments and comment box, at the foot of Overview and
+   on their own tab. The tab keeps lines to a readable length; on Overview each comment is two lines at most and
+   opens the discussion; nothing jumps while it loads. */
+.pd-full .panel-body{max-width:920px}
+.pd-box .pd-sub{margin:0 0 12px}
+.panel-head .seg.pd-vis{margin-left:2px;flex:none;flex-wrap:nowrap}
+.seg.pd-vis button{padding:3px 10px;font-size:12px}
+.seg.pd-vis button svg{width:12px;height:12px}
+.pd-box .cmts{margin-bottom:14px}
+.pd-preview .cmt .body{display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+.pd-preview .cmt.pd-expanded .body{display:block;-webkit-line-clamp:unset;line-clamp:unset;white-space:pre-line}
+.pd-preview .cmt .acts{margin-top:2px}
+.pd-box .pd-more-text{font-size:11px;font-weight:650;color:var(--color-primary);margin-top:2px;padding:0;background:none;border:0;cursor:pointer}
+.pd-thread-loading{margin-left:36px;font-size:var(--fs-sm);color:var(--color-text-tertiary)}
+.pd-empty{color:var(--color-text-secondary);font-size:var(--fs-sm);margin:0 0 12px}
+.pd-loading{min-height:72px;color:var(--color-text-tertiary);font-size:var(--fs-sm)}
+.pd-note{display:flex;align-items:center;gap:8px;color:var(--color-text-secondary);font-size:var(--fs-sm);margin:0;padding:10px 12px;border-radius:var(--radius);background:var(--color-surface-sunken)}
+.pd-note svg{width:14px;height:14px;flex:none}
+.pd-more-row{display:flex;justify-content:center;margin:0 0 12px}
+.pd-box .pd-all{white-space:nowrap;font-size:var(--fs-sm);font-weight:600;color:var(--color-primary);background:none;border:0;padding:0;cursor:pointer}
+.pd-box .pd-all:hover{text-decoration:underline}
+@media (max-width:760px){.pd-box .pd-all{font-size:12px}}
+/* a named link while writing a comment: the capsule it will be once posted (src/link-tab.js). Drawn on the layer
+   behind the letters; its padding is given back by a negative margin and its mark sits on a spare letter, so every
+   letter stays where the caret expects it */
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip{background:var(--color-surface-sunken);box-shadow:inset 0 0 0 1px var(--color-border);border-radius:var(--pill);padding:2px 4px 2px 1px;margin:0 -4px 0 -1px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico{position:relative}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico>*{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;margin:0}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico>svg:not(.brand-ico){stroke:currentColor;fill:none;stroke-width:1.8;color:var(--color-text-secondary)}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-name{color:var(--color-primary);text-decoration:underline;text-underline-offset:2px}
+/* the announcement e-mail (src/announcements.js): the form, who it goes to, the ones sent before */
+.ann-panel .ann-check{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);margin:2px 0 8px;cursor:pointer}
+.ann-panel .ann-who{margin:0}
+.ann-panel .ann-h{font-size:var(--fs-sm);font-weight:650;margin:18px 0 4px;color:var(--color-text-secondary)}
+.ann-panel .ann-row .badge{flex:none}
+.ann-preview{margin-top:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface-sunken);font-size:var(--fs-sm);max-height:240px;overflow:auto}
+.ann-preview b{display:block;margin-bottom:6px}
+/* who an announcement goes to: everyone, or people ticked one by one in a list that scrolls on its own */
+.ann-panel .ann-to>label{display:block}
+.ann-panel .ann-mode{margin:2px 0 10px}
+.ann-panel .ann-mode button{padding:5px 12px}
+.ann-pick{border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden}
+.ann-pick-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-surface-sunken)}
+.ann-pick-head .ann-check{margin:0;white-space:nowrap}
+.ann-pick-head .ann-search{flex:1;min-width:140px;height:32px;padding:4px 10px}
+.ann-pick-head .ann-count{font-size:var(--fs-sm);color:var(--color-text-secondary);white-space:nowrap}
+.ann-pick-list{max-height:260px;overflow:auto;padding:4px 0}
+.ann-pick-list .hint{padding:10px 12px;margin:0}
+.ann-person{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer}
+.ann-person:hover{background:var(--color-surface-sunken)}
+.ann-person input{flex:none}
+.ann-pn{display:flex;flex-direction:column;min-width:0;flex:1}
+.ann-pn b{font-weight:600;font-size:var(--fs-sm)}
+.ann-pn span{font-size:12px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ann-names{margin:-4px 0 0}
+/* the rows and "Select all" are labels inside a form field: the field's label look (small capitals, a block) is not theirs */
+.ann-panel .ann-to label.ann-person,.ann-panel .ann-to label.ann-check,.ann-panel label.ann-check{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);font-weight:500;letter-spacing:normal;text-transform:none;color:var(--color-text-primary);margin:0;line-height:1.4}
+.ann-panel .ann-to label.ann-check{gap:8px}
+.ann-panel .ann-to label.ann-person .ann-pn b{text-transform:none}
+.ann-panel .ann-to input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:none;margin:0;padding:0}
 
 </style>
 </head>
@@ -8032,26 +8092,35 @@ function attachAsset(id){ var a=asset(id); var tk=task(S.drawerTask); closeModal
 function commentsView(tk){ var vis=person(ME).stakeholder?"client":S.commentVis; var list=tk.comments.filter(function(c){ return vis==="internal"?true:c.vis==="client"; }); var roots=list.filter(function(c){ return !c.parent||!byId(list,c.parent); }).sort(function(a,b){ return b.ago-a.ago; });
   /* a comment being edited that is not on show (the list switched to stakeholder-visible) lets the edit go */
   var editing=S.cmtEdit&&S.cmtEdit.task===tk.id?S.cmtEdit.id:null; if(editing&&!byId(list,editing)&&typeof cmtEditFinish==="function"){ cmtEditFinish(); editing=null; }
-  var one=function(c,isReply){ return '<div class="cmt '+c.vis+(isReply?" reply":"")+(editing===c.id?" cmt-editing":"")+'" data-cid="'+attr(c.id||"")+'">'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(editing===c.id?cmtComposerHtml(tk,vis,true):'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>'+commentAttachmentsHtml(c)+'<div class="acts"><button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')+'</div>')+'</div></div>'; };
+  var one=function(c,isReply){ var ed=editing===c.id; return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtComposerHtml(tk,vis,true):"",tag:typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'',acts:'<button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')}); };
   var h=(person(ME).stakeholder?'':'<div class="cvis"><button class="'+(S.commentVis==="internal"?"on":"")+'" onclick="S.commentVis=\'internal\';renderDrawer()">'+I.lock+'Internal</button><button class="'+(S.commentVis==="client"?"on":"")+'" onclick="S.commentVis=\'client\';renderDrawer()">'+I.eye+'Stakeholder-visible</button></div><div class="hint" style="margin:-6px 0 12px">'+tr(S.commentVis==="internal"?"Internal comments are only visible to the creative team.":"Stakeholder-visible comments can be seen by requesters like Marketing.")+'</div>');
   h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+'</div>';
   return h+(editing?'':cmtComposerHtml(tk,vis,false)); }
+/* One comment — who wrote it and when, who can see it, what it says, its attachments and what can be done with it —
+   drawn the same in a task's comments and in a project's discussion (src/project-discussion.js). o: editing (o.editor
+   is drawn in its place), tag (beside the name), acts (the buttons under it; none when null), attrs (on the comment). */
+function cmtItemHtml(c,isReply,o){ o=o||{}; return '<div class="cmt '+c.vis+(isReply?" reply":"")+(o.editing?" cmt-editing":"")+'" data-cid="'+attr(c.id||"")+'"'+(o.attrs||'')+'>'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(o.tag||'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(o.editing?o.editor:'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>'+commentAttachmentsHtml(c)+(o.acts!=null?'<div class="acts">'+o.acts+'</div>':''))+'</div></div>'; }
 /* The comment box. Editing, it is the same box — the @ picker, links read as their names, attachments that can be
    taken off, the Attach buttons — opened in the comment's place, with Cancel and Save. */
-function cmtComposerHtml(tk,vis,editing){ var rt=!editing&&S.replyTo?byId(tk.comments,S.replyTo):null; window._cmtAtt=window._cmtAtt||[];
+function cmtComposerHtml(tk,vis,editing){ var d=typeof cmtDraftOf==="function"?cmtDraftOf(tk.id):{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),reply:S.replyTo||null};
+  return cmtBoxHtml({key:tk.id,inputId:"cmtText",vis:vis,editing:editing,draft:d,reply:!editing&&d.reply?byId(tk.comments,d.reply):null,cancelReply:"S.replyTo=null;renderDrawer()",post:"postComment()"}); }
+/* The box itself, for a task (above) or a project's discussion. o: key (whose draft it is), inputId, vis, editing, draft
+   {text, att}, reply (the comment answered), cancelReply and post (handlers, written as they are — jsq() already
+   escapes what goes in them). */
+function cmtBoxHtml(o){ var d=o.draft||{}, att=d.att||[], rt=o.reply, editing=o.editing, vis=o.vis;
   var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),newLine=" · "+shiftCombo("Enter")+" "+tr("new line"),postHint=editing?"Enter "+tr("saves")+newLine+" · Esc "+tr("cancels"):audience+" · Enter "+tr("sends")+newLine;
-  return '<div class="composer'+(editing?' cmt-edit-box" role="group" aria-label="'+attr(tr("Editing your comment")):'')+'">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="S.replyTo=null;renderDrawer()">'+I.x+'</button></div>':'')+'<textarea id="cmtText" placeholder="'+attr(tr("Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="cmtKey(event)">'+esc(window._cmtDraft||"")+'</textarea>'+(window._cmtAtt.length?'<div>'+window._cmtAtt.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+(editing?'':av(ME))+'<span class="hint">'+esc(postHint)+(editing?'':' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image"))+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+(editing?'<button type="button" class="btn sm ghost cmt-edit-cancel" onclick="cmtEditCancel()">'+esc(tr("Cancel"))+'</button>':'')+'<button class="btn primary sm" onclick="postComment()">'+(editing?esc(tr("Save")):'Post')+'</button></div></div>'; }
+  return '<div class="composer'+(editing?' cmt-edit-box" role="group" aria-label="'+attr(tr("Editing your comment")):'')+'" data-cmt-key="'+attr(o.key)+'">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="'+o.cancelReply+'">'+I.x+'</button></div>':'')+'<textarea id="'+attr(o.inputId)+'" class="cmt-input" data-cmt-key="'+attr(o.key)+'" placeholder="'+attr(tr("Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="cmtKey(event)">'+esc(d.text||"")+'</textarea>'+(att.length?'<div>'+att.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="cmtAttRemove('+i+')">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+(editing?'':av(ME))+'<span class="hint">'+esc(postHint)+(editing?'':' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image"))+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+(editing?'<button type="button" class="btn sm ghost cmt-edit-cancel" onclick="cmtEditCancel()">'+esc(tr("Cancel"))+'</button>':'')+'<button class="btn primary sm" onclick="'+o.post+'">'+(editing?esc(tr("Save")):'Post')+'</button></div></div>'; }
 /* Enter sends the comment — or saves the edit — as Enter sends a chat message; Shift+Enter is a new line, and
    Ctrl/⌘+Enter still sends. An Enter that chooses a person in the @ picker is taken before it gets here
    (src/comment-mention.js); one that ends an IME composition is the composition's. */
-function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); postComment(); }
+function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); var k=e.target&&e.target.getAttribute&&e.target.getAttribute("data-cmt-key"); if(/^project:/.test(k||"")&&typeof pdSubmit==="function") return pdSubmit(k.slice(8)); postComment(); }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]), forTask=S.drawerTask; inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ if(typeof cmtDraftAttach!=="function"){ window._cmtAtt.push(a); cmtRedraw(); } else if(cmtDraftAttach(forTask,a)) cmtRedraw(); };
     if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
     else uploadAny(f,{forceDrive:true}).then(function(u){ done({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type}); }).catch(function(e){ toast(f.name+": "+e.message,"bad"); }); }); }; inp.click(); }
 /* An attachment arriving redraws the comment box with what is in it now — not what was there when the
    upload started — and someone typing keeps typing: same focus, same caret. */
-function cmtRedraw(){ var ta=document.getElementById("cmtText"), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; renderDrawer(); var n=document.getElementById("cmtText"); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
+function cmtRedraw(){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }; var ta=box(), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
 function postComment(){ if(S.cmtEdit&&S.cmtEdit.task===S.drawerTask&&typeof cmtEditSave==="function") return cmtEditSave(); var el=document.getElementById("cmtText");
   /* links shown by their name while writing are stored as [name](url) (src/link-tab.js) */
   var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim();
@@ -8114,7 +8183,7 @@ function projectDescriptionPanel(p,ed){ var editing=ed&&S.projectTextEdit===p.id
   return panel("Description & objective",null,body,null,action,I.knowledge,"project-description-panel"+(editing?" editing":""));
 }
 function renderProject(id){ var p=project(id); if (!p){ S.projectId=null; return renderProjects(); } var ts=sortTasks(TASKS.filter(function(t){ return inProject(t,id); })); var open=ts.filter(function(t){ return !isClosed(t); }); var over=open.filter(function(t){ return t.due<0; }); var inrev=open.filter(function(t){ return isReview(t); }); var hours=0; open.forEach(function(t){ hours+=t.effort; }); var ed=canI.createProject()||p.owner===ME, progress=projectProgress(p);
-  var tabs=[["overview","Overview"],["board","Board"],["list","List"],["grid","Grid"],["calendar","Calendar"],["timeline","Timeline"],["assets","Assets"],["files","Files"],["activity","Activity"],["settings","Settings"]];
+  var tabs=[["overview","Overview"],["board","Board"],["list","List"],["grid","Grid"],["calendar","Calendar"],["timeline","Timeline"],["assets","Assets"],["files","Files"],["discussion","Discussion"],["activity","Activity"],["settings","Settings"]];
   var h='<div><button class="btn ghost sm" onclick="go(\'projects\')">'+I.back+'All projects</button></div><div class="pagehead project-pagehead"><div><div class="date">'+esc(first(p.owner))+' · '+dueDate(p.start)+' → '+dueDate(p.due)+'</div><h1 '+(ed?'contenteditable="true"':'')+' spellcheck="false" onblur="editProject(\''+id+'\',\'name\',this.textContent)">'+esc(p.name)+'</h1><div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+projStatusBadge(p)+(p.teams||[]).map(function(t){ return teamBadge(t); }).join("")+p.tags.map(function(t){ return '<span class="badge">'+esc(t)+'</span>'; }).join("")+'</div></div><div class="actions">'+(ed?'<label class="pillsel"><span>Status</span><select onchange="editProject(\''+id+'\',\'status\',this.value)"><option value="active"'+(p.status==="active"?" selected":"")+'>Active</option><option value="risk"'+(p.status==="risk"?" selected":"")+'>At risk</option><option value="done"'+(p.status==="done"?" selected":"")+'>Done</option><option value="archived"'+(p.status==="archived"?" selected":"")+'>Archived</option></select></label>':'')+(canI.createTask()?'<button class="btn primary project-new-task" aria-label="'+attr(tr("New task"))+'" onclick="newTaskModal({proj:\''+id+'\'})">'+I.plus+'<span>New task</span></button>':'')+'</div></div>';
   if (p.status==="archived") h+='<div class="errbox" style="background:var(--color-surface-sunken);color:var(--color-text-primary)">'+I.check+' This project is archived — it stays readable and its tasks are hidden from boards unless the “Archived” filter is on. '+(ed?'<button class="btn sm" onclick="archiveProject(\''+id+'\',true)">'+I.sync+'Restore project</button>':'')+'</div>';
   if (p.status==="risk") h+='<div class="errbox">'+I.bell+'<div><b>Project needs attention.</b><br><span class="tiny">'+esc(projectRiskInfo(p))+'</span></div><span class="spacer"></span><button class="btn sm" onclick="S.filters={status:\'\',kind:\'\',assignee:\'\',reviewer:\'\',proj:\''+id+'\',prio:\'\',team:\'\',tag:\'\',dependency:\'\',due:\'overdue\',archived:\'\',hidden:\'\'};S.taskScope=\'all\';go(\'tasks\',\'list\')">Review overdue tasks</button></div>';
@@ -8123,13 +8192,17 @@ function renderProject(id){ var p=project(id); if (!p){ S.projectId=null; return
   if (tb==="overview"){ h+='<div class="kpis kpis-4">'+kpi("accent",open.length,"Open tasks","in this project","S.projectTab='board';renderScreen(false)",I.tasks,"blue")+kpi("",inrev.length,"In review","need a decision","",I.eye,"ink")+kpi(over.length?"danger":"good",over.length,"Overdue",over.length?"act now":"all clear","",I.bell,over.length?"red":"green")+kpi("",hours+"h","Remaining effort","estimated · progress "+progress+"%","",I.analytics,"lime")+'</div>';
     h+='<div class="grid g-2-1">'+projectDescriptionPanel(p,ed)+panel("Milestones",p.milestones.length,milestoneRows(p)+(ed?'<div class="panel-foot"><button class="btn sm" onclick="addMilestoneModal(\''+id+'\')">'+I.plus+'Add milestone</button></div>':''),null,null,I.calendar)+'</div>';
     h+=projAssetPanel(p,ts,true);
-    h+='<div class="grid g-2-1">'+panel("Open tasks",open.length,open.length?open.map(function(t){ return taskRow(t); }).join(""):emptyBox("No open tasks","Everything in this project is closed."),null,null,I.tasks)+panel("Team",p.team.length,p.team.map(function(m){ var pp=person(m); return '<div class="member" onclick="go(\'team\',\''+m+'\')">'+av(m,"lg")+'<div><div class="t" style="font-weight:600">'+esc(pp.name)+'</div><div class="tiny muted">'+esc(pp.role)+' · '+teamBadge(primaryTeam(m))+'</div></div><span class="mono tiny muted">'+ts.filter(function(t){return isAssignee(t,m)&&!isClosed(t);}).length+' open</span></div>'; }).join(""),null,null,I.team)+'</div>'; }
+    h+='<div class="grid g-2-1">'+panel("Open tasks",open.length,open.length?open.map(function(t){ return taskRow(t); }).join(""):emptyBox("No open tasks","Everything in this project is closed."),null,null,I.tasks)+panel("Team",p.team.length,p.team.map(function(m){ var pp=person(m); return '<div class="member" onclick="go(\'team\',\''+m+'\')">'+av(m,"lg")+'<div><div class="t" style="font-weight:600">'+esc(pp.name)+'</div><div class="tiny muted">'+esc(pp.role)+' · '+teamBadge(primaryTeam(m))+'</div></div><span class="mono tiny muted">'+ts.filter(function(t){return isAssignee(t,m)&&!isClosed(t);}).length+' open</span></div>'; }).join(""),null,null,I.team)+'</div>';
+    /* the project's discussion: the newest three threads and a box to write in, the whole width (src/project-discussion.js) */
+    if(typeof pdOverviewHtml==="function") h+=pdOverviewHtml(p); }
   else if (tb==="board"||tb==="list"||tb==="grid"||tb==="calendar"||tb==="timeline"){ var saved=S.taskScope, sv=S.taskView; S.taskScope="all"; S.taskView=tb==="board"?"kanban":tb; h+=filterBar({noScope:true,noProject:true}); h+=taskViewBody(filteredTasks()); S.taskScope=saved; S.taskView=sv; }
   else if (tb==="assets"){ h+=projAssetPanel(p,ts,false); }
   else if (tb==="files"){ var files=[]; ts.forEach(function(t){ t.files.forEach(function(f){ files.push({f:f,t:t}); }); t.versions.forEach(function(v){ files.push({v:v,t:t}); }); }); h+=panel("Files & versions",files.length,files.length?'<div class="panel-body pad">'+files.map(function(x){ if (x.v){ return '<div class="file"><span class="thumb" style="width:40px;height:32px;background:'+attr(x.v.color)+'">V'+x.v.n+'</span><div style="min-width:0"><div class="t">'+esc(x.t.title)+' · Version '+x.v.n+'</div><div class="m"><span class="mono">'+esc(x.t.id)+'</span><span>·</span><span>'+esc(person(x.v.by).name)+'</span><span>·</span><span>'+ago(x.v.ago,x.v.createdAt)+'</span></div></div>'+fileTaskActions(x.t,verBadge(x.v))+'</div>'; } return '<div class="file">'+fileIcon(x.f)+'<div style="min-width:0"><div class="t">'+esc(x.f.name)+'</div><div class="m">'+srcBadge(srcOf(x.f))+'<span>'+esc(x.t.id)+' · '+esc(x.f.size)+' · '+ago(x.f.ago,x.f.createdAt)+'</span></div></div>'+fileTaskActions(x.t,"")+'</div>'; }).join("")+'</div>':emptyBox("No files yet","Files attached to tasks in this project appear here.",I.cloud),null,null,I.cloud); }
+  else if (tb==="discussion") h+=typeof pdTabHtml==="function"?pdTabHtml(p):"";
   else if (tb==="activity") h+=panel("Activity",null,activityRows(ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&inProject(t,id))||a.a.project===id; }),30)||emptyBox("No activity yet",""),null,null,I.sync);
   else h+=projectSettings(p,ed);
-  document.getElementById("content").innerHTML=h; }
+  document.getElementById("content").innerHTML=h;
+  if(typeof pdAfterRender==="function"&&document.querySelector("#content .pd-box")) pdAfterRender(); }
 S.assetScope=S.assetScope||"done";
 function projAssetPanel(p,ts,compact){
   var scope=S.assetScope; var pool=ts.filter(function(t){ return taskAssetLinks(t).length||assetCount(t); });
@@ -12034,6 +12107,7 @@ function setNotifications(){ var ed=canI.manageWorkspace(); var items=[["assigne
     + sp("Tasks",sw("task_assigned","Assigned to me","")+sw("task_due","Due soon","")+sw("task_completed","Task completed","")+sw("blocker","Blocker update",""),null,I.tasks)
     + sp("Projects",sw("project_updates","Project updates","")+sw("approval","Approval requests",""),null,I.projects);
   return personal+sp("In-app & email notifications",'<div class="pref"><div class="pl"><b>Send emails to everyone involved</b><span>Assignee, reviewer, mentioned people and requesters get an email for the events below, in addition to the in-app notification.</span></div><button class="switch'+(WS.notifPrefs.email!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs.email=!(WS.notifPrefs.email!==false);this.classList.toggle(\'on\');saveWS()"':'disabled')+'></button></div>'+items.map(function(it){ return '<div class="pref"><div class="pl"><b>'+it[1]+'</b><span>'+it[2]+'</span></div><button class="switch'+(WS.notifPrefs[it[0]]!==false?" on":"")+'" '+(ed?'onclick="WS.notifPrefs[\''+it[0]+'\']=!(WS.notifPrefs[\''+it[0]+'\']!==false);this.classList.toggle(\'on\');saveWS()"':'disabled')+' aria-label="'+it[1]+'"></button></div>'; }).join(""),null,I.bell)+sp("Email delivery",mail,API.on&&canI.manageWorkspace()?'<button class="btn" onclick="apiFetch(\'POST\',\'/api/mail/test\',{}).then(function(r){toast(\'Test email sent via \'+r.transport)}).catch(function(e){toast(e.message,\'bad\')});setTimeout(loadMailStatus,800)">'+I.sync+'Send me a test email</button>':'',I.sync)
+    + (typeof annSection==="function"?annSection():"")
     + setSmtp();
 }
 Object.assign(UI_ID,{"Browser notifications & sound":"Notifikasi browser & suara","Personal to your account. In-app notifications in the bell always work; these decide whether the browser and the chime join in.":"Berlaku untuk akunmu saja. Notifikasi in-app di lonceng selalu aktif; pengaturan ini menentukan apakah browser dan bunyi ikut.","Enable browser notifications":"Aktifkan notifikasi browser","Status":"Status","Allow notifications for this site in the browser settings to turn them back on.":"Izinkan notifikasi untuk situs ini di pengaturan browser untuk mengaktifkannya lagi.","Notification sound":"Suara notifikasi","ZenCrevia chime — the one sound used for every notification. Plays only after you have interacted with the page, as browsers require.":"Bunyi ZenCrevia — satu-satunya suara untuk semua notifikasi. Hanya berbunyi setelah kamu berinteraksi dengan halaman, sesuai aturan browser.","Play":"Putar","Chat":"Chat","Direct messages":"Pesan langsung","Mentions":"Mention","@you and @everyone":"@kamu dan @everyone","Replies to my messages":"Balasan ke pesanku","Group messages":"Pesan grup","Team #general messages":"Pesan #general tim","Per conversation you can still pick All / Mentions only / Mute.":"Per percakapan kamu tetap bisa memilih Semua / Hanya mention / Bisukan.","Assigned to me":"Ditugaskan ke saya","Due soon":"Segera jatuh tempo","Task completed":"Task selesai","Blocker update":"Update blocker","Project updates":"Update project","Approval requests":"Permintaan persetujuan"});
@@ -16263,7 +16337,7 @@ function clipboardFiles(e){ var dt=e&&(e.clipboardData||window.clipboardData); i
 function clipboardNameFile(f){ if(!f) return f; var generic=!f.name||/^(image|blob|clipboard)(\.\w+)?$/i.test(f.name); if(!generic) return f; var ext=(f.type.split("/")[1]||"png").replace("jpeg","jpg"); var d=new Date(), pad=function(n){ return (n<10?"0":"")+n; }; var name=tr("Pasted image")+" "+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+"."+pad(d.getMinutes())+"."+pad(d.getSeconds())+"."+ext; try{ return new File([f],name,{type:f.type||"image/png"}); }catch(x){ try{ Object.defineProperty(f,"name",{value:name}); }catch(y){} return f; } }
 function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&&(tag==="INPUT"||tag==="TEXTAREA"||t.isContentEditable);
   if(t&&t.closest&&(t.id==="msgInput"||t.closest(".msg-composer"))) return "message";
-  if(t&&t.closest&&(t.id==="cmtText"||t.closest("#drawer .composer"))) return "comment";
+  if(t&&t.closest&&(t.id==="cmtText"||(typeof cmtIsInput==="function"&&cmtIsInput(t))||t.closest("#drawer .composer,.pd-box .composer"))) return "comment";
   var modal=document.getElementById("modalWrap"), modalOpen=!!(modal&&modal.classList.contains("open")); /* closed modals keep their DOM, so only an OPEN modal counts */
   if(modalOpen&&document.getElementById("uv_file")) return "version-modal";
   if(modalOpen&&document.getElementById("ua_file")) return "asset-modal";
@@ -16279,7 +16353,7 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
   return null; }
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
-  if(where==="comment"){ var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); } }); return true; }
+  if(where==="comment"){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }, redraw=function(){ if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(n) clipboardRefocus(n.id); }; var ta=box(); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); redraw(); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); redraw(); } }); return true; }
   if(where==="brief"){
     /* in the description, a file that is not a picture (a deck, a document, a PDF…) is attached as a
        chip, the way the paperclip attaches it; a picture is placed in the writing as before */
@@ -18024,6 +18098,8 @@ function cmtStage(a){
 function cmtUpload(imagesOnly){
   var inp=document.getElementById("fileInput");
   inp.accept=imagesOnly?"image/*":"*/*"; inp.multiple=true;
+  var forKey=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR;
+  var cmtStage=function(a){ if(forKey&&forKey!==CMT_DRAFT_FOR&&typeof CMT_DRAFTS!=="undefined"){ (CMT_DRAFTS[forKey]=CMT_DRAFTS[forKey]||cmtDraftEmpty()).att.push(a); return; } window.cmtStage(a); };
   inp.onchange=function(){
     var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if(!files.length) return;
     if(files.length>cmtRoom()){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,cmtRoom())); }
@@ -18179,9 +18255,9 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
    buttons are behind the one attach button, so the picker opens by that one. */
-function cmtAttachRef(btn,kind){ var tk=S.drawerTask?task(S.drawerTask):null, anchor=btn&&btn.offsetParent?btn:(document.querySelector("#drawer .composer .m-attach")||btn);
-  entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:tk&&tk.proj},
-    search:kind==="task"?function(q){ return epTaskItems(q,{projectId:tk&&tk.proj}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
+function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?CMT_DRAFT_FOR.slice(8):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
+  entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:pid},
+    search:kind==="task"?function(q){ return epTaskItems(q,{projectId:pid}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
 function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a.ref,a.refId,a.name||a.refId):'<span class="att">'+esc(a.name||a.refId)+'</span>'; }
 /* A link's name when none was written with it, read from its address: a known service's link by the page's own
@@ -18196,7 +18272,7 @@ function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
-function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
+function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;
@@ -18248,7 +18324,23 @@ Object.assign(UI_ID,{
 window._cmtMentions=window._cmtMentions||[];   /* [{userId, display}] chosen while writing */
 var CMT_MENTION={open:false};
 
-function cmtVisibility(){ return person(ME).stakeholder?"client":(S.commentVis||"internal"); }
+/* WHICH COMMENT BOX (Oct 2026). A project's discussion has a comment box too — this same box, with the same @ picker,
+   attachments, links read as their names, pasted pictures and Enter to send. Each box has a key: its task's id, or
+   "project:<id>". The box being written in owns the draft (window._cmtDraft, _cmtAtt, _cmtLinks, _cmtMentions and
+   S.replyTo); any other box's draft is put aside under its key (cmtDraftSwitch, below) and comes back when that box
+   is used again. Pressing or focusing anything in a box makes it the one being written in. */
+function cmtIsProjectKey(k){ return /^project:/.test(String(k||"")); }
+function cmtIsInput(el){ return !!(el&&el.classList&&el.classList.contains("cmt-input")); }
+function cmtInput(){ var k=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR; if(cmtIsProjectKey(k)){ var list=document.querySelectorAll("textarea.cmt-input"); for(var i=0;i<list.length;i++) if(list[i].getAttribute("data-cmt-key")===k) return list[i]; } return document.getElementById("cmtText"); }
+function cmtActivate(key){ if(!key||key===CMT_DRAFT_FOR) return; if(S.cmtEdit) cmtEditFinish(); cmtDraftSwitch(key); }
+["pointerdown","focusin"].forEach(function(type){ document.addEventListener(type,function(e){ var box=e.target&&e.target.closest?e.target.closest("[data-cmt-key]"):null; if(box) cmtActivate(box.getAttribute("data-cmt-key")); },true); });
+/* the box being written in, drawn again */
+function cmtBoxRedraw(){ if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdRedraw==="function") pdRedraw(); else renderDrawer(); }
+function cmtAttRemove(i){ (window._cmtAtt||[]).splice(i,1); cmtRedraw(); }
+/* a box's draft: the live one for the box being written in, the one put aside for any other */
+function cmtDraftOf(key){ var live=key===CMT_DRAFT_FOR||(!cmtIsProjectKey(key)&&!cmtIsProjectKey(CMT_DRAFT_FOR)); return live?{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),links:window._cmtLinks||[],mentions:window._cmtMentions||[],reply:S.replyTo||null}:(CMT_DRAFTS[key]||cmtDraftEmpty()); }
+
+function cmtVisibility(){ if(person(ME).stakeholder) return "client"; if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdBoxVis==="function") return pdBoxVis(CMT_DRAFT_FOR.slice(8)); return S.commentVis||"internal"; }
 function cmtMentionable(id){ return !(cmtVisibility()==="internal"&&person(id).stakeholder); }
 function cmtTaskPeople(tk){
   var ids=[];
@@ -18262,7 +18354,7 @@ function cmtTaskPeople(tk){
 }
 function cmtOpenMention(ta,q){
   var tk=S.drawerTask?task(S.drawerTask):null;
-  var ctx={members:cmtTaskPeople(tk),membersTitle:"On this task"};
+  var ctx=cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdPeople==="function"?{members:pdPeople(CMT_DRAFT_FOR.slice(8)).filter(cmtMentionable),membersTitle:"On this project"}:{members:cmtTaskPeople(tk),membersTitle:"On this task"};
   CMT_MENTION.open=true; CMT_MENTION.dismissed=false;
   /* _deferred:true opens it now. Pickers normally open a tick later so one opened by a click
      survives that click's own close-everything handler; this one is opened by typing, and the
@@ -18271,7 +18363,7 @@ function cmtOpenMention(ta,q){
   entityPicker({_cmt:true,_deferred:true,kind:"person",anchor:msgCaretAnchor(ta),align:"left",initial:q,placeholder:tr("Mention someone…"),context:ctx,
     search:function(query){ return epPersonItems(query,ctx).filter(function(id){ return id!=="@everyone"&&cmtMentionable(id); }); },
     onSelect:function(id){ cmtInsertMention(id); },
-    onClose:function(){ CMT_MENTION.open=false; var t=document.getElementById("cmtText"); if(t) t.focus(); }});
+    onClose:function(){ CMT_MENTION.open=false; var t=cmtInput(); if(t) t.focus(); }});
   CMT_MENTION.caret=ta.selectionStart;
   var ep=document.getElementById("entityPicker");
   if(ep){ ep.classList.add("ep-mention"); var s=ep.querySelector(".ep-search"); if(s) s.setAttribute("tabindex","-1"); }
@@ -18283,13 +18375,13 @@ function cmtOpenMention(ta,q){
    with one of our own, holds however long the picker takes. */
 document.addEventListener("focusin",function(e){
   if(!e.target||!e.target.closest||!e.target.closest("#entityPicker")||!(typeof EP!=="undefined"&&EP.open&&EP.open._cmt)) return;
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   ta.focus();
   var c=CMT_MENTION.caret==null?ta.value.length:CMT_MENTION.caret;
   try{ ta.setSelectionRange(c,c); }catch(x){}
 });
 function cmtInsertMention(id){
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   var display=person(id).name;
   var before=ta.value.slice(0,ta.selectionStart).replace(/@[^\s@]*$/,""), after=ta.value.slice(ta.selectionStart);
   ta.value=before+"@"+display+" "+after;
@@ -18300,7 +18392,7 @@ function cmtInsertMention(id){
 }
 /* The @ button beside Post: puts an "@" at the caret, which opens the picker like typing it does. */
 function cmtMentionButton(){
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   ta.focus();
   var v=ta.value, pos=ta.selectionStart;
   ta.setRangeText((pos>0&&!/\s$/.test(v.slice(0,pos))?" ":"")+"@",pos,pos,"end");
@@ -18315,7 +18407,7 @@ function cmtMentionButton(){
    flag then let Enter fall through as a new line. */
 function cmtPicker(){ var ep=document.getElementById("entityPicker"); return ep&&ep._ep&&typeof EP!=="undefined"&&EP.open&&EP.open._cmt?ep:null; }
 document.addEventListener("input",function(e){
-  var ta=e.target; if(!ta||ta.id!=="cmtText") return;
+  var ta=e.target; if(!cmtIsInput(ta)) return;
   CMT_MENTION.caret=ta.selectionStart; CMT_MENTION.dismissed=false;
   var at=msgCaretMention(ta), ep=cmtPicker();
   if(at!==null){ if(ep) ep._ep.setQuery(at); else cmtOpenMention(ta,at); }
@@ -18325,7 +18417,7 @@ document.addEventListener("input",function(e){
 /* Captured before the box's own key handler (Enter sends there), so Enter on "@name" picks a person
    rather than sending the comment. */
 document.addEventListener("keydown",function(e){
-  var ta=e.target; if(!ta||ta.id!=="cmtText") return;
+  var ta=e.target; if(!cmtIsInput(ta)) return;
   var ep=cmtPicker(), q=msgCaretMention(ta);
   var stop=function(){ e.preventDefault(); e.stopPropagation(); };
   if(e.key==="Enter"||e.key==="Tab"){
@@ -18354,7 +18446,7 @@ document.addEventListener("keydown",function(e){
    cannot drift apart. The textarea's letters go transparent only once the layer is in place; if
    anything here failed, the text would still be visible as ordinary text. */
 function cmtMirrorEnsure(){
-  var ta=document.getElementById("cmtText"); if(!ta) return null;
+  var ta=cmtInput(); if(!ta) return null;
   var wrap=ta.parentNode;
   if(!wrap.classList||!wrap.classList.contains("cmt-ta-wrap")){
     wrap=document.createElement("div"); wrap.className="cmt-ta-wrap";
@@ -18434,7 +18526,8 @@ function cmtMentionsHtml(html){
    "edited"; whoever the new words name is told; an attachment added that is an asset is filed under Assets &
    versions, as when posting. */
 function cmtEditLoad(text){ var links=[];
-  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return name; });
+  /* each named link comes back as the capsule it was written as (src/link-tab.js) */
+  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return (typeof LINK_CHIP==="string"?LINK_CHIP:"")+name; });
   var mentions=(typeof refMentionIds==="function"?refMentionIds(shown):[]).map(function(id){ return {userId:id,display:person(id).name}; });
   return {text:shown,links:links,mentions:mentions}; }
 function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
@@ -18443,12 +18536,12 @@ function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&by
   window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
   S.cmtEdit={task:tk.id,id:id};
   renderDrawer(); cmtEditFocus(); }
-function cmtEditFocus(){ setTimeout(function(){ var ta=document.getElementById("cmtText"); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
+function cmtEditFocus(){ setTimeout(function(){ var ta=cmtInput(); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
   ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} if(typeof cmtMirrorSync==="function") try{ cmtMirrorSync(); }catch(e){} },0); }
 /* the box back to what was being written in it before the edit */
 function cmtEditFinish(){ var st=S.cmtEditStash||{text:"",att:[],links:[],mentions:[],reply:null};
   window._cmtDraft=st.text; window._cmtAtt=st.att; window._cmtLinks=st.links; window._cmtMentions=st.mentions; S.replyTo=st.reply; S.cmtEdit=null; S.cmtEditStash=null; }
-function cmtEditCancel(){ cmtEditFinish(); renderDrawer(); }
+function cmtEditCancel(){ var inProject=S.cmtEdit&&S.cmtEdit.project; cmtEditFinish(); if(inProject&&typeof pdRedraw==="function") pdRedraw(); else renderDrawer(); }
 function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), el=document.getElementById("cmtText"); if(!c||!el){ cmtEditCancel(); return; }
   var text=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
   if(!text&&!att.length) return toast(tr("Write something first"),"bad");
@@ -18469,7 +18562,7 @@ function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comme
   if(!API.on){ c.text=text; c.attachments=att; c.editedAt=new Date().toISOString(); return done(null); }
   apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text,attachments:att}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
 /* Esc in the box while editing lets the edit go — unless the @ picker is open, which Esc closes first */
-document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!t||t.id!=="cmtText"||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!cmtIsInput(t)||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
 /* leaving the task lets the edit go, and what was being written comes back */
 (function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); cmtDraftSwitch(id); return base.apply(this,arguments); }; })();
 /* A comment being written belongs to its task (Oct 2026): opening another task puts it aside — its words, the
@@ -18488,7 +18581,7 @@ function cmtDraftAttach(forTask,a){ if(!forTask||!CMT_DRAFT_FOR||forTask===CMT_D
 
 Object.assign(UI_ID,{
   "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
-  "On this task":"Di task ini",
+  "On this task":"Di task ini","On this project":"Di project ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
   "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang"
@@ -18515,23 +18608,29 @@ var MDLINK_RE=/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g;
 function mdLinkNames(text){ var out={}, m; MDLINK_RE.lastIndex=0; while((m=MDLINK_RE.exec(String(text||"")))) out[m[2]]=m[1]; return out; }
 /* the same text with each [name](url) back to its bare address, for code that finds links by address */
 function mdLinkStrip(text){ return String(text||"").replace(MDLINK_RE,function(_,n,u){ return u; }); }
+/* In a comment box a named link is drawn as a capsule (below); the box holds one letter more in front of its name,
+   this em quad — a space one letter wide that nobody types — on which the capsule's mark is drawn. */
+var LINK_CHIP="\u2001";
 /* Box text → stored text: each named link becomes [name](url); one whose name was edited away
-   keeps its address, added at the end. */
+   keeps its address, added at the end. A capsule's spare letter is never stored. */
 function linkTokensExpand(text,tokens){
   var s=String(text||""), tail=[];
   (tokens||[]).forEach(function(t){
     if(!t||!t.display||!t.url) return;
+    var chip=LINK_CHIP+t.display, j=s.indexOf(chip);
+    if(j>=0){ s=s.slice(0,j)+"["+t.display+"]("+t.url+")"+s.slice(j+chip.length); return; }
     var i=s.indexOf(t.display);
     if(i<0){ if(s.indexOf(t.url)<0) tail.push(t.url); return; }
     s=s.slice(0,i)+"["+t.display+"]("+t.url+")"+s.slice(i+t.display.length);
   });
+  s=s.split(LINK_CHIP).join("");
   return tail.length?s.replace(/\s*$/,"")+" "+tail.join(" "):s;
 }
 
 /* ---------- which box, and where its named links are kept ---------- */
 function linkTabBox(ta){
   if(!ta) return null;
-  if(ta.id==="cmtText"){ window._cmtLinks=window._cmtLinks||[]; return {list:window._cmtLinks,picker:function(){ return typeof cmtPicker==="function"&&!!cmtPicker(); }}; }
+  if(ta.id==="cmtText"||(typeof cmtIsInput==="function"&&cmtIsInput(ta))){ window._cmtLinks=window._cmtLinks||[]; return {list:window._cmtLinks,picker:function(){ return typeof cmtPicker==="function"&&!!cmtPicker(); }}; }
   if(ta.id==="msgInput"&&typeof msgDraft==="function"&&S.messageConversationId){ var d=msgDraft(S.messageConversationId); d.links=d.links||[]; return {list:d.links,picker:function(){ return !!(CHAT_RUNTIME.mentionOpen&&document.getElementById("entityPicker")); }}; }
   return null;
 }
@@ -18557,12 +18656,14 @@ function linkNameSwap(ta,x,o){
     var live=document.getElementById(id); if(!live) return;
     var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
     var display=name||(google?driveLinkLabel(url):""); if(!display) return;
-    var d=display.length-raw.length, end=at+raw.length;
+    /* in a comment box it is a capsule: the spare letter for its mark, then the name */
+    var put=(typeof cmtIsInput==="function"&&cmtIsInput(live)?LINK_CHIP:"")+display;
+    var d=put.length-raw.length, end=at+raw.length;
     var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
-    live.value=live.value.slice(0,at)+display+live.value.slice(end);
+    live.value=live.value.slice(0,at)+put+live.value.slice(end);
     var b=linkTabBox(live);
     if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
-    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+display.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
+    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+put.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
     live.dispatchEvent(new Event("input",{bubbles:true}));
     if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
   });
@@ -18607,10 +18708,35 @@ function linkTabMark(html,tokens){
   });
   return html;
 }
+/* ---------- while writing a comment: a named link is the capsule it will be (Oct 2026) ----------
+   In a task's comment box or a project's discussion, a named link looks as it does once posted: a capsule with the
+   folder's, file's or service's mark and the name, in the link colour. The box is a textarea with a layer drawn
+   behind it, and the caret stays true only while both hold the same letters at the same widths — so the mark is
+   drawn on the spare letter in front of the name (LINK_CHIP), and the capsule's padding is given back by a negative
+   margin: nothing moves. Backspace just after a capsule, or Delete just before it, takes the whole of it. */
+function linkChipIcon(url){ if(typeof isGoogleLink==="function"&&isGoogleLink(url)&&typeof googleIcon==="function") return googleIcon(url); var b=typeof brandIconHtml==="function"?brandIconHtml(url,13):""; return b||I.link; }
+function linkChipMark(html,tokens){ var chips=[];
+  (tokens||[]).slice().sort(function(a,b){ return b.display.length-a.display.length; }).forEach(function(t){ html=html.split(LINK_CHIP+esc(t.display)).join("\u0000"+chips.length+"\u0001"); chips.push(t); });
+  html=linkTabMark(html,tokens);   /* a name without its mark (an older draft) is still in the link colour */
+  return html.replace(/\u0000(\d+)\u0001/g,function(m,i){ var t=chips[+i]; return '<span class="cmt-chip"><span class="cmt-chip-ico">'+LINK_CHIP+linkChipIcon(t.url)+'</span><span class="cmt-chip-name">'+esc(t.display)+'</span></span>'; }); }
+document.addEventListener("keydown",function(e){
+  if((e.key!=="Backspace"&&e.key!=="Delete")||e.ctrlKey||e.metaKey||e.altKey||e.isComposing) return;
+  var ta=e.target; if(!(typeof cmtIsInput==="function"&&cmtIsInput(ta))||ta.selectionStart!==ta.selectionEnd) return;
+  var a=ta.selectionStart, v=ta.value, hit=null;
+  (window._cmtLinks||[]).forEach(function(t){ var c=LINK_CHIP+t.display;
+    if(e.key==="Backspace"&&a>=c.length&&v.slice(a-c.length,a)===c) hit={from:a-c.length,to:a,t:t};
+    if(e.key==="Delete"&&v.slice(a,a+c.length)===c) hit={from:a,to:a+c.length,t:t}; });
+  if(!hit) return;
+  e.preventDefault(); e.stopPropagation();
+  ta.setRangeText("",hit.from,hit.to,"start");
+  if(v.split(LINK_CHIP+hit.t.display).length<=2) window._cmtLinks=(window._cmtLinks||[]).filter(function(t){ return t!==hit.t; });
+  ta.dispatchEvent(new Event("input",{bubbles:true}));
+},true);
 (function(){
   if(typeof cmtMirrorSync==="function"){
     var baseC=cmtMirrorSync;
-    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var m=document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkTabMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
+    /* the layer of the box being written in — a task's or a project's */
+    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var ta=typeof cmtInput==="function"?cmtInput():null, wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
   }
   if(typeof msgMirrorSync==="function"){
     var baseM=msgMirrorSync;
@@ -20708,6 +20834,288 @@ Object.assign(UI_ID,{"Waiting for approval":"Menunggu persetujuan","They signed 
   "Thanks":"Terima kasih","Your account is waiting for approval":"Akunmu menunggu persetujuan","An admin or team lead will let you in. You will get an e-mail when they do.":"Admin atau team lead akan menyetujuinya. Kamu akan mendapat e-mail saat sudah disetujui.","Back to sign in":"Kembali ke halaman masuk",
   "New accounts are approved by an admin or team lead before they can sign in.":"Akun baru perlu disetujui admin atau team lead sebelum bisa masuk.",
   "Your account is waiting for approval. An admin or team lead will let you in, and you will get an e-mail when they do.":"Akunmu menunggu persetujuan. Admin atau team lead akan menyetujuinya, dan kamu akan mendapat e-mail saat sudah disetujui."});
+</script>
+<script>
+/* PROJECT DISCUSSION (Oct 2026) — the conversation about a project as a whole.
+
+   Two places show it: a Discussion tab (between Files and Activity) with every thread, twenty at a time, and a
+   card at the foot of Overview with the newest three and a box to write in. Both read and change one collection
+   per project (PD), so a comment posted on Overview is in the tab, and the other way round.
+
+   It is a task's comments, not a new kind of comment: each comment is drawn by cmtItemHtml and the box is
+   cmtBoxHtml (src/drawer.js), with the same @ picker, attachments, links read as their names, pasted pictures,
+   Enter to send and editing in place (src/comment-mention.js, comment-attach.js, link-tab.js). What is written
+   in a project's box belongs to that project: it is put aside under "project:<id>" when another box — another
+   project's, or a task's — is used, and comes back when this one is.
+
+   The server (server/project-discussion.js) decides who reads what: a stakeholder never receives an internal
+   comment; an archived project only reads; whoever is named, answered or owns the project is told. Here, the
+   Internal / Stakeholder-visible switch is per project and starts at Internal each time, so a choice made on one
+   project cannot carry over to another. */
+var PD={}, PD_VIS={}, PD_BUSY={}, PD_FOCUS=null;
+var PD_ICON='<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>';
+function pdKey(pid){ return "project:"+pid; }
+function pdState(pid){ return PD[pid]||(PD[pid]={items:[],total:0,hasMore:false,mode:null,loading:null,err:null}); }
+function pdHydrate(c){ var x=clone(c); x.ago=minAgo(c.createdAt); return x; }
+function pdBoxVis(pid){ return person(ME).stakeholder?"client":(PD_VIS[pid]||"internal"); }
+function pdArchived(p){ return !!p&&p.status==="archived"; }
+/* who may write: as on the server — anyone who sees all work, whoever runs or is on the project, a stakeholder */
+function pdCanPost(p){ if(!p) return false; if(!API.on) return true; var me=person(ME); return !!(me.stakeholder||has("view_all")||has("edit_any_project")||p.owner===ME||(p.team||[]).indexOf(ME)>=0); }
+/* the people offered first by the @ picker: the project's team and owner, and whoever has written here */
+function pdPeople(pid){ var p=project(pid), ids=[]; var add=function(x){ if(x&&x!==ME&&PEOPLE[x]&&ids.indexOf(x)<0) ids.push(x); };
+  if(p){ add(p.owner); (p.team||[]).forEach(add); } pdState(pid).items.forEach(function(c){ add(c.by); }); return ids; }
+
+/* ---------- reading ---------- */
+function pdByTime(a,b){ return String(a.createdAt||"").localeCompare(String(b.createdAt||""))||String(a.id).localeCompare(String(b.id)); }
+function pdRoots(st){ return st.items.filter(function(c){ return !c.parent||!byId(st.items,c.parent); }).sort(pdByTime); }
+function pdReplies(st,id){ return st.items.filter(function(c){ return c.parent===id; }).sort(pdByTime); }
+/* the switch shows what that audience sees: Internal shows everything, Stakeholder-visible only what stakeholders see */
+function pdShown(pid,list){ return pdBoxVis(pid)==="internal"?list:list.filter(function(c){ return c.vis==="client"; }); }
+function pdUrl(pid,rest){ return "/api/projects/"+encodeURIComponent(pid)+"/comments"+(rest||""); }
+/* full: the tab's threads with their replies (as many as are on show, at least twenty); otherwise the Overview's three */
+function pdLoad(pid,full){ var st=pdState(pid); if(st.loading) return st.loading;
+  if(!API.on){ st.mode=full?"full":(st.mode||"preview"); return Promise.resolve(st); }
+  var n=full?Math.min(50,Math.max(20,pdRoots(st).length)):3;
+  st.loading=apiFetch("GET",pdUrl(pid,"?limit="+n+(full?"":"&view=preview"))).then(function(d){
+    st.loading=null; st.err=null; st.items=(d.comments||[]).map(pdHydrate); st.total=d.total||0; st.hasMore=!!d.hasMore; st.mode=full?"full":"preview"; return st;
+  },function(e){ st.loading=null; st.err=e&&e.message||tr("Could not load the discussion"); return st; });
+  return st.loading; }
+/* asked for by whatever is drawn: once, then drawn again when it arrives */
+function pdEnsure(pid,full){ var st=pdState(pid); if(st.loading||st.err) return; if(full?st.mode==="full":st.mode) return; pdLoad(pid,full).then(function(){ if(S.screen==="projects"&&S.projectId===pid) pdRedraw(); }); }
+function pdMore(pid){ var st=pdState(pid), roots=pdRoots(st); if(!roots.length||st.loading) return;
+  if(!API.on){ st.hasMore=false; return pdRedraw(); }
+  st.loading=apiFetch("GET",pdUrl(pid,"?limit=20&before="+encodeURIComponent(roots[0].id))).then(function(d){ st.loading=null;
+    (d.comments||[]).map(pdHydrate).forEach(function(c){ if(!byId(st.items,c.id)) st.items.push(c); }); st.hasMore=!!d.hasMore; st.total=d.total||st.total; pdRedraw(); },
+    function(e){ st.loading=null; toast(e.message||tr("Could not load the discussion"),"bad"); });
+  pdRedraw(); }
+/* a colleague's comment: the discussion on show is asked for again and drawn without losing the reader's place */
+function pdRefresh(pid){ var st=pdState(pid); if(!st.mode||st.loading) return; pdLoad(pid,st.mode==="full").then(function(){ if(S.screen==="projects"&&S.projectId===pid) pdRedraw(); }); }
+/* one comment in, or changed: a reply counts on its thread */
+function pdUpsert(pid,c){ var st=pdState(pid), old=byId(st.items,c.id);
+  if(old){ st.items=st.items.map(function(x){ return x.id===c.id?Object.assign({},x,c,{replyCount:c.replyCount!=null?c.replyCount:x.replyCount}):x; }); return; }
+  st.items.push(c); if(c.parent){ var r=byId(st.items,c.parent); if(r) r.replyCount=(r.replyCount||0)+1; } }
+
+/* ---------- drawing ---------- */
+/* Internal / Stakeholder-visible: small, in the head beside the title, so it never stands between the comments and the
+   box. What each means is said when pointed at. It is also what the list shows: Internal shows everything,
+   Stakeholder-visible only what stakeholders see. A stakeholder has no choice and no switch. */
+function pdVisToggle(pid){ if(person(ME).stakeholder) return ""; var v=pdBoxVis(pid), b=function(k,icon,label,tip){ return '<button type="button" class="'+(v===k?"on":"")+'" aria-pressed="'+(v===k)+'" title="'+attr(tr(tip))+'" onclick="pdSetVis('+jsq(pid)+',\''+k+'\')">'+icon+tr(label)+'</button>'; };
+  return '<div class="seg pd-vis" role="group" aria-label="'+attr(tr("Who can see it"))+'">'+b("internal",I.lock,"Internal","Internal comments are only visible to the creative team.")+b("client",I.eye,"Stakeholder-visible","Stakeholder-visible comments can be seen by requesters like Marketing.")+'</div>'; }
+/* the panel, with the switch beside its title */
+function pdPanel(p,count,body,extra,cls){ return '<section class="panel pd-box '+cls+'"><div class="panel-head"><span class="sq">'+PD_ICON+'</span><h2>'+tr("Discussion")+'</h2>'+(count!=null?'<span class="cnt">'+count+'</span>':"")+pdVisToggle(p.id)+'<span class="spacer"></span>'+(extra||"")+'</div><div class="panel-body pad">'+body+'</div></section>'; }
+function pdSetVis(pid,v){ PD_VIS[pid]=v==="client"?"client":"internal"; pdRedraw(); }
+/* the box to write in, or why there is none */
+function pdComposer(p){
+  if(pdArchived(p)) return '<p class="pd-note pd-archived">'+I.lock+'<span>'+tr("This project is archived. Restore the project to add comments.")+'</span></p>';
+  if(!pdCanPost(p)) return '';
+  if(S.cmtEdit&&S.cmtEdit.project===p.id) return '';   /* the comment being edited has the box, in its place */
+  var key=pdKey(p.id), d=cmtDraftOf(key), st=pdState(p.id), rt=d.reply?byId(st.items,d.reply):null, vis=pdBoxVis(p.id);
+  if(rt&&rt.vis==="internal") vis="internal";   /* a reply is never more widely visible than the comment it answers */
+  return cmtBoxHtml({key:key,inputId:"pdText",vis:vis,editing:false,draft:d,reply:rt,cancelReply:"pdReplyCancel("+jsq(p.id)+")",post:"pdSubmit("+jsq(p.id)+")"}); }
+/* what can be done with a comment — answer it; change or remove one's own — all of it where the comment is, on
+   Overview as on the tab: nothing moves the page to another tab */
+function pdActs(p,c){ if(pdArchived(p)) return null; var pid=jsq(p.id), cid=jsq(c.id);
+  return (pdCanPost(p)?'<button onclick="pdReply('+pid+','+cid+')">'+tr("Reply")+'</button>':'')+(c.by===ME?'<button class="cmt-edit-btn" onclick="pdEditStart('+pid+','+cid+')">'+tr("Edit")+'</button><button onclick="pdDelete('+pid+','+cid+')">'+tr("Delete")+'</button>':''); }
+/* one comment, or — being edited — the box, in its place; extra: more buttons after its own (Overview's replies) */
+function pdItem(p,c,isReply,extra){ var key=pdKey(p.id), ed=!!(S.cmtEdit&&S.cmtEdit.project===p.id&&S.cmtEdit.id===c.id), acts=pdActs(p,c);
+  return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtBoxHtml({key:key,inputId:"pdText",vis:c.vis,editing:true,draft:cmtDraftOf(key),post:"pdSubmit("+jsq(p.id)+")"}):"",acts:acts==null&&!extra?null:(acts||"")+(extra||"")}); }
+function pdLoading(st){ return st.err?'<p class="pd-note pd-err">'+esc(st.err)+' <button class="btn xs" onclick="pdRetry('+jsq(S.projectId)+')">'+tr("Try again")+'</button></p>':'<div class="pd-loading" aria-busy="true">'+tr("Loading…")+'</div>'; }
+function pdRetry(pid){ pdState(pid).err=null; pdRedraw(); }
+/* Overview: the newest three threads, each on two lines at most (the rest on request), how many replies each has —
+   which open under it, there; then the box. Replying, editing and removing happen here too. */
+var PD_OPEN={};   /* threads opened on Overview: project id → {comment id: true} */
+function pdOverviewHtml(p){ var st=pdState(p.id); pdEnsure(p.id,false);
+  var body, open=PD_OPEN[p.id]||{};
+  if(!st.mode) body=pdLoading(st);
+  else { var roots=pdShown(p.id,pdRoots(st)).slice(-3);
+    body=roots.length?'<div class="cmts pd-preview">'+roots.map(function(c){ var have=pdReplies(st,c.id), n=Math.max(c.replyCount||0,have.length), shown=!!open[c.id]&&n>0;
+        var toggle=n?'<button class="pd-replies" aria-expanded="'+shown+'" onclick="pdThread('+jsq(p.id)+','+jsq(c.id)+')">'+(shown?tr("Hide replies"):n+' '+tr(n===1?"reply":"replies"))+'</button>':'';
+        return pdItem(p,c,false,toggle)+(shown?pdShown(p.id,have).map(function(r){ return pdItem(p,r,true); }).join("")+(have.length<n?'<div class="pd-thread-loading" aria-busy="true">'+tr("Loading…")+'</div>':''):''); }).join("")+'</div>'
+      :'<p class="pd-empty">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet. Start the project discussion.")+'</p>'; }
+  var all='<button type="button" class="link pd-all" onclick="pdOpen('+jsq(p.id)+')">'+tr("View all discussion")+' →</button>';
+  return pdPanel(p,st.mode?st.total:null,body+pdComposer(p),all,"pd-overview"); }
+/* a thread's replies, opened or closed on Overview; the replies are fetched the first time */
+function pdThread(pid,cid){ var o=PD_OPEN[pid]=PD_OPEN[pid]||{}; o[cid]=!o[cid]; if(o[cid]&&pdState(pid).mode!=="full") pdLoad(pid,true).then(function(){ pdRedraw(); }); pdRedraw(); }
+/* a long comment on Overview shows two lines and "Show more", which shows it all, there */
+function pdClampMarks(){ Array.prototype.forEach.call(document.querySelectorAll("#content .pd-preview .cmt:not(.cmt-editing):not(.pd-expanded) > div > .body"),function(b){ if(b.scrollHeight<=b.clientHeight+1||(b.nextElementSibling&&b.nextElementSibling.classList.contains("pd-more-text"))) return;
+  var m=document.createElement("button"); m.type="button"; m.className="pd-more-text"; m.textContent=tr("Show more"); m.onclick=function(){ var c=m.closest(".cmt"); if(c) c.classList.add("pd-expanded"); m.remove(); }; b.insertAdjacentElement("afterend",m); }); }
+/* the Discussion tab: every thread, oldest first, each with its replies; earlier ones on request; the box below */
+function pdTabHtml(p){ var st=pdState(p.id); pdEnsure(p.id,true);
+  var one=function(c,isReply){ return pdItem(p,c,isReply); };
+  var list;
+  if(!st.mode) list=pdLoading(st);
+  else { var roots=pdShown(p.id,pdRoots(st));
+    list=(st.hasMore?'<div class="pd-more-row"><button class="btn sm pd-more" onclick="pdMore('+jsq(p.id)+')"'+(st.loading?' disabled':'')+'>'+tr(st.loading?"Loading…":"Load earlier comments")+'</button></div>':'')
+      +'<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+pdShown(p.id,pdReplies(st,c.id)).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet")+'</div></div>')+'</div>'; }
+  return pdPanel(p,st.mode?st.total:null,'<p class="hint pd-sub">'+tr("Project-level coordination and decisions")+'</p>'+list+pdComposer(p),"","pd-full"); }
+/* Drawn again in place — the rest of the page is left alone; someone writing keeps writing (focus, caret, scroll). */
+function pdRedraw(){ if(S.screen!=="projects"||!S.projectId) return; var box=document.querySelector("#content .pd-box"), p=project(S.projectId); if(!box||!p) return;
+  var ta=document.activeElement, keep=ta&&cmtIsInput(ta)&&box.contains(ta)?{a:ta.selectionStart,b:ta.selectionEnd,top:ta.scrollTop}:null;
+  var tmp=document.createElement("div"); tmp.innerHTML=S.projectTab==="discussion"?pdTabHtml(p):pdOverviewHtml(p);
+  if(tmp.firstElementChild) box.replaceWith(tmp.firstElementChild);
+  pdAfterRender(keep); }
+function pdAfterRender(keep){ var n=cmtInput();
+  if(n&&cmtIsProjectKey(CMT_DRAFT_FOR)&&n.getAttribute("data-cmt-key")===CMT_DRAFT_FOR){ if(keep){ n.focus(); try{ n.setSelectionRange(keep.a,keep.b); }catch(e){} n.scrollTop=keep.top; } try{ cmtMirrorSync(); }catch(e){} }
+  pdClampMarks(); pdFocusComment(); }
+/* a comment asked for (a notification, a link, "N replies"): scrolled to and lit; earlier pages are fetched to find it */
+function pdFocusComment(){ var f=PD_FOCUS; if(!f||S.projectId!==f.pid||S.projectTab!=="discussion") return; var st=pdState(f.pid); if(st.mode!=="full") return;
+  if(!f.cid){ PD_FOCUS=null; return; }
+  var el=document.querySelector('#content .pd-box .cmt[data-cid="'+String(f.cid).replace(/["\\]/g,"")+'"]');
+  if(el){ PD_FOCUS=null; el.scrollIntoView({block:"center"}); el.classList.add("cmt-flash"); setTimeout(function(){ el.classList.remove("cmt-flash"); },1900); return; }
+  if(st.hasMore&&(f.tries=(f.tries||0)+1)<=5) return pdMore(f.pid);
+  PD_FOCUS=null; }
+
+/* ---------- doing ---------- */
+function pdOpen(pid,cid){ if(!project(pid)) return toast(tr("That item is not available to you"),"bad"); S.projectTab="discussion"; PD_FOCUS={pid:pid,cid:cid||null}; if(S.screen==="projects"&&S.projectId===pid) renderScreen(false); else go("projects",pid); }
+function pdFocusBox(){ setTimeout(function(){ var e=cmtInput(); if(e){ e.focus(); var n=e.value.length; try{ e.setSelectionRange(n,n); }catch(x){} } },40); }
+/* Reply: the box below says whom it answers and takes the typing — on whichever tab this is */
+function pdReply(pid,cid){ cmtActivate(pdKey(pid)); S.replyTo=cid; pdRedraw(); pdFocusBox(); }
+function pdReplyCancel(pid){ cmtActivate(pdKey(pid)); S.replyTo=null; pdRedraw(); pdFocusBox(); }
+function pdSubmit(pid){ cmtActivate(pdKey(pid)); if(S.cmtEdit&&S.cmtEdit.project===pid) return pdEditSave(pid); pdPost(pid); }
+function pdBusy(on){ Array.prototype.forEach.call(document.querySelectorAll("#content .pd-box .composer .bar .btn.primary"),function(b){ b.disabled=!!on; b.setAttribute("aria-busy",on?"true":"false"); }); }
+function pdPost(pid){ var p=project(pid); if(!p||pdArchived(p)||PD_BUSY[pid]) return; var el=cmtInput(); if(!el||el.getAttribute("data-cmt-key")!==pdKey(pid)) return;
+  var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
+  if(!txt&&!att.length){ el.focus(); return; }
+  var st=pdState(pid), parent=S.replyTo||null, pc=parent?byId(st.items,parent):null, vis=pdBoxVis(pid);
+  if(pc&&pc.vis==="internal") vis="internal";
+  PD_BUSY[pid]=true; pdBusy(true);
+  /* the box is emptied only once the comment is saved; a refusal leaves everything in it as it was */
+  var saved=function(c,total){ PD_BUSY[pid]=false;
+    if(CMT_DRAFT_FOR===pdKey(pid)){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; cmtMentionsReset(); S.replyTo=null; } else delete CMT_DRAFTS[pdKey(pid)];
+    pdUpsert(pid,c); st.total=total!=null?total:st.total+1; if(!st.mode) st.mode="preview";
+    /* a reply written on Overview is shown there, under its comment, with the rest of the thread */
+    if(c.parent){ (PD_OPEN[pid]=PD_OPEN[pid]||{})[c.parent]=true; if(API.on&&st.mode!=="full") pdLoad(pid,true).then(function(){ pdRedraw(); }); }
+    pdRedraw(); toast(tr("Comment posted")); };
+  if(!API.on){ var root=pc&&pc.parent?pc.parent:parent; return saved(pdHydrate({id:uid("pc"),by:ME,vis:vis,text:txt,parent:root,attachments:att,createdAt:new Date().toISOString(),editedAt:null})); }
+  apiFetch("POST",pdUrl(pid),{id:uid("pc"),text:txt,vis:vis,parent:parent,attachments:att}).then(function(d){ saved(pdHydrate(d.comment),d.total); })
+    .catch(function(e){ PD_BUSY[pid]=false; pdBusy(false); toast(tr("Couldn't post comment. Try again.")+(e&&e.message?" "+e.message:""),"bad"); }); }
+/* editing in place, as in a task: the same box opens where the comment is; what was being written waits */
+function pdEditStart(pid,cid){ var c=byId(pdState(pid).items,cid); if(!c||c.by!==ME) return; cmtActivate(pdKey(pid));
+  if(!S.cmtEdit) S.cmtEditStash={text:window._cmtDraft||"",att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null};
+  var shown=cmtEditLoad(c.text||""); window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
+  S.cmtEdit={project:pid,id:cid}; pdRedraw(); cmtEditFocus(); }
+function pdEditSave(pid){ var d=S.cmtEdit, st=pdState(pid), c=d&&byId(st.items,d.id), el=cmtInput(); if(!c||!el){ cmtEditCancel(); return; }
+  var text=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
+  if(!text&&!att.length) return toast(tr("Write something first"),"bad");
+  if(text===(c.text||"")&&JSON.stringify(att)===JSON.stringify(c.attachments||[])){ cmtEditCancel(); return; }
+  pdBusy(true);
+  var ok=function(nc){ pdUpsert(pid,nc); cmtEditFinish(); pdRedraw(); toast(tr("Comment updated")); };
+  if(!API.on) return ok(Object.assign({},c,{text:text,attachments:att,editedAt:new Date().toISOString()}));
+  apiFetch("PUT",pdUrl(pid,"/"+encodeURIComponent(c.id)),{text:text,attachments:att}).then(function(r){ ok(pdHydrate(r.comment)); })
+    .catch(function(e){ pdBusy(false); toast(e.message||tr("Could not save the comment"),"bad"); }); }
+/* removed: its replies stay, on their own, as in a task */
+function pdDelete(pid,cid){ var st=pdState(pid), c=byId(st.items,cid); if(!c) return;
+  var gone=function(total){ st.items=st.items.filter(function(x){ return x.id!==cid; }).map(function(x){ return x.parent===cid?Object.assign({},x,{parent:null}):x; });
+    if(c.parent){ var r=byId(st.items,c.parent); if(r&&r.replyCount) r.replyCount--; } st.total=total!=null?total:Math.max(0,st.total-1);
+    if(S.cmtEdit&&S.cmtEdit.project===pid&&S.cmtEdit.id===cid) cmtEditFinish(); if(CMT_DRAFT_FOR===pdKey(pid)&&S.replyTo===cid) S.replyTo=null;
+    pdRedraw(); toast(tr("Comment deleted")); };
+  if(!API.on) return gone();
+  apiFetch("DELETE",pdUrl(pid,"/"+encodeURIComponent(cid))).then(function(r){ gone(r.total); }).catch(function(e){ toast(e.message||tr("Could not delete the comment"),"bad"); }); }
+
+/* ---------- hearing about it ---------- */
+/* the live stream: someone else's comment, change or removal in a discussion that is on show */
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ var r=base.apply(this,arguments); try{ if(ev&&ev.type==="project_comments"&&ev.by!==ME&&PD[ev.project]) pdRefresh(ev.project); }catch(e){} return r; }; })();
+function pdNoticeInfo(n){ var info={}; try{ info=JSON.parse(n.message||"{}")||{}; }catch(e){} return info; }
+function pdNoticeLine(n,info){ return n.k==="mention"?"{who} mentioned you in the discussion on {t}":info.reply?"{who} replied to you in the discussion on {t}":"{who} commented in the discussion on {t}"; }
+/* the bell: says it is the project's discussion, quotes the comment, opens it */
+(function(){ if(typeof notifRowHtml!=="function") return; var base=notifRowHtml; notifRowHtml=function(n,bundle){ if(!n||n.entityType!=="project") return base.apply(this,arguments);
+  var p=project(n.t), info=pdNoticeInfo(n), text=fmt(tr(pdNoticeLine(n,info)),{who:n.who?esc(first(n.who)):"",t:esc(p?p.name:n.t)});
+  return '<div class="notif'+(n.read?"":" unread")+'" onclick="closePops();markRead('+jsq(n.t)+');pdOpen('+jsq(n.t)+','+jsq(info.comment||"")+')">'+(n.who?av(n.who):'<span class="av" style="background:var(--color-primary)">!</span>')+'<div><div>'+text+(info.text?'<div class="notif-preview" data-no-translate>'+esc(String(info.text).slice(0,90))+'</div>':'')+'</div><div class="when">'+ago(n.ago,n.createdAt)+'</div></div></div>'; }; })();
+(function(){ if(typeof notifToast!=="function") return; var base=notifToast; notifToast=function(n){ if(!n||n.entityType!=="project"||document.body.classList.contains("auth")) return base.apply(this,arguments);
+  var p=project(n.t), info=pdNoticeInfo(n), el=document.createElement("div"); el.className="toast ok msg-toast notif-toast";
+  el.innerHTML=(n.who?av(n.who):'<span class="av" style="background:var(--color-primary)">!</span>')+'<div><span>'+fmt(tr(pdNoticeLine(n,info)),{who:n.who?esc(first(n.who)):"",t:esc(p?p.name:n.t)})+'</span></div>';
+  el.onclick=function(){ el.remove(); markRead(n.t); pdOpen(n.t,info.comment||null); }; notifPopShow(el); }; })();
+/* a link to a comment — /projects/<id>?tab=discussion&comment=<id>, as e-mails and push notifications send — opens it */
+(function(){ if(typeof routeApply!=="function") return; var base=routeApply; routeApply=function(r){ if(r&&r.screen==="projects"&&r.sub&&r.query&&r.query.tab==="discussion"){ S.projectTab="discussion"; PD_FOCUS={pid:routeIdFrom("project",r.sub),cid:r.query.comment||null}; } return base.apply(this,arguments); }; })();
+
+Object.assign(UI_ID,{
+  "Discussion":"Diskusi","View all discussion":"Lihat semua diskusi","Project-level coordination and decisions":"Koordinasi dan keputusan tingkat project",
+  "No comments yet. Start the project discussion.":"Belum ada komentar. Mulai diskusi project.","No comments yet":"Belum ada komentar","No discussion yet.":"Belum ada diskusi.",
+  "This project is archived. Restore the project to add comments.":"Project ini diarsipkan. Pulihkan project untuk menambah komentar.",
+  "Load earlier comments":"Muat komentar sebelumnya","reply":"balasan","replies":"balasan","Reply":"Balas","Delete":"Hapus",
+  "Comment posted":"Komentar terkirim","Who can see it":"Siapa yang bisa melihat","Hide replies":"Sembunyikan balasan","Show more":"Selengkapnya","Comment deleted":"Komentar dihapus","Couldn't post comment. Try again.":"Komentar tidak terkirim. Coba lagi.",
+  "Could not load the discussion":"Diskusi tidak dapat dimuat","Could not delete the comment":"Komentar tidak dapat dihapus","Try again":"Coba lagi","Loading…":"Memuat…",
+  "{who} mentioned you in the discussion on {t}":"{who} menyebutmu di diskusi {t}","{who} replied to you in the discussion on {t}":"{who} membalasmu di diskusi {t}","{who} commented in the discussion on {t}":"{who} berkomentar di diskusi {t}"
+});
+</script>
+<script>
+/* ANNOUNCEMENT EMAIL (Oct 2026) — Settings → Notifications, for whoever holds send_announcements (Admin, unless a
+   role is given it in Roles & permissions). A subject, a message and, if wanted, a link; sent by e-mail to every
+   member with an address — stakeholders only when ticked. "Send a test to me" first shows how it looks; "Send to
+   everyone" asks once more, with the number of people. The last ten are listed with how far each got.
+   Server: server/announcements.js. What is being written stays while the page is redrawn or left. */
+var ANN=null, ANN_DRAFT=annBlank(), ANN_POLL=null;
+function annBlank(){ return {subject:"",message:"",link:"",stakeholders:false,mode:"all",picked:{},q:""}; }
+function canAnnounce(){ return !!(API.on&&has("send_announcements")); }
+function annLoad(){ return apiFetch("GET","/api/announcements").then(function(d){ ANN=d; annRedraw();
+  /* one still going: asked again until it is done */
+  clearTimeout(ANN_POLL); if((d.history||[]).some(function(h){ return h.status==="sending"; })) ANN_POLL=setTimeout(annLoad,1500); }).catch(function(e){ ANN={err:e.message,history:[]}; annRedraw(); }); }
+function annRedraw(){ if(S.screen!=="settings"||S.settingsTab!=="notifications") return; var box=document.getElementById("annPanel"); if(!box) return; annValues();
+  /* whoever is typing in it keeps typing: same field, same caret */
+  var a=document.activeElement, keep=a&&a.id&&box.contains(a)?{id:a.id,s:a.selectionStart,e:a.selectionEnd}:null;
+  var tmp=document.createElement("div"); tmp.innerHTML=annSection(); if(tmp.firstElementChild) box.replaceWith(tmp.firstElementChild);
+  var n=keep&&document.getElementById(keep.id); if(n){ n.focus(); try{ if(keep.s!=null) n.setSelectionRange(keep.s,keep.e); }catch(e){} } }
+function annStatus(h){ if(h.status==="sending") return '<span class="badge">'+tr("Sending…")+' '+h.sent+'/'+h.recipients+'</span>';
+  return '<span class="badge'+(h.failed?" bad":" ok")+'">'+fmt(tr("Sent to {n}"),{n:h.sent})+(h.failed?' · '+fmt(tr("{n} failed"),{n:h.failed}):'')+'</span>'; }
+/* Who it goes to: everyone (stakeholders when ticked), or the people ticked one by one — found by name, e-mail or
+   role; "Select all" ticks everyone listed (everyone found, while searching). */
+function annPicked(){ var d=ANN_DRAFT; return (ANN.people||[]).filter(function(p){ return d.picked[p.id]; }).map(function(p){ return p.id; }); }
+function annCount(){ var d=ANN_DRAFT; return d.mode==="pick"?annPicked().length:(ANN.members||0)+(d.stakeholders?(ANN.stakeholders||0):0); }
+function annShown(){ var q=String(ANN_DRAFT.q||"").trim().toLowerCase(), has=function(v){ return String(v||"").toLowerCase().indexOf(q)>=0; };
+  return (ANN.people||[]).filter(function(p){ var pp=person(p.id); return !q||has(pp.name)||has(pp.email)||has(pp.role); }).sort(function(a,b){ return String(person(a.id).name||"").localeCompare(String(person(b.id).name||"")); }); }
+function annMode(m){ ANN_DRAFT.mode=m==="pick"?"pick":"all"; annRedraw(); }
+function annPick(id,on){ if(on) ANN_DRAFT.picked[id]=true; else delete ANN_DRAFT.picked[id]; annRedraw(); }
+function annPickAll(on){ annShown().forEach(function(p){ if(on) ANN_DRAFT.picked[p.id]=true; else delete ANN_DRAFT.picked[p.id]; }); annRedraw(); }
+function annSearch(v){ ANN_DRAFT.q=v; annRedraw(); }
+function annRecipientsHtml(){ var d=ANN_DRAFT, opt=function(k,label){ return '<button type="button" class="'+(d.mode===k?"on":"")+'" aria-pressed="'+(d.mode===k)+'" onclick="annMode(\''+k+'\')">'+tr(label)+'</button>'; };
+  var inner;
+  if(d.mode!=="pick") inner=ANN.stakeholders?'<label class="ann-check"><input type="checkbox" id="ann_stake"'+(d.stakeholders?' checked':'')+' onchange="ANN_DRAFT.stakeholders=this.checked;annRedraw()"> '+fmt(tr("Also send to stakeholders ({n})"),{n:ANN.stakeholders})+'</label>':'';
+  else { var shown=annShown(), all=!!shown.length&&shown.every(function(p){ return d.picked[p.id]; }), searching=!!String(d.q||"").trim();
+    inner='<div class="ann-pick"><div class="ann-pick-head"><label class="ann-check"><input type="checkbox" id="ann_all"'+(all?' checked':'')+(shown.length?'':' disabled')+' onchange="annPickAll(this.checked)"> '+tr(searching?"Select all found":"Select all")+'</label>'
+      +'<input id="ann_q" class="ann-search" type="search" value="'+attr(d.q||"")+'" placeholder="'+attr(tr("Search people"))+'" aria-label="'+attr(tr("Search people"))+'" oninput="annSearch(this.value)"><span class="ann-count">'+fmt(tr("{n} selected"),{n:annPicked().length})+'</span></div>'
+      +'<div class="ann-pick-list">'+(shown.length?shown.map(function(p){ var pp=person(p.id); return '<label class="ann-person"><input type="checkbox" data-id="'+attr(p.id)+'"'+(d.picked[p.id]?' checked':'')+' onchange="annPick('+jsq(p.id)+',this.checked)">'+av(p.id)+'<span class="ann-pn"><b>'+esc(pp.name||p.id)+'</b><span>'+esc([pp.role,pp.email].filter(Boolean).join(" · "))+'</span></span>'+(p.stakeholder?'<span class="badge client">'+tr("stakeholder")+'</span>':'')+'</label>'; }).join(""):'<p class="hint">'+tr("No one matches")+'</p>')+'</div></div>'; }
+  return '<div class="field ann-to"><label>'+tr("Recipients")+'</label><div class="seg ann-mode" role="group" aria-label="'+attr(tr("Recipients"))+'">'+opt("all","Everyone")+opt("pick","Choose people")+'</div>'+inner+'</div>'; }
+function annSection(){ if(!canAnnounce()) return "";
+  if(ANN===null){ ANN={loading:true,history:[]}; annLoad(); }
+  var d=ANN_DRAFT, n=annCount();
+  var body='<p class="hint" style="margin-bottom:12px">'+tr("An e-mail to everyone in the workspace — a new feature, a change in how the team works, planned downtime. It is sent from the e-mail settings below.")+'</p>'
+    +fieldHtml("ann_subject",tr("Subject"),'<input id="ann_subject" maxlength="150" value="'+attr(d.subject)+'" placeholder="'+attr(tr("e.g. New: discussions on every project"))+'" oninput="ANN_DRAFT.subject=this.value">')
+    +fieldHtml("ann_message",tr("Message"),'<textarea id="ann_message" rows="6" maxlength="5000" placeholder="'+attr(tr("What changed, and what people should do about it"))+'" oninput="ANN_DRAFT.message=this.value">'+esc(d.message)+'</textarea>')
+    +fieldHtml("ann_link",tr("Link (optional)"),'<input id="ann_link" inputmode="url" maxlength="500" value="'+attr(d.link)+'" placeholder="https://" oninput="ANN_DRAFT.link=this.value"><div class="hint">'+tr("The e-mail's button opens it; without one, the button opens ZenCrevia.")+'</div>')
+    +(ANN.loading?'':annRecipientsHtml())
+    +'<p class="hint ann-who">'+(ANN.loading?tr("Counting who it goes to…"):fmt(tr(n===1?"It goes to {n} person.":"It goes to {n} people."),{n:n}))+'</p>';
+  var hist=(ANN.history||[]).map(function(h){ return '<div class="pref ann-row"><div class="pl"><b>'+esc(h.subject)+'</b><span>'+esc(person(h.by).name||h.by)+' · '+esc(whenLabel(h.createdAt))+' · '+(h.chosen?fmt(tr(h.recipients===1?"to {n} person chosen":"to {n} people chosen"),{n:h.recipients}):tr(h.stakeholders?"to everyone, with stakeholders":"to everyone"))+'</span></div>'+annStatus(h)+'</div>'; }).join("");
+  var foot='<button class="btn" onclick="annSend(true)">'+I.bell+tr("Send a test to me")+'</button><span class="spacer"></span><button class="btn primary" onclick="annSend(false)"'+(ANN.loading||!n?' disabled':'')+'>'+(d.mode==="pick"?fmt(tr(n===1?"Send to {n} person":"Send to {n} people"),{n:n}):tr("Send to everyone"))+'</button>';
+  return '<div id="annPanel">'+sp("Announcement email",body+(ANN.err?'<p class="hint" style="color:var(--color-danger)">'+esc(ANN.err)+'</p>':'')+(hist?'<h3 class="ann-h">'+tr("Sent before")+'</h3>'+hist:''),foot,I.bell,"ann-panel")+'</div>'; }
+function annValues(){ ["subject","message","link"].forEach(function(k){ var el=document.getElementById("ann_"+k); if(el) ANN_DRAFT[k]=el.value; }); return ANN_DRAFT; }
+function annSend(test){ var d=annValues();
+  if(!d.subject.trim()) return toast(tr("Write a subject"),"bad"); if(!d.message.trim()) return toast(tr("Write a message"),"bad");
+  if(d.link.trim()&&!/^https:\/\//i.test(d.link.trim())) return toast(tr("The link must start with https://"),"bad");
+  if(test) return apiFetch("POST","/api/announcements",annBody(true)).then(function(r){ toast(fmt(tr("Test sent to {to}"),{to:r.to})); }).catch(function(e){ toast(e.message,"bad"); });
+  var n=annCount(), pick=d.mode==="pick", names=pick?annPicked().map(function(id){ return person(id).name||id; }):[];
+  if(!n) return toast(tr("Choose at least one person"),"bad");
+  openModal(tr(pick?"Send to the people chosen?":"Send to everyone?"),'<p>'+fmt(tr(n===1?"This e-mail goes to {n} person. It cannot be called back once sent.":"This e-mail goes to {n} people. It cannot be called back once sent."),{n:n})+'</p>'+(pick?'<p class="hint ann-names">'+esc(names.slice(0,8).join(", "))+(names.length>8?' '+fmt(tr("and {n} more"),{n:names.length-8}):'')+'</p>':'')+'<div class="ann-preview"><b>'+esc(d.subject)+'</b><div>'+esc(d.message).replace(/\n/g,"<br>")+'</div></div>',
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" id="annGo" onclick="annSendNow()">'+tr("Send")+'</button>'); }
+/* what is sent: everyone (and stakeholders, if ticked), or the people chosen */
+function annBody(test){ var d=annValues(), b={subject:d.subject,message:d.message,link:d.link.trim(),test:!!test}; if(d.mode==="pick") b.recipients=annPicked(); else b.stakeholders=!!d.stakeholders; return b; }
+function annSendNow(){ var b=document.getElementById("annGo"); if(b) b.disabled=true;
+  apiFetch("POST","/api/announcements",annBody(false)).then(function(r){ closeModal();
+    toast(fmt(tr(r.announcement.recipients===1?"Sending to {n} person…":"Sending to {n} people…"),{n:r.announcement.recipients})); ANN_DRAFT=annBlank(); ["subject","message","link"].forEach(function(k){ var el=document.getElementById("ann_"+k); if(el) el.value=""; });
+    ANN.history=r.history||ANN.history; annRedraw(); clearTimeout(ANN_POLL); ANN_POLL=setTimeout(annLoad,1200); })
+    .catch(function(e){ if(b) b.disabled=false; toast(e.message,"bad"); }); }
+Object.assign(UI_ID,{
+  "Announcement email":"Email pengumuman","Send announcement emails to every member":"Mengirim email pengumuman ke semua anggota",
+  "An e-mail to everyone in the workspace — a new feature, a change in how the team works, planned downtime. It is sent from the e-mail settings below.":"Email ke semua orang di workspace — fitur baru, perubahan cara kerja tim, jadwal pemeliharaan. Dikirim lewat pengaturan email di bawah.",
+  "Subject":"Subjek","Message":"Pesan","Link (optional)":"Link (opsional)","e.g. New: discussions on every project":"mis. Baru: diskusi di setiap project","What changed, and what people should do about it":"Apa yang berubah, dan apa yang perlu dilakukan",
+  "The e-mail's button opens it; without one, the button opens ZenCrevia.":"Tombol di email membuka link ini; tanpa link, tombolnya membuka ZenCrevia.",
+  "Also send to stakeholders ({n})":"Kirim juga ke stakeholder ({n})","Counting who it goes to…":"Menghitung penerima…","It goes to {n} person.":"Dikirim ke {n} orang.","It goes to {n} people.":"Dikirim ke {n} orang.",
+  "to everyone":"ke semua orang","to everyone, with stakeholders":"ke semua orang, termasuk stakeholder","to {n} person chosen":"ke {n} orang terpilih","to {n} people chosen":"ke {n} orang terpilih",
+  "Recipients":"Penerima","Everyone":"Semua orang","Choose people":"Pilih orang","Select all":"Pilih semua","Select all found":"Pilih semua yang ditemukan","Search people":"Cari orang","{n} selected":"{n} dipilih","No one matches":"Tidak ada yang cocok","stakeholder":"stakeholder",
+  "Send to {n} person":"Kirim ke {n} orang","Send to {n} people":"Kirim ke {n} orang","Send to the people chosen?":"Kirim ke orang yang dipilih?","and {n} more":"dan {n} lainnya","Choose at least one person":"Pilih minimal satu orang","Sending to {n} person…":"Mengirim ke {n} orang…","Sent before":"Terkirim sebelumnya","Send a test to me":"Kirim tes ke saya","Send to everyone":"Kirim ke semua","Send to everyone?":"Kirim ke semua?","Send":"Kirim",
+  "This e-mail goes to {n} person. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.","This e-mail goes to {n} people. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.",
+  "Test sent to {to}":"Tes terkirim ke {to}","Sending to {n} people…":"Mengirim ke {n} orang…","Sending…":"Mengirim…","Sent to {n}":"Terkirim ke {n}","{n} failed":"{n} gagal",
+  "Write a subject":"Tulis subjeknya","Write a message":"Tulis pesannya","The link must start with https://":"Link harus diawali https://"
+});
 </script>
 <script>
 /* ============================================================

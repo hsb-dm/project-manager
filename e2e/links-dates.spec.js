@@ -63,9 +63,9 @@ test("in a comment, Tab after a Drive link puts its name in its place", async ({
   await page.locator("#cmtText").click();
   await page.keyboard.type("Folder ada di " + SHARED);
   await page.keyboard.press("Tab");
-  await expect(page.locator("#cmtText")).toHaveValue("Folder ada di Q4 Campaign");
+  await expect(page.locator("#cmtText")).toHaveValue("Folder ada di \u2001Q4 Campaign");   /* the spare letter its capsule's mark is drawn on */
   await expect(page.locator("#cmtText"), "the caret stays in the box").toBeFocused();
-  await expect(page.locator("#drawer .cmt-ta-mirror .msg-linkname")).toHaveText("Q4 Campaign");
+  await expect(page.locator("#drawer .cmt-ta-mirror .cmt-chip .cmt-chip-name")).toHaveText("Q4 Campaign");   /* drawn as the capsule it will be */
   await postComment(page);
 
   const c = (await taskNow(page)).comments.slice(-1)[0];
@@ -100,7 +100,7 @@ test("a private link reads as what it is, and an edited-away name keeps its addr
   await page.locator("#cmtText").click();
   await page.keyboard.type("Private: " + PRIVATE);
   await page.keyboard.press("Tab");
-  await expect(page.locator("#cmtText")).toHaveValue("Private: Google Drive Folder");
+  await expect(page.locator("#cmtText")).toHaveValue("Private: \u2001Google Drive Folder");
   /* the name is typed over entirely */
   await page.evaluate(() => { const t = document.getElementById("cmtText"); t.value = "Private: the shoot files"; t.dispatchEvent(new Event("input", { bubbles: true })); });
   await postComment(page);

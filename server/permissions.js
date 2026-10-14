@@ -4,6 +4,8 @@ const CAPS = [
   ["manage_workspace", "Manage workspace settings, theme, workflow, brand"],
   ["manage_members", "Add/remove members, change roles, reset passwords"],
   ["approve_members", "Approve or turn away people who sign up"],
+  /* Oct 2026: an e-mail to every member (Settings → Notifications). No role but Admin has it until it is given one. */
+  ["send_announcements", "Send announcement emails to every member"],
   ["manage_teams", "Create teams, colors, icons, membership"],
   ["manage_roles", "Create and edit roles"],
   ["create_project", "Create projects"],
@@ -59,6 +61,7 @@ const can = {
   manageWorkspace: (u) => has(u, "manage_workspace"),
   manageMembers:   (u) => has(u, "manage_members"),
   approveMembers:  (u) => has(u, "approve_members"),
+  sendAnnouncements: (u) => has(u, "send_announcements"),
   manageRoles:     (u) => has(u, "manage_roles"),
   manageTeams:     (u) => has(u, "manage_teams"),
   createProject:   (u) => has(u, "create_project"),

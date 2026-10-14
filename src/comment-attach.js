@@ -121,6 +121,8 @@ function cmtStage(a){
 function cmtUpload(imagesOnly){
   var inp=document.getElementById("fileInput");
   inp.accept=imagesOnly?"image/*":"*/*"; inp.multiple=true;
+  var forKey=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR;
+  var cmtStage=function(a){ if(forKey&&forKey!==CMT_DRAFT_FOR&&typeof CMT_DRAFTS!=="undefined"){ (CMT_DRAFTS[forKey]=CMT_DRAFTS[forKey]||cmtDraftEmpty()).att.push(a); return; } window.cmtStage(a); };
   inp.onchange=function(){
     var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if(!files.length) return;
     if(files.length>cmtRoom()){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,cmtRoom())); }
@@ -276,9 +278,9 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
    buttons are behind the one attach button, so the picker opens by that one. */
-function cmtAttachRef(btn,kind){ var tk=S.drawerTask?task(S.drawerTask):null, anchor=btn&&btn.offsetParent?btn:(document.querySelector("#drawer .composer .m-attach")||btn);
-  entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:tk&&tk.proj},
-    search:kind==="task"?function(q){ return epTaskItems(q,{projectId:tk&&tk.proj}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
+function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?CMT_DRAFT_FOR.slice(8):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
+  entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:pid},
+    search:kind==="task"?function(q){ return epTaskItems(q,{projectId:pid}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
 function cmtRefChipHtml(a){ return typeof refChipHtml==="function"?refChipHtml(a.ref,a.refId,a.name||a.refId):'<span class="att">'+esc(a.name||a.refId)+'</span>'; }
 /* A link's name when none was written with it, read from its address: a known service's link by the page's own
@@ -293,7 +295,7 @@ function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
-function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="window._cmtAtt.splice('+i+',1);renderDrawer()">×</button></span>'; }
+function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;

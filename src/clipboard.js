@@ -23,7 +23,7 @@ function clipboardFiles(e){ var dt=e&&(e.clipboardData||window.clipboardData); i
 function clipboardNameFile(f){ if(!f) return f; var generic=!f.name||/^(image|blob|clipboard)(\.\w+)?$/i.test(f.name); if(!generic) return f; var ext=(f.type.split("/")[1]||"png").replace("jpeg","jpg"); var d=new Date(), pad=function(n){ return (n<10?"0":"")+n; }; var name=tr("Pasted image")+" "+d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+"."+pad(d.getMinutes())+"."+pad(d.getSeconds())+"."+ext; try{ return new File([f],name,{type:f.type||"image/png"}); }catch(x){ try{ Object.defineProperty(f,"name",{value:name}); }catch(y){} return f; } }
 function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&&(tag==="INPUT"||tag==="TEXTAREA"||t.isContentEditable);
   if(t&&t.closest&&(t.id==="msgInput"||t.closest(".msg-composer"))) return "message";
-  if(t&&t.closest&&(t.id==="cmtText"||t.closest("#drawer .composer"))) return "comment";
+  if(t&&t.closest&&(t.id==="cmtText"||(typeof cmtIsInput==="function"&&cmtIsInput(t))||t.closest("#drawer .composer,.pd-box .composer"))) return "comment";
   var modal=document.getElementById("modalWrap"), modalOpen=!!(modal&&modal.classList.contains("open")); /* closed modals keep their DOM, so only an OPEN modal counts */
   if(modalOpen&&document.getElementById("uv_file")) return "version-modal";
   if(modalOpen&&document.getElementById("ua_file")) return "asset-modal";
@@ -39,7 +39,7 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
   return null; }
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
-  if(where==="comment"){ var ta=document.getElementById("cmtText"); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); renderDrawer(); clipboardRefocus("cmtText"); } }); return true; }
+  if(where==="comment"){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }, redraw=function(){ if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(n) clipboardRefocus(n.id); }; var ta=box(); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); redraw(); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); redraw(); } }); return true; }
   if(where==="brief"){
     /* in the description, a file that is not a picture (a deck, a document, a PDF…) is attached as a
        chip, the way the paperclip attaches it; a picture is placed in the writing as before */

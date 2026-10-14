@@ -19,7 +19,23 @@
 window._cmtMentions=window._cmtMentions||[];   /* [{userId, display}] chosen while writing */
 var CMT_MENTION={open:false};
 
-function cmtVisibility(){ return person(ME).stakeholder?"client":(S.commentVis||"internal"); }
+/* WHICH COMMENT BOX (Oct 2026). A project's discussion has a comment box too — this same box, with the same @ picker,
+   attachments, links read as their names, pasted pictures and Enter to send. Each box has a key: its task's id, or
+   "project:<id>". The box being written in owns the draft (window._cmtDraft, _cmtAtt, _cmtLinks, _cmtMentions and
+   S.replyTo); any other box's draft is put aside under its key (cmtDraftSwitch, below) and comes back when that box
+   is used again. Pressing or focusing anything in a box makes it the one being written in. */
+function cmtIsProjectKey(k){ return /^project:/.test(String(k||"")); }
+function cmtIsInput(el){ return !!(el&&el.classList&&el.classList.contains("cmt-input")); }
+function cmtInput(){ var k=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR; if(cmtIsProjectKey(k)){ var list=document.querySelectorAll("textarea.cmt-input"); for(var i=0;i<list.length;i++) if(list[i].getAttribute("data-cmt-key")===k) return list[i]; } return document.getElementById("cmtText"); }
+function cmtActivate(key){ if(!key||key===CMT_DRAFT_FOR) return; if(S.cmtEdit) cmtEditFinish(); cmtDraftSwitch(key); }
+["pointerdown","focusin"].forEach(function(type){ document.addEventListener(type,function(e){ var box=e.target&&e.target.closest?e.target.closest("[data-cmt-key]"):null; if(box) cmtActivate(box.getAttribute("data-cmt-key")); },true); });
+/* the box being written in, drawn again */
+function cmtBoxRedraw(){ if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdRedraw==="function") pdRedraw(); else renderDrawer(); }
+function cmtAttRemove(i){ (window._cmtAtt||[]).splice(i,1); cmtRedraw(); }
+/* a box's draft: the live one for the box being written in, the one put aside for any other */
+function cmtDraftOf(key){ var live=key===CMT_DRAFT_FOR||(!cmtIsProjectKey(key)&&!cmtIsProjectKey(CMT_DRAFT_FOR)); return live?{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),links:window._cmtLinks||[],mentions:window._cmtMentions||[],reply:S.replyTo||null}:(CMT_DRAFTS[key]||cmtDraftEmpty()); }
+
+function cmtVisibility(){ if(person(ME).stakeholder) return "client"; if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdBoxVis==="function") return pdBoxVis(CMT_DRAFT_FOR.slice(8)); return S.commentVis||"internal"; }
 function cmtMentionable(id){ return !(cmtVisibility()==="internal"&&person(id).stakeholder); }
 function cmtTaskPeople(tk){
   var ids=[];
@@ -33,7 +49,7 @@ function cmtTaskPeople(tk){
 }
 function cmtOpenMention(ta,q){
   var tk=S.drawerTask?task(S.drawerTask):null;
-  var ctx={members:cmtTaskPeople(tk),membersTitle:"On this task"};
+  var ctx=cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdPeople==="function"?{members:pdPeople(CMT_DRAFT_FOR.slice(8)).filter(cmtMentionable),membersTitle:"On this project"}:{members:cmtTaskPeople(tk),membersTitle:"On this task"};
   CMT_MENTION.open=true; CMT_MENTION.dismissed=false;
   /* _deferred:true opens it now. Pickers normally open a tick later so one opened by a click
      survives that click's own close-everything handler; this one is opened by typing, and the
@@ -42,7 +58,7 @@ function cmtOpenMention(ta,q){
   entityPicker({_cmt:true,_deferred:true,kind:"person",anchor:msgCaretAnchor(ta),align:"left",initial:q,placeholder:tr("Mention someone…"),context:ctx,
     search:function(query){ return epPersonItems(query,ctx).filter(function(id){ return id!=="@everyone"&&cmtMentionable(id); }); },
     onSelect:function(id){ cmtInsertMention(id); },
-    onClose:function(){ CMT_MENTION.open=false; var t=document.getElementById("cmtText"); if(t) t.focus(); }});
+    onClose:function(){ CMT_MENTION.open=false; var t=cmtInput(); if(t) t.focus(); }});
   CMT_MENTION.caret=ta.selectionStart;
   var ep=document.getElementById("entityPicker");
   if(ep){ ep.classList.add("ep-mention"); var s=ep.querySelector(".ep-search"); if(s) s.setAttribute("tabindex","-1"); }
@@ -54,13 +70,13 @@ function cmtOpenMention(ta,q){
    with one of our own, holds however long the picker takes. */
 document.addEventListener("focusin",function(e){
   if(!e.target||!e.target.closest||!e.target.closest("#entityPicker")||!(typeof EP!=="undefined"&&EP.open&&EP.open._cmt)) return;
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   ta.focus();
   var c=CMT_MENTION.caret==null?ta.value.length:CMT_MENTION.caret;
   try{ ta.setSelectionRange(c,c); }catch(x){}
 });
 function cmtInsertMention(id){
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   var display=person(id).name;
   var before=ta.value.slice(0,ta.selectionStart).replace(/@[^\s@]*$/,""), after=ta.value.slice(ta.selectionStart);
   ta.value=before+"@"+display+" "+after;
@@ -71,7 +87,7 @@ function cmtInsertMention(id){
 }
 /* The @ button beside Post: puts an "@" at the caret, which opens the picker like typing it does. */
 function cmtMentionButton(){
-  var ta=document.getElementById("cmtText"); if(!ta) return;
+  var ta=cmtInput(); if(!ta) return;
   ta.focus();
   var v=ta.value, pos=ta.selectionStart;
   ta.setRangeText((pos>0&&!/\s$/.test(v.slice(0,pos))?" ":"")+"@",pos,pos,"end");
@@ -86,7 +102,7 @@ function cmtMentionButton(){
    flag then let Enter fall through as a new line. */
 function cmtPicker(){ var ep=document.getElementById("entityPicker"); return ep&&ep._ep&&typeof EP!=="undefined"&&EP.open&&EP.open._cmt?ep:null; }
 document.addEventListener("input",function(e){
-  var ta=e.target; if(!ta||ta.id!=="cmtText") return;
+  var ta=e.target; if(!cmtIsInput(ta)) return;
   CMT_MENTION.caret=ta.selectionStart; CMT_MENTION.dismissed=false;
   var at=msgCaretMention(ta), ep=cmtPicker();
   if(at!==null){ if(ep) ep._ep.setQuery(at); else cmtOpenMention(ta,at); }
@@ -96,7 +112,7 @@ document.addEventListener("input",function(e){
 /* Captured before the box's own key handler (Enter sends there), so Enter on "@name" picks a person
    rather than sending the comment. */
 document.addEventListener("keydown",function(e){
-  var ta=e.target; if(!ta||ta.id!=="cmtText") return;
+  var ta=e.target; if(!cmtIsInput(ta)) return;
   var ep=cmtPicker(), q=msgCaretMention(ta);
   var stop=function(){ e.preventDefault(); e.stopPropagation(); };
   if(e.key==="Enter"||e.key==="Tab"){
@@ -125,7 +141,7 @@ document.addEventListener("keydown",function(e){
    cannot drift apart. The textarea's letters go transparent only once the layer is in place; if
    anything here failed, the text would still be visible as ordinary text. */
 function cmtMirrorEnsure(){
-  var ta=document.getElementById("cmtText"); if(!ta) return null;
+  var ta=cmtInput(); if(!ta) return null;
   var wrap=ta.parentNode;
   if(!wrap.classList||!wrap.classList.contains("cmt-ta-wrap")){
     wrap=document.createElement("div"); wrap.className="cmt-ta-wrap";
@@ -205,7 +221,8 @@ function cmtMentionsHtml(html){
    "edited"; whoever the new words name is told; an attachment added that is an asset is filed under Assets &
    versions, as when posting. */
 function cmtEditLoad(text){ var links=[];
-  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return name; });
+  /* each named link comes back as the capsule it was written as (src/link-tab.js) */
+  var shown=String(text||"").replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g,function(m,name,url){ if(!links.some(function(l){ return l.display===name&&l.url===url; })) links.push({display:name,url:url}); return (typeof LINK_CHIP==="string"?LINK_CHIP:"")+name; });
   var mentions=(typeof refMentionIds==="function"?refMentionIds(shown):[]).map(function(id){ return {userId:id,display:person(id).name}; });
   return {text:shown,links:links,mentions:mentions}; }
 function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
@@ -214,12 +231,12 @@ function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&by
   window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
   S.cmtEdit={task:tk.id,id:id};
   renderDrawer(); cmtEditFocus(); }
-function cmtEditFocus(){ setTimeout(function(){ var ta=document.getElementById("cmtText"); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
+function cmtEditFocus(){ setTimeout(function(){ var ta=cmtInput(); if(!ta) return; var box=ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"});
   ta.focus(); var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){} if(typeof cmtMirrorSync==="function") try{ cmtMirrorSync(); }catch(e){} },0); }
 /* the box back to what was being written in it before the edit */
 function cmtEditFinish(){ var st=S.cmtEditStash||{text:"",att:[],links:[],mentions:[],reply:null};
   window._cmtDraft=st.text; window._cmtAtt=st.att; window._cmtLinks=st.links; window._cmtMentions=st.mentions; S.replyTo=st.reply; S.cmtEdit=null; S.cmtEditStash=null; }
-function cmtEditCancel(){ cmtEditFinish(); renderDrawer(); }
+function cmtEditCancel(){ var inProject=S.cmtEdit&&S.cmtEdit.project; cmtEditFinish(); if(inProject&&typeof pdRedraw==="function") pdRedraw(); else renderDrawer(); }
 function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comments||[],d.id), el=document.getElementById("cmtText"); if(!c||!el){ cmtEditCancel(); return; }
   var text=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
   if(!text&&!att.length) return toast(tr("Write something first"),"bad");
@@ -240,7 +257,7 @@ function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comme
   if(!API.on){ c.text=text; c.attachments=att; c.editedAt=new Date().toISOString(); return done(null); }
   apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text,attachments:att}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
 /* Esc in the box while editing lets the edit go — unless the @ picker is open, which Esc closes first */
-document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!t||t.id!=="cmtText"||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!cmtIsInput(t)||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
 /* leaving the task lets the edit go, and what was being written comes back */
 (function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); cmtDraftSwitch(id); return base.apply(this,arguments); }; })();
 /* A comment being written belongs to its task (Oct 2026): opening another task puts it aside — its words, the
@@ -259,7 +276,7 @@ function cmtDraftAttach(forTask,a){ if(!forTask||!CMT_DRAFT_FOR||forTask===CMT_D
 
 Object.assign(UI_ID,{
   "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
-  "On this task":"Di task ini",
+  "On this task":"Di task ini","On this project":"Di project ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
   "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang"

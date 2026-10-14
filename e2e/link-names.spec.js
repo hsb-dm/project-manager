@@ -38,7 +38,7 @@ test("a Figma link reads as its file's name: in a comment, in Attach link, paste
     const box = page.locator("#cmtText");
     await box.click();
     await page.evaluate(t => { const dt = new DataTransfer(); dt.setData("text/plain", t); const ta = document.getElementById("cmtText"); ta.focus(); ta.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true })); ta.value = "Cek " + t; ta.dispatchEvent(new Event("input", { bubbles: true })); }, FIGMA);
-    await expect(box).toHaveValue("Cek " + NAME);
+    await expect(box).toHaveValue("Cek \u2001" + NAME);   /* the spare letter on which its capsule's mark is drawn */
     await page.keyboard.press("End"); await page.keyboard.press("Enter");
     await expect.poll(() => page.evaluate(async id => (await apiFetch("GET", "/api/tasks/" + id)).comments.map(c => c.text), id), { timeout: 10000 }).toContain("Cek [" + NAME + "](" + FIGMA + ")");
     /* Assets: a Figma file filed under the words of its address is renamed once its name is read */

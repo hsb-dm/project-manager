@@ -606,7 +606,7 @@ body.auth .nav-messages{display:none!important}
 .kpis.kpis-n1{grid-template-columns:minmax(0,1fr)}.kpis.kpis-n2{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis.kpis-n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:900px){.kpis.kpis-n3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* v19.9 pasted-image chips in comments */
-#drawer .composer .att{display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--color-surface-sunken);padding:3px 8px;border-radius:var(--pill);margin:8px 6px 0 0;max-width:100%}#drawer .composer .att button{color:var(--color-text-secondary)}
+:is(#drawer,.pd-box) .composer .att{display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--color-surface-sunken);padding:3px 8px;border-radius:var(--pill);margin:8px 6px 0 0;max-width:100%}:is(#drawer,.pd-box) .composer .att button{color:var(--color-text-secondary)}
 .cmt .att.att-img,.composer .att.att-img{padding:2px 8px 2px 2px}.cmt .att.att-img{cursor:pointer}.att.att-img img{width:26px;height:26px;object-fit:cover;border-radius:6px;display:block;flex:none}
 /* v19.11 save buttons */
 .msg-card.msg-file .msg-file-save{border:0;flex:none}

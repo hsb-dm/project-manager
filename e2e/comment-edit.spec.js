@@ -54,7 +54,7 @@ test("edit a comment where it is, in the same box it was written in; links in co
     await expect(post).toHaveText("Save");
     await expect(mine.locator(".composer .cmt-edit-cancel")).toHaveText("Cancel");
     await expect(box).toBeFocused();
-    await expect(box, "a named link reads as its name, as when it was written").toHaveValue("Ukuran logo 2x, lihat Brief deck dan https://www.behance.net/gallery/123/Brand-Refresh");
+    await expect(box, "a named link reads as its name, as when it was written").toHaveValue("Ukuran logo 2x, lihat \u2001Brief deck dan https://www.behance.net/gallery/123/Brand-Refresh");
     await expect(mine.locator(".composer .att.att-chip")).toHaveCount(1);
     /* the card has room around it, and the avatar stays in line with the others */
     const pad = await mine.evaluate(e => parseFloat(getComputedStyle(e).paddingLeft));

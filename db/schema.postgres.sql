@@ -119,6 +119,11 @@ CREATE TABLE IF NOT EXISTS comments (
   parent_id TEXT REFERENCES comments(id) ON DELETE CASCADE, author_id TEXT REFERENCES users(id), visibility TEXT DEFAULT 'internal',
   body TEXT NOT NULL, attachments JSONB DEFAULT '[]'::jsonb, created_at TIMESTAMPTZ DEFAULT now(), edited_at TIMESTAMPTZ
 );
+CREATE TABLE IF NOT EXISTS project_comments (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  parent_id TEXT REFERENCES project_comments(id) ON DELETE SET NULL, author_id TEXT REFERENCES users(id), visibility TEXT DEFAULT 'internal',
+  body TEXT NOT NULL, attachments JSONB DEFAULT '[]'::jsonb, created_at TIMESTAMPTZ DEFAULT now(), edited_at TIMESTAMPTZ
+);
 CREATE TABLE IF NOT EXISTS creative_requests (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, objective TEXT, description TEXT, deliverables TEXT,
   deadline TEXT, priority TEXT DEFAULT 'medium', links TEXT, notes TEXT, reference_files JSONB DEFAULT '[]'::jsonb, requested_by TEXT REFERENCES users(id),
@@ -198,6 +203,8 @@ CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 
 -- v31 indexes for per-task reads
 CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_project_comments_feed ON project_comments(workspace_id, project_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_project_comments_parent ON project_comments(project_id, parent_id);
 CREATE INDEX IF NOT EXISTS idx_files_task ON files(task_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_notif_recipient_time ON notifications(recipient_id, created_at);
 

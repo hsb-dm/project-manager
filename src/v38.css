@@ -220,9 +220,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 @media(prefers-reduced-motion:reduce){.gear-toggle>i,.gear-toggle>i::after{transition:none}}
 
 /* The comment box's attach row — the same five ways in as Assets & versions. */
-#drawer .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
-#drawer .composer .cmt-tools .btn{gap:5px}
-#drawer .composer .cmt-tools .drive-logo,#drawer .composer .cmt-tools svg{width:13px;height:13px}
+:is(#drawer,.pd-box) .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+:is(#drawer,.pd-box) .composer .cmt-tools .btn{gap:5px}
+:is(#drawer,.pd-box) .composer .cmt-tools .drive-logo,:is(#drawer,.pd-box) .composer .cmt-tools svg{width:13px;height:13px}
 /* A Drive link drawn as its name: the Drive mark and a short label instead of a long URL. */
 .drive-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:1px 8px 1px 5px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary);text-decoration:none;font-size:.95em;line-height:1.5;vertical-align:baseline}
 .drive-chip:hover{border-color:var(--color-primary);color:var(--color-primary)}
@@ -233,16 +233,16 @@ body.paste-resizing .desc-img{pointer-events:none}
 /* @mentions in the comment box: the text is drawn by a layer behind the transparent textarea, as in
    chat. Mentions keep the textarea's own weight — chat's bold is wider than the letters above it,
    which walks the caret off the text after a mention. */
-#drawer .composer .cmt-ta-wrap{position:relative}
-#drawer .composer .cmt-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;box-sizing:border-box;border-style:solid;border-color:transparent;color:var(--color-text-primary)}
-#drawer .composer .cmt-ta-wrap textarea{position:relative;z-index:1;display:block;box-sizing:border-box}
-#drawer .composer textarea.cmt-mirrored{color:transparent;caret-color:var(--color-text-primary)}
-#drawer .composer textarea.cmt-mirrored::placeholder{color:var(--color-text-tertiary)}
-#drawer .composer textarea.cmt-mirrored::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
-#drawer .composer .cmt-ta-mirror .msg-mention{font-weight:inherit;padding:0 2px;margin:0 -2px;border-radius:4px}
-#drawer .composer .cmt-at svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
+:is(#drawer,.pd-box) .composer .cmt-ta-wrap{position:relative}
+:is(#drawer,.pd-box) .composer .cmt-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;box-sizing:border-box;border-style:solid;border-color:transparent;color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer .cmt-ta-wrap textarea{position:relative;z-index:1;display:block;box-sizing:border-box}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored{color:transparent;caret-color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored::placeholder{color:var(--color-text-tertiary)}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
+:is(#drawer,.pd-box) .composer .cmt-ta-mirror .msg-mention{font-weight:inherit;padding:0 2px;margin:0 -2px;border-radius:4px}
+:is(#drawer,.pd-box) .composer .cmt-at svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.9}
 /* In a posted comment the whole name is the mention. */
-#drawer .cmt .body .msg-mention{padding:0 3px;border-radius:4px}
+:is(#drawer,.pd-box) .cmt .body .msg-mention{padding:0 3px;border-radius:4px}
 
 /* ---- Assets & versions, simplified (src/assets-tab.js) ---- */
 .av-sec{margin:0 0 18px}
@@ -269,9 +269,9 @@ body.paste-resizing .desc-img{pointer-events:none}
 .av-count .hint{font-weight:500}
 .av-count input{width:64px;border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;background:var(--color-surface);font:inherit;font-weight:700;text-align:right}
 /* the comment a file came from, found again */
-#drawer .cmt.cmt-flash{animation:cmtFlash 1.8s ease}
+:is(#drawer,.pd-box) .cmt.cmt-flash{animation:cmtFlash 1.8s ease}
 @keyframes cmtFlash{0%,40%{background:var(--color-primary-soft)}100%{background:transparent}}
-@media(prefers-reduced-motion:reduce){#drawer .cmt.cmt-flash{animation:none;outline:2px solid var(--color-primary)}}
+@media(prefers-reduced-motion:reduce){:is(#drawer,.pd-box) .cmt.cmt-flash{animation:none;outline:2px solid var(--color-primary)}}
 /* a version's preview: the service's own embed (src/version-preview.js). Nothing is clicked onto
    the picture any more, so it is not a crosshair. */
 .preview .canvas{cursor:default}
@@ -562,8 +562,8 @@ img.emj.custom{object-fit:contain}
 /* The comment box shows its text through a mirror layer (mentions drawn as chips) under a see-through
    textarea. Dark mode gives every textarea a background, which hid that layer: what was typed could not
    be read. The textarea stays see-through; the mirror carries the background. */
-#drawer .composer textarea.cmt-mirrored{background-color:transparent}
-[data-theme="dark"] #drawer .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
+:is(#drawer,.pd-box) .composer textarea.cmt-mirrored{background-color:transparent}
+[data-theme="dark"] :is(#drawer,.pd-box) .composer .cmt-ta-mirror{background-color:var(--color-surface-sunken);border-radius:inherit}
 /* checklist: an item's text is edited where it stands; the whole row drags it to another place */
 .chk .chk-item[draggable=true]{cursor:grab}.chk .chk-item[draggable=true]:active{cursor:grabbing}.chk .chk-item .chk-box,.chk .chk-item .iconbtn{cursor:pointer}
 .chk .chk-item .drag-handle{flex:none;width:16px;height:22px;margin:0 -4px;border-radius:5px;opacity:0;transition:opacity .12s}
@@ -643,8 +643,8 @@ img.emj.custom{object-fit:contain}
   #drawer .btn[data-short]:not(:has(svg))::after{margin-left:0}
   /* one attach button with a menu */
   #drawer .m-attach{display:inline-flex}
-  #drawer .av-tools,#drawer .composer .cmt-tools{display:none}
-  #drawer .composer .bar>.av,#drawer .composer .bar>.hint{display:none}
+  #drawer .av-tools,:is(#drawer,.pd-box) .composer .cmt-tools{display:none}
+  :is(#drawer,.pd-box) .composer .bar>.av,:is(#drawer,.pd-box) .composer .bar>.hint{display:none}
   .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
   /* tidy rows: a version's name and state, its actions under them; a file's actions in one row under its name */
   #drawer .av-version>.av-head{flex-wrap:wrap;row-gap:8px}
@@ -899,10 +899,10 @@ img.emj.custom{object-fit:contain}
 .link-chip .link-chip-ico{display:inline-grid;place-items:center;width:15px;height:15px;flex:none;color:var(--color-text-secondary)}
 .link-chip .link-chip-ico svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .link-chip:hover .link-chip-ico{color:inherit}
-#drawer .composer .att.att-chip{display:inline-flex;align-items:center;gap:2px;margin:8px 6px 0 0;max-width:100%;vertical-align:middle;min-width:0;padding:0;background:transparent;font-size:inherit}
-#drawer .composer .att.att-chip .drive-chip{min-width:0;max-width:280px}
-#drawer .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
-#drawer .composer .att.att-chip .att-x:hover,#drawer .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
+:is(#drawer,.pd-box) .composer .att.att-chip{display:inline-flex;align-items:center;gap:2px;margin:8px 6px 0 0;max-width:100%;vertical-align:middle;min-width:0;padding:0;background:transparent;font-size:inherit}
+:is(#drawer,.pd-box) .composer .att.att-chip .drive-chip{min-width:0;max-width:280px}
+:is(#drawer,.pd-box) .composer .att.att-chip .att-x{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary);font-size:15px;line-height:1}
+:is(#drawer,.pd-box) .composer .att.att-chip .att-x:hover,:is(#drawer,.pd-box) .composer .att.att-chip .att-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
 
 /* ---------- The task panel's foot: a stage that is done shows a tick, not a filled shape ----------
    Done stages carried the class "star", and the favourites' rule (.views button.star svg) filled the tick's
@@ -948,12 +948,12 @@ img.emj.custom{object-fit:contain}
 
 /* ---------- A task or a project attached to a comment ---------- */
 .cmt-links .ref-chip,.att-chip .ref-chip{font-size:12px;line-height:1.6;padding:2px 9px 2px 6px;max-width:min(100%,300px);vertical-align:middle}
-#drawer .composer .att.att-chip .ref-chip{cursor:default}
+:is(#drawer,.pd-box) .composer .att.att-chip .ref-chip{cursor:default}
 .cmt-ref-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* seven ways in now (a task and a project too): a little tighter, so they stay one line in the laptop panel */
 @media (min-width:761px){
-  #drawer .composer .cmt-tools{gap:4px}
-  #drawer .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
+  :is(#drawer,.pd-box) .composer .cmt-tools{gap:4px}
+  :is(#drawer,.pd-box) .composer .cmt-tools .btn{gap:4px;padding-left:8px;padding-right:8px}
 }
 
 /* ---------- Editing a comment ---------- */
@@ -1133,12 +1133,12 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* editing a comment in the box: the box says so, and the comment being edited is marked */
 /* the comment being edited: a tinted card with room around it — the avatar stays in line with the others —
    and the comment box in place of its words */
-#drawer .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
-#drawer .cmt.cmt-editing .composer{margin-top:8px}
-#drawer .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
+:is(#drawer,.pd-box) .cmt.cmt-editing{background:color-mix(in srgb,var(--color-primary) 7%,transparent);border-radius:12px;outline:1px solid color-mix(in srgb,var(--color-primary) 30%,transparent);padding:12px;margin:2px -12px}
+:is(#drawer,.pd-box) .cmt.cmt-editing .composer{margin-top:8px}
+:is(#drawer,.pd-box) .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
 /* a link in a comment's words is a chip: inline with the text */
-#drawer .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
-@media(max-width:760px){#drawer .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+:is(#drawer,.pd-box) .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
+@media(max-width:760px){:is(#drawer,.pd-box) .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
 /* Home: Mine · All on each card, small, at the head's end */
 .panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
 .seg.dash-scope button{padding:3px 10px;font-size:12px}
@@ -1147,8 +1147,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the comment box: the seven ways to attach (upload images, a file, Drive, a link, the library, a task, a project) are
    one paperclip with a menu — on a laptop as on a phone and as in chat; the menu lists the same buttons and presses
    them, so each does what it did */
-#drawer .composer .m-attach{display:inline-flex}
-#drawer .composer .cmt-tools{display:none}
+:is(#drawer,.pd-box) .composer .m-attach{display:inline-flex}
+:is(#drawer,.pd-box) .composer .cmt-tools{display:none}
 .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
 /* sign-ups waiting for approval: a row each — who, what they told us, when; the role and the two buttons — a line
    on Home for an approver, and on the sign-in page what happens next */
@@ -1187,3 +1187,63 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .av-state.not-final{background:var(--color-surface-sunken);color:var(--color-text-secondary)}
 /* a refused SMTP sign-in says what to do, under the error */
 .smtp-hint{margin-top:6px;font-weight:500;line-height:1.5}
+/* a project's discussion (src/project-discussion.js): a task's comments and comment box, at the foot of Overview and
+   on their own tab. The tab keeps lines to a readable length; on Overview each comment is two lines at most and
+   opens the discussion; nothing jumps while it loads. */
+.pd-full .panel-body{max-width:920px}
+.pd-box .pd-sub{margin:0 0 12px}
+.panel-head .seg.pd-vis{margin-left:2px;flex:none;flex-wrap:nowrap}
+.seg.pd-vis button{padding:3px 10px;font-size:12px}
+.seg.pd-vis button svg{width:12px;height:12px}
+.pd-box .cmts{margin-bottom:14px}
+.pd-preview .cmt .body{display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+.pd-preview .cmt.pd-expanded .body{display:block;-webkit-line-clamp:unset;line-clamp:unset;white-space:pre-line}
+.pd-preview .cmt .acts{margin-top:2px}
+.pd-box .pd-more-text{font-size:11px;font-weight:650;color:var(--color-primary);margin-top:2px;padding:0;background:none;border:0;cursor:pointer}
+.pd-thread-loading{margin-left:36px;font-size:var(--fs-sm);color:var(--color-text-tertiary)}
+.pd-empty{color:var(--color-text-secondary);font-size:var(--fs-sm);margin:0 0 12px}
+.pd-loading{min-height:72px;color:var(--color-text-tertiary);font-size:var(--fs-sm)}
+.pd-note{display:flex;align-items:center;gap:8px;color:var(--color-text-secondary);font-size:var(--fs-sm);margin:0;padding:10px 12px;border-radius:var(--radius);background:var(--color-surface-sunken)}
+.pd-note svg{width:14px;height:14px;flex:none}
+.pd-more-row{display:flex;justify-content:center;margin:0 0 12px}
+.pd-box .pd-all{white-space:nowrap;font-size:var(--fs-sm);font-weight:600;color:var(--color-primary);background:none;border:0;padding:0;cursor:pointer}
+.pd-box .pd-all:hover{text-decoration:underline}
+@media (max-width:760px){.pd-box .pd-all{font-size:12px}}
+/* a named link while writing a comment: the capsule it will be once posted (src/link-tab.js). Drawn on the layer
+   behind the letters; its padding is given back by a negative margin and its mark sits on a spare letter, so every
+   letter stays where the caret expects it */
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip{background:var(--color-surface-sunken);box-shadow:inset 0 0 0 1px var(--color-border);border-radius:var(--pill);padding:2px 4px 2px 1px;margin:0 -4px 0 -1px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico{position:relative}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico>*{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;margin:0}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-ico>svg:not(.brand-ico){stroke:currentColor;fill:none;stroke-width:1.8;color:var(--color-text-secondary)}
+:is(#drawer,.pd-box) .cmt-ta-mirror .cmt-chip-name{color:var(--color-primary);text-decoration:underline;text-underline-offset:2px}
+/* the announcement e-mail (src/announcements.js): the form, who it goes to, the ones sent before */
+.ann-panel .ann-check{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);margin:2px 0 8px;cursor:pointer}
+.ann-panel .ann-who{margin:0}
+.ann-panel .ann-h{font-size:var(--fs-sm);font-weight:650;margin:18px 0 4px;color:var(--color-text-secondary)}
+.ann-panel .ann-row .badge{flex:none}
+.ann-preview{margin-top:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface-sunken);font-size:var(--fs-sm);max-height:240px;overflow:auto}
+.ann-preview b{display:block;margin-bottom:6px}
+/* who an announcement goes to: everyone, or people ticked one by one in a list that scrolls on its own */
+.ann-panel .ann-to>label{display:block}
+.ann-panel .ann-mode{margin:2px 0 10px}
+.ann-panel .ann-mode button{padding:5px 12px}
+.ann-pick{border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden}
+.ann-pick-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-surface-sunken)}
+.ann-pick-head .ann-check{margin:0;white-space:nowrap}
+.ann-pick-head .ann-search{flex:1;min-width:140px;height:32px;padding:4px 10px}
+.ann-pick-head .ann-count{font-size:var(--fs-sm);color:var(--color-text-secondary);white-space:nowrap}
+.ann-pick-list{max-height:260px;overflow:auto;padding:4px 0}
+.ann-pick-list .hint{padding:10px 12px;margin:0}
+.ann-person{display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer}
+.ann-person:hover{background:var(--color-surface-sunken)}
+.ann-person input{flex:none}
+.ann-pn{display:flex;flex-direction:column;min-width:0;flex:1}
+.ann-pn b{font-weight:600;font-size:var(--fs-sm)}
+.ann-pn span{font-size:12px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ann-names{margin:-4px 0 0}
+/* the rows and "Select all" are labels inside a form field: the field's label look (small capitals, a block) is not theirs */
+.ann-panel .ann-to label.ann-person,.ann-panel .ann-to label.ann-check,.ann-panel label.ann-check{display:flex;align-items:center;gap:10px;font-size:var(--fs-sm);font-weight:500;letter-spacing:normal;text-transform:none;color:var(--color-text-primary);margin:0;line-height:1.4}
+.ann-panel .ann-to label.ann-check{gap:8px}
+.ann-panel .ann-to label.ann-person .ann-pn b{text-transform:none}
+.ann-panel .ann-to input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:none;margin:0;padding:0}

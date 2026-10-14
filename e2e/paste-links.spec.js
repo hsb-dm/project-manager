@@ -37,7 +37,22 @@ test("pasted into a comment, a Google link turns into its name, and typing carri
   await copy(page, FOLDER);
   await paste(page);
   await page.keyboard.type(" thanks");   /* straight on, while the name is being read */
-  await expect(page.locator("#cmtText")).toHaveValue("KV is here: " + NAME + " thanks");
+  /* the name is a capsule while writing, as it will be once posted: its mark, the name; the layer behind holds the
+     very letters of the box — a spare one in front of the name carries the mark — so the caret stays on the text */
+  await expect(page.locator("#cmtText")).toHaveValue("KV is here: \u2001" + NAME + " thanks");
+  const chip = page.locator("#drawer .cmt-ta-mirror .cmt-chip");
+  await expect(chip.locator(".cmt-chip-name")).toHaveText(NAME);
+  await expect(chip.locator(".cmt-chip-ico > *")).toHaveCount(1);
+  expect(await page.evaluate(() => { const ta = document.getElementById("cmtText"), m = ta.parentNode.querySelector(".cmt-ta-mirror"); return m.textContent.replace(/​$/, "") === ta.value; })).toBe(true);
+  /* the capsule moves no letter: its name sits where the same letters sit drawn plain */
+  expect(await page.evaluate(() => {
+    const m = document.querySelector("#drawer .cmt-ta-mirror"), n = m.querySelector(".cmt-chip-name"), plain = m.cloneNode(false);
+    plain.textContent = m.textContent; m.parentNode.appendChild(plain);
+    const r1 = document.createRange(); r1.selectNodeContents(n.firstChild);
+    const i = plain.textContent.indexOf(n.textContent), r2 = document.createRange(); r2.setStart(plain.firstChild, i); r2.setEnd(plain.firstChild, i + n.textContent.length);
+    const a = r1.getBoundingClientRect(), b = r2.getBoundingClientRect(); plain.remove();
+    return Math.abs(a.left - b.left) < 0.5 && Math.abs(a.right - b.right) < 0.5 && Math.abs(a.top - b.top) < 0.5;
+  })).toBe(true);
   await page.locator("#drawer .composer .bar .btn.primary").click();
   await expect.poll(() => page.evaluate(id => (task(id).comments.slice(-1)[0] || {}).text, taskId)).toBe("KV is here: [" + NAME + "](" + FOLDER + ") thanks");
   await expect(page.locator("#drawer .cmt .drive-chip").last()).toHaveText(NAME);
@@ -85,4 +100,33 @@ test("pasted into the description editor, it becomes the chip right there, and s
 test.afterAll(async ({ browser }) => {
   const page = await browser.newPage();
   try { await signIn(page); if (taskId) await page.evaluate(id => apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}), taskId); } catch {} finally { await page.close(); }
+});
+
+test("in a project's discussion too; Backspace just after a capsule takes all of it", async ({ page }) => {
+  await signIn(page);
+  const pid = await page.evaluate(async () => { const id = "pd_paste_" + Date.now().toString(36); await apiFetch("POST", "/api/projects", { id, name: "Paste chip project", status: "active", owner: ME, teams: [] }); await reloadAll(); S.projectTab = "overview"; go("projects", id); return id; });
+  try {
+    const box = page.locator("#pdText"), chip = page.locator("#content .pd-box .cmt-ta-mirror .cmt-chip");
+    await box.click();
+    await page.keyboard.type("See ");
+    await copy(page, FOLDER); await paste(page);
+    await expect(box).toHaveValue("See \u2001" + NAME);
+    await expect(chip.locator(".cmt-chip-name")).toHaveText(NAME);
+    /* a capsule goes as one, as a chip does */
+    await page.keyboard.press("End");
+    await page.keyboard.press("Backspace");
+    await expect(box).toHaveValue("See ");
+    await expect(chip).toHaveCount(0);
+    expect(await page.evaluate(() => (window._cmtLinks || []).length)).toBe(0);
+    /* pasted again and sent: a chip in the discussion, [name](url) where it is kept */
+    await copy(page, FOLDER); await paste(page);
+    await expect(box).toHaveValue("See \u2001" + NAME);
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#content .pd-overview .cmt .drive-chip")).toHaveText(NAME);
+    const saved = await page.evaluate(id => apiFetch("GET", "/api/projects/" + id + "/comments"), pid);
+    expect(saved.comments.map(c => c.text)).toEqual(["See [" + NAME + "](" + FOLDER + ")"]);
+    /* a capsule whose name was edited into something else is plain words again: its spare letter is not kept, and
+       the address goes at the end as before */
+    expect(await page.evaluate(o => linkTokensExpand("See \u2001Insurance Campaign V", [{ display: o.NAME, url: o.FOLDER }]), { NAME, FOLDER })).toBe("See Insurance Campaign V " + FOLDER);
+  } finally { await page.evaluate(id => apiFetch("DELETE", "/api/projects/" + id).catch(() => {}), pid); }
 });

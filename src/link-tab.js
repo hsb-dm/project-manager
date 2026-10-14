@@ -19,23 +19,29 @@ var MDLINK_RE=/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)]+)\)/g;
 function mdLinkNames(text){ var out={}, m; MDLINK_RE.lastIndex=0; while((m=MDLINK_RE.exec(String(text||"")))) out[m[2]]=m[1]; return out; }
 /* the same text with each [name](url) back to its bare address, for code that finds links by address */
 function mdLinkStrip(text){ return String(text||"").replace(MDLINK_RE,function(_,n,u){ return u; }); }
+/* In a comment box a named link is drawn as a capsule (below); the box holds one letter more in front of its name,
+   this em quad — a space one letter wide that nobody types — on which the capsule's mark is drawn. */
+var LINK_CHIP="\u2001";
 /* Box text → stored text: each named link becomes [name](url); one whose name was edited away
-   keeps its address, added at the end. */
+   keeps its address, added at the end. A capsule's spare letter is never stored. */
 function linkTokensExpand(text,tokens){
   var s=String(text||""), tail=[];
   (tokens||[]).forEach(function(t){
     if(!t||!t.display||!t.url) return;
+    var chip=LINK_CHIP+t.display, j=s.indexOf(chip);
+    if(j>=0){ s=s.slice(0,j)+"["+t.display+"]("+t.url+")"+s.slice(j+chip.length); return; }
     var i=s.indexOf(t.display);
     if(i<0){ if(s.indexOf(t.url)<0) tail.push(t.url); return; }
     s=s.slice(0,i)+"["+t.display+"]("+t.url+")"+s.slice(i+t.display.length);
   });
+  s=s.split(LINK_CHIP).join("");
   return tail.length?s.replace(/\s*$/,"")+" "+tail.join(" "):s;
 }
 
 /* ---------- which box, and where its named links are kept ---------- */
 function linkTabBox(ta){
   if(!ta) return null;
-  if(ta.id==="cmtText"){ window._cmtLinks=window._cmtLinks||[]; return {list:window._cmtLinks,picker:function(){ return typeof cmtPicker==="function"&&!!cmtPicker(); }}; }
+  if(ta.id==="cmtText"||(typeof cmtIsInput==="function"&&cmtIsInput(ta))){ window._cmtLinks=window._cmtLinks||[]; return {list:window._cmtLinks,picker:function(){ return typeof cmtPicker==="function"&&!!cmtPicker(); }}; }
   if(ta.id==="msgInput"&&typeof msgDraft==="function"&&S.messageConversationId){ var d=msgDraft(S.messageConversationId); d.links=d.links||[]; return {list:d.links,picker:function(){ return !!(CHAT_RUNTIME.mentionOpen&&document.getElementById("entityPicker")); }}; }
   return null;
 }
@@ -61,12 +67,14 @@ function linkNameSwap(ta,x,o){
     var live=document.getElementById(id); if(!live) return;
     var at=live.value.indexOf(raw); if(at<0) return;   /* the link was edited away meanwhile */
     var display=name||(google?driveLinkLabel(url):""); if(!display) return;
-    var d=display.length-raw.length, end=at+raw.length;
+    /* in a comment box it is a capsule: the spare letter for its mark, then the name */
+    var put=(typeof cmtIsInput==="function"&&cmtIsInput(live)?LINK_CHIP:"")+display;
+    var d=put.length-raw.length, end=at+raw.length;
     var focused=document.activeElement===live, s0=live.selectionStart, s1=live.selectionEnd;
-    live.value=live.value.slice(0,at)+display+live.value.slice(end);
+    live.value=live.value.slice(0,at)+put+live.value.slice(end);
     var b=linkTabBox(live);
     if(b&&!b.list.some(function(t){ return t.display===display&&t.url===url; })) b.list.push({display:display,url:url});
-    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+display.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
+    if(focused){ var fix=function(p){ return p>=end?p+d:(p>at?at+put.length:p); }; live.setSelectionRange(fix(s0),fix(s1)); }
     live.dispatchEvent(new Event("input",{bubbles:true}));
     if(!name) toast(tr("The name could not be read — the link is probably not shared with anyone who has it. It will show as")+" “"+display+"”.");
   });
@@ -111,10 +119,35 @@ function linkTabMark(html,tokens){
   });
   return html;
 }
+/* ---------- while writing a comment: a named link is the capsule it will be (Oct 2026) ----------
+   In a task's comment box or a project's discussion, a named link looks as it does once posted: a capsule with the
+   folder's, file's or service's mark and the name, in the link colour. The box is a textarea with a layer drawn
+   behind it, and the caret stays true only while both hold the same letters at the same widths — so the mark is
+   drawn on the spare letter in front of the name (LINK_CHIP), and the capsule's padding is given back by a negative
+   margin: nothing moves. Backspace just after a capsule, or Delete just before it, takes the whole of it. */
+function linkChipIcon(url){ if(typeof isGoogleLink==="function"&&isGoogleLink(url)&&typeof googleIcon==="function") return googleIcon(url); var b=typeof brandIconHtml==="function"?brandIconHtml(url,13):""; return b||I.link; }
+function linkChipMark(html,tokens){ var chips=[];
+  (tokens||[]).slice().sort(function(a,b){ return b.display.length-a.display.length; }).forEach(function(t){ html=html.split(LINK_CHIP+esc(t.display)).join("\u0000"+chips.length+"\u0001"); chips.push(t); });
+  html=linkTabMark(html,tokens);   /* a name without its mark (an older draft) is still in the link colour */
+  return html.replace(/\u0000(\d+)\u0001/g,function(m,i){ var t=chips[+i]; return '<span class="cmt-chip"><span class="cmt-chip-ico">'+LINK_CHIP+linkChipIcon(t.url)+'</span><span class="cmt-chip-name">'+esc(t.display)+'</span></span>'; }); }
+document.addEventListener("keydown",function(e){
+  if((e.key!=="Backspace"&&e.key!=="Delete")||e.ctrlKey||e.metaKey||e.altKey||e.isComposing) return;
+  var ta=e.target; if(!(typeof cmtIsInput==="function"&&cmtIsInput(ta))||ta.selectionStart!==ta.selectionEnd) return;
+  var a=ta.selectionStart, v=ta.value, hit=null;
+  (window._cmtLinks||[]).forEach(function(t){ var c=LINK_CHIP+t.display;
+    if(e.key==="Backspace"&&a>=c.length&&v.slice(a-c.length,a)===c) hit={from:a-c.length,to:a,t:t};
+    if(e.key==="Delete"&&v.slice(a,a+c.length)===c) hit={from:a,to:a+c.length,t:t}; });
+  if(!hit) return;
+  e.preventDefault(); e.stopPropagation();
+  ta.setRangeText("",hit.from,hit.to,"start");
+  if(v.split(LINK_CHIP+hit.t.display).length<=2) window._cmtLinks=(window._cmtLinks||[]).filter(function(t){ return t!==hit.t; });
+  ta.dispatchEvent(new Event("input",{bubbles:true}));
+},true);
 (function(){
   if(typeof cmtMirrorSync==="function"){
     var baseC=cmtMirrorSync;
-    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var m=document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkTabMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
+    /* the layer of the box being written in — a task's or a project's */
+    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var ta=typeof cmtInput==="function"?cmtInput():null, wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
   }
   if(typeof msgMirrorSync==="function"){
     var baseM=msgMirrorSync;
