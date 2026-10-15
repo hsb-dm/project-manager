@@ -1338,3 +1338,36 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
   }
 }
 .row .m>.m-proj{flex-shrink:100}
+
+/* brand characters (Oct 2026): the picker in AI Hub's setup and the admin's list in Settings → AI */
+.ai-char-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px}
+.ai-char-card{display:flex;flex-direction:column;gap:6px;padding:6px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface);color:var(--color-text-primary);font-size:11px;font-weight:700;text-align:left;min-width:0}
+.ai-char-card img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;background:var(--color-surface-sunken);display:block}
+.ai-char-card span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-char-card:hover:not(:disabled){border-color:var(--color-border-strong);background:var(--color-surface-hover)}
+.ai-char-card.on{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 16%,transparent)}
+.ai-char-card:disabled{opacity:.5;cursor:not-allowed}
+.ai-char-admin{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:start;padding:14px 0;border-top:1px solid var(--color-border)}
+.ai-char-admin:first-of-type{border-top:0;padding-top:0}
+.ai-char-photos{display:grid;grid-template-columns:repeat(3,64px);gap:8px}
+.ai-char-photo{position:relative;width:64px;height:64px}
+.ai-char-photo img{width:64px;height:64px;object-fit:cover;border-radius:8px;display:block;background:var(--color-surface-sunken)}
+.ai-char-x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;padding:0;border-radius:50%;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-secondary);display:grid;place-items:center}
+.ai-char-x svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.ai-char-add{width:64px;height:64px;padding:0;border:1px dashed var(--color-border-strong);border-radius:8px;background:var(--color-surface-sunken);color:var(--color-text-secondary);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:700}
+.ai-char-add svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ai-char-fields{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ai-char-fields .field{margin:0}
+.pt-outline{display:flex;align-items:center;gap:8px}
+.pt-outline input[type=checkbox]{width:auto}
+@media (max-width:760px){.ai-char-admin{grid-template-columns:minmax(0,1fr) auto}.ai-char-photos{grid-column:1/-1;grid-row:1}}
+/* brand fonts (Oct 2026): each uploaded font shown in itself, its name, its format */
+.ai-font-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--color-border)}
+.ai-font-row:first-of-type{border-top:0;padding-top:0}
+.ai-font-sample{font-size:22px;line-height:1.25;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:760px){.ai-font-row{grid-template-columns:minmax(0,1fr) auto auto}.ai-font-sample{grid-column:1/-1}}
+.ai-font-row .field{margin:0}
+/* Save as template: update it or save a new one, one choice a line */
+.ai-tpl-choice{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
+.ai-tpl-choice label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--color-text-primary);cursor:pointer;text-transform:none;letter-spacing:0}
+.ai-tpl-choice input{width:auto;margin:0}

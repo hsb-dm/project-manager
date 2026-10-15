@@ -20,15 +20,81 @@ function aiKey(which){
 }
 function aiConfigured(which){ return !!(aiCfg()[which].keySet || aiKey(which)); }
 
-/* ---------- prompt templates (Settings \u2192 AI) ---------- */
+/* ---------- prompt templates (Settings \u2192 AI) ----------
+   The starting set follows the workspace's own posters (Oct 2026): a dark studio, one premium hero
+   (a 3D object or real people), electric lime as the only accent, type set by us on top. The look
+   every generation shares lives in the admin's Brand default prompt; a template adds only its scene,
+   its medium and its copy. All of it is edited in Settings \u2192 AI \u2192 Prompt templates, where changing a
+   built-in template makes the workspace's own copy. */
+var AI_LIME = "#D4FA00", AI_INK = "#030603", AI_PILL = "#15180F";
+var AI_DISCLAIMER_HSB = "HSB Investasi, Pialang Berjangka Teregulasi BAPPEBTI, OJK, Dan BI.\nForex Trading Mengandung Resiko, High Risk High Return";
+var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, glossy reflections, crisp edges, high detail";
+var AI_AVOID = "text, letters, numbers, logos, watermark, clutter, extra objects, cartoon, flat illustration, blue or purple colour cast";
 var AI_PROMPT_DEFAULT = [
-  { id:"p_app",    name:"Product hero",      size:"web_hero", layout:"left",   brief:"A person using a modern product in a calm, well-lit space. Keep the left side open for text.", style:"editorial photography, natural light, clean composition", negative:"clutter, watermarks, unreadable text", headline:"A clearer way to get things done", sub:"A simple message that explains the value.", cta:"Learn more", badge:"" },
-  { id:"p_edu",    name:"Educational post",  size:"portrait", layout:"bottom", brief:"A clean abstract illustration using soft geometric shapes with generous space for a short educational message.", style:"minimal vector illustration, balanced, modern", negative:"photorealism, clutter, tiny details", headline:"A useful idea, made simple", sub:"Share one practical takeaway with your audience.", cta:"Explore", badge:"Guide" },
-  { id:"p_promo",  name:"Campaign",          size:"square",   layout:"center", brief:"A warm, optimistic abstract composition with subtle light and a clear center area for a campaign message.", style:"premium abstract, soft texture, restrained", negative:"confetti, fireworks, cartoon, clutter", headline:"Something new is here", sub:"A short message about your campaign.", cta:"Discover", badge:"New" },
-  { id:"p_webinar",name:"Event",             size:"web_hero", layout:"split",  brief:"An approachable speaker in a modern workspace, with the right side for the subject and the left side open for text.", style:"professional editorial photography, clean background", negative:"stock-photo pose, clutter, watermark", headline:"Join the conversation", sub:"Date, time, and a short reason to attend.", cta:"Register", badge:"Live" },
-  { id:"p_display",name:"Display banner",    size:"mrec",     layout:"bottom", brief:"A minimal background with a soft color sweep and plenty of empty space for a concise message.", style:"minimal, flat, uncluttered", negative:"detail, texture, people, text", headline:"Made for your next idea", sub:"", cta:"Learn more", badge:"" }
+  { id:"p_thumb_object", name:"Video thumbnail \u2014 3D object", size:"thumb", layout:"left",
+    brief:"One large premium 3D hero object in the right half of the frame: a polished silver coin with a soft green glass video-camera icon, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
+    style:AI_RENDER_3D, negative:AI_AVOID, headline:"HSB INVESTASI WEBINAR", sub:"Insight Langsung dari Para Ahli", cta:"", badge:"",
+    background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
+  { id:"p_thumb_people", name:"Video thumbnail \u2014 people", size:"thumb", layout:"left", people:2,
+    brief:"Two friendly young Indonesian adults, a woman and a man, in lime-green linen overshirts over white T-shirts, talking to each other and holding smartphones, seen from the thighs up in the right half of the frame. A large frosted-glass circle with a pale green tint sits behind them. Natural, candid expressions. The left half is open dark background for the title.",
+    style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, sharp focus", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
+    headline:"TESTIMONI NASABAH", sub:"Kata mereka tentang HSB Investasi", cta:"", badge:"",
+    background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
+  { id:"p_feed_edu", name:"Educational feed", size:"feed34", layout:"poster",
+    brief:"A clear glass jar filled with stacked silver-and-gold coins and a cork lid, centred in the middle band of the frame, a few coins floating around it and one large coin leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
+    style:AI_RENDER_3D, negative:AI_AVOID, headline:"Bisa Melek Finansial itu Privilege?", sub:"Makin paham kelola uang, makin cepet Financial Freedom!", cta:"", badge:"",
+    background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
+  { id:"p_feed_engage", name:"Comment-to-DM post", size:"feed34", layout:"poster",
+    brief:"A tan leather duffel bag stuffed with bundles of Indonesian rupiah banknotes, standing on a dark green felt table in the middle band of the frame, a few loose bundles around it, moody low-key light. The top third and the bottom quarter stay dark and empty.",
+    style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, sharp focus", negative:AI_AVOID,
+    headline:"Penasaran gak, kenapa Rupiah termasuk mata uang terlemah?", sub:"Komen \u201cRupiah!\u201d & cek DM kamu buat tau alasannya!", cta:"HSB Investasi #JadiPilihan.", badge:"",
+    background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
+  { id:"p_feed_promo", name:"Competition & promo", size:"feed34", layout:"poster",
+    brief:"A polished gold trophy wrapped in flowing electric-lime satin fabric, right of centre in the middle band, standing on a dark running track whose white lane lines converge towards a bright lime light flare on the horizon. The top third and the bottom quarter stay dark and calm.",
+    style:AI_RENDER_3D, negative:AI_AVOID, headline:"COMPETITION", sub:"Tanpa Modal & Tanpa Deposit!", cta:"HSB Investasi #JadiPilihan.", badge:"Demo trading",
+    background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
+  { id:"p_feed_market", name:"Weekly market highlight", size:"feed34", layout:"bottom",
+    brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a large silver dollar coin leaning against it, placed in the upper two-thirds with a soft reflection beneath. The bottom third stays dark and empty for text.",
+    style:AI_RENDER_3D, negative:AI_AVOID, headline:"Market Highlight Minggu Ini", sub:"5\u20139 Oktober 2026", cta:"", badge:"",
+    background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
+  { id:"p_story_launch", name:"Product launch story", size:"story", layout:"poster",
+    brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; thin mist, and a few small curved glass panels showing rising candlestick charts around it. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
+    style:AI_RENDER_3D, negative:AI_AVOID, headline:"Asuransi Perlindungan Dana Nasabah", sub:"Tanpa Biaya Tambahan", cta:"", badge:"Telah hadir",
+    background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
+  { id:"p_story_webinar", name:"Webinar story", size:"story", layout:"poster",
+    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft electric-lime glow made of fine halftone dots across the upper middle and a subtle grain. No people and no objects; speaker photos are added later as layers.",
+    style:"minimal abstract backdrop, soft gradient light, fine halftone texture", negative:"text, letters, logos, watermark, people, faces, objects, clutter, blue or purple colour cast",
+    headline:"Trading is More Than a Chart!", sub:"Kamis, 29 Oktober 2026 \u00b7 19:00\u201321:00 WIB", cta:"Daftar sekarang", badge:"Live webinar",
+    background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_LIME, ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB }
 ];
-function aiPromptTemplates(){ var t=(WS&&WS.ai&&WS.ai.promptTemplates); return (t&&t.length)?t:AI_PROMPT_DEFAULT; }
+/* The built-in set with the workspace's own laid over it: a built-in an admin changed, in its place; one an admin
+   removed ({ id, deleted:true }), gone; then the templates people saved, in the order they were saved. A built-in
+   added in a later version shows up by itself. */
+function aiPromptTemplates(){
+  var saved=((WS&&WS.ai&&WS.ai.promptTemplates)||[]).filter(function(t){ return t&&t.id; }), mine={}, seen={}, out=[];
+  saved.forEach(function(t){ if(!mine[t.id]) mine[t.id]=t; });
+  AI_PROMPT_DEFAULT.forEach(function(d){ seen[d.id]=1; var s=mine[d.id]; if(!s) out.push(d); else if(!s.deleted) out.push(s); });
+  saved.forEach(function(t){ if(seen[t.id]||t.deleted) return; seen[t.id]=1; out.push(t); });
+  return out;
+}
+/* dark text on a light fill, white on a dark one */
+function aiReadableOn(hex){ hex=String(hex||"").replace("#",""); if(hex.length===3)hex=hex.split("").map(function(x){return x+x;}).join(""); var n=parseInt(hex,16); if(isNaN(n)||hex.length!==6)return "#FFFFFF"; var r=(n>>16)&255,g=(n>>8)&255,b=n&255; return (0.299*r+0.587*g+0.114*b)/255>0.6?"#0B1220":"#FFFFFF"; }
+/* A template's type: its colours, button, alignment and disclaimer, set on fresh built-in text layers
+   (headline, sub, badge, button, disclaimer); layers someone added by hand keep their own. Called before
+   a saved preset's own fields, which then win. */
+function aiTemplateLook(t){
+  var styles=AIF.layerStyles||(AIF.layerStyles={}), pos=AIF.layerPositions||(AIF.layerPositions={}), b=WS.brand||{}, pal=b.palette&&b.palette[1]?b.palette[1].hex:"";
+  ["badge","headline","sub","cta","disclaimer","logo"].forEach(function(k){ delete styles[k]; delete pos[k]; });
+  aiLayerStyle("headline").textFill=t.textColor||"#FFFFFF";
+  aiLayerStyle("sub").textFill=t.subColor||"#FFFFFF";
+  aiLayerStyle("badge").textFill=aiReadableOn(AIF.badgeColor||AIF.accentColor||pal||"#C6F24E");
+  aiLayerStyle("cta").textFill=aiReadableOn(AIF.ctaColor||AIF.accentColor||pal||"#1F4FD8");
+  AIF.ctaRadius=t.ctaRadius!=null&&t.ctaRadius!==""?+t.ctaRadius:28; AIF.ctaStroke=!!t.ctaStroke; AIF.ctaStrokeColor=t.ctaStrokeColor||"#FFFFFF"; AIF.ctaStrokeWidth=+t.ctaStrokeWidth||1;
+  AIF.textAlign=t.textAlign||"auto";
+  AIF.headlineFont=t.headlineFont||""; AIF.subFont=t.subFont||"";   /* empty: the workspace font */
+  if(t.disclaimerText!==undefined){ AIF.disclaimerText=String(t.disclaimerText||""); AIF.disclaimer=!!String(t.disclaimerText||"").trim(); }
+  AIF.characters=typeof aiCharactersFor==="function"?aiCharactersFor(t.people):[];
+}
 function aiApplyTemplate(id){
   var t=null, list=aiPromptTemplates();
   for (var i=0;i<list.length;i++) if (list[i].id===id) t=list[i];
@@ -41,8 +107,9 @@ function aiApplyTemplate(id){
   var sm=typeof t.safeMargin==="number"?t.safeMargin:8; AIF.safeUnit=t.safeUnit||"percent"; AIF.safeLocked=t.safeLocked!==false;
   AIF.safeTop=t.safeTop!=null?t.safeTop:sm; AIF.safeRight=t.safeRight!=null?t.safeRight:sm; AIF.safeBottom=t.safeBottom!=null?t.safeBottom:sm; AIF.safeLeft=t.safeLeft!=null?t.safeLeft:sm;
   if (t.size) AIF.size=t.size; if (t.customW) AIF.customW=t.customW; if (t.customH) AIF.customH=t.customH; if (t.layout) AIF.layout=t.layout;
+  aiTemplateLook(t);
   if(t.editorFields)AIF=Object.assign(AIF,clone(t.editorFields));
-  AIF.template=id;
+  AIF.template=id; AIF.templateSource=id;   /* kept while the design changes, for "Update template" */
   renderScreen(false); toast('Loaded "'+t.name+'"');
 }
 
@@ -68,8 +135,10 @@ function aiChatTemplates(){ var t=(WS&&WS.ai&&WS.ai.chatTemplates); return (t&&t
 /* ---------- banner sizes ---------- */
 var AI_SIZES = [
   { id:"web_hero",   name:"Website hero",        w:1920, h:720  },
+  { id:"thumb",      name:"Thumbnail 16:9",      w:1280, h:720  },
   { id:"square",     name:"Social square",       w:1080, h:1080 },
   { id:"portrait",   name:"Feed portrait 4:5",   w:1080, h:1350 },
+  { id:"feed34",     name:"Feed portrait 3:4",   w:1080, h:1440 },
   { id:"story",      name:"Story / Reels 9:16",  w:1080, h:1920 },
   { id:"mrec",       name:"Display 300\u00d7250",     w:300,  h:250  },
   { id:"leaderboard",name:"Display 728\u00d790",      w:728,  h:90   },
@@ -89,12 +158,15 @@ var AI_LAYOUTS = [
   { id:"bottom", name:"Bottom bar",        zone:"Keep the bottom 35% simple; the subject sits in the upper two thirds.",  align:"left",   box:{x:0.07,y:0.76,w:0.62}, scrim:"bottom" },
   { id:"top",    name:"Top banner",        zone:"Keep the top 30% simple and low-contrast; the subject sits low in frame.", align:"left",   box:{x:0.07,y:0.2,w:0.62}, scrim:"top" },
   { id:"split",  name:"Split \u2014 art right", zone:"Compose the subject entirely in the right half; the left half is a flat colour field.", align:"left", box:{x:0.06,y:0.5,w:0.4}, scrim:"splitL" },
+  /* the poster: the headline hangs from the top, the subheadline and button sit low (foot is where that
+     block ends, as a share of the height), the visual fills the band between them */
+  { id:"poster", name:"Poster — headline top, copy bottom", zone:"Keep the top 30% and the bottom 25% of the frame dark, calm and uncluttered for type; place the hero subject in the middle band between them.", align:"center", box:{x:0.5,y:0.16,w:0.86}, foot:0.86, scrim:"none" },
   { id:"clean",  name:"No overlay (visual only)", zone:"Full-bleed composition, no text areas needed.", align:"left", box:null, scrim:"none" }
 ];
 function aiLayout(id){ for (var i=0;i<AI_LAYOUTS.length;i++) if (AI_LAYOUTS[i].id===id) return AI_LAYOUTS[i]; return AI_LAYOUTS[0]; }
 
 /* ---------- form state ---------- */
-var AIF = { brief:"", prompt:"", reference:"", referenceName:"", model:"", modelRegistryId:"", size:"web_hero", layout:"left", headline:"", sub:"", cta:"", badge:"", style:"", disclaimer:true, disclaimerText:"Add your legal or campaign disclaimer here.", customW:0, customH:0, template:"", background:"", textColor:"#FFFFFF", canvasBg:{type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}, accentColor:"", badgeColor:"", ctaColor:"", logoPosition:"top_left", logoImg:"", logoBg:"", logoHidden:false, safeUnit:"percent", safeLocked:true, safeTop:8, safeRight:8, safeBottom:8, safeLeft:8, safeExpanded:false, offsetUnit:"percent", headlineFont:"", headlineScale:100, subFont:"", subScale:100, badgeScale:100, ctaScale:100, logoScale:100, disclaimerScale:100, textAlign:"auto", textX:0, textY:0, ctaRadius:28, ctaStroke:false, ctaStrokeWidth:1, ctaStrokeColor:"#FFFFFF", panels:{styling:false,typography:false,advanced:false}, showSafeZones:false, editMode:true, selectedLayer:"canvas", layerStyles:{}, layerPositions:{}, extraLayers:[] };
+var AIF = { brief:"", prompt:"", reference:"", referenceName:"", characters:[], model:"", modelRegistryId:"", size:"web_hero", layout:"left", headline:"", sub:"", cta:"", badge:"", style:"", disclaimer:true, disclaimerText:"Add your legal or campaign disclaimer here.", customW:0, customH:0, template:"", background:"", textColor:"#FFFFFF", canvasBg:{type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}, accentColor:"", badgeColor:"", ctaColor:"", logoPosition:"top_left", logoImg:"", logoBg:"", logoHidden:false, safeUnit:"percent", safeLocked:true, safeTop:8, safeRight:8, safeBottom:8, safeLeft:8, safeExpanded:false, offsetUnit:"percent", headlineFont:"", headlineScale:100, subFont:"", subScale:100, badgeScale:100, ctaScale:100, logoScale:100, disclaimerScale:100, textAlign:"auto", textX:0, textY:0, ctaRadius:28, ctaStroke:false, ctaStrokeWidth:1, ctaStrokeColor:"#FFFFFF", panels:{styling:false,typography:false,advanced:false}, showSafeZones:false, editMode:true, selectedLayer:"canvas", layerStyles:{}, layerPositions:{}, extraLayers:[] };
 var AI_RUNS = [], AI_RUNS_LOADED=false;
 var AI_BUSY = false;
 var AI_TEXT_SPECS = {};
@@ -178,15 +250,20 @@ function aiBuildPrompt(){
     parts.push(AI_BRIEF.workingPrompt);
     if ((AI_BRIEF.instruction||"").trim()) parts.push("Additional request: " + AI_BRIEF.instruction.trim());
   } else parts.push((AIF.prompt||"").trim() || AIF.brief.trim() || "A clean, modern marketing key visual.");
+  /* brand characters ride right behind the brief, where the 4,000-character limit can never cut them */
+  if (typeof aiCharactersPrompt === "function" && aiCharactersPrompt()) parts.push(aiCharactersPrompt());
   parts.push("Format: " + sz.w + "\u00d7" + sz.h + " (" + aiRatio(sz) + ").");
   parts.push("Composition: " + L.zone);
   if (b.palette && b.palette.length) parts.push("Brand palette: " + b.palette.slice(0,4).map(function(c){ return c.name+" "+c.hex; }).join(", ") + ".");
   if (b.photography) parts.push("Art direction: " + b.photography);
   if (AIF.style.trim()) parts.push("Style: " + AIF.style.trim() + ".");
+  /* The admin's Brand default prompt goes with every generation. On a server the server appends it
+     itself, last and with precedence, so the browser leaves it out rather than spend the prompt's
+     4,000 characters on it twice; without a server it is only here. */
   var house = (aiCfg().image.defaultStyle||"").trim();
-  if (house) parts.push("Brand requirements (apply to every generation): " + house);
+  if (house && !(typeof API !== "undefined" && API.on)) parts.push("Brand requirements (apply to every generation): " + house);
   parts.push("No text, no lettering, no logos, no watermarks in the image \u2014 typography is added afterwards.");
-  if(AIF.protectText!==false&&L.box) parts.push("The requested text-safe area must remain one uninterrupted plain background field: no people, objects, scenery, decorative shapes, texture, lighting hotspots, or high-detail elements may appear behind it. Keep all visual subjects clearly outside that area; do not draw a text box or card.");
+  if(AIF.protectText!==false&&L.box) parts.push("The requested text-safe area must remain one uninterrupted plain background field: no people, objects, scenery, decorative shapes, busy texture, bright lighting hotspots, or high-detail elements may appear behind it. Keep all visual subjects clearly outside that area; do not draw a text box or card.");
   return parts.join(" ");
 }
 function aiNegative(){
@@ -305,7 +382,39 @@ function aiTextValue(id){ if(id.indexOf("extra_")===0){var x=aiExtra(id.slice(6)
 function aiSetTextValue(id,value){ if(aiLayerMeta(id).locked)return; if(id.indexOf("extra_")===0){var x=aiExtra(id.slice(6));if(x)x.content=value;return;} if(id==="headline")AIF.headline=value;else if(id==="sub")AIF.sub=value;else if(id==="badge")AIF.badge=value;else if(id==="cta")AIF.cta=value;else if(id==="disclaimer")AIF.disclaimerText=value; }
 function aiResizeStart(ev,id,cv){ if(aiLayerMeta(id).locked)return; ev.preventDefault();ev.stopPropagation();aiHistoryBefore();var start=aiLayerScale(id), x=ev.clientX,y=ev.clientY, base=Math.max(80,cv.getBoundingClientRect().width+cv.getBoundingClientRect().height);function move(e){aiSetLayerScale(id,start+(e.clientX-x+e.clientY-y)/base*100);aiPreview();}function up(){window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);}window.addEventListener("pointermove",move);window.addEventListener("pointerup",up); }
 function aiShowSelectionHandle(wrap,cv){ if(!wrap||AIF.editMode===false)return; var old=wrap.querySelector(".ai-selection-box");if(old)old.remove();var id=AIF.selectedLayer||"", hit=AI_LAYER_HITS.filter(function(h){return h.id===id;})[0];if(!hit)return;var ratio=cv.getBoundingClientRect().width/cv.width, box=document.createElement("div");box.className="ai-selection-box";box.style.cssText="position:absolute;left:"+(hit.x*ratio)+"px;top:"+(hit.y*ratio)+"px;width:"+(hit.w*ratio)+"px;height:"+(hit.h*ratio)+"px;border:1.5px solid #2F5BFF;border-radius:4px;pointer-events:none;z-index:3";var handle=document.createElement("button");handle.type="button";handle.title="Resize layer";handle.style.cssText="position:absolute;right:-7px;bottom:-7px;width:13px;height:13px;border-radius:3px;background:#2F5BFF;border:2px solid #fff;pointer-events:auto;cursor:nwse-resize";handle.addEventListener("pointerdown",function(e){aiResizeStart(e,id,cv);});if(!aiLayerMeta(id).locked)box.appendChild(handle);wrap.appendChild(box); }
-function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var id=hit.id,value=aiTextValue(id);if(value===null)return;var wrap=cv.parentNode,old=wrap.querySelector(".ai-inline-editor");if(old)old.remove();aiHistoryBefore();var ratio=cv.getBoundingClientRect().width/cv.width, ed=document.createElement("div");ed.className="ai-inline-editor";ed.contentEditable="true";ed.spellcheck=false;ed.textContent=value;ed.style.cssText="position:absolute;z-index:4;left:"+(hit.x*ratio)+"px;top:"+(hit.y*ratio)+"px;min-width:"+Math.max(54,hit.w*ratio)+"px;min-height:"+Math.max(24,hit.h*ratio)+"px;padding:2px 4px;outline:2px solid #2F5BFF;border-radius:4px;background:rgba(11,18,32,.22);color:#fff;font-weight:700;font-size:"+Math.max(12,hit.h*ratio*.68)+"px;line-height:1.16;text-align:left;white-space:pre-wrap;overflow:hidden";ed.addEventListener("input",function(){aiSetTextValue(id,ed.textContent);});ed.addEventListener("blur",function(){aiPreview();});ed.addEventListener("keydown",function(e){if(e.key==="Escape"){ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});wrap.appendChild(ed);ed.focus();var range=document.createRange();range.selectNodeContents(ed);range.collapse(false);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(range); }
+/* Editing text on the canvas (Oct 2026): the editor is the text itself, where it is drawn, at the size it is drawn
+   (zoom and the layer's scale included), in its font, weight, slant, line spacing, alignment, colour and rotation,
+   so typing looks like the finished design, as in Canva or Figma. While it is open the canvas leaves that text
+   out (AI_INLINE_EDIT), redrawn into the same canvas so the editor stays put. It used to be a bold white box sized
+   from the height of the whole block, several times bigger than the text. */
+var AI_INLINE_EDIT=null;
+/* the text's own box, in canvas pixels, and how it is set: the same font stacks the canvas draws with */
+function aiInlineLook(id,hit){
+  var sp=AI_TEXT_SPECS[id]||{}, st=aiLayerStyle(id), base=(typeof AI_LAYER_BASE_HITS!=="undefined"&&AI_LAYER_BASE_HITS||[]).filter(function(h){ return h.id===id; })[0]||hit;
+  var cx=base.x+base.w/2, cy=base.y+base.h/2, fill=st.textFill||"#FFFFFF", x=id.indexOf("extra_")===0?aiExtra(id.slice(6)):null;
+  if(x) return { x:base.x, y:base.y, w:base.w, h:base.h, cx:cx, cy:cy, size:Math.max(10,(Number(x.size)||36)*aiLayerScale(id)/100), weight:x.weight||700, italic:!!x.italic, family:aiTextFont(x.font,brandFontStack()), line:Number(x.lineHeight)||1.3, align:x.align||"center", color:fill };
+  if(id==="cta"||id==="badge") return { x:base.x, y:base.y, w:base.w, h:base.h, cx:cx, cy:cy, size:sp.size, weight:700, family:brandBodyStack(), linePx:base.h, align:"center", color:fill, bg:sp.bgColor, radius:sp.radius, upper:id==="badge" };
+  var s=(id==="headline"||id==="sub")?aiLayerScale(id)/100:1, w=sp.wrap||base.w, left=sp.anchorX==null?base.x:(sp.align==="center"?sp.anchorX-w/2:sp.align==="right"?sp.anchorX-w:sp.anchorX), top=sp.top==null?base.y:sp.top;
+  /* the layer's scale works around the middle of its box */
+  return { x:cx+(left-cx)*s, y:cy+(top-cy)*s, w:w*s, h:base.h, cx:cx, cy:cy, size:(sp.size||16)*s, weight:sp.weight||400, family:id==="headline"?aiTextFont(AIF.headlineFont,brandFontStack()):id==="sub"?aiTextFont(AIF.subFont,brandBodyStack()):brandBodyStack(), line:sp.lineHeight||1.2, align:sp.align||"left", color:fill, bg:st.bg?st.fill:"", opacity:id==="sub"?.86:1 };
+}
+function aiInlineRepaint(cv){ aiCompose(function(fresh){ if(!cv||!cv.isConnected||fresh.width!==cv.width||fresh.height!==cv.height) return; var g=cv.getContext("2d"); g.clearRect(0,0,cv.width,cv.height); g.drawImage(fresh,0,0); },true); }
+function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var id=hit.id,value=aiTextValue(id);if(value===null)return;var wrap=cv.parentNode,old=wrap.querySelector(".ai-inline-editor");if(old)old.remove();aiHistoryBefore();
+  var ratio=cv.getBoundingClientRect().width/cv.width, L=aiInlineLook(id,hit), rot=Number(aiLayerMeta(id).rotation)||0, ed=document.createElement("div");
+  ed.className="ai-inline-editor";ed.contentEditable="true";ed.spellcheck=false;ed.setAttribute("role","textbox");ed.setAttribute("aria-label",tr("Edit text"));ed.textContent=value;
+  var css={position:"absolute","z-index":4,left:L.x*ratio+"px",top:L.y*ratio+"px",width:(L.w*ratio)+"px","min-height":(L.linePx?L.linePx:L.size*L.line)*ratio+"px",margin:0,padding:0,border:0,
+    font:(L.italic?"italic ":"")+L.weight+" "+(L.size*ratio)+"px "+L.family,"line-height":L.linePx?(L.linePx*ratio)+"px":String(L.line),
+    "text-align":L.align,color:L.color,opacity:L.opacity||1,background:L.bg||"transparent","border-radius":L.radius?(L.radius*ratio)+"px":"2px","text-transform":L.upper?"uppercase":"none",
+    "white-space":"pre-wrap","overflow-wrap":"break-word",outline:"1.5px solid #2F5BFF","outline-offset":"3px","caret-color":"#2F5BFF",cursor:"text","box-sizing":"content-box"};
+  if(rot){ css.transform="rotate("+rot+"deg)"; css["transform-origin"]=((L.cx-L.x)*ratio)+"px "+((L.cy-L.y)*ratio)+"px"; }
+  ed.style.cssText=Object.keys(css).map(function(k){ return k+":"+css[k]; }).join(";");
+  ed.addEventListener("input",function(){aiSetTextValue(id,ed.innerText.replace(/\n$/,""));});
+  ed.addEventListener("blur",function(){ AI_INLINE_EDIT=null; aiPreview(); });
+  ed.addEventListener("keydown",function(e){if(e.key==="Escape"){ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});
+  wrap.appendChild(ed);
+  /* the canvas leaves this text out while it is being typed */
+  AI_INLINE_EDIT=id; aiInlineRepaint(cv);
+  ed.focus();var range=document.createRange();range.selectNodeContents(ed);range.collapse(false);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(range); }
 function aiCanvasEditAt(ev,cv){ if(AI_CLICK_SKIP){AI_CLICK_SKIP=false;return;} var hit=aiHitAt(ev,cv);if(!hit)return;AIF.selectedLayer=hit.id;aiShowSelectionHandle(cv.parentNode,cv);if(aiTextValue(hit.id)!==null)aiOpenInlineEditor(cv,hit); }
 
 /* ---------- generation ---------- */
@@ -321,7 +430,11 @@ function aiGenerate(){
   var body = { prompt: prompt, negativePrompt: aiNegative(), width: sz.w, height: sz.h,
                modelRegistryId: chosen?chosen.id:null,
                model: (chosen?chosen.modelId:aiCfg().image.model||"").trim(),
-               referenceImage:AIF.reference||undefined,
+               /* reference pictures only go to a model that can use them. Brand characters travel as ids:
+                  the server reads their photos from the workspace itself. */
+               referenceImage:(aiSelectedModelCan("reference")&&AIF.reference)||undefined,
+               characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
+               referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
   AI_BUSY = true; renderScreen(false);
   var call = API.on
@@ -392,15 +505,19 @@ function aiCompose(cb,previewOnly){
     if (L.box){
       var unit = Math.min(sz.w, sz.h), safe=aiSafeInsets(sz);
       var boxW = Math.min(sz.w*L.box.w,sz.w-safe.left-safe.right), x = L.align==="center" ? sz.w*L.box.x : Math.max(safe.left,sz.w*L.box.x);
-      boxW=Math.min(boxW,sz.w-x-safe.right);
+      if(!L.foot) boxW=Math.min(boxW,sz.w-x-safe.right);   /* a poster's lines are centred on the page, so they may use its width */
       var head = (AIF.headline||"").trim(), sub=(AIF.sub||"").trim(), cta=(AIF.cta||"").trim(), badge=(AIF.badge||"").trim();
       var hSize = Math.round(unit*(sz.w>sz.h?0.085:0.072));
       var sSize = Math.round(hSize*0.4), cSize = Math.round(hSize*0.34);
       var hFont=aiTextFont(AIF.headlineFont,brandFontStack()), subFont=aiTextFont(AIF.subFont,brandBodyStack());
       var lines = head ? wrapText(g, head, boxW, hSize, "700 "+hSize+"px "+hFont) : [];
       var subL  = sub  ? wrapText(g, sub,  boxW, sSize, "400 "+sSize+"px "+subFont) : [];
-      var blockH = lines.length*hSize*1.06 + (subL.length?subL.length*sSize*1.4 + sSize*0.8:0) + (cta?cSize*3.1:0) + (badge?cSize*2.4:0);
-      var y = Math.max(safe.top,Math.min(sz.h-safe.bottom-blockH,sz.h*L.box.y-blockH/2));
+      /* the copy stops above the disclaimer, never on it */
+      var floor = sz.h-safe.bottom-(AIF.disclaimer?aiDisclaimerLayout(g,sz,safe).reserve:0);
+      var footH = (subL.length?subL.length*sSize*1.4+sSize*0.7:0) + (cta?cSize*(aiLayerScale("cta")/100)*3.5:0);
+      var blockH = L.foot ? lines.length*hSize*1.06 + (badge?cSize*2.4:0) : lines.length*hSize*1.06 + (subL.length?subL.length*sSize*1.4 + sSize*0.8:0) + (cta?cSize*3.1:0) + (badge?cSize*2.4:0);
+      /* a poster hangs its headline from the top; the other layouts centre their block on the layout's line */
+      var y = L.foot ? Math.max(safe.top,Math.min(floor-footH-blockH,sz.h*L.box.y)) : Math.max(safe.top,Math.min(floor-blockH,sz.h*L.box.y-blockH/2));
       var align=AIF.textAlign==="auto"||!AIF.textAlign?(L.align==="center"?"center":"left"):AIF.textAlign;
       var dx=sz.w*((+AIF.textX||0)/100), dy=sz.h*((+AIF.textY||0)/100);
       y+=dy; g.textAlign = align;
@@ -428,17 +545,19 @@ function aiCompose(cb,previewOnly){
       var hs=aiLayerStyle("headline"), hp=aiLayerPosition("headline"), hdx=aiOffset(hp.x,sz.w), hdy=aiOffset(hp.y,sz.h), maxHead=0; g.font = "700 "+hSize+"px "+hFont; lines.forEach(function(ln){maxHead=Math.max(maxHead,g.measureText(ln).width);});
       var hx=(align==="center"?tx-maxHead/2:align==="right"?tx-maxHead:tx)+hdx, hy=y+hdy, hPadX=+hs.padX||0, hPadY=+hs.padY||0;
       aiPaintBox(g,hx-hPadX,hy-hPadY,maxHead+hPadX*2,lines.length*hSize*1.06+hPadY*2,hs);
-      AI_TEXT_SPECS.headline={content:lines.join("\n"),size:hSize,weight:700,font:AIF.headlineFont||b.headlineFont||"Poppins",lineHeight:1.06,align:align};
+      AI_TEXT_SPECS.headline={content:lines.join("\n"),size:hSize,weight:700,font:AIF.headlineFont||b.headlineFont||"Poppins",lineHeight:1.06,align:align,wrap:boxW,anchorX:tx+hdx,top:hy};
       if(lines.length) aiAddHit("headline",hx-hPadX,hy-hPadY,maxHead+hPadX*2,lines.length*hSize*1.06+hPadY*2);
       g.fillStyle = aiLayerTextPaint(g,sz,hs,"#FFFFFF",{x:hx,y:hy,w:maxHead,h:lines.length*hSize*1.06}); g.globalAlpha=Math.max(0,Math.min(100,+hs.textOpacity||100))/100;
       aiShadowOn(g,hs); var drawHY=hy; lines.forEach(function(ln){ if(hs.textStroke){g.lineWidth=Math.max(1,+hs.textStrokeWidth||1);g.strokeStyle=hs.textStrokeColor||"#111214";g.strokeText(ln,tx+hdx,drawHY);} g.fillText(ln, tx+hdx, drawHY); drawHY += hSize*1.06; }); aiShadowOff(g); y += lines.length*hSize*1.06; g.globalAlpha=1;
+      /* the poster's subheadline and button sit low, ending at the layout's foot line */
+      if (L.foot) y = Math.max(y+hSize*0.5, Math.min(floor-footH, sz.h*L.foot-footH));
       if (subL.length){
         layer("sub");
         y += sSize*0.7;
         g.font = "400 "+sSize+"px "+subFont;
         var ss=aiLayerStyle("sub"), sp=aiLayerPosition("sub"), sdx=aiOffset(sp.x,sz.w), sdy=aiOffset(sp.y,sz.h), maxSub=0; subL.forEach(function(ln){maxSub=Math.max(maxSub,g.measureText(ln).width);}); var sx=(align==="center"?tx-maxSub/2:align==="right"?tx-maxSub:tx)+sdx, sy=y+sdy, sPadX=+ss.padX||0,sPadY=+ss.padY||0;
         aiPaintBox(g,sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2,ss); g.fillStyle = aiLayerTextPaint(g,sz,ss,"#FFFFFF",{x:sx,y:sy,w:maxSub,h:subL.length*sSize*1.4}); g.globalAlpha=.86*Math.max(0,Math.min(100,+ss.textOpacity||100))/100;
-        AI_TEXT_SPECS.sub={content:subL.join("\n"),size:sSize,weight:400,font:AIF.subFont||b.bodyFont||"Poppins",lineHeight:1.4,align:align}; aiAddHit("sub",sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2); aiShadowOn(g,ss); var drawSY=sy; subL.forEach(function(ln){ if(ss.textStroke){g.lineWidth=Math.max(1,+ss.textStrokeWidth||1);g.strokeStyle=ss.textStrokeColor||"#111214";g.strokeText(ln,tx+sdx,drawSY);} g.fillText(ln, tx+sdx, drawSY); drawSY += sSize*1.4; }); aiShadowOff(g); y += subL.length*sSize*1.4;
+        AI_TEXT_SPECS.sub={content:subL.join("\n"),size:sSize,weight:400,font:AIF.subFont||b.bodyFont||"Poppins",lineHeight:1.4,align:align,wrap:boxW,anchorX:tx+sdx,top:sy}; aiAddHit("sub",sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2); aiShadowOn(g,ss); var drawSY=sy; subL.forEach(function(ln){ if(ss.textStroke){g.lineWidth=Math.max(1,+ss.textStrokeWidth||1);g.strokeStyle=ss.textStrokeColor||"#111214";g.strokeText(ln,tx+sdx,drawSY);} g.fillText(ln, tx+sdx, drawSY); drawSY += sSize*1.4; }); aiShadowOff(g); y += subL.length*sSize*1.4;
         g.globalAlpha=1;
       }
       if (cta){
@@ -471,12 +590,19 @@ function aiCompose(cb,previewOnly){
         if (AIF.disclaimer){
           layer("disclaimer");
           var dp=aiLayerPosition("disclaimer");
-          var ds = Math.max(11, Math.round(Math.min(sz.w,sz.h)*0.016*(aiLayerScale("disclaimer")/100)));
-          g.font = "400 "+ds+"px "+brandBodyStack();
-          var dsStyle=aiLayerStyle("disclaimer"); g.fillStyle = aiLayerTextPaint(g,sz,dsStyle,"#FFFFFF"); g.globalAlpha=.78*Math.max(0,Math.min(100,+dsStyle.textOpacity||100))/100; aiShadowOn(g,dsStyle);
-          g.textAlign = "left";
-          var dis=AIF.disclaimerText||"Add your legal or campaign disclaimer here.", dx=safe.left+aiOffset(dp.x,sz.w), dy=sz.h-safe.bottom+aiOffset(dp.y,sz.h);
-          g.fillStyle=aiLayerTextPaint(g,sz,dsStyle,"#FFFFFF",{x:dx,y:dy-ds,w:g.measureText(dis).width,h:ds*1.3});AI_TEXT_SPECS.disclaimer={content:dis,size:ds,weight:400,font:b.bodyFont||"Poppins",lineHeight:1.3,align:"left"};g.fillText(dis, dx, dy); aiShadowOff(g); aiAddHit("disclaimer",dx,dy-ds,Math.min(sz.w*.8,g.measureText(dis).width),ds*1.3); g.globalAlpha=1;
+          /* wrapped to the safe width and kept to its own lines; the last line sits on the safe edge.
+             Centred under centred copy (a poster, or text set to centre), otherwise from the left edge. */
+          var dl=aiDisclaimerLayout(g,sz,safe), ds=dl.ds, mid=L.foot||AIF.textAlign==="center";
+          g.font = dl.font; g.textBaseline = "alphabetic";
+          var dsStyle=aiLayerStyle("disclaimer"); g.globalAlpha=.78*Math.max(0,Math.min(100,+dsStyle.textOpacity||100))/100; aiShadowOn(g,dsStyle);
+          g.textAlign = mid?"center":"left";
+          var dx=(mid?sz.w/2:safe.left)+aiOffset(dp.x,sz.w), dy=sz.h-safe.bottom+aiOffset(dp.y,sz.h), lh=ds*1.3, dTop=dy-ds-(dl.lines.length-1)*lh, dW=0;
+          dl.lines.forEach(function(ln){ dW=Math.max(dW,g.measureText(ln).width); }); dW=Math.min(sz.w*.92,dW);
+          var dLeft=mid?dx-dW/2:dx;
+          g.fillStyle=aiLayerTextPaint(g,sz,dsStyle,"#FFFFFF",{x:dLeft,y:dTop,w:dW,h:dl.lines.length*lh});
+          AI_TEXT_SPECS.disclaimer={content:dl.lines.join("\n"),size:ds,weight:400,font:b.bodyFont||"Poppins",lineHeight:1.3,align:mid?"center":"left",wrap:sz.w-safe.left-safe.right,anchorX:dx,top:dTop};
+          dl.lines.forEach(function(ln,i){ g.fillText(ln, dx, dTop+ds+i*lh); });
+          aiShadowOff(g); aiAddHit("disclaimer",dLeft,dTop,dW,dl.lines.length*lh); g.globalAlpha=1;
         }
         aiCompositeLayers(base,planes,sz,!!img);
         cb(cv);
@@ -522,6 +648,14 @@ function wrapText(g, text, maxW, size, font){
   }
   if (cur) lines.push(cur);
   return lines.slice(0,4);
+}
+/* the disclaimer's lines: each of its own lines wrapped to the safe width. reserve is the room it keeps
+   above the bottom safe edge, so the copy above can stop short of it. */
+function aiDisclaimerLayout(g,sz,safe){
+  var ds=Math.max(11,Math.round(Math.min(sz.w,sz.h)*0.016*(aiLayerScale("disclaimer")/100))), font="400 "+ds+"px "+brandBodyStack(), width=Math.max(40,sz.w-safe.left-safe.right), lines=[];
+  String(AIF.disclaimerText||"Add your legal or campaign disclaimer here.").split(/\r?\n/).forEach(function(p){ p=p.trim(); if(p) lines=lines.concat(wrapText(g,p,width,ds,font)); });
+  if(!lines.length) lines=[""];
+  return { ds:ds, font:font, lines:lines, reserve:ds+(lines.length-1)*ds*1.3+ds*1.6 };
 }
 function roundRect(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
 function shade(hex,amt){
@@ -594,8 +728,7 @@ function aiSaveGeneratedToDrive(){
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "banner"; }
 
 /* ---------- AI Hub screen ---------- */
-function aiSavePresetModal(){ openModal("Save AI Hub preset",fieldHtml("ai_preset_name","Preset name",'<input id="ai_preset_name" placeholder="e.g. LinkedIn product launch">')+'<p class="hint">Saves the current banner size, copy, canvas, safe zones, and styling as a reusable template.</p>','<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="aiSavePreset()">Save preset</button>'); }
-function aiSavePreset(){ if(!require(["ai_preset_name"]))return; var list=clone(aiPromptTemplates()), id="p_"+Math.random().toString(36).slice(2,7); list.push({id:id,name:val("ai_preset_name"),brief:AIF.brief,style:AIF.style,negative:AIF.negative,headline:AIF.headline,sub:AIF.sub,cta:AIF.cta,badge:AIF.badge,size:AIF.size,customW:AIF.customW,customH:AIF.customH,layout:AIF.layout,background:(AIF.canvasBg||{}).color||AIF.background,textColor:aiLayerStyle("headline").textFill,accentColor:AIF.accentColor,badgeColor:AIF.badgeColor,ctaColor:AIF.ctaColor,logoPosition:AIF.logoPosition,safeMargin:+AIF.safeTop||8,safeUnit:AIF.safeUnit,safeLocked:AIF.safeLocked,safeTop:AIF.safeTop,safeRight:AIF.safeRight,safeBottom:AIF.safeBottom,safeLeft:AIF.safeLeft,editorFields:clone(AIF)}); WS.ai=WS.ai||{}; WS.ai.promptTemplates=list; AIF.template=id; closeModal(); saveWS("AI Hub preset saved"); renderScreen(false); }
+/* saving the canvas as a template for everyone: ai-templates.js */
 /* ---------- Canvas-first AI Hub workspace ---------- */
 function aiStudioLayerButton(id,label,icon){ var on=(AIF.selectedLayer||"canvas")===id; return '<button class="ai-layer'+(on?" on":"")+'" onclick="aiSelectLayer(\''+id+'\')"><span>'+icon+'</span><b>'+label+'</b><small>'+((id==="headline"||id==="sub"||id==="badge"||id==="cta")?"text":"")+'</small></button>'; }
 function aiTextStyleEditor(id,plain){
@@ -610,7 +743,7 @@ function aiTextStyleEditor(id,plain){
 function aiShadowEditor(id){ var s=aiLayerStyle(id),set="aiLayerStyle('"+id+"')"; return '<div class="ai-prop-group"><div class="pref"><div class="pl"><b>Drop shadow</b><span>Applies to this layer only.</span></div><button class="switch'+(s.shadow?' on':'')+'" onclick="aiHistoryBefore();'+set+'.shadow=!'+set+'.shadow;aiRenderKeepScroll()"></button></div>'+(s.shadow?'<div class="field-row"><div class="field"><label>Shadow color</label><input type="color" value="'+attr(s.shadowColor)+'" oninput="'+set+'.shadowColor=this.value;aiPreviewSoon()"></div>'+fieldHtml("","Opacity (%)",'<input type="number" min="0" max="100" value="'+(+s.shadowOpacity||0)+'" oninput="'+set+'.shadowOpacity=this.value;aiPreviewSoon()">')+'</div><div class="field-row">'+fieldHtml("","Direction (°)",'<input type="number" min="0" max="360" value="'+(+s.shadowAngle||0)+'" oninput="'+set+'.shadowAngle=this.value;aiPreviewSoon()">')+fieldHtml("","Distance",'<input type="number" min="0" max="200" value="'+(+s.shadowDistance||0)+'" oninput="'+set+'.shadowDistance=this.value;aiPreviewSoon()">')+'</div>'+fieldHtml("","Blur width",'<input type="number" min="0" max="200" value="'+(+s.shadowBlur||0)+'" oninput="'+set+'.shadowBlur=this.value;aiPreviewSoon()">'):'')+'</div>'; }
 function aiPositionUnitToggle(u){ return '<div class="seg ai-unit-toggle"><button class="'+(u==="%"?"on":"")+'" onclick="aiSetOffsetUnit(\'percent\')">%</button><button class="'+(u==="px"?"on":"")+'" onclick="aiSetOffsetUnit(\'px\')">px</button></div>'; }
 function aiLayerPositionFields(id){ var p=aiLayerPosition(id),u=AIF.offsetUnit==="px"?"px":"%",max=u==="px"?4096:100; return '<div class="ai-position-head"><span class="eyebrow">Position</span>'+aiPositionUnitToggle(u)+'</div><div class="field-row">'+fieldHtml("","X offset",'<input type="number" min="-'+max+'" max="'+max+'" value="'+(+p.x||0)+'" oninput="aiLayerPosition(\''+id+'\').x=this.value;aiPreviewSoon()">')+fieldHtml("","Y offset",'<input type="number" min="-'+max+'" max="'+max+'" value="'+(+p.y||0)+'" oninput="aiLayerPosition(\''+id+'\').y=this.value;aiPreviewSoon()">')+'</div>'; }
-function aiWorkspaceFonts(){ var b=WS.brand||{}, t=WS.theme||{}, all=[b.headlineFont,b.bodyFont,"Poppins","Inter","Source Sans 3","Iowan Old Style"].concat(t.customFonts||[]).filter(Boolean), seen={};return all.filter(function(x){x=String(x).trim();if(!x||seen[x])return false;seen[x]=true;return true;}); }
+function aiWorkspaceFonts(){ var b=WS.brand||{}, t=WS.theme||{}, all=[b.headlineFont,b.bodyFont,"Poppins","Inter","Source Sans 3","Iowan Old Style"].concat(t.customFonts||[]).concat(typeof aiUploadedFontNames==="function"?aiUploadedFontNames():[]).filter(Boolean), seen={};return all.filter(function(x){x=String(x).trim();if(!x||seen[x])return false;seen[x]=true;return true;}); }
 function aiFontSelect(key,value,placeholder){ var opts=[["",placeholder||"Use workspace font"]].concat(aiWorkspaceFonts().map(function(f){return[f,f];}));return '<select onchange="AIF.'+key+'=this.value;aiPreviewSoon()">'+opts.map(function(o){return '<option value="'+attr(o[0])+'"'+(String(value||"")===o[0]?" selected":"")+'>'+esc(o[1])+'</option>';}).join("")+'</select>'; }
 function aiStudioProperties(){
   var selected=AIF.selectedLayer||"canvas", b=WS.brand||{}, baseColor=AIF.accentColor||((b.palette||[])[1]||{}).hex||"#C6F24E", badgeColor=AIF.badgeColor||baseColor, ctaColor=AIF.ctaColor||baseColor;
@@ -647,7 +780,7 @@ function renderAIHub(){
   var _gs=aiGenerateState();
   if(AI_PROJECT_BASE===null)setTimeout(function(){if(AI_PROJECT_BASE===null)aiProjectMarkSaved();},0);
   var generateLabel=AI_BUSY?tr("Generating…"):tr("Create visual"), generateDisabled=AI_BUSY||_gs.disabled;
-  var h='<div class="pagehead ai-studio-head"><div><h1 class="aihub-title"><span class="aiav sm">'+I.sparkle+'</span><span>AI Hub</span></h1><p class="sub">'+esc(active)+' · '+sz.w+'×'+sz.h+'</p>'+(AG_EDIT&&AG_EDIT.ownerId===ME?'<p class="hint">'+tr('Editing gallery design')+': <span data-no-translate>'+esc(AG_EDIT.name)+'</span></p>':'')+'</div><div class="actions ai-head-actions"><div class="ai-head-primary-actions"><button class="btn ai-head-action labeled" title="'+attr(tr('New design'))+'" onclick="aiNewDesign()">'+I.plus+'<span>'+tr('New design')+'</span></button><button class="btn primary ai-head-action labeled generate'+(AI_BUSY?' is-generating':'')+'" onclick="aiGenerate()" aria-label="'+attr(generateLabel)+'"'+(generateDisabled?' disabled':'')+' title="'+attr(AI_BUSY?generateLabel:(_gs.detail||_gs.reason||tr(_gs.label)))+'">'+(AI_BUSY?'<i class="ai-button-spinner" aria-hidden="true"></i>':I.sparkle)+'<span>'+generateLabel+'</span></button></div><div class="ai-head-secondary-actions"><button class="iconbtn ai-head-action" title="AI Gallery" aria-label="AI Gallery" onclick="go(\'aigallery\')">'+I.gallery+'</button><button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('Save preset'))+'" aria-label="'+attr(tr('Save preset'))+'" onclick="aiSavePresetModal()">'+I.star+'</button><button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('AI settings'))+'" aria-label="'+attr(tr('AI settings'))+'" onclick="go(\'settings\',\'ai\')">'+I.settings+'</button></div></div></div>';
+  var h='<div class="pagehead ai-studio-head"><div><h1 class="aihub-title"><span class="aiav sm">'+I.sparkle+'</span><span>AI Hub</span></h1><p class="sub">'+esc(active)+' · '+sz.w+'×'+sz.h+'</p>'+(AG_EDIT&&AG_EDIT.ownerId===ME?'<p class="hint">'+tr('Editing gallery design')+': <span data-no-translate>'+esc(AG_EDIT.name)+'</span></p>':'')+'</div><div class="actions ai-head-actions"><div class="ai-head-primary-actions"><button class="btn ai-head-action labeled" title="'+attr(tr('New design'))+'" onclick="aiNewDesign()">'+I.plus+'<span>'+tr('New design')+'</span></button><button class="btn primary ai-head-action labeled generate'+(AI_BUSY?' is-generating':'')+'" onclick="aiGenerate()" aria-label="'+attr(generateLabel)+'"'+(generateDisabled?' disabled':'')+' title="'+attr(AI_BUSY?generateLabel:(_gs.detail||_gs.reason||tr(_gs.label)))+'">'+(AI_BUSY?'<i class="ai-button-spinner" aria-hidden="true"></i>':I.sparkle)+'<span>'+generateLabel+'</span></button></div><div class="ai-head-secondary-actions"><button class="iconbtn ai-head-action" title="AI Gallery" aria-label="AI Gallery" onclick="go(\'aigallery\')">'+I.gallery+'</button>'+(typeof aiTemplateCanSave==="function"&&aiTemplateCanSave()?'<button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('Save as template'))+'" aria-label="'+attr(tr('Save as template'))+'" onclick="aiTemplateSaveModal()">'+I.star+'</button>':'')+'<button class="iconbtn ai-head-action desktop-only" title="'+attr(tr('AI settings'))+'" aria-label="'+attr(tr('AI settings'))+'" onclick="go(\'settings\',\'ai\')">'+I.settings+'</button></div></div></div>';
   /* §44 one notice, not two. The generate-state reason and the "add an API key"
      prompt were separate banners saying the same thing in different words; this
      is a single card whose headline is the specific reason and whose button
@@ -661,7 +794,7 @@ function renderAIHub(){
       + '<button class="btn sm" onclick="S.aiSettingsSection=\''+_fix+'\';go(\'settings\',\'ai\')">'+I.settings
       + tr(_gs.kind==="nomodel"?"Open AI models":"Open AI keys")+'</button></div>';
   }
-  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form"><div class="field"><label>Template</label><div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'" onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div></div>'+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!aiSelectedModelCan("reference")?'<button class="btn" disabled>'+I.up+tr("Add reference image")+'</button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>':'<button class="btn" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'Add reference image</button>')+'</div>'+fieldHtml("","AI image generation model",
+  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form"><div class="field"><label>Template</label><div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'"'+(t.owner?' title="'+attr(tr("By")+" "+person(t.owner).name)+'"':'')+' onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div></div>'+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+(typeof aiCharactersFieldHtml==="function"?aiCharactersFieldHtml():"")+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!aiSelectedModelCan("reference")?'<button class="btn" disabled>'+I.up+tr("Add reference image")+'</button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>':'<button class="btn" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'Add reference image</button>')+'</div>'+fieldHtml("","AI image generation model",
     /* §P1-1 members choose a registry entry by display name. There is no
        arbitrary Model ID entry; the server resolves the real ID. */
     '<select onchange="aiSetModel(this.value)">'
@@ -680,7 +813,7 @@ function renderAIHub(){
 function aiSetBrief(v){ AIF.brief=v; AIF.template=""; }
 function aiClearForm(){
   AG_EDIT=null; AIF.logoText="";
-  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoBg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.editMode=true; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt=""; AI_LAST=null;
+  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoBg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.editMode=true; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt=""; AIF.characters=[]; AIF.templateSource=""; AI_LAST=null;
   renderScreen(false);
 }
 function aiStartNew(){aiClearForm();AI_HISTORY=[];AI_REDO=[];AI_PROJECT_BASE=null;renderScreen(false);setTimeout(aiProjectMarkSaved,0);toast(tr('New design ready'));}
@@ -1089,4 +1222,34 @@ function aiLocalAnswer(q){
   if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terhambat, atau jatuh tempo minggu ini."):L("Nothing is assigned to you right now.","Belum ada tugas yang ditugaskan kepada Anda."));
   return parts.join("\n")+foot();
 }
+/* the starting templates, sizes and layout added for the workspace's poster look (Oct 2026), and the
+   template editor's type fields; only what is not translated already elsewhere */
+(function(d){ if(typeof UI_ID==="undefined") return; Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Video thumbnail — 3D object":"Thumbnail video — objek 3D",
+  "Video thumbnail — people":"Thumbnail video — orang",
+  "Educational feed":"Feed edukasi",
+  "Comment-to-DM post":"Feed ajak komen & DM",
+  "Competition & promo":"Kompetisi & promo",
+  "Weekly market highlight":"Market highlight mingguan",
+  "Product launch story":"Story peluncuran produk",
+  "Webinar story":"Story webinar",
+  "Thumbnail 16:9":"Thumbnail 16:9",
+  "Feed portrait 3:4":"Feed potret 3:4",
+  "Poster — headline top, copy bottom":"Poster — judul di atas, teks di bawah",
+  "Headline color":"Warna judul",
+  "Subheadline color":"Warna subjudul",
+  "Accent (badge)":"Aksen (badge)",
+  "Button color":"Warna tombol",
+  "Button shape":"Bentuk tombol",
+  "Square":"Kotak",
+  "Rounded":"Membulat",
+  "Pill":"Pil",
+  "Button outline":"Garis tepi tombol",
+  "Text alignment":"Perataan teks",
+  "Follow layout":"Ikuti layout",
+  "Choose 1 automatically":"Pilih 1 otomatis",
+  "Choose 2 automatically":"Pilih 2 otomatis",
+  "Legal line shown at the bottom":"Kalimat legal di bagian bawah",
+  "Each line stays on its own line. Leave empty for no disclaimer.":"Setiap baris tetap di barisnya sendiri. Kosongkan bila tanpa disclaimer."
+});
 </script>

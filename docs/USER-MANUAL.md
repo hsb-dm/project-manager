@@ -452,10 +452,25 @@ Studio untuk membuat visual berlabel brand.
 
 ### Kolom kiri — Creative setup
 
-- **Template**: Product hero, Educational post, Campaign, Event, Display banner, atau Blank
-- **Canvas size**: Website hero 1920×720, Social square 1080×1080, Feed portrait 4:5,
-  Story/Reels 9:16, Display 300×250 / 728×90 / 300×600, Email header 1200×400,
-  Poster A2, atau **Custom size…** (64–4096)
+- **Template**: mengikuti keluarga poster workspace — Thumbnail video (objek 3D / orang),
+  Feed edukasi, Feed ajak komen & DM, Kompetisi & promo, Market highlight mingguan,
+  Story peluncuran produk, Story webinar — atau Blank. Template membawa adegan, ukuran,
+  layout, teks contoh, warna judul/subjudul, gaya tombol, perataan, dan disclaimer-nya
+  sendiri. Semuanya bisa diubah admin di **Pengaturan → AI → Providers → AI Hub — prompt templates**.
+- **Layout Poster** — judul di atas, visual di tengah, subjudul dan tombol di bawah,
+  disclaimer rata tengah di baris-barisnya sendiri.
+- **Canvas size**: Website hero 1920×720, Thumbnail 16:9 1280×720, Social square 1080×1080,
+  Feed portrait 4:5, Feed potret 3:4 1080×1440, Story/Reels 9:16, Display 300×250 / 728×90 / 300×600,
+  Email header 1200×400, Poster A2, atau **Custom size…** (64–4096)
+- **Karakter brand** — muncul bila admin sudah menambahkan orang acuan di
+  **Pengaturan → AI → Providers → Brand characters**. Pilih maksimal dua; template yang berisi
+  orang memilihnya otomatis. Foto hanya dikirim ke model yang menerima gambar referensi
+  (mis. GPT Image, Nano Banana); Magnific Mystic tidak bisa mempertahankan wajah.
+- **Font brand** — font yang di-upload admin (Pengaturan → AI → Providers → Brand fonts)
+  muncul di semua pilihan font AI Hub dan di editor template.
+- **Simpan sebagai template** (ikon bintang, untuk role yang diizinkan) — kanvas menjadi template
+  untuk semua orang. Template yang dibuka bisa diubah di kanvas lalu di-**Update**, disimpan
+  sebagai template baru, atau dihapus (pembuatnya dan admin).
 - **Visual brief** — deskripsi visual yang kamu inginkan
 - **Specific generation prompt** — opsional, prompt persis untuk generasi ini
 - **Visual style** — Editorial photography, Product photography, Cinematic, Minimal, 3D,

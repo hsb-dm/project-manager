@@ -17,9 +17,13 @@ const DATA_DIR = process.env.COS_DATA_DIR || path.join(__dirname, "..", "data");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const MAX_BYTES = 3_000_000;
 const TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
-const MIME = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
-const NAME_RE = /^([a-f0-9]{64})\.(png|jpg|webp|gif)$/;
+const MIME = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", gif: "image/gif", woff2: "font/woff2", woff: "font/woff", ttf: "font/ttf", otf: "font/otf" };
+/* every stored file; URL_RE is pictures only, so a picture field never accepts anything else */
+const NAME_RE = /^([a-f0-9]{64})\.(png|jpg|webp|gif|woff2|woff|ttf|otf)$/;
 const URL_RE = /^\/files\/([a-f0-9]{64})\.(png|jpg|webp|gif)$/;
+/* brand fonts (Settings → AI → Brand fonts, Oct 2026) */
+const FONT_URL_RE = /^\/files\/([a-f0-9]{64})\.(woff2|woff|ttf|otf)$/;
+const FONT_MAX_BYTES = 5_000_000;
 
 function fileFor(name) { const m = NAME_RE.exec(name); if (!m) return null; return path.join(UPLOAD_DIR, m[1].slice(0, 2), name); }
 function ensureTable(db) {
@@ -33,13 +37,44 @@ function put(db, dataUrl, userId) {
   const mime = m[1].toLowerCase(), buf = Buffer.from(m[2], "base64");
   if (!buf.length) { const e = new Error("Image is empty"); e.status = 400; throw e; }
   if (buf.length > MAX_BYTES) { const e = new Error("Image is too large (max 3 MB)"); e.status = 413; throw e; }
-  const sha = crypto.createHash("sha256").update(buf).digest("hex"), name = sha + "." + TYPES[mime], file = fileFor(name);
+  return store(db, buf, TYPES[mime], mime, userId);
+}
+/* bytes → the content-addressed file and its row; "/files/<sha>.<ext>" */
+function store(db, buf, ext, mime, userId) {
+  const sha = crypto.createHash("sha256").update(buf).digest("hex"), name = sha + "." + ext, file = fileFor(name);
   if (!fs.existsSync(file)) {
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     const tmp = file + ".tmp-" + process.pid; fs.writeFileSync(tmp, buf, { mode: 0o600 }); fs.renameSync(tmp, file);
   }
   db.prepare("INSERT OR IGNORE INTO uploads (id,mime,bytes,created_by,created_at) VALUES (?,?,?,?,?)").run(name, mime, buf.length, userId || null, new Date().toISOString());
   return "/files/" + name;
+}
+/* What a font file is comes from its first bytes, never from the type the browser gave it. */
+function fontKind(buf) {
+  if (!buf || buf.length < 12) return null;
+  const sig = buf.slice(0, 4).toString("latin1");
+  if (sig === "wOF2") return "woff2";
+  if (sig === "wOFF") return "woff";
+  if (sig === "OTTO") return "otf";
+  if (buf.readUInt32BE(0) === 0x00010000 || sig === "true") return "ttf";
+  return null;
+}
+function fontError(status, msg) { const e = new Error(msg); e.status = status; return e; }
+function putFont(db, dataUrl, userId) {
+  const m = /^data:[a-z0-9.+\/-]*;base64,([A-Za-z0-9+/=\s]+)$/i.exec(String(dataUrl || ""));
+  if (!m) throw fontError(400, "A font must be a TTF, OTF, WOFF or WOFF2 file");
+  const buf = Buffer.from(m[1], "base64");
+  if (buf.length > FONT_MAX_BYTES) throw fontError(413, "The font is too large (max 5 MB)");
+  const kind = fontKind(buf); if (!kind) throw fontError(400, "That file is not a TTF, OTF, WOFF or WOFF2 font");
+  return store(db, buf, kind, MIME[kind], userId);
+}
+/* a font field: a data URL becomes a stored font; one of our stored fonts is kept; anything else is refused */
+function externalizeFont(db, value, userId) {
+  const v = String(value || "");
+  if (/^data:/i.test(v)) return putFont(db, v, userId);
+  const m = FONT_URL_RE.exec(v);
+  if (m && db.prepare("SELECT 1 FROM uploads WHERE id=?").get(m[1] + "." + m[2])) return v;
+  throw fontError(400, "A font must be an uploaded font file");
 }
 function isFileUrl(v) { return URL_RE.test(String(v || "")); }
 /* a value the browser sent for an image field: data URL → stored file; our own /files URL → kept
@@ -115,4 +150,4 @@ function migrate(db) {
   if (stats.bytesMoved > 1_000_000) { try { db.exec("VACUUM"); } catch (e) { console.warn("[uploads] VACUUM skipped:", e.message); } }
   return stats;
 }
-module.exports = { UPLOAD_DIR, put, externalize, externalizeTask, isFileUrl, serve, mirror, migrate, ensureTable, fileFor, URL_RE };
+module.exports = { UPLOAD_DIR, put, putFont, externalize, externalizeFont, externalizeTask, fontKind, isFileUrl, serve, mirror, migrate, ensureTable, fileFor, URL_RE, FONT_URL_RE };

@@ -272,7 +272,9 @@ function aiApplyWorkspaceDefaults(){
   ["brief","style","negative","headline","sub","cta","badge","size","customW","customH","layout","background","accentColor","badgeColor","ctaColor","logoPosition","safeUnit","safeLocked","safeTop","safeRight","safeBottom","safeLeft"].forEach(function(k){
     if(preset[k]!==undefined&&preset[k]!=="") AIF[k]=preset[k];
   });
-  AIF.template=id; AIF.selectedLayer="canvas"; AIF.editMode=true;
+  /* a template's type (colours, button, disclaimer, characters); a saved preset already carries its own */
+  if(!preset.editorFields&&typeof aiTemplateLook==="function") aiTemplateLook(preset);
+  AIF.template=id; AIF.templateSource=id; AIF.selectedLayer="canvas"; AIF.editMode=true;
   return true;
 }
 function setAIDefaults(){
@@ -283,7 +285,7 @@ function setAIDefaults(){
     '<p class="hint" style="margin-bottom:10px">'+tr("New members open AI Hub on this preset, so canvas size, layout, brand colours and safe zones already match the brand. It only seeds an untouched canvas — nobody’s work is overwritten, and everyone can still change anything afterwards.")+'</p>'
     + '<div class="field"><label for="ai_default_preset">'+tr("Members start from")+'</label>'
     + '<select id="ai_default_preset"'+(ed?"":" disabled")+' onchange="aiSetDefaultPreset(this.value)">'+opts+'</select></div>'
-    + '<p class="hint">'+tr("Build the look in AI Hub, save it with “Save preset”, then choose it here.")+'</p>', null, I.star);
+    + '<p class="hint">'+tr("Build the look in AI Hub, save it with “Save as template”, then choose it here.")+'</p>', null, I.star);
 }
 /* §43 Generative Expand may run on its own model. Members keep whatever they picked in
    AI Hub for generating; expanding is pinned here, on the same provider credentials. */
@@ -351,9 +353,11 @@ function setAILimits(){
    v18 §109–124 PROMPT RULES — Admin Base Prompt (versioned, protected),
    per-tool Task-to-Prompt templates and required brief fields.
    ============================================================ */
-var AI_BASE_PROMPT_DEFAULT="You are an AI creative assistant for ZenCrevia.\nAlways preserve factual information provided in the task.\nDo not invent claims, pricing, product features, deadlines, brand rules, or approvals.\nFollow the configured brand and tool rules.\nReturn output in the required format.";
+/* Starting texts (Oct 2026: written for visuals, since every image generation carries the base prompt
+   too). Both are edited in Settings → AI → Prompt rules; a workspace that saved its own keeps it. */
+var AI_BASE_PROMPT_DEFAULT="Create a finished, on-brand marketing visual for this workspace.\nKeep every fact from the brief or the task exactly as given; do not invent claims, prices, product features, dates, deadlines or approvals.\nFollow the workspace brand requirements and the template's direction.\nThe picture carries no words: headlines, the logo and legal lines are set on top of it afterwards.";
 var AI_TOOL_PROMPT_DEFAULT={
-  image_generator:{template:"Extract from the task: objective, audience, deliverable, visual direction, mandatory copy, constraints, references.\nConvert the information into one concise image-generation prompt.\nDo not invent missing brand information.",required:["objective","deliverables","dimensions"],recommended:["audience","brand","references"],allowIncomplete:true},
+  image_generator:{template:"Extract from the task: objective, audience, deliverable, visual direction, mandatory copy, constraints, references.\nWrite ONE image-generation prompt in English for the poster's visual, not its copy: name a single clear hero (a premium 3D object or real people), its materials, the background, the light and the camera angle, and where it sits so the headline area stays dark and empty.\nFollow the workspace brand requirements for colour and mood; do not invent missing brand information.\nLeave every word, number and logo out of the picture; the copy is set on top afterwards.",required:["objective","deliverables","dimensions"],recommended:["audience","brand","references"],allowIncomplete:true},
   template_composer:{template:"Extract the headline, sub-headline, CTA and mandatory elements from the task and map them to the template layers.\nKeep copy exactly as written in the task.",required:["objective","copy"],recommended:["cta","brand"],allowIncomplete:true}
 };
 function aiBasePrompt(){ var b=(WS.ai&&WS.ai.basePrompt)||null; if(!b) return {text:AI_BASE_PROMPT_DEFAULT,version:1,visible:false,versions:[{version:1,text:AI_BASE_PROMPT_DEFAULT,at:null,by:null}]}; return b; }

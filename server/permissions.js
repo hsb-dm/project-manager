@@ -47,6 +47,8 @@ const CAPS = [
   ["duplicate_ai_gallery", "Duplicate someone else's gallery design"],
   ["manage_own_ai_gallery", "Rename, archive and delete their own designs"],
   ["manage_all_ai_gallery", "Manage any member's gallery design"],
+  /* Oct 2026: a canvas saved as an AI Hub template for everyone; its maker changes or removes it, an admin any */
+  ["save_ai_templates", "Save AI Hub canvases as templates for everyone"],
 ];
 const ALL = CAPS.map(c => c[0]);
 const DEFAULT_ROLES = [
@@ -97,6 +99,7 @@ const can = {
   manageKnowledge: (u) => has(u, "manage_knowledge"),
   viewAnalytics:   (u) => has(u, "view_analytics"),
   useAIHub:        (u) => has(u, "use_ai_hub"),
+  saveAiTemplates: (u) => has(u, "save_ai_templates"),
   saveView:        (u) => true,
   /* progress notes: seen with the capability (writing one implies seeing them); written on any task with it */
   progressView:    (u) => !u.stakeholder && (has(u, "view_progress_notes") || has(u, "write_progress_notes")),

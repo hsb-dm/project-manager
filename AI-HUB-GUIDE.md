@@ -1,3 +1,15 @@
+# Pembaruan 1.7.0 — Gaya poster & karakter brand (Oktober 2026)
+
+- **Prompt brand bawaan** (Pengaturan → AI → Providers → AI image generation) kini berisi gaya poster workspace: latar hitam ke hijau zaitun gelap, satu objek 3D premium atau orang di studio, cahaya lime (#D4FA00) sebagai satu-satunya aksen. Teks ini diisi sekali bila kolomnya masih kosong; isi yang sudah ditulis admin tidak ditimpa. Ikut ke **setiap** generate — template, Blank, maupun prompt yang ditulis sendiri — dan tetap bisa diubah atau dikosongkan admin.
+- **Template default** baru mengikuti keluarga poster: Thumbnail video (objek 3D / orang), Feed edukasi, Feed ajak komen & DM, Kompetisi & promo, Market highlight mingguan, Story peluncuran produk, Story webinar. Ukuran baru: Thumbnail 16:9 (1280×720) dan Feed potret 3:4 (1080×1440). Layout baru **Poster**: judul di atas, subjudul dan tombol di bawah, disclaimer rata tengah.
+- Editor template (Pengaturan → AI → Providers → AI Hub — prompt templates) kini mengatur warna judul dan subjudul, warna, bentuk dan garis tepi tombol, perataan teks, karakter brand otomatis, dan disclaimer (satu baris per baris). Warna judul yang dulu diabaikan kini dipakai.
+- **Karakter brand** (Pengaturan → AI → Providers → Brand characters): admin menambahkan sampai enam orang, masing-masing nama, deskripsi, dan 1–3 foto. Di AI Hub member memilih maksimal dua; template yang berisi orang memilihnya otomatis. Foto dikirim hanya ke model yang menerima gambar referensi (GPT Image, Nano Banana, endpoint kustom). Tambahkan hanya orang yang sudah setuju tampil di visual buatan AI.
+- Gambar referensi dari tombol **Add reference image** kini benar-benar dikirim ke model (sebelumnya tertahan di server).
+- **Font brand** (Pengaturan → AI → Providers → Brand fonts): admin meng-upload TTF, OTF, WOFF, atau WOFF2 (maks. 5 MB, sampai 20 font). Satu file = satu font dengan namanya sendiri (mis. "Gilroy Black Italic"), muncul di semua pilihan font AI Hub, di editor template (Font judul / Font subjudul), dan ikut di setiap ekspor. Mengganti nama font ikut memperbarui template yang memakainya. Upload hanya font yang lisensinya mengizinkan.
+- **Simpan kanvas sebagai template** (ikon bintang di AI Hub, untuk role dengan izin *Save AI Hub canvases as templates for everyone* — atur di Roles & permissions): seluruh kanvas — ukuran, layout, layer, gambar, warna, font, karakter, teks — menjadi template untuk semua orang; gambar disimpan sebagai file di server. Template yang sedang dibuka bisa diubah di kanvas lalu disimpan kembali (**Update**), atau disimpan sebagai template baru, atau dihapus. Pembuatnya mengubah/menghapus template miliknya; admin bisa semuanya, termasuk template bawaan.
+- **Edit teks di kanvas** kini persis seperti hasilnya (seperti Canva/Figma): ukuran, posisi, font, warna, perataan, dan rotasi editor sama dengan teks di kanvas, pada zoom berapa pun.
+- **Refresh** di tab yang sama mengembalikan halaman seperti semula, termasuk desain AI Hub yang sedang dikerjakan.
+
 # Pembaruan 1.6.0 — Styling
 
 Panduan outer glow, shape tambahan, serta gradient linear dan melingkar tersedia di AI-GALLERY-GUIDE.md.

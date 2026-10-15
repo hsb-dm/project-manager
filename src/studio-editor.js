@@ -10,7 +10,7 @@ function aiMoveLayer(id,delta){var ids=aiLayerIds(),i=ids.indexOf(id),j=i+delta;
 function aiMetaSet(id,key,value){aiHistoryBefore();aiLayerMeta(id)[key]=value;aiRenderKeepScroll();}
 function aiCompositeLayers(g,planes,sz,generated){
  var hits=AI_LAYER_HITS.map(function(h){var scale=(h.id==='headline'||h.id==='sub')?aiLayerScale(h.id)/100:1;return {id:h.id,x:h.x+h.w*(1-scale)/2,y:h.y+h.h*(1-scale)/2,w:h.w*scale,h:h.h*scale};}),ordered=[];AI_LAYER_BASE_HITS=hits;
- aiLayerIds().forEach(function(id){var cv=planes[id],m=aiLayerMeta(id),hit=hits.find(function(h){return h.id===id;});if(!cv||m.visible===false)return;var cx=hit?hit.x+hit.w/2:sz.w/2,cy=hit?hit.y+hit.h/2:sz.h/2,r=(Number(m.rotation)||0)*Math.PI/180;
+ aiLayerIds().forEach(function(id){var cv=planes[id],m=aiLayerMeta(id),hit=hits.find(function(h){return h.id===id;});if(!cv||m.visible===false||(typeof AI_INLINE_EDIT!=='undefined'&&AI_INLINE_EDIT===id))return;   /* text being typed on the canvas is the editor's to show */var cx=hit?hit.x+hit.w/2:sz.w/2,cy=hit?hit.y+hit.h/2:sz.h/2,r=(Number(m.rotation)||0)*Math.PI/180;
   g.save();g.globalAlpha=Math.max(0,Math.min(100,Number(m.opacity)))/100;g.translate(cx,cy);g.rotate(r);var sc=(id==='headline'||id==='sub')?aiLayerScale(id)/100:1,sx=(m.flipX?-1:1)*sc,sy=(m.flipY?-1:1)*sc;if(sx!==1||sy!==1)g.scale(sx,sy);if(typeof aiGlowOn==='function')aiGlowOn(g,aiLayerStyle(id));g.drawImage(cv,-cx,-cy);g.restore();
   if(hit){var w=Math.abs(hit.w*Math.cos(r))+Math.abs(hit.h*Math.sin(r)),h=Math.abs(hit.w*Math.sin(r))+Math.abs(hit.h*Math.cos(r));ordered.push({id:id,x:cx-w/2,y:cy-h/2,w:w,h:h});}
   cv.width=1;cv.height=1;

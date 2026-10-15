@@ -114,7 +114,7 @@ function setAIProviders(){
     +'<div class="ai-logo-settings"><span class="ai-logo-settings-preview '+(logoBg==='transparent'?'is-transparent':'')+'" style="--ai-logo-bg:'+(logoBg==='transparent'?'transparent':attr(logoBg))+'">'+(aiLogo?'<img src="'+attr(aiLogo)+'">':'<b>'+esc(WS.logo||"CO")+'</b>')+'</span><div class="hint">'+tr('Upload PNG, JPG, WebP, or SVG. Choose transparent or any background colour without changing the original file.')+'</div>'
     +(ed?'<div class="ai-logo-settings-actions"><button class="btn" onclick="aiBrandLogoPick()">'+I.up+tr('Upload AI Hub logo')+'</button>'+(aiLogo?'<button class="btn ghost" onclick="aiBrandLogoRemove()">'+tr('Remove')+'</button>':'')+'</div>':'')+'</div>'
     +'<div class="field-row ai-logo-bg-controls"><div class="field"><label>'+tr('Logo background')+'</label><select'+ro+' onchange="aiBrandLogoBgSet(this.value)"><option value="transparent"'+(logoBg==='transparent'?' selected':'')+'>'+tr('Transparent')+'</option><option value="#FFFFFF"'+(logoBg==='#FFFFFF'?' selected':'')+'>'+tr('White')+'</option><option value="#000000"'+(logoBg==='#000000'?' selected':'')+'>'+tr('Black')+'</option>'+(!['transparent','#FFFFFF','#000000'].includes(logoBg)?'<option value="'+attr(logoBg)+'" selected>'+tr('Custom colour')+'</option>':'')+'</select></div><div class="field"><label>'+tr('Background colour')+'</label><input'+ro+' type="color" value="'+attr(logoBg==='transparent'?'#FFFFFF':logoBg)+'" onchange="aiBrandLogoBgSet(this.value)"></div></div>',null,I.assets);
-  return img+chat+logo+setPromptTemplates()+setChatTemplates();
+  return img+chat+logo+(typeof setAICharacters==="function"?setAICharacters():"")+(typeof setAIFonts==="function"?setAIFonts():"")+setPromptTemplates()+setChatTemplates();
 }
 Object.assign(UI_ID,{'This logo is independent from the workspace logo and is used only on AI Hub canvases. PNG transparency is preserved.':'Logo ini terpisah dari logo workspace dan hanya digunakan pada kanvas AI Hub. Transparansi PNG tetap dipertahankan.','Upload PNG, JPG, WebP, or SVG. Choose transparent or any background colour without changing the original file.':'Unggah PNG, JPG, WebP, atau SVG. Pilih latar transparan atau warna apa pun tanpa mengubah file asli.','Upload AI Hub logo':'Unggah logo AI Hub','AI Hub logo saved':'Logo AI Hub tersimpan','AI Hub logo removed':'Logo AI Hub dihapus','AI Hub logo background saved':'Latar logo AI Hub tersimpan','Logo background':'Latar logo','Background colour':'Warna latar','Transparent':'Transparan','Custom colour':'Warna khusus','Keep the logo under 4 MB':'Ukuran logo harus di bawah 4 MB'});
 /* §P1-3 Permissions — who may use AI, kept apart from credentials. */
@@ -146,14 +146,14 @@ function setPromptTemplates(){
   var rows=list.map(function(t,i){
     return '<div class="alink" style="align-items:flex-start"><span class="ficon" style="background:var(--color-primary)">'+(i+1)+'</span>'
       + '<div style="min-width:0;flex:1"><div class="t">'+esc(t.name)+'</div>'
-      + '<div class="m"><span class="mono">'+esc(tr((byId(AI_SIZES,t.size||"web_hero")||{}).name||t.size||"Website hero"))+'</span><span class="mono">'+esc(tr((byId(AI_LAYOUTS,t.layout||"left")||{}).name||t.layout||"Left aligned"))+'</span>'+(t.headline?'<span>\u201c'+esc(t.headline)+'\u201d</span>':'')+'</div>'
+      + '<div class="m"><span class="mono">'+esc(tr((byId(AI_SIZES,t.size||"web_hero")||{}).name||t.size||"Website hero"))+'</span><span class="mono">'+esc(tr((byId(AI_LAYOUTS,t.layout||"left")||{}).name||t.layout||"Left aligned"))+'</span>'+(t.headline?'<span>\u201c'+esc(t.headline)+'\u201d</span>':'')+(t.owner?'<span>'+tr("By")+' '+esc(person(t.owner).name)+'</span>':'')+'</div>'
       + '<div class="u">'+esc((t.brief||"").slice(0,130))+'</div></div>'
       + '<div style="display:flex;gap:4px">'+(ed?'<button class="btn xs" onclick="promptTplModal(\''+t.id+'\')">'+I.edit+'Edit</button><button class="btn xs ghost" onclick="delPromptTpl(\''+t.id+'\')">'+I.trash+'</button>':'')
       + '<button class="btn xs" onclick="aiApplyTemplate(\''+t.id+'\');go(\'aihub\')">Use</button></div></div>'; }).join("");
   return sp("AI Hub \u2014 prompt templates",
     '<p class="hint" style="margin-bottom:10px">Templates fill the AI Hub brief, style, size, layout, and text fields. Editing a built-in template creates your own copy.</p>'
     + '<div class="panel" style="margin:0"><div class="panel-body">'+(rows||'<div class="pad hint">No templates.</div>')+'</div></div>',
-    ed?'<button class="btn" onclick="promptTplModal()">'+I.plus+'New template</button>'+(custom?'<span class="spacer"></span><button class="btn ghost" onclick="WS.ai=WS.ai||{};WS.ai.promptTemplates=null;saveWS(\'Prompt templates reset\');renderScreen(false)">'+I.sync+'Reset to default</button>':''):'',
+    ed?'<button class="btn" onclick="promptTplModal()">'+I.plus+'New template</button>'+(custom?'<span class="spacer"></span><button class="btn ghost" onclick="WS.ai=WS.ai||{};WS.ai.promptTemplates=null;WS.ai.promptTemplatesReset=true;saveWS(\'Prompt templates reset\');delete WS.ai.promptTemplatesReset;renderScreen(false)">'+I.sync+'Reset to default</button>':''):'',
     I.sparkle);
 }
 function promptTplModal(id){
@@ -172,8 +172,16 @@ function promptTplModal(id){
     + fieldHtml("pt_badge","Badge",'<input id="pt_badge" value="'+attr(t.badge)+'">')+'</div>'
     + fieldHtml("pt_sub","Subheadline",'<input id="pt_sub" value="'+attr(t.sub)+'">')
     + fieldHtml("pt_cta","Call to action",'<input id="pt_cta" value="'+attr(t.cta)+'">')
-    + '<div class="field-row">'+fieldHtml("pt_bg","Background fallback",'<input id="pt_bg" type="color" value="'+attr(t.background||"#0B2A5B")+'">')+fieldHtml("pt_text","Text color",'<input id="pt_text" type="color" value="'+attr(t.textColor||"#FFFFFF")+'">')+'</div>'
-    + '<div class="field-row">'+fieldHtml("pt_accent","Accent / CTA",'<input id="pt_accent" type="color" value="'+attr(t.accentColor||"#C6F24E")+'">')+fieldHtml("pt_logo","Logo position",selectHtml("pt_logo",[["top_left","Top left"],["top_right","Top right"],["bottom_left","Bottom left"],["bottom_right","Bottom right"]],t.logoPosition||"top_left",""))+'</div>'
+    + '<div class="field-row">'+fieldHtml("pt_bg","Background fallback",'<input id="pt_bg" type="color" value="'+attr(t.background||"#0B2A5B")+'">')+fieldHtml("pt_text","Headline color",'<input id="pt_text" type="color" value="'+attr(t.textColor||"#FFFFFF")+'">')+'</div>'
+    + '<div class="field-row">'+fieldHtml("pt_sub_color","Subheadline color",'<input id="pt_sub_color" type="color" value="'+attr(t.subColor||"#FFFFFF")+'">')+fieldHtml("pt_accent","Accent (badge)",'<input id="pt_accent" type="color" value="'+attr(t.accentColor||"#C6F24E")+'">')+'</div>'
+    /* the button: fill, shape and an optional thin outline (a dark pill with a light edge, say) */
+    + '<div class="field-row">'+fieldHtml("pt_cta_color","Button color",'<input id="pt_cta_color" type="color" value="'+attr(t.ctaColor||t.accentColor||"#C6F24E")+'">')+fieldHtml("pt_cta_shape","Button shape",selectHtml("pt_cta_shape",[["0","Square"],["28","Rounded"],["50","Pill"]].concat([0,28,50].indexOf(t.ctaRadius==null?28:+t.ctaRadius)<0?[[String(t.ctaRadius),tr("Custom")+" ("+t.ctaRadius+")"]]:[]),String(t.ctaRadius==null?28:t.ctaRadius),""))+'</div>'
+    + '<div class="field-row"><div class="field"><label for="pt_cta_stroke_color">'+tr("Button outline")+'</label><div class="pt-outline"><input id="pt_cta_stroke" type="checkbox"'+(t.ctaStroke?' checked':'')+' aria-label="'+attr(tr("Button outline"))+'"><input id="pt_cta_stroke_color" type="color" value="'+attr(t.ctaStrokeColor||"#FFFFFF")+'"></div></div>'+fieldHtml("pt_align","Text alignment",selectHtml("pt_align",[["auto","Follow layout"],["left","Left"],["center","Center"],["right","Right"]],t.textAlign||"auto",""))+'</div>'
+    /* fonts: the workspace's, or one uploaded under Brand fonts */
+    + (function(){ var fonts=[["",tr("Workspace font")]].concat((typeof aiWorkspaceFonts==="function"?aiWorkspaceFonts():[]).map(function(f){ return [f,f]; })), keep=function(v){ return v&&!fonts.some(function(x){ return x[0]===v; })?[[v,v]]:[]; };
+        return '<div class="field-row">'+fieldHtml("pt_head_font","Headline font",selectHtml("pt_head_font",fonts.concat(keep(t.headlineFont)),t.headlineFont||"",""))+fieldHtml("pt_sub_font","Subheadline font",selectHtml("pt_sub_font",fonts.concat(keep(t.subFont)),t.subFont||"",""))+'</div>'; })()
+    + '<div class="field-row">'+fieldHtml("pt_logo","Logo position",selectHtml("pt_logo",[["top_left","Top left"],["top_right","Top right"],["bottom_left","Bottom left"],["bottom_right","Bottom right"]],t.logoPosition||"top_left",""))+fieldHtml("pt_people","Brand characters",selectHtml("pt_people",[["0","None"],["1","Choose 1 automatically"],["2","Choose 2 automatically"]],String(+t.people||0),""))+'</div>'
+    + fieldHtml("pt_disc","Disclaimer",'<textarea id="pt_disc" rows="2" placeholder="'+attr(tr("Legal line shown at the bottom"))+'">'+esc(t.disclaimerText||"")+'</textarea>')+'<div class="hint">'+tr("Each line stays on its own line. Leave empty for no disclaimer.")+'</div>'
     + fieldHtml("pt_safe","Safe-zone margin (%)",'<input id="pt_safe" type="number" min="0" max="25" value="'+(+t.safeMargin||8)+'" placeholder="8">')+'<div class="hint">Keep text and logo away from edges or social-media interface overlays. 8–10% is a good starting point.</div>',
     '<button class="btn primary" onclick="savePromptTpl(\''+(t.id||"")+'\')">Save template</button>');
 }
@@ -183,15 +191,22 @@ function savePromptTpl(id){
   var t={ id:id||("p_"+Math.random().toString(36).slice(2,7)), name:val("pt_name"), brief:val("pt_brief"), style:val("pt_style"),
           negative:val("pt_neg"), headline:val("pt_head"), sub:val("pt_sub"), cta:val("pt_cta"), badge:val("pt_badge"),
           size:val("pt_size"), customW:Math.max(64,Math.min(4096,+val("pt_w")||1200)), customH:Math.max(64,Math.min(4096,+val("pt_h")||628)), layout:val("pt_layout"), background:val("pt_bg"), textColor:val("pt_text"), accentColor:val("pt_accent"), logoPosition:val("pt_logo"), safeMargin:Math.max(0,Math.min(25,+val("pt_safe")||8)) };
+  /* the template's type; fields the modal does not show are kept from the template being edited */
+  var box=function(id){ var el=typeof document!=="undefined"&&document.getElementById(id); return el||null; };
+  if (box("pt_sub_color")) Object.assign(t,{ subColor:val("pt_sub_color"), ctaColor:val("pt_cta_color"), ctaRadius:Math.max(0,Math.min(50,+val("pt_cta_shape")||0)), ctaStroke:!!(box("pt_cta_stroke")&&box("pt_cta_stroke").checked), ctaStrokeColor:val("pt_cta_stroke_color"), textAlign:val("pt_align")||"auto", headlineFont:val("pt_head_font"), subFont:val("pt_sub_font"), people:Math.max(0,Math.min(2,+val("pt_people")||0)), disclaimerText:(box("pt_disc").value||"").replace(/\r/g,"").trim() });
   var found=false;
-  list=list.map(function(x){ if (x.id===id){ found=true; if(x.editorFields){t.editorFields=clone(x.editorFields);Object.keys(t).forEach(function(k){if(k!=="editorFields"&&k!=="id"&&k!=="name")t.editorFields[k]=t[k];});if(t.editorFields.canvasBg)t.editorFields.canvasBg.color=t.background;if(t.editorFields.layerStyles&&t.editorFields.layerStyles.headline)t.editorFields.layerStyles.headline.textFill=t.textColor;} return t; } return x; });
+  list=list.map(function(x){ if (x.id===id){ found=true; t=Object.assign({},x,t); delete t.editorFields; if(x.editorFields){t.editorFields=clone(x.editorFields);Object.keys(t).forEach(function(k){if(k!=="editorFields"&&k!=="id"&&k!=="name")t.editorFields[k]=t[k];});if(t.editorFields.canvasBg)t.editorFields.canvasBg.color=t.background;if(t.editorFields.layerStyles&&t.editorFields.layerStyles.headline)t.editorFields.layerStyles.headline.textFill=t.textColor;if(t.subColor&&t.editorFields.layerStyles&&t.editorFields.layerStyles.sub)t.editorFields.layerStyles.sub.textFill=t.subColor;if(t.disclaimerText!==undefined)t.editorFields.disclaimer=!!t.disclaimerText;} return t; } return x; });
   if (!found) list.push(t);
-  WS.ai=WS.ai||{}; WS.ai.promptTemplates=list;
+  /* on a server a template goes through its own endpoint (ai-templates.js), so nobody else's is undone */
+  if (typeof API!=="undefined"&&API.on&&typeof aiTemplatePut==="function"){ closeModal(); aiTemplatePut(t,!found); return; }
+  WS.ai=WS.ai||{}; WS.ai.promptTemplates=list.concat((WS.ai.promptTemplates||[]).filter(function(x){ return x&&x.deleted; }));   /* built-ins removed stay removed */
   closeModal(); saveWS("Template saved"); renderScreen(false);
 }
 function delPromptTpl(id){
+  if (typeof API!=="undefined"&&API.on&&typeof aiTemplateDelete==="function") return aiTemplateDelete(id);
   confirmModal("Delete template?","It disappears from the picker in AI Hub.",function(){
-    WS.ai=WS.ai||{}; WS.ai.promptTemplates=aiPromptTemplates().filter(function(t){ return t.id!==id; });
+    WS.ai=WS.ai||{}; var t=byId(aiPromptTemplates(),id);
+    WS.ai.promptTemplates=(WS.ai.promptTemplates||[]).filter(function(x){ return x&&x.id!==id; }).concat(t&&!t.owner?[{id:id,deleted:true}]:[]);
     saveWS("Template deleted"); renderScreen(false);
   });
 }

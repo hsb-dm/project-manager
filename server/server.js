@@ -75,6 +75,20 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('tagline_general', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[workspace] tagline: " + e.message); }
+/* The Brand default prompt carries the look every AI Hub generation shares, whoever writes the rest of the prompt.
+   A workspace that never wrote one gets the poster look the team designs by (Oct 2026), once; one already written is
+   left as it is, and the admin edits or clears it in Settings → AI from then on. */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='ai_brand_prompt_poster'").get()) {
+    db.prepare("SELECT id, ai_settings FROM workspaces").all().forEach(w => {
+      let a = {}; try { a = JSON.parse(w.ai_settings || "{}") || {}; } catch (e) { return; }
+      a.image = a.image || {}; if (String(a.image.defaultStyle || "").trim()) return;
+      a.image.defaultStyle = require("./ai-brand").RECOMMENDED_BRAND_PROMPT;
+      db.prepare("UPDATE workspaces SET ai_settings=? WHERE id=?").run(JSON.stringify(a), w.id);
+    });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('ai_brand_prompt_poster', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[ai] brand default prompt: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
 /* v38: a removed member keeps their user row (history points at it) but loses everything that
    made the account usable: sign-in email, password, sessions. The email is free to be added or
@@ -222,7 +236,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/emoji(\/|$)/, "emoji"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -750,6 +764,15 @@ async function aiImageCall(c, provider, body) {
     const size = /^dall-e-3/.test(model) ? (ratio > 1.2 ? "1792x1024" : ratio < 0.83 ? "1024x1792" : "1024x1024") : (ratio > 1.2 ? "1536x1024" : ratio < 0.83 ? "1024x1536" : "1024x1024");
     const req = { model, prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), size, n: 1 };
     if (/^dall-e/.test(model)) req.response_format = "b64_json";
+    if ((body.refs || []).length) {
+      /* reference pictures (brand characters, the member's own image) go to the edits endpoint, which takes them as image[] */
+      if (/^dall-e/.test(model)) throw new HttpError(400, "DALL·E cannot follow reference photos. Choose a GPT Image model.");
+      const form = new FormData();
+      form.append("model", model); form.append("prompt", req.prompt.slice(0, 32000)); form.append("size", size); form.append("n", "1");
+      body.refs.forEach((r, i) => form.append("image[]", new Blob([r.data], { type: r.mime }), "reference-" + (i + 1) + "." + (r.mime.split("/")[1] || "png")));
+      const je = await aiFetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { "Authorization": "Bearer " + c.key }, body: form }, "Image", 120000);
+      const ue = aiPickFirstImage(je); if (!ue) throw new HttpError(424, "OpenAI returned no image."); return ue;
+    }
     const j = await aiFetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + c.key }, body: JSON.stringify(req) }, "Image", 90000);
     const url = aiPickFirstImage(j); if (!url) throw new HttpError(424, "OpenAI returned no image."); return url;
   }
@@ -759,12 +782,13 @@ async function aiImageCall(c, provider, body) {
     const headers = { "Content-Type": "application/json", "x-goog-api-key": c.key };
     const aspect = ratio > 1.6 ? "16:9" : ratio > 1.2 ? "4:3" : ratio < 0.62 ? "9:16" : ratio < 0.83 ? "3:4" : "1:1";
     const prompt = body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : "");
+    if (/^imagen/i.test(model) && (body.refs || []).length) throw new HttpError(400, "Imagen cannot follow reference photos. Choose a Gemini image model such as Nano Banana.");
     if (/^imagen/i.test(model)) {
       const j = await aiFetch(base + ":predict", { method: "POST", headers, body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: aspect } }) }, "Image", 90000);
       const p0 = (j.predictions || [])[0]; if (p0 && p0.bytesBase64Encoded) return "data:" + (p0.mimeType || "image/png") + ";base64," + p0.bytesBase64Encoded;
       throw new HttpError(424, "Imagen returned no image (the prompt may have been filtered).");
     }
-    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
+    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }].concat((body.refs || []).map(r => ({ inlineData: { mimeType: r.mime, data: r.data.toString("base64") } }))) }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
     const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
     const img = parts.find(p => p.inlineData || p.inline_data); const d = img && (img.inlineData || img.inline_data);
     if (d && d.data) return "data:" + (d.mimeType || d.mime_type || "image/png") + ";base64," + d.data;
@@ -776,7 +800,9 @@ async function aiImageCall(c, provider, body) {
   const mhost = (() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })();
   const isMystic = /(^|\.)(magnific\.com|magnific\.ai|freepik\.com)$/.test(mhost);
   const mheaders = { "Content-Type": "application/json", "Authorization": "Bearer " + c.key, "x-magnific-api-key": c.key, "x-freepik-api-key": c.key };
-  let reqBody = body;
+  if (isMystic && (body.refs || []).length) throw new HttpError(400, "Magnific Mystic cannot follow reference photos. Choose a model that accepts reference images, such as GPT Image or Nano Banana.");
+  let reqBody = Object.assign({}, body); delete reqBody.refs;
+  if ((body.refs || []).length) reqBody.reference_images = body.refs.map(r => "data:" + r.mime + ";base64," + r.data.toString("base64"));
   if (isMystic) {
     const aspect = ratio > 1.9 ? "widescreen_16_9" : ratio > 1.6 ? "widescreen_16_9" : ratio > 1.4 ? "standard_3_2" : ratio > 1.2 ? "classic_4_3" : ratio < 0.53 ? "social_story_9_16" : ratio < 0.62 ? "social_story_9_16" : ratio < 0.72 ? "portrait_2_3" : ratio < 0.83 ? "traditional_3_4" : "square_1_1";
     const MYSTIC_MODELS = ["realism", "fluid", "zen", "flexible", "super_real", "editorial_portraits"];
@@ -801,6 +827,29 @@ async function aiImageCall(c, provider, body) {
   if (!url) throw new HttpError(424, "The provider returned no image URL" + (j.data && j.data.status ? " (task status: " + j.data.status + " \u2014 this endpoint works asynchronously and is not supported)" : "") + ". Keys seen: " + Object.keys(j).join(", "));
   return url;
 }
+/* The pictures a generation follows: the photos of the brand characters the member chose (read from the workspace
+   by id, so a request can name a character but never a file), then the member's own reference image. Only for a
+   model with the "reference" capability; the browser already holds them back from any other. */
+function aiReferenceImages(b, chosen) {
+  const ids = Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [];
+  if (!ids.length && !b.referenceImage) return [];
+  if (chosen && (chosen.capabilities || []).indexOf("reference") < 0) throw new HttpError(400, "This model cannot use reference photos. Choose a model that accepts reference images in AI Hub.");
+  const refs = [], stored = (sz.readAIRaw(db, WS_ID) || {}).characters || [];
+  ids.forEach(id => {
+    const ch = stored.find(c => c && c.id === id); if (!ch) throw new HttpError(400, "That brand character is no longer available. Choose again in AI Hub.");
+    (ch.photos || []).slice(0, 3).forEach(url => {
+      const m = uploads.URL_RE.exec(String(url || "")), file = m && uploads.fileFor(m[1] + "." + m[2]);
+      if (file && fs.existsSync(file)) refs.push({ mime: m[2] === "jpg" ? "image/jpeg" : "image/" + m[2], data: fs.readFileSync(file) });
+    });
+  });
+  if (b.referenceImage) {
+    const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(b.referenceImage));
+    if (!m) throw new HttpError(400, "The reference image must be a PNG, JPEG or WebP picture.");
+    const data = Buffer.from(m[2], "base64"); if (data.length > 10_000_000) throw new HttpError(413, "The reference image is too large (max 10 MB).");
+    refs.push({ mime: m[1], data });
+  }
+  return refs;
+}
 route("POST", "/api/ai/image", async (u, p, q, b) => {
   forbid(can.useAIHub(u), "use AI Hub");
   const c = aiConf("image");
@@ -811,7 +860,8 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
     width: Math.max(64, Math.min(4096, +b.width || 1024)),
     height: Math.max(64, Math.min(4096, +b.height || 1024)),
     model: (chosen ? chosen.modelId : (b.model || c.model)) || undefined,
-    num_images: 1
+    num_images: 1,
+    refs: aiReferenceImages(b, chosen)
   };
   /* v18 §131 audit trail for Task-derived generations: who, which task, which
      tool and which admin/tool prompt versions. The base prompt text is never
@@ -819,7 +869,7 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
   const brief = b.brief && typeof b.brief === "object" ? { taskId: String(b.brief.task_id || "").slice(0, 40), taskTitle: String(b.brief.task_title || "").slice(0, 160), toolId: String(b.brief.tool_id || "").slice(0, 40), adminPromptVersion: +b.brief.admin_prompt_version || null, toolPromptVersion: +b.brief.tool_prompt_version || null } : null;
   if (brief && brief.taskId && !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(brief.taskId, WS_ID)) throw new HttpError(403, "The selected task is not available.");
   const provider = aiImageProvider(c, chosen, body.model);
-  security.log("ai_image_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null, brief });
+  security.log("ai_image_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null, brief, characters: Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [], references: body.refs.length });
   const url = await aiImageCall(c, provider, body);
   return { imageUrl: url, raw: { model: body.model, provider } };
 });
@@ -975,7 +1025,99 @@ route("PUT", "/api/workspace/notif-prefs", (u, p, q, b) => {
   act(u, "edited", "workspace", WS_ID, { what: "notification settings" });
   return { notifPrefs: merged };
 });
-route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
+/* brand characters (Settings → AI): at most six people, each a name, a short description and one to three photos.
+   A photo arrives as a data URL and is stored as a file; one already stored is kept; anything else is refused. */
+function aiCleanCharacters(list, userId) {
+  if (!Array.isArray(list)) return null;
+  return list.slice(0, 6).filter(c => c && typeof c === "object").map(c => ({
+    id: /^ch_[a-z0-9]{3,20}$/.test(String(c.id || "")) ? c.id : uid("ch").replace(/[^a-z0-9_]/gi, "").toLowerCase().slice(0, 23),
+    name: String(c.name || "").trim().slice(0, 60) || "Character",
+    description: String(c.description || "").trim().slice(0, 400),
+    photos: (Array.isArray(c.photos) ? c.photos : []).slice(0, 3).map(ph => { try { return uploads.externalize(db, ph, userId, "Character photo"); } catch (e) { throw new HttpError(e.status || 400, e.message); } })
+  }));
+}
+/* brand fonts (Settings → AI): at most twenty, each a name and one stored font file. A name is letters, digits, spaces,
+   dots, dashes and underscores (it goes into font lists and CSS) and never repeats. */
+function aiCleanFonts(list, userId) {
+  if (!Array.isArray(list)) return null;
+  const seen = new Set();
+  return list.slice(0, 20).filter(f => f && typeof f === "object").map(f => {
+    let name = String(f.name || "").replace(/[^\p{L}\p{N} ._-]+/gu, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Brand font";
+    for (let n = 2, base = name.slice(0, 56); seen.has(name.toLowerCase()); n++) name = base + " " + n;
+    seen.add(name.toLowerCase());
+    let url; try { url = uploads.externalizeFont(db, f.url, userId); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+    return { id: /^fn_[a-z0-9]{3,20}$/.test(String(f.id || "")) ? f.id : uid("fn"), name, url };
+  });
+}
+/* ---------- AI Hub templates (Oct 2026) ----------
+   A canvas saved as a template for everyone, by a role with save_ai_templates. The workspace keeps only what differs
+   from the built-in set: templates people made (with who made them), built-ins an admin changed, and built-ins an
+   admin removed ({ id, deleted: true }); the browser lays them over its own built-in list. The maker changes or
+   removes their own; an admin (manage_workspace) any, built-ins too. Pictures in the canvas are stored as files.
+   Workspace saves leave this list alone (they used to send all of it back and could undo someone else's template). */
+const TPL_COLOR = /^#[0-9a-f]{6}$/i;
+/* JSON values only, at most 8 deep, and never a key that reaches an object's prototype */
+function tplPlain(x, depth) {
+  if (depth > 8) return undefined;
+  if (Array.isArray(x)) return x.slice(0, 300).map(v => tplPlain(v, depth + 1)).filter(v => v !== undefined);
+  if (x && typeof x === "object") { const o = {}; Object.keys(x).slice(0, 300).forEach(k => { if (k === "__proto__" || k === "constructor" || k === "prototype") return; const v = tplPlain(x[k], depth + 1); if (v !== undefined) o[k] = v; }); return o; }
+  if (typeof x === "string") return x.slice(0, 20000);
+  if (typeof x === "number") return isFinite(x) ? x : 0;
+  if (typeof x === "boolean" || x === null) return x;
+  return undefined;
+}
+function tplFrom(b, userId) {
+  const t = tplPlain((b && b.template) || {}, 0) || {}, out = {};
+  const str = (k, n) => { out[k] = String(t[k] == null ? "" : t[k]).slice(0, n); };
+  const num = (k, lo, hi) => { if (t[k] !== undefined && t[k] !== "" && isFinite(+t[k])) out[k] = Math.max(lo, Math.min(hi, +t[k])); };
+  const color = k => { if (TPL_COLOR.test(String(t[k] || ""))) out[k] = t[k]; };
+  out.name = String(t.name || "").trim().slice(0, 80); if (!out.name) throw new HttpError(400, "Give the template a name");
+  ["brief", "style", "negative"].forEach(k => str(k, 4000)); ["headline", "sub", "cta", "badge"].forEach(k => str(k, 400));
+  str("size", 24); str("layout", 24); str("disclaimerText", 600); str("headlineFont", 60); str("subFont", 60);
+  ["background", "textColor", "subColor", "accentColor", "badgeColor", "ctaColor", "ctaStrokeColor"].forEach(color);
+  num("customW", 64, 4096); num("customH", 64, 4096); num("ctaRadius", 0, 50); num("ctaStrokeWidth", 0, 20); num("people", 0, 2); num("safeMargin", 0, 25);
+  ["safeTop", "safeRight", "safeBottom", "safeLeft"].forEach(k => num(k, 0, 4096));
+  if (typeof t.ctaStroke === "boolean") out.ctaStroke = t.ctaStroke; if (typeof t.safeLocked === "boolean") out.safeLocked = t.safeLocked;
+  if (["auto", "left", "center", "right"].indexOf(t.textAlign) >= 0) out.textAlign = t.textAlign;
+  if (["top_left", "top_right", "bottom_left", "bottom_right"].indexOf(t.logoPosition) >= 0) out.logoPosition = t.logoPosition;
+  if (["percent", "px"].indexOf(t.safeUnit) >= 0) out.safeUnit = t.safeUnit;
+  if (t.editorFields && typeof t.editorFields === "object" && !Array.isArray(t.editorFields)) {
+    const f = out.editorFields = t.editorFields;
+    /* the member's own reference picture is theirs, not the template's; every other picture becomes a stored file */
+    delete f.reference; delete f.referenceName;
+    const pic = (v, what) => { if (!v) return v; try { return uploads.externalize(db, v, userId, what); } catch (e) { throw new HttpError(e.status || 400, e.message); } };
+    if (f.logoImg) f.logoImg = pic(f.logoImg, "Template logo");
+    (Array.isArray(f.extraLayers) ? f.extraLayers : []).forEach(l => { if (l && l.type === "image" && l.src) l.src = pic(l.src, "Template picture"); });
+  }
+  if (JSON.stringify(out).length > 400000) throw new HttpError(413, "This template is too large to save. Remove some layers and try again.");
+  return out;
+}
+const tplList = () => { const a = sz.readAIRaw(db, WS_ID) || {}; return Array.isArray(a.promptTemplates) ? a.promptTemplates : []; };
+const tplWrite = list => { const a = sz.readAIRaw(db, WS_ID) || {}; a.promptTemplates = list; db.prepare("UPDATE workspaces SET ai_settings=? WHERE id=?").run(JSON.stringify(a), WS_ID); return { promptTemplates: list }; };
+const tplMayChange = (u, entry) => can.manageWorkspace(u) || !!(entry && entry.owner && entry.owner === u.id && can.saveAiTemplates(u));
+const tplId = id => { if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(id || ""))) throw new HttpError(400, "Unknown template"); return id; };
+route("POST", "/api/ai/templates", (u, p, q, b) => {
+  forbid(can.saveAiTemplates(u), "save AI Hub templates");
+  const list = tplList(); if (list.filter(x => x && !x.deleted).length >= 100) throw new HttpError(400, "This workspace has 100 templates. Remove one before adding another.");
+  const t = tplFrom(b, u.id); t.id = "p_" + crypto.randomBytes(5).toString("hex"); t.owner = u.id; t.createdAt = t.updatedAt = now();
+  list.push(t); act(u, "created", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(list), { id: t.id });
+});
+route("PUT", "/api/ai/templates/:id", (u, p, q, b) => {
+  const id = tplId(p.id), list = tplList(), at = list.findIndex(x => x && x.id === id), entry = at >= 0 ? list[at] : null;
+  forbid(tplMayChange(u, entry), "change this template");
+  const t = tplFrom(b, u.id); t.id = id; t.updatedAt = now(); t.updatedBy = u.id;
+  if (entry && entry.owner) { t.owner = entry.owner; t.createdAt = entry.createdAt; }
+  if (at >= 0) list[at] = t; else list.push(t);
+  act(u, "edited", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(list), { id });
+});
+route("DELETE", "/api/ai/templates/:id", (u, p) => {
+  const id = tplId(p.id), list = tplList(), at = list.findIndex(x => x && x.id === id), entry = at >= 0 ? list[at] : null;
+  forbid(tplMayChange(u, entry), "remove this template");
+  /* someone's own template goes; a built-in (or one an admin set up) is remembered as removed, so it stays gone */
+  if (entry && entry.owner) list.splice(at, 1); else if (at >= 0) list[at] = { id, deleted: true }; else list.push({ id, deleted: true });
+  act(u, "deleted", "workspace", WS_ID, { what: "AI Hub template" }); return tplWrite(list);
+});
+route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.ai) { if (b.ai.promptTemplatesReset === true) b.ai.promptTemplates = null; else delete b.ai.promptTemplates; delete b.ai.promptTemplatesReset; } if (b && b.ai && b.ai.characters !== undefined) b.ai.characters = aiCleanCharacters(b.ai.characters, u.id); if (b && b.ai && b.ai.fonts !== undefined) b.ai.fonts = aiCleanFonts(b.ai.fonts, u.id); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */
@@ -1712,7 +1854,7 @@ const server = http.createServer(async (req, res) => {
       security.applyHeaders(res); return filestore.serve(req, res, dm[1], Object.fromEntries(url.searchParams), backups.BACKUP_DIR, backups.decryptFile);
     }
     /* v39 uploaded images: signed-in users only */
-    const fm = /^\/files\/([a-f0-9]{64}\.(?:png|jpg|webp|gif))$/.exec(url.pathname);
+    const fm = /^\/files\/([a-f0-9]{64}\.(?:png|jpg|webp|gif|woff2|woff|ttf|otf))$/.exec(url.pathname);
     if (fm) {
       if (req.method !== "GET" && req.method !== "HEAD") return send(405, "Method not allowed", "text/plain");
       const token = auth.parseCookies(req.headers.cookie).cos_session, uid0 = auth.sessionUser(db, token);
