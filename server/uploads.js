@@ -39,6 +39,23 @@ function put(db, dataUrl, userId) {
   if (buf.length > MAX_BYTES) { const e = new Error("Image is too large (max 3 MB)"); e.status = 413; throw e; }
   return store(db, buf, TYPES[mime], mime, userId);
 }
+/* what a picture is, from its first bytes */
+function imageKind(buf) {
+  if (!buf || buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf.slice(1, 4).toString("latin1") === "PNG") return "image/png";
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf.slice(0, 4).toString("latin1") === "RIFF" && buf.slice(8, 12).toString("latin1") === "WEBP") return "image/webp";
+  if (buf.slice(0, 4).toString("latin1") === "GIF8") return "image/gif";
+  return null;
+}
+/* a picture an AI provider made (Oct 2026): stored like any other, up to 25 MB, whatever its type was called */
+const GENERATED_MAX_BYTES = 25_000_000;
+function putGenerated(db, buf, userId) {
+  const mime = imageKind(buf);
+  if (!mime) { const e = new Error("The provider did not return a picture"); e.status = 424; throw e; }
+  if (buf.length > GENERATED_MAX_BYTES) { const e = new Error("The picture is too large to keep (max 25 MB)"); e.status = 413; throw e; }
+  return store(db, buf, TYPES[mime], mime, userId);
+}
 /* bytes → the content-addressed file and its row; "/files/<sha>.<ext>" */
 function store(db, buf, ext, mime, userId) {
   const sha = crypto.createHash("sha256").update(buf).digest("hex"), name = sha + "." + ext, file = fileFor(name);
@@ -150,4 +167,4 @@ function migrate(db) {
   if (stats.bytesMoved > 1_000_000) { try { db.exec("VACUUM"); } catch (e) { console.warn("[uploads] VACUUM skipped:", e.message); } }
   return stats;
 }
-module.exports = { UPLOAD_DIR, put, putFont, externalize, externalizeFont, externalizeTask, fontKind, isFileUrl, serve, mirror, migrate, ensureTable, fileFor, URL_RE, FONT_URL_RE };
+module.exports = { UPLOAD_DIR, put, putGenerated, imageKind, GENERATED_MAX_BYTES, putFont, externalize, externalizeFont, externalizeTask, fontKind, isFileUrl, serve, mirror, migrate, ensureTable, fileFor, URL_RE, FONT_URL_RE };

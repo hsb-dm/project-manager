@@ -12,7 +12,7 @@ const PNG = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'e2e/fixt
 /* the browser side: ai.js and brand-characters.js as the bundle has them */
 function hub(extra) {
   const noop = () => {};
-  const c = Object.assign({ UI_ID: {}, WS: { brand: {}, ai: {} }, API: { on: true }, console, setTimeout, window: { addEventListener: noop }, localStorage: { getItem: () => null, setItem: noop },
+  const c = Object.assign({ UI_ID: {}, WS: { brand: {}, ai: {} }, API: { on: true }, console, setTimeout, URL, window: { addEventListener: noop }, localStorage: { getItem: () => null, setItem: noop },
     document: { addEventListener: noop, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], createElement: () => ({ style: {}, getContext: () => null, addEventListener: noop }), head: { appendChild: noop }, body: { appendChild: noop } },
     attr: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'), esc: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;'),
     jsq: x => JSON.stringify(String(x)).replace(/"/g, '&quot;'),
@@ -77,7 +77,7 @@ test('the prompt: characters right behind the brief, the brand prompt left to th
   let can = true;
   const c = hub({ aiSelectedModelCan: () => can, aiBasePrompt: () => ({ text: 'BASE' }) });
   c.WS.ai.characters = [{ id: 'ch_rina', name: 'Rina', description: 'Indonesian woman, late 20s', photos: [PNG] }];
-  c.WS.ai.image = { defaultStyle: 'Dark studio, electric lime.' };
+  c.WS.ai.image = { endpoint: 'https://api.openai.com/v1/images/generations', defaultStyle: 'Dark studio, electric lime.' };   /* a provider that takes reference pictures */
   c.aiApplyTemplate('p_thumb_people');
   let p = c.aiBuildPrompt();
   assert.match(p, /People: the reference photos show Rina \(Indonesian woman, late 20s\)\. This person is the main person/);
@@ -112,6 +112,20 @@ test('the prompt: characters right behind the brief, the brand prompt left to th
   /* a photo that is neither ours nor a picture is never shown or sent */
   c.WS.ai.characters = [{ id: 'ch_x', name: 'X', photos: ['https://example.com/x.png', 'javascript:alert(1)'] }];
   assert.deepEqual(Array.from(c.aiCharacters()), []);
+  /* a workspace on Magnific: whatever the model is called it is Mystic, so no likeness from photos and the field says why;
+     the member's own picture still goes, as a style or a structure */
+  c.WS.ai.characters = [{ id: 'ch_rina', name: 'Rina', photos: [PNG] }];
+  c.WS.ai.image = { endpoint: 'https://api.magnific.ai/v1/mystic' }; c.aiSelectedModelCan = () => false;
+  c.aiApplyTemplate('p_thumb_people');
+  assert.equal(c.aiImageRoute(), 'magnific'); assert.equal(c.aiSelectedCharacters().length, 0); assert.doesNotMatch(c.aiBuildPrompt(), /People:/);
+  /* even a model called GPT Image, as the server sends it: the endpoint decides */
+  c.aiResolveModel = () => ({ id: 'm_gpt2mag', name: 'GPT 2 Magnific', modelId: 'gpt-image-2', provider: 'openai', capabilities: ['reference'] });
+  assert.equal(c.aiImageRoute(), 'magnific'); c.aiSelectedModelCan = () => true; assert.equal(c.aiSelectedCharacters().length, 0);
+  c.aiSelectedModelCan = () => false; delete c.aiResolveModel;
+  assert.match(c.aiCharactersFieldHtml(), /Magnific Mystic, which cannot keep a person's face/);
+  assert.equal(c.aiRefUsable(), true, 'the upload works on Mystic');
+  c.AIF.reference = PNG; assert.match(c.aiRefMysticHtml(), /aria-checked="true"[^>]*><span>Style/); assert.match(c.aiRefMysticHtml(), /value="50"/);
+  c.WS.ai.image = { endpoint: 'https://api.openai.com/v1/images/generations' }; assert.equal(c.aiRefUsable(), false, 'a model elsewhere that takes none'); assert.equal(c.aiRefMysticHtml(), '');
 });
 
 test('the template editor keeps fields it does not show and saves the new type fields', () => {
@@ -137,7 +151,7 @@ function providers(stored) {
   const bytes = fs.readFileSync(path.join(root, 'e2e/fixtures/red.png')), sha = require('node:crypto').createHash('sha256').update(bytes).digest('hex');
   const file = uploads.fileFor(sha + '.png'); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, bytes);
   const calls = [];
-  const c = { fs, uploads, Buffer, FormData, Blob, URL, process, console, db: {}, WS_ID: 'w',
+  const c = { fs, uploads, Buffer, FormData, Blob, URL, AbortSignal, process, console, db: {}, WS_ID: 'w',
     HttpError: class extends Error { constructor(code, msg) { super(msg); this.code = code; this.status = code; } },
     sz: { readAIRaw: () => ({ characters: (stored || []).map(ch => Object.assign({}, ch, { photos: (ch.photos || []).map(p => p === 'STORED' ? '/files/' + sha + '.png' : p) })) }) },
     aiFetch: async (url, init) => { calls.push({ url, init }); return { data: [{ b64_json: 'AAAA' }], candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'AAAA' } }] } }], url: 'https://cdn.example.com/x.png' }; } };
@@ -161,6 +175,48 @@ test('a generation sends the chosen characters\' stored photos and the member\'s
   assert.equal(other.c.aiReferenceImages({ characters: ['ch_x'] }, able).length, 0);
 });
 
+test('on Magnific Mystic the member\'s picture goes and a brand character is refused, whatever the model allows', async t => {
+  const { c, cleanup } = providers([{ id: 'ch_rina', name: 'Rina', photos: ['STORED'] }]); t.after(cleanup);
+  assert.equal(c.aiReferenceImages({ referenceImage: PNG }, { capabilities: [] }, true).length, 1, 'no capability needed on Mystic');
+  assert.throws(() => c.aiReferenceImages({ characters: ['ch_rina'] }, { capabilities: ['reference'] }, true), e => e.status === 400 && /cannot keep a person's likeness/.test(e.message));
+});
+
+test('a generated picture is kept as the workspace\'s own file; links that are not safe to fetch are left as they were', async t => {
+  const { c, cleanup } = providers([]); t.after(cleanup);
+  const { DatabaseSync } = require('node:sqlite'); c.db = new DatabaseSync(':memory:'); c.uploads.ensureTable(c.db); t.after(() => c.db.close());
+  const png = fs.readFileSync(path.join(root, 'e2e/fixtures/red.png')), fetched = [];
+  c.fetch = async (url, opts) => { fetched.push(url); if (/redirect-inside/.test(url)) return { status: 302, ok: false, headers: { get: k => k === 'location' ? 'https://169.254.169.254/latest' : null } }; if (/redirect-ok/.test(url)) return { status: 302, ok: false, headers: { get: k => k === 'location' ? 'https://cdn.example.com/final.png' : null } }; if (/not-image/.test(url)) return { status: 200, ok: true, headers: { get: () => 'image/png' }, arrayBuffer: async () => Buffer.from('<html>nope</html>') }; return { status: 200, ok: true, headers: { get: k => k === 'content-type' ? 'binary/octet-stream' : null }, arrayBuffer: async () => png }; };
+  /* base64 from OpenAI or Gemini */
+  assert.match(await c.aiKeepImage(PNG, 'u1'), /^\/files\/[a-f0-9]{64}\.png$/);
+  /* a provider's link, its type read from the bytes; a redirect followed when it stays public */
+  assert.match(await c.aiKeepImage('https://cdn.example.com/x', 'u1'), /^\/files\/[a-f0-9]{64}\.png$/);
+  assert.match(await c.aiKeepImage('https://cdn.example.com/redirect-ok', 'u1'), /^\/files\//);
+  /* never fetched, or not a picture: the provider's link stays */
+  assert.equal(await c.aiKeepImage('https://cdn.example.com/redirect-inside', 'u1'), null);
+  assert.ok(!fetched.some(u => /169\.254/.test(u)), 'the inside address is not fetched');
+  assert.equal(await c.aiKeepImage('http://cdn.example.com/x.png', 'u1'), null);
+  assert.equal(await c.aiKeepImage('https://10.0.0.5/x.png', 'u1'), null);
+  assert.equal(await c.aiKeepImage('https://localhost/x.png', 'u1'), null);
+  assert.equal(await c.aiKeepImage('https://cdn.example.com/not-image', 'u1'), null);
+});
+
+test('the image route hands back the kept file, and the provider\'s link when it cannot be kept', async t => {
+  const { c, cleanup } = providers([]); t.after(cleanup);
+  const { DatabaseSync } = require('node:sqlite'); c.db = new DatabaseSync(':memory:'); c.uploads.ensureTable(c.db); t.after(() => c.db.close());
+  const png = fs.readFileSync(path.join(root, 'e2e/fixtures/red.png')); let served = png;
+  c.fetch = async () => ({ status: 200, ok: true, headers: { get: () => null }, arrayBuffer: async () => served });
+  let handler; Object.assign(c, { route(m, u, h) { if (u === '/api/ai/image') handler = h; }, forbid(ok) { if (!ok) throw new c.HttpError(403, 'no'); }, can: { useAIHub: () => true }, security: { log() {} },
+    aiConf: () => ({ key: 'k', endpoint: 'https://images.example.com/v1/generate', provider: 'custom' }), aiResolveRegistryModel: () => null });
+  c.aiFetch = async () => ({ url: 'https://cdn.example.com/out.png' });
+  const s = fs.readFileSync(path.join(root, 'server/server.js'), 'utf8');
+  vm.runInContext(s.slice(s.indexOf('route("POST", "/api/ai/image"'), s.indexOf('route("POST", "/api/ai/chat"')), c);
+  let r = await handler({ id: 'u1', caps: {} }, {}, {}, { prompt: 'p', width: 1080, height: 1440 });
+  assert.match(r.imageUrl, /^\/files\/[a-f0-9]{64}\.png$/); assert.equal(r.kept, true);
+  served = Buffer.from('<html>expired</html>');
+  r = await handler({ id: 'u1', caps: {} }, {}, {}, { prompt: 'p', width: 1080, height: 1440 });
+  assert.equal(r.imageUrl, 'https://cdn.example.com/out.png'); assert.equal(r.kept, false);
+});
+
 test('each provider gets the pictures its own way; Magnific, Imagen and DALL-E say they cannot', async t => {
   const { c, calls, cleanup } = providers([]); t.after(cleanup);
   const refs = [{ mime: 'image/png', data: Buffer.from('a') }, { mime: 'image/jpeg', data: Buffer.from('b') }];
@@ -178,8 +234,17 @@ test('each provider gets the pictures its own way; Magnific, Imagen and DALL-E s
   const parts = JSON.parse(calls.pop().init.body).contents[0].parts;
   assert.equal(parts.length, 3); assert.equal(parts[1].inlineData.mimeType, 'image/png'); assert.equal(parts[1].inlineData.data, Buffer.from('a').toString('base64'));
   await assert.rejects(() => c.aiImageCall({ key: 'k', endpoint: 'https://generativelanguage.googleapis.com/v1beta' }, 'gemini', body({ model: 'imagen-4.0-generate-001' })), e => e.status === 400);
-  /* Magnific Mystic cannot keep a likeness */
-  await assert.rejects(() => c.aiImageCall({ key: 'k', endpoint: 'https://api.magnific.ai/v1/mystic' }, 'magnific', body({ model: 'realism' })), e => e.status === 400 && /Mystic cannot follow/.test(e.message));
+  /* Magnific Mystic: the member's picture as a style (adherence: how much the prompt leads) or a structure; never a face from photos */
+  const mystic = { key: 'k', endpoint: 'https://api.magnific.ai/v1/mystic' }, own = [{ mime: 'image/png', data: Buffer.from('s'), kind: 'member' }];
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refStrength: 70 }));
+  let my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.style_reference, Buffer.from('s').toString('base64')); assert.equal(my.adherence, 30); assert.equal(my.structure_reference, undefined); assert.equal(my.refs, undefined);
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'structure', refStrength: 40 }));
+  my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.structure_reference, Buffer.from('s').toString('base64')); assert.equal(my.structure_strength, 40); assert.equal(my.style_reference, undefined);
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: [] }));
+  my = JSON.parse(calls.pop().init.body); assert.equal(my.style_reference, undefined); assert.equal(my.structure_reference, undefined);
+  await assert.rejects(() => c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: [{ mime: 'image/png', data: Buffer.from('f'), kind: 'character' }] })), e => e.status === 400 && /cannot keep a person's likeness/.test(e.message));
   /* a custom endpoint gets data URLs, never raw buffers */
   await c.aiImageCall({ key: 'k', endpoint: 'https://images.example.com/v1/generate' }, 'custom', body({ model: 'x' }));
   const sent = JSON.parse(calls.pop().init.body);

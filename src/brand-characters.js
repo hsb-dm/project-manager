@@ -18,9 +18,21 @@ function aiCharactersFor(n){ n=Math.max(0,Math.min(AI_CHAR_PICK,+n||0)); return 
    turns it on and chooses them; any other starts with it off. A design from before the switch counts as on when it
    has characters chosen. */
 function aiCharactersOn(){ if(typeof AIF==="undefined") return false; return AIF.useCharacters!==undefined?!!AIF.useCharacters:(AIF.characters||[]).length>0; }
+/* Which provider a generation really goes to, as the server decides it (aiImageProvider): the workspace's image
+   endpoint first (a Magnific one sends everything to Mystic, whatever the model is called), then the model. */
+function aiImageRoute(){
+  var c=(typeof aiCfg==="function"?aiCfg().image:{})||{}, m=typeof aiResolveModel==="function"?aiResolveModel(AIF&&AIF.modelRegistryId):null, host="";
+  try{ host=new URL(c.endpoint).hostname; }catch(e){}
+  if(/^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test(host)) return "magnific";
+  if(host==="api.openai.com") return "openai"; if(host==="generativelanguage.googleapis.com") return "gemini";
+  var id=(m&&m.modelId)||c.model||""; if(/^(gpt-image|dall-e)/i.test(id)) return "openai"; if(/^(gemini|imagen)/i.test(id)) return "gemini";
+  return (m&&m.provider)||c.provider||"magnific";
+}
+/* a person's likeness from photos needs a model that takes reference pictures; Magnific Mystic never does */
+function aiCharactersCan(){ return aiImageRoute()!=="magnific"&&(typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference")); }
 function aiSelectedCharacters(){
   if (!aiCharactersOn()) return [];
-  if (typeof aiSelectedModelCan==="function" && !aiSelectedModelCan("reference")) return [];
+  if (!aiCharactersCan()) return [];
   var list=aiCharacters();
   return ((AIF&&AIF.characters)||[]).map(function(id){ return byId(list,id); }).filter(Boolean).slice(0,AI_CHAR_PICK);
 }
@@ -37,15 +49,17 @@ function aiCharactersPrompt(){
 /* ---------- AI Hub: whether people appear, who, and as what ---------- */
 function aiCharactersFieldHtml(){
   var list=aiCharacters(); if(!list.length) return "";
-  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), use=aiCharactersOn(), on=AIF.characters||[];
+  var can=aiCharactersCan(), use=aiCharactersOn(), on=AIF.characters||[];
   var h='<div class="field ai-chars"><div class="ai-chars-head"><label for="aiCharsSwitch">'+tr("Include brand characters")+'</label><button type="button" id="aiCharsSwitch" class="switch'+(use?" on":"")+'" role="switch" aria-checked="'+(use?"true":"false")+'" onclick="aiCharactersSwitch()"></button></div>';
+  /* on Magnific Mystic they cannot work at all: the switch says so rather than letting someone find out */
+  if(aiImageRoute()==="magnific") return h.replace('onclick="aiCharactersSwitch()"','disabled aria-disabled="true"').replace(' on"','"').replace('aria-checked="true"','aria-checked="false"')+'<p class="hint">'+tr("This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers.")+'</p></div>';
   if(!use) return h+'<p class="hint">'+tr("Off: no people from your brand characters, and nothing about them in the prompt.")+'</p></div>';
   return h+'<div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
     + list.map(function(c){ var sel=can&&on.indexOf(c.id)>=0, ph=(c.photos||[]).filter(aiCharPhotoOk)[0];
         return '<button type="button" class="ai-char-card'+(sel?' on':'')+'" aria-pressed="'+(sel?"true":"false")+'"'+(can?'':' disabled')+' title="'+attr(c.description||c.name)+'" onclick="aiToggleCharacter('+jsq(c.id)+')"><img src="'+attr(ph)+'" alt=""><span data-no-trans>'+esc(c.name)+'</span></button>'; }).join("")
     + '</div>'
     + (can?'<label class="ai-char-role-label" for="aiCharRole">'+tr("Character role")+'</label><textarea id="aiCharRole" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'" oninput="AIF.characterRole=this.value">'+esc(AIF.characterRole||"")+'</textarea>':'')
-    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):aiImageRoute()==="magnific"?tr("This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
 }
 /* on: the first character is chosen if nobody is yet */
 function aiCharactersSwitch(){
@@ -59,6 +73,20 @@ function aiToggleCharacter(id){
   else { if(on.length>=AI_CHAR_PICK) return toast(tr("Choose up to two people"),"bad"); on.push(id); }
   aiHistoryBefore(); AIF.characters=on; AIF.useCharacters=true; renderScreen(false);
 }
+
+/* ---------- the member's own reference picture (Oct 2026) ----------
+   A model that takes reference pictures gets it as it is; Magnific Mystic follows either its style (colour, light,
+   mood) or its structure (shape, composition), as strongly as the slider says, with the content still from the
+   prompt. */
+function aiRefUsable(){ return aiImageRoute()==="magnific"||(typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference")); }
+function aiRefMysticHtml(){
+  if(!AIF.reference||aiImageRoute()!=="magnific") return "";
+  var mode=AIF.referenceMode==="structure"?"structure":"style", k=AIF.referenceStrength==null?50:+AIF.referenceStrength;
+  return '<div class="ai-ref-mode"><div class="seg ai-brief-seg" role="radiogroup" aria-label="'+attr(tr("Follow the picture's"))+'"><button type="button" role="radio" aria-checked="'+(mode==="style")+'" class="'+(mode==="style"?"on":"")+'" onclick="aiRefSet(\'referenceMode\',\'style\')"><span>'+tr("Style")+'</span></button><button type="button" role="radio" aria-checked="'+(mode==="structure")+'" class="'+(mode==="structure"?"on":"")+'" onclick="aiRefSet(\'referenceMode\',\'structure\')"><span>'+tr("Structure")+'</span></button></div>'
+    + '<label class="ai-ref-strength"><span>'+tr("Strength")+'</span><input type="range" min="0" max="100" step="5" value="'+k+'" aria-label="'+attr(tr("Strength"))+'" oninput="AIF.referenceStrength=+this.value;this.nextElementSibling.textContent=this.value"><b>'+k+'</b></label>'
+    + '<p class="hint">'+tr(mode==="style"?"Colour, light and mood follow the picture; what is in it comes from the prompt.":"Shape and composition follow the picture; what is in it comes from the prompt.")+'</p></div>';
+}
+function aiRefSet(key,value){ aiHistoryBefore(); AIF[key]=value; renderScreen(false); }
 
 /* ---------- Settings: the admin's list ---------- */
 function setAICharacters(){
@@ -135,6 +163,13 @@ function aiCharPhotoRemove(id,i){
   "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang kamu pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
   "This model cannot use reference photos. Choose a model that accepts reference images to use brand characters.":"Model ini tidak bisa memakai foto acuan. Pilih model yang menerima gambar referensi untuk memakai karakter brand.",
   "Choose up to two people":"Pilih maksimal dua orang",
+  "This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers.":"Workspace ini membuat gambar dengan Magnific Mystic, yang tidak bisa mempertahankan wajah dari foto. Karakter brand butuh OpenAI (GPT Image) atau Gemini (Nano Banana) sebagai penyedia gambar, di Pengaturan → AI → Providers.",
+  "Follow the picture's":"Ikuti gambar dari sisi",
+  "Style":"Gaya",
+  "Structure":"Struktur",
+  "Strength":"Kekuatan",
+  "Colour, light and mood follow the picture; what is in it comes from the prompt.":"Warna, cahaya, dan nuansa mengikuti gambar; isinya tetap dari prompt.",
+  "Shape and composition follow the picture; what is in it comes from the prompt.":"Bentuk dan komposisi mengikuti gambar; isinya tetap dari prompt.",
   "Include brand characters":"Masukkan karakter brand",
   "Off: no people from your brand characters, and nothing about them in the prompt.":"Mati: tidak ada orang dari karakter brand, dan tidak ada kalimat tentang mereka di prompt.",
   "Character role":"Peran karakter",

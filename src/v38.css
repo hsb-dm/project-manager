@@ -1463,3 +1463,13 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-ref-add small{font-size:11px;font-weight:500;color:var(--color-text-tertiary)}
 .ai-ref-add:hover:not(:disabled){border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}
 .ai-ref-add:disabled{opacity:.55;cursor:not-allowed}
+/* the brief's source: two equal halves of the panel's width, labels centred, nothing cut off */
+.seg.ai-brief-seg{display:grid;grid-template-columns:1fr 1fr;width:100%;margin:0;box-sizing:border-box;flex-wrap:nowrap;gap:2px}
+.seg.ai-brief-seg button{justify-content:center;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden}
+.seg.ai-brief-seg button span{overflow:hidden;text-overflow:ellipsis}
+.seg.ai-brief-seg button svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* Magnific Mystic: the reference picture's style or structure, and how strongly */
+.ai-ref-mode{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.ai-ref-strength{display:grid;grid-template-columns:auto minmax(0,1fr) 28px;align-items:center;gap:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--color-text-secondary);margin:0}
+.ai-ref-strength input{width:100%;accent-color:var(--color-primary)}
+.ai-ref-strength b{text-align:right;color:var(--color-text-primary);font-variant-numeric:tabular-nums}

@@ -43,7 +43,8 @@ test("poster templates, their type and brand characters reach the canvas and the
     await page.evaluate(() => closeModal());
 
     /* AI Hub: the Poster template on a 3:4 feed */
-    await page.evaluate(() => go("aihub"));
+    /* characters need a provider that takes reference pictures: OpenAI here, for this page only (Magnific is the default) */
+    await page.evaluate(() => { WS.ai.image = Object.assign({}, WS.ai.image, { endpoint: "https://api.openai.com/v1/images/generations" }); go("aihub"); });
     await page.locator(".ai-template-card", { hasText: "Comment-to-DM post" }).click();
     await page.waitForFunction(() => AIF.layout === "poster" && AI_LAYER_HITS.some(h => h.id === "disclaimer"));
     const L = await page.evaluate(() => { const sz = aiActiveSize(), h = {}; AI_LAYER_HITS.forEach(x => { h[x.id] = x; }); return { w: sz.w, h: sz.h, head: h.headline, sub: h.sub, cta: h.cta, disc: h.disclaimer, disc1: AI_TEXT_SPECS.disclaimer.content.split("\n")[0], discLines: AI_TEXT_SPECS.disclaimer.content.split("\n").length }; });
@@ -97,6 +98,21 @@ test("poster templates, their type and brand characters reach the canvas and the
     await expect.poll(() => sent).not.toBeNull();
     expect(sent.characters).toEqual([]); expect(sent.prompt).not.toContain("People:");
     await page.unroute("**/api/ai/image");
+
+    /* on Magnific Mystic: characters are explained away, the member's own picture goes as a style or a structure */
+    await page.evaluate(png => { WS.ai.image = Object.assign({}, WS.ai.image, { endpoint: "https://api.magnific.ai/v1/mystic" }); AIF.reference = png; AIF.referenceName = "ref.png"; AIF.panels = Object.assign({}, AIF.panels, { advanced: true }); renderScreen(false); }, "data:image/png;base64," + require("fs").readFileSync(require("path").join(__dirname, "fixtures", "red.png")).toString("base64"));
+    await expect(page.locator(".ai-chars")).toContainText("Magnific Mystic");
+    await expect(page.locator(".ai-ref-mode")).toBeVisible();
+    await page.locator(".ai-ref-mode").getByRole("radio", { name: "Structure" }).click();
+    await page.locator(".ai-ref-strength input").fill("80");
+    sent = null;
+    await page.route("**/api/ai/image", route => { sent = route.request().postDataJSON(); route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "stopped by the test" }) }); });
+    await page.evaluate(() => aiGenerate());
+    await expect.poll(() => sent).not.toBeNull();
+    expect([sent.referenceMode, sent.referenceStrength, !!sent.referenceImage]).toEqual(["structure", 80, true]);
+    expect(sent.characters).toEqual([]);
+    await page.unroute("**/api/ai/image");
+    await page.evaluate(() => { AIF.reference = ""; renderScreen(false); });
 
     /* in Indonesian */
     await page.evaluate(() => { UI_LANG = "id"; renderScreen(); });

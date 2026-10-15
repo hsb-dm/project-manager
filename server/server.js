@@ -818,7 +818,7 @@ async function aiImageCall(c, provider, body) {
   const mhost = (() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })();
   const isMystic = /(^|\.)(magnific\.com|magnific\.ai|freepik\.com)$/.test(mhost);
   const mheaders = { "Content-Type": "application/json", "Authorization": "Bearer " + c.key, "x-magnific-api-key": c.key, "x-freepik-api-key": c.key };
-  if (isMystic && (body.refs || []).length) throw new HttpError(400, "Magnific Mystic cannot follow reference photos. Choose a model that accepts reference images, such as GPT Image or Nano Banana.");
+  if (isMystic && (body.refs || []).some(r => r.kind === "character")) throw new HttpError(400, "Magnific Mystic cannot keep a person's likeness from photos. Brand characters need an image provider that accepts reference images, such as OpenAI (GPT Image) or Gemini (Nano Banana).");
   let reqBody = Object.assign({}, body); delete reqBody.refs;
   if ((body.refs || []).length) reqBody.reference_images = body.refs.map(r => "data:" + r.mime + ";base64," + r.data.toString("base64"));
   if (isMystic) {
@@ -826,6 +826,9 @@ async function aiImageCall(c, provider, body) {
     const MYSTIC_MODELS = ["realism", "fluid", "zen", "flexible", "super_real", "editorial_portraits"];
     const m = String(body.model || "").toLowerCase();
     reqBody = { prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), aspect_ratio: aspect, resolution: process.env.COS_MYSTIC_RESOLUTION || "2k", model: MYSTIC_MODELS.includes(m) ? m : "realism", filter_nsfw: true };
+    /* the member's reference picture: its style (adherence: the higher, the more the prompt leads) or its structure */
+    const ref = (body.refs || [])[0];
+    if (ref) { const k = Math.max(0, Math.min(100, Math.round(+body.refStrength >= 0 ? +body.refStrength : 50))); if (body.refMode === "structure") { reqBody.structure_reference = ref.data.toString("base64"); reqBody.structure_strength = k; } else { reqBody.style_reference = ref.data.toString("base64"); reqBody.adherence = 100 - k; } }
   }
   const j = await aiFetch(c.endpoint, { method: "POST", headers: mheaders, body: JSON.stringify(reqBody) }, "Image", 90000);
   let url = aiPickFirstImage(j);
@@ -848,30 +851,54 @@ async function aiImageCall(c, provider, body) {
 /* The pictures a generation follows: the photos of the brand characters the member chose (read from the workspace
    by id, so a request can name a character but never a file), then the member's own reference image. Only for a
    model with the "reference" capability; the browser already holds them back from any other. */
-function aiReferenceImages(b, chosen) {
+function aiReferenceImages(b, chosen, mystic) {
   const ids = Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [];
   if (!ids.length && !b.referenceImage) return [];
-  if (chosen && (chosen.capabilities || []).indexOf("reference") < 0) throw new HttpError(400, "This model cannot use reference photos. Choose a model that accepts reference images in AI Hub.");
+  /* Magnific Mystic follows a picture's style or structure (Oct 2026), never a person's face from photos */
+  if (mystic && ids.length) throw new HttpError(400, "Magnific Mystic cannot keep a person's likeness from photos. Brand characters need an image provider that accepts reference images, such as OpenAI (GPT Image) or Gemini (Nano Banana).");
+  if (!mystic && chosen && (chosen.capabilities || []).indexOf("reference") < 0) throw new HttpError(400, "This model cannot use reference photos. Choose a model that accepts reference images in AI Hub.");
   const refs = [], stored = (sz.readAIRaw(db, WS_ID) || {}).characters || [];
   ids.forEach(id => {
     const ch = stored.find(c => c && c.id === id); if (!ch) throw new HttpError(400, "That brand character is no longer available. Choose again in AI Hub.");
     (ch.photos || []).slice(0, 3).forEach(url => {
       const m = uploads.URL_RE.exec(String(url || "")), file = m && uploads.fileFor(m[1] + "." + m[2]);
-      if (file && fs.existsSync(file)) refs.push({ mime: m[2] === "jpg" ? "image/jpeg" : "image/" + m[2], data: fs.readFileSync(file) });
+      if (file && fs.existsSync(file)) refs.push({ mime: m[2] === "jpg" ? "image/jpeg" : "image/" + m[2], data: fs.readFileSync(file), kind: "character" });
     });
   });
   if (b.referenceImage) {
     const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(b.referenceImage));
     if (!m) throw new HttpError(400, "The reference image must be a PNG, JPEG or WebP picture.");
     const data = Buffer.from(m[2], "base64"); if (data.length > 10_000_000) throw new HttpError(413, "The reference image is too large (max 10 MB).");
-    refs.push({ mime: m[1], data });
+    refs.push({ mime: m[1], data, kind: "member" });
   }
   return refs;
+}
+/* A generated picture becomes one of the workspace's own files (Oct 2026). Providers hand back links that expire
+   (Magnific's after a while) or long base64 strings, so the history's thumbnails and the canvas layers made from them
+   broke later. Kept as a file it stays. A link is fetched only over HTTPS from a public host, its redirects checked
+   the same way; anything that goes wrong leaves the provider's link as it was. */
+async function aiKeepImage(url, userId) {
+  try {
+    const v = String(url || "");
+    const m = /^data:image\/[a-z+.-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(v);
+    if (m) return uploads.putGenerated(db, Buffer.from(m[1], "base64"), userId);
+    const publicHttps = s => { let x; try { x = new URL(s); } catch { return false; } const h = x.hostname; return x.protocol === "https:" && !/^(localhost|\[|127\.|10\.|192\.168\.|169\.254\.|0\.)/i.test(h) && !/^172\.(1[6-9]|2\d|3[01])\./.test(h) && /\./.test(h); };
+    let at = v, r = null;
+    for (let hop = 0; hop < 4; hop++) {
+      if (!publicHttps(at)) return null;
+      r = await fetch(at, { redirect: "manual", signal: AbortSignal.timeout(30000) });
+      if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { at = new URL(r.headers.get("location"), at).toString(); continue; }
+      break;
+    }
+    if (!r || !r.ok || +(r.headers.get("content-length") || 0) > uploads.GENERATED_MAX_BYTES) return null;
+    return uploads.putGenerated(db, Buffer.from(await r.arrayBuffer()), userId);
+  } catch (e) { return null; }
 }
 route("POST", "/api/ai/image", async (u, p, q, b) => {
   forbid(can.useAIHub(u), "use AI Hub");
   const c = aiConf("image");
   const chosen = aiResolveRegistryModel(b.modelRegistryId);
+  const mystic = /^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test((() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })());
   const body = {
     prompt: String(b.prompt || "").slice(0, 4000) + (c.defaultStyle ? "\n\nWorkspace brand requirements (take precedence over conflicting creative preferences):\n" + String(c.defaultStyle).slice(0,4000) : ""),
     negative_prompt: String(b.negativePrompt || "").slice(0, 1000),
@@ -879,7 +906,10 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
     height: Math.max(64, Math.min(4096, +b.height || 1024)),
     model: (chosen ? chosen.modelId : (b.model || c.model)) || undefined,
     num_images: 1,
-    refs: aiReferenceImages(b, chosen)
+    refs: aiReferenceImages(b, chosen, mystic),
+    /* how Mystic follows the member's picture: its style or its structure, 0–100 */
+    refMode: b.referenceMode === "structure" ? "structure" : "style",
+    refStrength: Math.max(0, Math.min(100, Math.round(+b.referenceStrength >= 0 ? +b.referenceStrength : 50)))
   };
   /* v18 §131 audit trail for Task-derived generations: who, which task, which
      tool and which admin/tool prompt versions. The base prompt text is never
@@ -889,7 +919,8 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
   const provider = aiImageProvider(c, chosen, body.model);
   security.log("ai_image_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null, brief, characters: Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [], references: body.refs.length });
   const url = await aiImageCall(c, provider, body);
-  return { imageUrl: url, raw: { model: body.model, provider } };
+  const kept = await aiKeepImage(url, u.id);
+  return { imageUrl: kept || url, kept: !!kept, raw: { model: body.model, provider } };
 });
 
 route("POST", "/api/ai/chat", async (u, p, q, b) => {
@@ -1029,7 +1060,8 @@ route("POST", "/api/ai/expand", async (u, p, q, b) => {
     + provider + "). Reload the page and open Expand again.");
   security.log("ai_image_expand_requested", { userId: u.id, provider, model: body.model, registryId: (chosen && chosen.id) || null });
   const url = await aiImageExpandCall(c, provider, body);
-  return { imageUrl: url };
+  const kept = await aiKeepImage(url, u.id);   /* kept as the workspace's own file, like a generated picture */
+  return { imageUrl: kept || url, kept: !!kept };
 });
 
 /* The workspace's own notifications — which events send in the app and by e-mail (Settings → Notifications & email)

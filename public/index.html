@@ -5646,6 +5646,16 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-ref-add small{font-size:11px;font-weight:500;color:var(--color-text-tertiary)}
 .ai-ref-add:hover:not(:disabled){border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}
 .ai-ref-add:disabled{opacity:.55;cursor:not-allowed}
+/* the brief's source: two equal halves of the panel's width, labels centred, nothing cut off */
+.seg.ai-brief-seg{display:grid;grid-template-columns:1fr 1fr;width:100%;margin:0;box-sizing:border-box;flex-wrap:nowrap;gap:2px}
+.seg.ai-brief-seg button{justify-content:center;min-width:0;padding:8px 6px;white-space:nowrap;overflow:hidden}
+.seg.ai-brief-seg button span{overflow:hidden;text-overflow:ellipsis}
+.seg.ai-brief-seg button svg{width:13px;height:13px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+/* Magnific Mystic: the reference picture's style or structure, and how strongly */
+.ai-ref-mode{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.ai-ref-strength{display:grid;grid-template-columns:auto minmax(0,1fr) 28px;align-items:center;gap:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--color-text-secondary);margin:0}
+.ai-ref-strength input{width:100%;accent-color:var(--color-primary)}
+.ai-ref-strength b{text-align:right;color:var(--color-text-primary);font-variant-numeric:tabular-nums}
 
 </style>
 </head>
@@ -9220,7 +9230,8 @@ function aiGenerate(){
                model: (chosen?chosen.modelId:aiCfg().image.model||"").trim(),
                /* reference pictures only go to a model that can use them. Brand characters travel as ids:
                   the server reads their photos from the workspace itself. */
-               referenceImage:(aiSelectedModelCan("reference")&&AIF.reference)||undefined,
+               referenceImage:((typeof aiRefUsable==="function"?aiRefUsable():aiSelectedModelCan("reference"))&&AIF.reference)||undefined,
+               referenceMode:AIF.referenceMode==="structure"?"structure":"style", referenceStrength:AIF.referenceStrength==null?50:+AIF.referenceStrength,
                characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
                referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
@@ -9573,7 +9584,7 @@ function renderAIHub(){
     /* Oct 2026: a chip beside the template's name in the header, not a banner over the panels (ai-hub-layout.js) */
     h=h.replace(/(<p class="sub">[\s\S]*?)<\/p>/,function(m,a){ return a+' '+aiConnChip(_gs)+'</p>'; });
   }
-  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form">'+aiSecOpenTag("template","Template")+'<div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'"'+(t.owner?' title="'+attr(tr("By")+" "+person(t.owner).name)+'"':'')+' onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+(t.private?'<span class="ai-tpl-own" title="'+attr(tr("Only you"))+'" aria-label="'+attr(tr("Only you"))+'">'+I.lock+'</span>':'')+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div>'+aiSecClose()+aiSecOpenTag("brief","Brief & style")+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+aiSecClose()+aiSecCharacters()+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!aiSelectedModelCan("reference")?'<button type="button" class="ai-ref-add" disabled>'+I.up+'<span>'+tr("Add reference image")+'</span></button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>':'<button type="button" class="ai-ref-add" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'<span>'+tr("Add reference image")+'</span><small>'+tr("PNG, JPEG or WebP")+'</small></button>')+'</div>'+fieldHtml("","AI image generation model",
+  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form">'+aiSecOpenTag("template","Template")+'<div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'"'+(t.owner?' title="'+attr(tr("By")+" "+person(t.owner).name)+'"':'')+' onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+(t.private?'<span class="ai-tpl-own" title="'+attr(tr("Only you"))+'" aria-label="'+attr(tr("Only you"))+'">'+I.lock+'</span>':'')+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div>'+aiSecClose()+aiSecOpenTag("brief","Brief & style")+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+aiSecClose()+aiSecCharacters()+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!(typeof aiRefUsable==="function"?aiRefUsable():aiSelectedModelCan("reference"))?'<button type="button" class="ai-ref-add" disabled>'+I.up+'<span>'+tr("Add reference image")+'</span></button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>'+(typeof aiRefMysticHtml==="function"?aiRefMysticHtml():""):'<button type="button" class="ai-ref-add" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'<span>'+tr("Add reference image")+'</span><small>'+tr("PNG, JPEG or WebP")+'</small></button>')+'</div>'+fieldHtml("","AI image generation model",
     /* §P1-1 members choose a registry entry by display name. There is no
        arbitrary Model ID entry; the server resolves the real ID. */
     '<select onchange="aiSetModel(this.value)">'
@@ -10030,7 +10041,8 @@ function aiLocalAnswer(q){
   "Choose 2 automatically":"Pilih 2 otomatis",
   "Legal line shown at the bottom":"Kalimat legal di bagian bawah",
   "Each line stays on its own line. Leave empty for no disclaimer.":"Setiap baris tetap di barisnya sendiri. Kosongkan bila tanpa disclaimer.",
-  "PNG, JPEG or WebP":"PNG, JPEG, atau WebP"
+  "PNG, JPEG or WebP":"PNG, JPEG, atau WebP",
+  "This model does not support reference images.":"Model ini belum bisa memakai gambar referensi."
 });
 </script>
 <script>
@@ -10976,7 +10988,7 @@ function aiBriefToggleRef(name,on){ var tk=task(AI_BRIEF.taskId); if(!tk) return
 /* §125 which attachments the tool can actually use */
 function aiBriefRefSupported(f,toolId){ var t=String(f.type||"").toLowerCase(), n=String(f.name||"").toLowerCase(); if(toolId==="image_generator") return t==="image"||/\.(png|jpe?g|webp)$/.test(n); return t==="pdf"||/\.(pdf|docx?|txt|md)$/.test(n)||t==="image"; }
 /* ---------- §128 the AI Hub UI block ---------- */
-function aiBriefSourceHtml(){ var seg='<div class="field"><label>'+tr("Brief source")+'</label><div class="seg ai-brief-seg"><button class="'+(AI_BRIEF.source==="manual"?"on":"")+'" onclick="aiSetBriefSource(\'manual\')">'+tr("Manual brief")+'</button><button class="'+(AI_BRIEF.source==="task"?"on":"")+'" data-tour="ai-use-task" onclick="aiSetBriefSource(\'task\')">'+I.tasks+tr("Use Task")+'</button></div></div>';
+function aiBriefSourceHtml(){ var seg='<div class="field"><label>'+tr("Brief source")+'</label><div class="seg ai-brief-seg"><button class="'+(AI_BRIEF.source==="manual"?"on":"")+'" onclick="aiSetBriefSource(\'manual\')"><span>'+tr("Manual brief")+'</span></button><button class="'+(AI_BRIEF.source==="task"?"on":"")+'" data-tour="ai-use-task" onclick="aiSetBriefSource(\'task\')">'+I.tasks+'<span>'+tr("Use Task")+'</span></button></div></div>';
   if(AI_BRIEF.source!=="task") return seg;
   var tk=AI_BRIEF.taskId?task(AI_BRIEF.taskId):null;
   if(!tk) return seg+'<div class="ai-brief-pick"><button class="btn" onclick="aiPickBriefTask(this)">'+I.tasks+tr("Select task")+'</button><p class="hint">'+tr("Only tasks you can access appear here. The task's brief becomes the AI context; the Admin base prompt stays in charge.")+'</p></div>';
@@ -10998,7 +11010,7 @@ function aiBriefSourceHtml(){ var seg='<div class="field"><label>'+tr("Brief sou
 function aiBriefBlocksGenerate(){ if(AI_BRIEF.source!=="task"||!AI_BRIEF.taskId) return null; var tk=task(AI_BRIEF.taskId); if(!tk) return tr("The selected task is no longer available."); var r=aiBriefReadiness(AI_BRIEF.snapshot||aiBriefNormalise(tk),AI_BRIEF.toolId); if(r.missingRequired.length&&!r.allowIncomplete) return tr("Brief incomplete")+": "+r.missingRequired.map(function(c){ return tr(c.label); }).join(", "); if(r.missingRequired.length&&!AI_BRIEF.incompleteAck) return tr("Brief incomplete")+" — "+tr("choose Continue with available information first."); return null; }
 /* §123 what every generation stores */
 function aiBriefSnapshotForRun(){ if(AI_BRIEF.source!=="task"||!AI_BRIEF.taskId) return null; return {task_id:AI_BRIEF.taskId,task_title:(AI_BRIEF.snapshot||{}).task_title,task_version:AI_BRIEF.taskHash,task_context_snapshot:AI_BRIEF.snapshot,tool_id:AI_BRIEF.toolId,admin_prompt_version:AI_BRIEF.adminPromptVersion,tool_prompt_version:AI_BRIEF.toolPromptVersion,user_instruction:AI_BRIEF.instruction,generated_working_prompt:AI_BRIEF.workingPrompt,created_at:new Date().toISOString(),generated_by:ME}; }
-Object.assign(UI_ID,{"Brief source":"Sumber brief","Manual brief":"Brief manual","Use Task":"Gunakan Task","Select task":"Pilih task","Search task title, ID or project…":"Cari judul task, ID, atau project…","Only tasks you can access appear here. The task's brief becomes the AI context; the Admin base prompt stays in charge.":"Hanya task yang bisa kamu akses yang muncul. Brief task menjadi konteks AI; base prompt Admin tetap berlaku.","Open Task":"Buka Task","Change":"Ganti","Task updated since this prompt was created.":"Task berubah sejak prompt ini dibuat.","Refresh brief":"Segarkan brief","Objective":"Tujuan","Deliverables":"Deliverable","Requirements":"Persyaratan","Formats":"Format","Brief readiness":"Kesiapan brief","Brief incomplete":"Brief belum lengkap","Missing":"Kurang","Continue with available information":"Lanjutkan dengan informasi yang ada","Add missing details":"Tambahkan detail yang kurang","Include references":"Sertakan referensi","Not supported by this tool":"Tidak didukung alat ini","Only files the tool supports are sent. Drive folder links are shown as references, never read in full.":"Hanya file yang didukung alat yang dikirim. Tautan folder Drive hanya ditampilkan sebagai referensi.","Include task discussion":"Sertakan diskusi task","Off: only comments marked decision/approved/requirement are used.":"Mati: hanya komentar bertanda decision/approved/requirement yang dipakai.","Additional instruction":"Instruksi tambahan","optional":"opsional","Make it feel more energetic and less corporate…":"Buat terasa lebih energik dan tidak terlalu korporat…","Refresh prompt":"Segarkan prompt","Refine with AI":"Perhalus dengan AI","Refining…":"Memperhalus…","Admin rules":"Aturan admin","Protected":"Terkunci","Tool rules":"Aturan alat","Applied by the workspace template for this tool.":"Diterapkan lewat template workspace untuk alat ini.","Task brief prompt":"Prompt brief task","AI generated":"Dibuat AI","AI refined":"Diperhalus AI","Editable. Regenerate any time with Refresh prompt.":"Bisa diedit. Buat ulang kapan saja lewat Segarkan prompt.","This generation follows workspace AI rules.":"Generate ini mengikuti aturan AI workspace.","The selected task is no longer available.":"Task yang dipilih tidak lagi tersedia.","choose Continue with available information first.":"pilih Lanjutkan dengan informasi yang ada terlebih dahulu.","Your role cannot use AI Hub.":"Peranmu tidak dapat memakai AI Hub.","Working prompt refined by AI":"Prompt kerja diperhalus AI","AI refinement needs the server version with a configured chat model.":"Penghalusan AI memerlukan versi server dengan model chat yang dikonfigurasi.","Use in AI Hub":"Gunakan di AI Hub"});
+Object.assign(UI_ID,{"Brief source":"Sumber brief","Manual brief":"Brief manual","Use Task":"Pakai Task","Select task":"Pilih task","Search task title, ID or project…":"Cari judul task, ID, atau project…","Only tasks you can access appear here. The task's brief becomes the AI context; the Admin base prompt stays in charge.":"Hanya task yang bisa kamu akses yang muncul. Brief task menjadi konteks AI; base prompt Admin tetap berlaku.","Open Task":"Buka Task","Change":"Ganti","Task updated since this prompt was created.":"Task berubah sejak prompt ini dibuat.","Refresh brief":"Segarkan brief","Objective":"Tujuan","Deliverables":"Deliverable","Requirements":"Persyaratan","Formats":"Format","Brief readiness":"Kesiapan brief","Brief incomplete":"Brief belum lengkap","Missing":"Kurang","Continue with available information":"Lanjutkan dengan informasi yang ada","Add missing details":"Tambahkan detail yang kurang","Include references":"Sertakan referensi","Not supported by this tool":"Tidak didukung alat ini","Only files the tool supports are sent. Drive folder links are shown as references, never read in full.":"Hanya file yang didukung alat yang dikirim. Tautan folder Drive hanya ditampilkan sebagai referensi.","Include task discussion":"Sertakan diskusi task","Off: only comments marked decision/approved/requirement are used.":"Mati: hanya komentar bertanda decision/approved/requirement yang dipakai.","Additional instruction":"Instruksi tambahan","optional":"opsional","Make it feel more energetic and less corporate…":"Buat terasa lebih energik dan tidak terlalu korporat…","Refresh prompt":"Segarkan prompt","Refine with AI":"Perhalus dengan AI","Refining…":"Memperhalus…","Admin rules":"Aturan admin","Protected":"Terkunci","Tool rules":"Aturan alat","Applied by the workspace template for this tool.":"Diterapkan lewat template workspace untuk alat ini.","Task brief prompt":"Prompt brief task","AI generated":"Dibuat AI","AI refined":"Diperhalus AI","Editable. Regenerate any time with Refresh prompt.":"Bisa diedit. Buat ulang kapan saja lewat Segarkan prompt.","This generation follows workspace AI rules.":"Generate ini mengikuti aturan AI workspace.","The selected task is no longer available.":"Task yang dipilih tidak lagi tersedia.","choose Continue with available information first.":"pilih Lanjutkan dengan informasi yang ada terlebih dahulu.","Your role cannot use AI Hub.":"Peranmu tidak dapat memakai AI Hub.","Working prompt refined by AI":"Prompt kerja diperhalus AI","AI refinement needs the server version with a configured chat model.":"Penghalusan AI memerlukan versi server dengan model chat yang dikonfigurasi.","Use in AI Hub":"Gunakan di AI Hub"});
 </script>
 <script>
 /* ============================================================
@@ -11020,9 +11032,21 @@ function aiCharactersFor(n){ n=Math.max(0,Math.min(AI_CHAR_PICK,+n||0)); return 
    turns it on and chooses them; any other starts with it off. A design from before the switch counts as on when it
    has characters chosen. */
 function aiCharactersOn(){ if(typeof AIF==="undefined") return false; return AIF.useCharacters!==undefined?!!AIF.useCharacters:(AIF.characters||[]).length>0; }
+/* Which provider a generation really goes to, as the server decides it (aiImageProvider): the workspace's image
+   endpoint first (a Magnific one sends everything to Mystic, whatever the model is called), then the model. */
+function aiImageRoute(){
+  var c=(typeof aiCfg==="function"?aiCfg().image:{})||{}, m=typeof aiResolveModel==="function"?aiResolveModel(AIF&&AIF.modelRegistryId):null, host="";
+  try{ host=new URL(c.endpoint).hostname; }catch(e){}
+  if(/^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test(host)) return "magnific";
+  if(host==="api.openai.com") return "openai"; if(host==="generativelanguage.googleapis.com") return "gemini";
+  var id=(m&&m.modelId)||c.model||""; if(/^(gpt-image|dall-e)/i.test(id)) return "openai"; if(/^(gemini|imagen)/i.test(id)) return "gemini";
+  return (m&&m.provider)||c.provider||"magnific";
+}
+/* a person's likeness from photos needs a model that takes reference pictures; Magnific Mystic never does */
+function aiCharactersCan(){ return aiImageRoute()!=="magnific"&&(typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference")); }
 function aiSelectedCharacters(){
   if (!aiCharactersOn()) return [];
-  if (typeof aiSelectedModelCan==="function" && !aiSelectedModelCan("reference")) return [];
+  if (!aiCharactersCan()) return [];
   var list=aiCharacters();
   return ((AIF&&AIF.characters)||[]).map(function(id){ return byId(list,id); }).filter(Boolean).slice(0,AI_CHAR_PICK);
 }
@@ -11039,15 +11063,17 @@ function aiCharactersPrompt(){
 /* ---------- AI Hub: whether people appear, who, and as what ---------- */
 function aiCharactersFieldHtml(){
   var list=aiCharacters(); if(!list.length) return "";
-  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), use=aiCharactersOn(), on=AIF.characters||[];
+  var can=aiCharactersCan(), use=aiCharactersOn(), on=AIF.characters||[];
   var h='<div class="field ai-chars"><div class="ai-chars-head"><label for="aiCharsSwitch">'+tr("Include brand characters")+'</label><button type="button" id="aiCharsSwitch" class="switch'+(use?" on":"")+'" role="switch" aria-checked="'+(use?"true":"false")+'" onclick="aiCharactersSwitch()"></button></div>';
+  /* on Magnific Mystic they cannot work at all: the switch says so rather than letting someone find out */
+  if(aiImageRoute()==="magnific") return h.replace('onclick="aiCharactersSwitch()"','disabled aria-disabled="true"').replace(' on"','"').replace('aria-checked="true"','aria-checked="false"')+'<p class="hint">'+tr("This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers.")+'</p></div>';
   if(!use) return h+'<p class="hint">'+tr("Off: no people from your brand characters, and nothing about them in the prompt.")+'</p></div>';
   return h+'<div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
     + list.map(function(c){ var sel=can&&on.indexOf(c.id)>=0, ph=(c.photos||[]).filter(aiCharPhotoOk)[0];
         return '<button type="button" class="ai-char-card'+(sel?' on':'')+'" aria-pressed="'+(sel?"true":"false")+'"'+(can?'':' disabled')+' title="'+attr(c.description||c.name)+'" onclick="aiToggleCharacter('+jsq(c.id)+')"><img src="'+attr(ph)+'" alt=""><span data-no-trans>'+esc(c.name)+'</span></button>'; }).join("")
     + '</div>'
     + (can?'<label class="ai-char-role-label" for="aiCharRole">'+tr("Character role")+'</label><textarea id="aiCharRole" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'" oninput="AIF.characterRole=this.value">'+esc(AIF.characterRole||"")+'</textarea>':'')
-    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):aiImageRoute()==="magnific"?tr("This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
 }
 /* on: the first character is chosen if nobody is yet */
 function aiCharactersSwitch(){
@@ -11061,6 +11087,20 @@ function aiToggleCharacter(id){
   else { if(on.length>=AI_CHAR_PICK) return toast(tr("Choose up to two people"),"bad"); on.push(id); }
   aiHistoryBefore(); AIF.characters=on; AIF.useCharacters=true; renderScreen(false);
 }
+
+/* ---------- the member's own reference picture (Oct 2026) ----------
+   A model that takes reference pictures gets it as it is; Magnific Mystic follows either its style (colour, light,
+   mood) or its structure (shape, composition), as strongly as the slider says, with the content still from the
+   prompt. */
+function aiRefUsable(){ return aiImageRoute()==="magnific"||(typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference")); }
+function aiRefMysticHtml(){
+  if(!AIF.reference||aiImageRoute()!=="magnific") return "";
+  var mode=AIF.referenceMode==="structure"?"structure":"style", k=AIF.referenceStrength==null?50:+AIF.referenceStrength;
+  return '<div class="ai-ref-mode"><div class="seg ai-brief-seg" role="radiogroup" aria-label="'+attr(tr("Follow the picture's"))+'"><button type="button" role="radio" aria-checked="'+(mode==="style")+'" class="'+(mode==="style"?"on":"")+'" onclick="aiRefSet(\'referenceMode\',\'style\')"><span>'+tr("Style")+'</span></button><button type="button" role="radio" aria-checked="'+(mode==="structure")+'" class="'+(mode==="structure"?"on":"")+'" onclick="aiRefSet(\'referenceMode\',\'structure\')"><span>'+tr("Structure")+'</span></button></div>'
+    + '<label class="ai-ref-strength"><span>'+tr("Strength")+'</span><input type="range" min="0" max="100" step="5" value="'+k+'" aria-label="'+attr(tr("Strength"))+'" oninput="AIF.referenceStrength=+this.value;this.nextElementSibling.textContent=this.value"><b>'+k+'</b></label>'
+    + '<p class="hint">'+tr(mode==="style"?"Colour, light and mood follow the picture; what is in it comes from the prompt.":"Shape and composition follow the picture; what is in it comes from the prompt.")+'</p></div>';
+}
+function aiRefSet(key,value){ aiHistoryBefore(); AIF[key]=value; renderScreen(false); }
 
 /* ---------- Settings: the admin's list ---------- */
 function setAICharacters(){
@@ -11137,6 +11177,13 @@ function aiCharPhotoRemove(id,i){
   "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang kamu pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
   "This model cannot use reference photos. Choose a model that accepts reference images to use brand characters.":"Model ini tidak bisa memakai foto acuan. Pilih model yang menerima gambar referensi untuk memakai karakter brand.",
   "Choose up to two people":"Pilih maksimal dua orang",
+  "This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers.":"Workspace ini membuat gambar dengan Magnific Mystic, yang tidak bisa mempertahankan wajah dari foto. Karakter brand butuh OpenAI (GPT Image) atau Gemini (Nano Banana) sebagai penyedia gambar, di Pengaturan → AI → Providers.",
+  "Follow the picture's":"Ikuti gambar dari sisi",
+  "Style":"Gaya",
+  "Structure":"Struktur",
+  "Strength":"Kekuatan",
+  "Colour, light and mood follow the picture; what is in it comes from the prompt.":"Warna, cahaya, dan nuansa mengikuti gambar; isinya tetap dari prompt.",
+  "Shape and composition follow the picture; what is in it comes from the prompt.":"Bentuk dan komposisi mengikuti gambar; isinya tetap dari prompt.",
   "Include brand characters":"Masukkan karakter brand",
   "Off: no people from your brand characters, and nothing about them in the prompt.":"Mati: tidak ada orang dari karakter brand, dan tidak ada kalimat tentang mereka di prompt.",
   "Character role":"Peran karakter",
