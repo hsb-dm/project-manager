@@ -30,7 +30,7 @@ var CAP_GROUPS=[
   ["Reviews & requests",["review_any","submit_request","decide_request"]],
   ["Progress notes",["view_progress_notes","write_progress_notes"]],
   ["Assets & knowledge",["manage_assets","manage_knowledge"]],
-  ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates"]],
+  ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates","save_own_ai_templates"]],
   ["Insights",["view_analytics"]]];
 var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Other":"more"};
 /* the capabilities of a role, in their groups; any the list does not name yet go under Other */

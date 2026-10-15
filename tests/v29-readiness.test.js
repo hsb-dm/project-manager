@@ -62,7 +62,10 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 20000 }
   assert.equal(r.headers.get('cache-control'), 'no-cache');
   const etag = r.headers.get('etag'); assert.ok(etag);
   const wire = Number(r.headers.get('content-length'));
-  assert.ok(wire < 700 * 1024, 'compressed shell under 700 KB, got ' + wire);
+  /* 700 → 760 KB (October 2026): AI Hub's poster look, brand characters and fonts, templates saved from the canvas
+     (for everyone or oneself), the screen-fitting layout and extra permissions for one person took the compressed
+     shell 2 KB past 700 KB (about 702 KB). */
+  assert.ok(wire < 760 * 1024, 'compressed shell under 760 KB, got ' + wire);
   const html = fs.readFileSync(path.join(root, 'public', 'index.html'));
   /* 2.2 → 2.4 MB (October 2026): the comment toolbar, @mentions, the simplified Assets & versions
      tab and named Drive links took the shell 14 KB past 2.2 MB. What is downloaded is the
@@ -75,8 +78,9 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 20000 }
      the fuller AI snapshot took it 5 KB past 2.6 MB; compressed it is about 616 KB, the 700 KB limit unchanged.
      2.7 → 2.8 MB (October 2026): project discussions, capsules for named links while writing, announcement e-mails
      and each person's choice of notifications took it 2 KB past 2.7 MB; compressed it is about 625 KB, the 700 KB
-     limit unchanged. */
-  assert.ok(html.length < 2.8 * 1024 * 1024, 'uncompressed shell under 2.8 MB, got ' + html.length);
+     limit unchanged.
+     2.8 → 3.0 MB (October 2026): the AI Hub work above took it 9 KB past 2.8 MB; compressed it is about 702 KB. */
+  assert.ok(html.length < 3.0 * 1024 * 1024, 'uncompressed shell under 3.0 MB, got ' + html.length);
   const again = await fetch(s.base + '/', { headers: { 'if-none-match': etag } });
   assert.equal(again.status, 304);
   const gz = await new Promise((res, rej) => require('node:http').get(s.base + '/', { headers: { 'accept-encoding': 'gzip' } }, m => { const c = []; m.on('data', d => c.push(d)); m.on('end', () => res({ enc: m.headers['content-encoding'], body: Buffer.concat(c) })); m.on('error', rej); }));

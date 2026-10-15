@@ -89,6 +89,16 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('ai_brand_prompt_poster', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[ai] brand default prompt: " + e.message); }
+/* AI Hub templates kept for oneself got a permission of their own (Oct 2026): every role that can use AI Hub gets it,
+   once; from then on it is the admin's, per role, in Roles & permissions */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='caps_own_ai_templates'").get()) {
+    db.prepare("SELECT id, permissions FROM roles").all().forEach(r => { let p = []; try { p = JSON.parse(r.permissions || "[]"); } catch (e) {} if (!p.includes("use_ai_hub") || p.includes("save_own_ai_templates")) return; db.prepare("UPDATE roles SET permissions=? WHERE id=?").run(JSON.stringify(p.concat(["save_own_ai_templates"])), r.id); });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_own_ai_templates', ?)").run(new Date().toISOString());
+  }
+} catch (e) { console.error("[roles] own AI templates capability: " + e.message); }
+/* permissions given to one person on top of their role (Oct 2026), until a date or until taken back */
+try { db.exec("CREATE TABLE IF NOT EXISTS cap_grants (workspace_id TEXT NOT NULL, user_id TEXT NOT NULL, cap TEXT NOT NULL, expires_at TEXT, granted_by TEXT, granted_at TEXT NOT NULL, PRIMARY KEY (workspace_id, user_id, cap))"); } catch (e) { console.error("[roles] extra permissions table: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
 /* v38: a removed member keeps their user row (history points at it) but loses everything that
    made the account usable: sign-in email, password, sessions. The email is free to be added or
@@ -236,7 +246,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -269,11 +279,18 @@ function checkStoredFiles(doc) {
   (doc.comments || []).forEach(c => (c.attachments || []).forEach(a => { if (a.preview) validateEmbeddedImage(a.preview, "Comment preview"); if (a.url && !filestore.isStoredUrl(db, a.url)) safeHttpsUrl(a.url, "Comment file link"); }));
 }
 
+/* extra permissions (Oct 2026): those still running; a date is the last day they hold */
+const CAP_IDS = new Set(CAPS.map(c => c[0]));
+function capGrantsActive(rows) { const today = new Date().toISOString().slice(0, 10); return rows.filter(g => CAP_IDS.has(g.cap) && (!g.expiresAt || g.expiresAt >= today)); }
+function capGrantsFor(userId) { try { return capGrantsActive(db.prepare("SELECT cap, expires_at AS expiresAt FROM cap_grants WHERE workspace_id=? AND user_id=?").all(WS_ID, userId)); } catch (e) { return []; } }
+function capGrantsAll() { try { return capGrantsActive(db.prepare("SELECT user_id AS userId, cap, expires_at AS expiresAt, granted_by AS grantedBy, granted_at AS grantedAt FROM cap_grants WHERE workspace_id=? ORDER BY user_id, cap").all(WS_ID)); } catch (e) { return []; } }
 function userContext(id) {
   const m = db.prepare("SELECT wm.role_id, wm.is_stakeholder, u.name, u.email FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND wm.user_id=? AND u.is_active=1 AND coalesce(wm.pending,0)=0").get(WS_ID, id);
   if (!m) return null;
   const r = db.prepare("SELECT permissions, rank, name AS role_name FROM roles WHERE id=?").get(m.role_id); const caps = {}; (J(r && r.permissions, [])).forEach(c => { caps[c] = true; });
-  return { id, name: m.name, email: m.email, role: m.role_id, roleName: r ? r.role_name : m.role_id, rank: r ? (r.rank || 0) : 0, caps, stakeholder: !!m.is_stakeholder, teams: db.prepare("SELECT team_id FROM team_memberships WHERE user_id=?").all(id).map(r => r.team_id), ledTeams: db.prepare("SELECT id FROM teams WHERE workspace_id=? AND team_lead_id=?").all(WS_ID, id).map(r => r.id) };
+  /* what an admin gave this person on top of their role, while it lasts */
+  const extraCaps = capGrantsFor(id); extraCaps.forEach(g => { caps[g.cap] = true; });
+  return { id, name: m.name, email: m.email, role: m.role_id, roleName: r ? r.role_name : m.role_id, rank: r ? (r.rank || 0) : 0, caps, extraCaps, stakeholder: !!m.is_stakeholder, teams: db.prepare("SELECT team_id FROM team_memberships WHERE user_id=?").all(id).map(r => r.team_id), ledTeams: db.prepare("SELECT id FROM teams WHERE workspace_id=? AND team_lead_id=?").all(WS_ID, id).map(r => r.id) };
 }
 const MAX_BODY_BYTES = Math.max(1_000_000, +(process.env.COS_MAX_BODY_BYTES || 12_000_000));
 const readBody = (req) => new Promise((res, rej) => { let b = "", rejected = false; const declared = +(req.headers["content-length"] || 0); if (declared > MAX_BODY_BYTES) return rej(new HttpError(413, "Body too large")); req.on("data", c => { if (rejected) return; b += c; if (Buffer.byteLength(b) > MAX_BODY_BYTES) { rejected = true; rej(new HttpError(413, "Body too large")); } }); req.on("end", () => { if (rejected) return; try { res(b ? JSON.parse(b) : {}); } catch { rej(new HttpError(400, "Invalid JSON")); } }); });
@@ -436,7 +453,7 @@ const RAW_BODY = new Set(["/api/cloud/gdrive/upload", "/api/files/upload"]);
 const OPEN = new Set(["/api/auth/session", "/api/auth/status", "/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/auth/forgot", "/api/auth/reset", "/api/auth/reset/check", "/api/health"]);
 function readRoles() { return db.prepare("SELECT * FROM roles ORDER BY rank DESC, sort_order, name").all().map(r => ({ id: r.id, name: r.name, description: r.description || "", permissions: J(r.permissions, []), rank: r.rank || 0, system: !!r.is_system })); }
 function publicUser(id) { const u = db.prepare("SELECT id, name, email, initials, avatar_color FROM users WHERE id=?").get(id); const m = db.prepare("SELECT role_id, job_title FROM workspace_members WHERE user_id=? AND workspace_id=?").get(id, WS_ID); return u && { id: u.id, name: u.name, email: u.email, ini: u.initials, c: u.avatar_color, perm: m ? m.role_id : null, role: m ? m.job_title : "" }; }
-function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
+function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; if (w.ai && Array.isArray(w.ai.promptTemplates)) w.ai.promptTemplates = w.ai.promptTemplates.filter(t => !t || !t.private || t.owner === u.id);   /* someone's own templates are theirs alone */ /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
 const route = (method, pattern, handler) => routes.push({ method, re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), handler });
 require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
 /* v18 §144–147 Messages: the SSE stream handler needs the raw response, which route handlers receive as ctx.res */
@@ -652,6 +669,7 @@ route("GET", "/api/live/:kind", (u, p) => {
     case "knowledge": return { knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID) };
     case "workspace": return { ws: workspaceFor(u) };
     case "roles": return { roles: readRoles() };
+    case "grants": return { mine: capGrantsFor(u.id), grants: can.manageRoles(u) ? capGrantsAll() : [] };
     case "emoji": return { customEmoji: readEmoji() };
     /* someone's own bell, after they changed what they want to see in it */
     case "notifs": return { notifs: readNotifsFor(u.id) };
@@ -685,7 +703,7 @@ route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
   ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
-  savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
+  savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, capGrants: can.manageRoles(u) ? capGrantsAll() : [], pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
 }));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */
@@ -1073,10 +1091,11 @@ function tplFrom(b, userId) {
   const color = k => { if (TPL_COLOR.test(String(t[k] || ""))) out[k] = t[k]; };
   out.name = String(t.name || "").trim().slice(0, 80); if (!out.name) throw new HttpError(400, "Give the template a name");
   ["brief", "style", "negative"].forEach(k => str(k, 4000)); ["headline", "sub", "cta", "badge"].forEach(k => str(k, 400));
-  str("size", 24); str("layout", 24); str("disclaimerText", 600); str("headlineFont", 60); str("subFont", 60);
+  str("size", 24); str("layout", 24); str("disclaimerText", 600); str("headlineFont", 60); str("subFont", 60); str("characterPrompt", 400);
   ["background", "textColor", "subColor", "accentColor", "badgeColor", "ctaColor", "ctaStrokeColor"].forEach(color);
   num("customW", 64, 4096); num("customH", 64, 4096); num("ctaRadius", 0, 50); num("ctaStrokeWidth", 0, 20); num("people", 0, 2); num("safeMargin", 0, 25);
   ["safeTop", "safeRight", "safeBottom", "safeLeft"].forEach(k => num(k, 0, 4096));
+  if (t.private === true) out.private = true;   /* only its maker sees it (Oct 2026) */
   if (typeof t.ctaStroke === "boolean") out.ctaStroke = t.ctaStroke; if (typeof t.safeLocked === "boolean") out.safeLocked = t.safeLocked;
   if (["auto", "left", "center", "right"].indexOf(t.textAlign) >= 0) out.textAlign = t.textAlign;
   if (["top_left", "top_right", "bottom_left", "bottom_right"].indexOf(t.logoPosition) >= 0) out.logoPosition = t.logoPosition;
@@ -1093,31 +1112,58 @@ function tplFrom(b, userId) {
   return out;
 }
 const tplList = () => { const a = sz.readAIRaw(db, WS_ID) || {}; return Array.isArray(a.promptTemplates) ? a.promptTemplates : []; };
-const tplWrite = list => { const a = sz.readAIRaw(db, WS_ID) || {}; a.promptTemplates = list; db.prepare("UPDATE workspaces SET ai_settings=? WHERE id=?").run(JSON.stringify(a), WS_ID); return { promptTemplates: list }; };
-const tplMayChange = (u, entry) => can.manageWorkspace(u) || !!(entry && entry.owner && entry.owner === u.id && can.saveAiTemplates(u));
+/* a template saved "only for me" goes to its maker alone: the list anyone receives leaves out other people's */
+const tplFor = (u, list) => (list || []).filter(t => !t || !t.private || t.owner === u.id);
+const tplWrite = (u, list) => { const a = sz.readAIRaw(db, WS_ID) || {}; a.promptTemplates = list; db.prepare("UPDATE workspaces SET ai_settings=? WHERE id=?").run(JSON.stringify(a), WS_ID); return { promptTemplates: tplFor(u, list) }; };
+/* keeping a template for oneself takes the own-templates permission, sharing it the everyone one; an admin changes any */
+const tplMayKeep = (u, isPrivate) => isPrivate ? can.saveOwnAiTemplates(u) : can.saveAiTemplates(u);
+const tplMayChange = (u, entry, isPrivate) => can.manageWorkspace(u) || !!(entry && entry.owner && entry.owner === u.id && tplMayKeep(u, isPrivate));
 const tplId = id => { if (!/^[A-Za-z0-9_-]{1,40}$/.test(String(id || ""))) throw new HttpError(400, "Unknown template"); return id; };
+/* ---------- extra permissions for one person (Oct 2026) ----------
+   Someone who manages roles gives a person permissions on top of their role, all of them until the same optional last
+   day; the role itself does not change. Not to oneself, not to an admin (who has everything), not to someone whose
+   role ranks above one's own, and only permissions their role lacks. */
+route("GET", "/api/cap-grants", (u) => { forbid(can.manageRoles(u), "see extra permissions"); return { grants: capGrantsAll() }; });
+route("PUT", "/api/members/:id/cap-grants", (u, p, q, b, ctx) => {
+  forbid(can.manageRoles(u), "give extra permissions");
+  const target = sz.readPeople(db, WS_ID)[p.id]; if (!target || target.active === false) throw new HttpError(404, "Member not found");
+  if (p.id === u.id) throw new HttpError(400, "You cannot give yourself extra permissions");
+  if (target.perm === "admin") throw new HttpError(400, "An admin already has every permission");
+  forbidAboveMe(u, target.perm, "give extra permissions to this member");
+  const role = db.prepare("SELECT permissions FROM roles WHERE id=?").get(target.perm), fromRole = new Set(J(role && role.permissions, []));
+  const caps = [...new Set((Array.isArray(b && b.caps) ? b.caps : []).map(String))].filter(c => CAP_IDS.has(c) && !fromRole.has(c)).slice(0, 60);
+  const until = b && b.expiresAt ? String(b.expiresAt).slice(0, 10) : null;
+  if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) throw new HttpError(400, "The last day must be a date");
+  if (until && until < new Date().toISOString().slice(0, 10)) throw new HttpError(400, "The last day has already passed");
+  tx(db, () => { db.prepare("DELETE FROM cap_grants WHERE workspace_id=? AND user_id=?").run(WS_ID, p.id); const ins = db.prepare("INSERT INTO cap_grants (workspace_id,user_id,cap,expires_at,granted_by,granted_at) VALUES (?,?,?,?,?,?)"); caps.forEach(c => ins.run(WS_ID, p.id, c, until, u.id, now())); });
+  act(u, "edited", "member", p.id, { what: "extra permissions" }); security.log("member_extra_permissions_changed", { userId: u.id, ip: ctx.ip, memberId: p.id, caps, until });
+  return { grants: capGrantsAll() };
+});
 route("POST", "/api/ai/templates", (u, p, q, b) => {
-  forbid(can.saveAiTemplates(u), "save AI Hub templates");
+  forbid(can.saveAiTemplates(u) || can.saveOwnAiTemplates(u), "save AI Hub templates");
   const list = tplList(); if (list.filter(x => x && !x.deleted).length >= 100) throw new HttpError(400, "This workspace has 100 templates. Remove one before adding another.");
   const t = tplFrom(b, u.id); t.id = "p_" + crypto.randomBytes(5).toString("hex"); t.owner = u.id; t.createdAt = t.updatedAt = now();
-  list.push(t); act(u, "created", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(list), { id: t.id });
+  forbid(tplMayKeep(u, !!t.private), t.private ? "save AI Hub templates for yourself" : "save AI Hub templates for everyone");
+  if (t.private && list.filter(x => x && x.private && x.owner === u.id).length >= 30) throw new HttpError(400, "You have 30 templates of your own. Remove one before adding another.");
+  list.push(t); act(u, "created", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(u, list), { id: t.id });
 });
 route("PUT", "/api/ai/templates/:id", (u, p, q, b) => {
   const id = tplId(p.id), list = tplList(), at = list.findIndex(x => x && x.id === id), entry = at >= 0 ? list[at] : null;
-  forbid(tplMayChange(u, entry), "change this template");
   const t = tplFrom(b, u.id); t.id = id; t.updatedAt = now(); t.updatedBy = u.id;
-  if (entry && entry.owner) { t.owner = entry.owner; t.createdAt = entry.createdAt; }
+  forbid(tplMayChange(u, entry, entry && entry.owner && entry.owner !== u.id ? !!entry.private : !!t.private), "change this template");
+  if (entry && entry.owner) { t.owner = entry.owner; t.createdAt = entry.createdAt; if (entry.owner !== u.id) { if (entry.private) t.private = true; else delete t.private; } }   /* only the maker says who sees it */
+  else delete t.private;   /* a built-in is everyone's */
   if (at >= 0) list[at] = t; else list.push(t);
-  act(u, "edited", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(list), { id });
+  act(u, "edited", "workspace", WS_ID, { what: "AI Hub template " + t.name }); return Object.assign(tplWrite(u, list), { id });
 });
 route("DELETE", "/api/ai/templates/:id", (u, p) => {
   const id = tplId(p.id), list = tplList(), at = list.findIndex(x => x && x.id === id), entry = at >= 0 ? list[at] : null;
-  forbid(tplMayChange(u, entry), "remove this template");
+  forbid(tplMayChange(u, entry, !!(entry && entry.private)), "remove this template");
   /* someone's own template goes; a built-in (or one an admin set up) is remembered as removed, so it stays gone */
   if (entry && entry.owner) list.splice(at, 1); else if (at >= 0) list[at] = { id, deleted: true }; else list.push({ id, deleted: true });
-  act(u, "deleted", "workspace", WS_ID, { what: "AI Hub template" }); return tplWrite(list);
+  act(u, "deleted", "workspace", WS_ID, { what: "AI Hub template" }); return tplWrite(u, list);
 });
-route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.ai) { if (b.ai.promptTemplatesReset === true) b.ai.promptTemplates = null; else delete b.ai.promptTemplates; delete b.ai.promptTemplatesReset; } if (b && b.ai && b.ai.characters !== undefined) b.ai.characters = aiCleanCharacters(b.ai.characters, u.id); if (b && b.ai && b.ai.fonts !== undefined) b.ai.fonts = aiCleanFonts(b.ai.fonts, u.id); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return sz.readWorkspace(db, WS_ID); });
+route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.ai) { if (b.ai.promptTemplatesReset === true) b.ai.promptTemplates = null; else delete b.ai.promptTemplates; delete b.ai.promptTemplatesReset; } if (b && b.ai && b.ai.characters !== undefined) b.ai.characters = aiCleanCharacters(b.ai.characters, u.id); if (b && b.ai && b.ai.fonts !== undefined) b.ai.fonts = aiCleanFonts(b.ai.fonts, u.id); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return workspaceFor(u); });   /* as everyone gets it: someone's own templates stay theirs */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */

@@ -126,6 +126,32 @@ Efek samping yang perlu diketahui: memilih **Viewer** membuat orang itu ditandai
 dan kapasitasnya dipaksa `0`. Menaikkan viewer ke role lain mengembalikan kapasitasnya ke 40
 kalau sebelumnya kosong.
 
+### Izin tambahan per orang (Oktober 2026)
+
+Untuk memberi seseorang izin di luar role-nya **tanpa mengganti role** (misalnya seorang Member
+yang sementara mengurus template AI Hub): **Settings → Members** → chip **Izin tambahan** di bawah
+role orang itu. Centang izin yang ditambahkan; izin yang sudah dimiliki role-nya tampil terkunci
+dengan tanda *dari role*. **Berlaku sampai** opsional — setelah tanggal itu lewat, semua izin
+tambahan orang itu berhenti sendiri; kosong berarti berlaku sampai dicabut (**Hapus semua**).
+
+- Hanya pemegang **Create and edit roles** yang bisa memberi, tidak untuk diri sendiri, tidak untuk
+  Admin (sudah punya semua), dan tidak untuk orang dengan role ber-rank lebih tinggi.
+- **Roles & permissions** menampilkan daftar *Izin tambahan*: siapa, izin apa, sampai kapan.
+- Server menggabungkan izin tambahan dengan izin role setiap kali menilai izin; tercatat di
+  activity dan security log.
+
+### Permission template AI Hub (Oktober 2026)
+
+Dua izin terpisah di grup **AI Hub & gallery**:
+
+- **Save AI Hub canvases as templates for everyone** — template untuk semua orang (juga mencakup
+  template pribadi).
+- **Save AI Hub canvases as templates for themselves** — template yang hanya terlihat pembuatnya.
+  Diberikan sekali ke semua role yang punya *Open AI Hub*; setelah itu diatur per role.
+
+Pembuat template mengubah atau menghapus miliknya sesuai izin di atas; admin bisa semua template,
+termasuk template bawaan.
+
 ### Permission AI Gallery
 
 Dievaluasi terpisah, dengan **fallback lama** yang sengaja dipertahankan supaya definisi role

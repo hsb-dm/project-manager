@@ -111,6 +111,26 @@ test('a role with the permission saves templates for everyone; the maker and an 
   assert.equal(r.status, 200); const proto = (await stored()).find(x => x.name === 'Proto');
   assert.deepEqual(Object.keys(proto.editorFields).sort(), ['layerStyles']); assert.deepEqual(proto.editorFields.layerStyles, {});
   assert.equal((await s.req('POST', '/api/ai/templates', tpl({ name: '  ' }), m1)).status, 400);
+  /* "only me": kept for its maker alone, wherever the workspace is sent */
+  r = await s.req('POST', '/api/ai/templates', tpl({ name: 'Just mine', private: true }), m1); assert.equal(r.status, 200, await r.clone().text());
+  const mine = (await r.json()).id;
+  const sees = async ck => ((await (await s.req('GET', '/api/bootstrap', undefined, ck)).json()).ws.ai.promptTemplates || []).some(x => x.id === mine);
+  assert.equal(await sees(m1), true, 'its maker');
+  assert.equal(await sees(m2), false, 'not someone else');
+  assert.equal(await sees(s.admin), false, 'not even an admin');
+  assert.ok(!((await (await s.req('GET', '/api/live/workspace', undefined, m2)).json()).ws.ai.promptTemplates || []).some(x => x.id === mine), 'nor in a live update');
+  const ws3 = (await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json()).ws;
+  const saved3 = await (await s.req('PUT', '/api/workspace', ws3, s.admin)).json();
+  assert.ok(!(saved3.ai.promptTemplates || []).some(x => x.id === mine), 'nor in what a workspace save sends back');
+  assert.ok(!(await (await s.req('POST', '/api/ai/templates', tpl({ name: 'Other' }), m2)).json()).promptTemplates.some(x => x.id === mine), 'nor in another member\'s save');
+  /* an admin changing it does not make it everyone's; its maker can */
+  assert.equal((await s.req('PUT', '/api/ai/templates/' + mine, tpl({ name: 'Just mine, checked' }), s.admin)).status, 200);
+  assert.equal(await sees(m2), false);
+  assert.equal((await s.req('PUT', '/api/ai/templates/' + mine, tpl({ name: 'Now for all' }), m1)).status, 200);
+  assert.equal(await sees(m2), true, 'shared by its maker');
+  /* a built-in is everyone's, whatever is asked */
+  assert.equal((await s.req('PUT', '/api/ai/templates/p_feed_promo', tpl({ name: 'Promo', private: true }), s.admin)).status, 200);
+  assert.equal(((await (await s.req('GET', '/api/bootstrap', undefined, m2)).json()).ws.ai.promptTemplates || []).find(x => x.id === 'p_feed_promo').private, undefined);
   /* the reset */
   const ws2 = (await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json()).ws;
   assert.equal((await s.req('PUT', '/api/workspace', Object.assign({}, ws2, { ai: Object.assign({}, ws2.ai, { promptTemplates: null, promptTemplatesReset: true }) }), s.admin)).status, 200);

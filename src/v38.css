@@ -1371,3 +1371,95 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-tpl-choice{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
 .ai-tpl-choice label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--color-text-primary);cursor:pointer;text-transform:none;letter-spacing:0}
 .ai-tpl-choice input{width:auto;margin:0}
+/* brand characters are optional: a switch, then who and as what */
+.ai-chars-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.ai-chars-head label{margin:0}
+.ai-chars .ai-char-picker{margin-bottom:10px}
+.ai-char-role-label{display:block;margin:2px 0 6px}
+.ai-chars textarea{margin-bottom:6px}
+
+/* ============ AI Hub fits the screen (Oct 2026; ai-hub-layout.js) ============ */
+/* the "not connected" chip beside the template's name */
+.ai-conn-chip{display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding:2px 9px;border-radius:var(--pill);border:1px solid color-mix(in srgb,var(--color-warning,#C9860A) 45%,var(--color-border));background:color-mix(in srgb,var(--color-warning,#C9860A) 12%,var(--color-surface));color:var(--color-text-primary);font-size:11px;font-weight:700;vertical-align:middle;cursor:pointer}
+.ai-conn-chip i{width:7px;height:7px;border-radius:50%;background:var(--color-warning,#C9860A)}
+.ai-conn-chip:hover{border-color:var(--color-warning,#C9860A)}
+/* Creative setup in sections that fold */
+.aihub-form>.ai-sec>summary::after,.aihub-form>.ai-details>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.55;transition:transform .15s}
+.aihub-form>.ai-sec[open]>summary::after,.aihub-form>.ai-details[open]>summary::after{transform:rotate(-135deg)}
+.aihub-form>.ai-sec .ai-details-body>.field{margin:0}
+/* generation history: a strip under the canvas */
+.ai-history-strip{margin:0 10px 10px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken)}
+.ai-hs-head{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 4px}
+.ai-hs-toggle{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:6px 8px;border:0;background:none;color:var(--color-text-primary);font-size:12px;font-weight:700;text-align:left;cursor:pointer}
+.ai-hs-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-hs-toggle .cnt{font-weight:600;color:var(--color-text-tertiary)}
+.ai-hs-caret{margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-135deg);opacity:.55}
+.ai-history-strip:not(.open) .ai-hs-caret{transform:rotate(45deg)}
+.ai-hs-track{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 10px 10px;overscroll-behavior:contain;scrollbar-width:thin}
+.ai-hs-item{position:relative;flex:none}
+.ai-hs-thumb{display:block;width:84px;height:62px;padding:0;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:var(--color-surface);cursor:pointer}
+.ai-hs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ai-hs-thumb .ai-history-placeholder{width:100%;height:100%}
+.ai-hs-thumb:hover,.ai-hs-thumb:focus-visible{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+.ai-hs-peek{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--color-border);background:var(--color-surface);display:grid;place-items:center;opacity:0;transition:opacity .12s;cursor:pointer}
+.ai-hs-peek svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-hs-item:hover .ai-hs-peek,.ai-hs-peek:focus-visible{opacity:1}
+@media (hover:none){.ai-hs-peek{opacity:1}}
+/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself */
+@media (min-width:1181px) and (min-height:620px){
+  .content:has(>.ai-studio){height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+  .content:has(>.ai-studio)>*{flex:none;margin-top:0;margin-bottom:0}
+  .content:has(>.ai-studio)>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+  .ai-studio>.ai-setup,.ai-studio>.ai-props{position:static!important;top:auto!important;max-height:none!important;min-height:0;height:auto;overflow:auto;overscroll-behavior:contain}
+  .ai-studio>.ai-setup>.panel-head,.ai-studio>.ai-props>.panel-head{position:sticky;top:0;z-index:3;background:var(--color-surface)}
+  .ai-studio>.ai-props>.panel-body{padding-bottom:84px}   /* room above the floating AI button */
+  .ai-studio>.ai-canvas-column{min-height:0;display:flex;flex-direction:column}
+  .ai-canvas-column>.ai-artboard{flex:1 1 auto;min-height:0}
+  .ai-artboard>.panel-body{min-height:0}
+  .ai-artboard .ai-artboard-canvas,.ai-artboard .ai-zoom-viewport{flex:1 1 auto;height:auto!important;min-height:0!important}
+  /* the frame with the rulers takes the panel's height, so Fit measures the room there is, not the picture */
+  .ai-artboard>.panel-body>.ai-canvas-frame{flex:1 1 auto;min-height:0}
+  .ai-artboard>.panel-body>#aiCanvas{flex:1 1 auto!important;height:auto!important;min-height:0!important}   /* before the rulers wrap it, too */
+  .ai-hs-track{max-height:84px}
+}
+.ai-hs-empty{font-weight:500;margin-left:6px}
+/* a count typed straight over: no spinner arrows; the one in the panel's header sits in its pill */
+.count-input{font-variant-numeric:tabular-nums}
+.count-input.pill{width:46px;border:0;background:transparent;font:inherit;font-weight:700;text-align:center;outline:none;border-radius:6px;padding:2px 4px}
+.count-input.pill:focus{background:var(--color-surface);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 35%,transparent)}
+.av-count .count-input{width:56px;text-align:center}
+.av-count .count-input:focus{border-color:var(--color-primary);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+/* the keyboard shortcuts: a pop-up over the page */
+.ai-shortcut-pop{position:fixed;z-index:300;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));max-height:min(80vh,680px);overflow:auto;overscroll-behavior:contain;padding:18px 20px!important;border-radius:16px!important;background:var(--color-surface)!important;box-shadow:var(--shadow-lg),0 0 0 100vmax rgba(10,12,20,.28)}
+.ai-shortcut-pop>b{display:block;font-size:15px;margin-right:36px}
+.ai-shortcut-pop .ai-shortcut-x{position:absolute;top:12px;right:12px}
+.ai-hs-thumb .ai-history-placeholder[hidden]{display:none}
+/* a template only its maker sees */
+.ai-tpl-own{display:inline-flex;vertical-align:-2px;margin-left:5px;color:var(--color-text-tertiary)}
+.ai-tpl-own svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-tpl-audience{margin:0}
+.ai-tpl-audience input:disabled+span{opacity:.55}
+/* folding sections and the history strip: the same line chevron as the rest of the app (I.chevd), down when folded, up when open */
+.aihub-form>.ai-sec>summary::after,.aihub-form>.ai-details>summary::after,.ai-hs-caret{content:"";width:16px;height:16px;flex:none;margin-left:auto;border:0!important;opacity:.6;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  transform:none;transition:transform .15s}
+.aihub-form>.ai-sec[open]>summary::after,.aihub-form>.ai-details[open]>summary::after,.ai-history-strip.open .ai-hs-caret{transform:rotate(180deg)}
+.ai-history-strip:not(.open) .ai-hs-caret{transform:none}
+/* extra permissions for one person: the chip under their role in Members, and the dialog's list */
+.cap-grant-chip{display:inline-flex;align-items:center;gap:4px;margin-top:5px;padding:2px 8px;border-radius:var(--pill);border:1px dashed var(--color-border-strong);background:none;font-size:11px;font-weight:600;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
+.cap-grant-chip svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+.cap-grant-chip.on{border-style:solid;border-color:color-mix(in srgb,var(--color-primary) 40%,var(--color-border));background:var(--color-primary-soft);color:var(--color-primary)}
+.cap-grant-chip:disabled{cursor:default}
+.cap-grant-list{display:flex;flex-direction:column;gap:12px;max-height:46vh;overflow:auto;padding-right:4px}
+.cap-grant-group>b{display:block;font-size:12px;margin-bottom:4px}
+.cap-grant-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--color-text-primary);cursor:pointer}
+.cap-grant-row input{width:auto;margin:0}
+.cap-grant-row.own{color:var(--color-text-tertiary);cursor:default}
+.cap-grant-row em{font-style:normal;font-size:11px;margin-left:auto;color:var(--color-text-tertiary)}
+/* the reference image: an upload area as wide as its panel, like a brand character's "Add photo" */
+.ai-ref-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:76px;padding:12px;border:1px dashed var(--color-border-strong);border-radius:10px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font:inherit;font-size:12px;font-weight:700;text-align:center;white-space:normal;cursor:pointer}
+.ai-ref-add svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-ref-add small{font-size:11px;font-weight:500;color:var(--color-text-tertiary)}
+.ai-ref-add:hover:not(:disabled){border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}
+.ai-ref-add:disabled{opacity:.55;cursor:not-allowed}

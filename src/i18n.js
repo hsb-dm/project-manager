@@ -812,7 +812,7 @@ Object.assign(UI_ID,{
   "Grow the canvas and let AI fill the new area":"Perbesar kanvas dan biarkan AI mengisi area barunya",
   "Generative Expand needs the connected server — not available in the standalone demo.":"Perluas Generatif memerlukan server yang terhubung — tidak tersedia pada demo standalone.",
   "Generate a visual first, then expand it.":"Buat visual terlebih dahulu, baru perluas.",
-  "This model does not support Generative Expand. Choose a different model under Advanced generation.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain di bagian Generasi lanjutan.",
+  "This model does not support Generative Expand. Choose a different model under Advanced generation.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain di bagian Pengaturan lanjutan.",
   "This model does not support Generative Expand. Choose a model with reference-image support in Settings → AI → Models.":"Model ini tidak mendukung Perluas Generatif. Pilih model yang mendukung gambar referensi di Pengaturan → AI → Model.",
   "Could not load the current visual to expand.":"Tidak dapat memuat visual saat ini untuk diperluas.",
   "Aspect ratio":"Rasio aspek","Original":"Asli","Freeform":"Bebas",

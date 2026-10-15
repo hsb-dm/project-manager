@@ -63,13 +63,18 @@ test("poster templates, their type and brand characters reach the canvas and the
     const low = await page.evaluate(() => { const h = {}; AI_LAYER_HITS.forEach(x => { h[x.id] = x; }); return { subBottom: h.sub.y + h.sub.h, discTop: h.disclaimer.y }; });
     expect(low.subBottom).toBeLessThanOrEqual(low.discTop);
     await page.locator(".ai-template-card", { hasText: "Comment-to-DM post" }).click();
-    /* this template has no people: the picker shows the character, not chosen */
-    const pick = page.locator(".ai-char-card", { hasText: "Rina E2E" });
-    await expect(pick).toHaveAttribute("aria-pressed", "false");
+    /* this template has no people: characters are off, and only the switch shows */
+    const sw = page.locator("#aiCharsSwitch"), pick = page.locator(".ai-char-card", { hasText: "Rina E2E" });
+    await expect(sw).toHaveAttribute("aria-checked", "false");
+    await expect(pick).toHaveCount(0);
 
     /* the testimonial thumbnail chooses the brand character by itself */
     await page.locator(".ai-template-card", { hasText: "Video thumbnail — people" }).click();
+    await expect(sw).toHaveAttribute("aria-checked", "true");
     await expect(pick).toHaveAttribute("aria-pressed", "true");
+    /* the template says what they do; it can be written over */
+    await expect(page.locator("#aiCharRole")).toHaveValue(/stand together in the right half/);
+    await page.locator("#aiCharRole").fill("both laughing at a phone, standing on the right");
     expect(await page.evaluate(() => [aiActiveSize().w, aiActiveSize().h, AIF.disclaimer])).toEqual([1280, 720, false]);
 
     /* the generation carries the character as an id and says who it is; the brand prompt is the server's to add */
@@ -82,14 +87,21 @@ test("poster templates, their type and brand characters reach the canvas and the
     expect(sent.prompt).toContain("People: the reference photos show Rina E2E (Indonesian woman, late 20s).");
     expect(sent.prompt).not.toContain("Brand requirements");
     expect(sent.prompt).toContain("lime-green linen overshirts");
+    expect(sent.prompt).toContain("In this visual: both laughing at a phone, standing on the right.");
     await page.unroute("**/api/ai/image");
-    /* turned off by hand, nothing goes */
-    await pick.click(); await expect(pick).toHaveAttribute("aria-pressed", "false");
+    /* switched off by hand: no characters, no people line */
+    sent = null;
+    await page.route("**/api/ai/image", route => { sent = route.request().postDataJSON(); route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "stopped by the test" }) }); });
+    await sw.click(); await expect(sw).toHaveAttribute("aria-checked", "false"); await expect(pick).toHaveCount(0);
+    await page.evaluate(() => aiGenerate());
+    await expect.poll(() => sent).not.toBeNull();
+    expect(sent.characters).toEqual([]); expect(sent.prompt).not.toContain("People:");
+    await page.unroute("**/api/ai/image");
 
     /* in Indonesian */
     await page.evaluate(() => { UI_LANG = "id"; renderScreen(); });
     await expect(page.locator(".ai-template-card", { hasText: "Feed ajak komen & DM" })).toBeVisible();
-    await expect(page.locator(".ai-chars label")).toHaveText("Karakter brand");
+    await expect(page.locator(".ai-chars-head label")).toHaveText("Masukkan karakter brand");
   } finally {
     await page.evaluate(async b => { UI_LANG = "en"; WS.ai.characters = b; await persistWS(); }, before);
   }

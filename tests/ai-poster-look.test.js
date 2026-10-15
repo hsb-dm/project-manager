@@ -83,6 +83,21 @@ test('the prompt: characters right behind the brief, the brand prompt left to th
   assert.match(p, /People: the reference photos show Rina \(Indonesian woman, late 20s\)\. This person is the main person/);
   assert.ok(p.indexOf('People:') > p.indexOf('Two friendly') && p.indexOf('People:') < p.indexOf('Format:'), 'between the brief and the format');
   assert.doesNotMatch(p, /Dark studio, electric lime/, 'the server adds the brand prompt itself');
+  /* what they do comes from the template, and can be written over for one generation */
+  assert.match(p, /In this visual: the two people stand together in the right half/);
+  c.AIF.characterRole = 'sitting at a desk, reading a chart'; assert.match(c.aiBuildPrompt(), /In this visual: sitting at a desk, reading a chart\./);
+  c.AIF.characterRole = ''; assert.match(c.aiBuildPrompt(), /In this visual: placed naturally in the scene next to the hero subject/);
+  /* switched off: no people line, no photos, and the field says so */
+  c.aiCharactersSwitch(); assert.equal(c.aiCharactersOn(), false);
+  assert.doesNotMatch(c.aiBuildPrompt(), /People:/); assert.equal(c.aiSelectedCharacters().length, 0);
+  assert.match(c.aiCharactersFieldHtml(), /aria-checked="false"/); assert.doesNotMatch(c.aiCharactersFieldHtml(), /ai-char-card/);
+  /* switched off by hand, then a template with people: on again */
+  c.aiApplyTemplate('p_thumb_people'); assert.equal(c.aiCharactersOn(), true, 'a template with people turns them on');
+  c.aiCharactersSwitch(); c.AIF.characters = ['ch_rina']; c.aiApplyTemplate('p_feed_market'); assert.equal(c.aiCharactersOn(), false, 'and one without people turns them off');
+  /* a template without people starts with them off; switched on, the first character is chosen */
+  c.aiApplyTemplate('p_feed_promo'); assert.equal(c.aiCharactersOn(), false);
+  c.aiCharactersSwitch(); assert.deepEqual(Array.from(c.AIF.characters), ['ch_rina']); assert.match(c.aiBuildPrompt(), /next to the trophy/);
+  c.aiApplyTemplate('p_thumb_people');
   c.API.on = false; assert.match(c.aiBuildPrompt(), /Brand requirements \(apply to every generation\): Dark studio, electric lime\./, 'without a server it is only here');
   can = false; c.API.on = true; p = c.aiBuildPrompt();
   assert.doesNotMatch(p, /People:/); assert.deepEqual(Array.from(c.aiSelectedCharacters()), []);

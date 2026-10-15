@@ -9,6 +9,10 @@
 - **Simpan kanvas sebagai template** (ikon bintang di AI Hub, untuk role dengan izin *Save AI Hub canvases as templates for everyone* — atur di Roles & permissions): seluruh kanvas — ukuran, layout, layer, gambar, warna, font, karakter, teks — menjadi template untuk semua orang; gambar disimpan sebagai file di server. Template yang sedang dibuka bisa diubah di kanvas lalu disimpan kembali (**Update**), atau disimpan sebagai template baru, atau dihapus. Pembuatnya mengubah/menghapus template miliknya; admin bisa semuanya, termasuk template bawaan.
 - **Edit teks di kanvas** kini persis seperti hasilnya (seperti Canva/Figma): ukuran, posisi, font, warna, perataan, dan rotasi editor sama dengan teks di kanvas, pada zoom berapa pun.
 - **Refresh** di tab yang sama mengembalikan halaman seperti semula, termasuk desain AI Hub yang sedang dikerjakan.
+- **Karakter brand opsional**: saklar *Masukkan karakter brand* di AI Hub. Mati = tidak ada foto dan tidak ada kalimat tentang orang di prompt. Nyala = pilih maksimal dua karakter dan tulis **Peran karakter** (posisi dan kegiatannya). Template yang berisi orang menyalakannya sendiri; tiap template punya **Prompt karakter** bawaan yang bisa diubah admin di editor template.
+- **Template pribadi**: di *Save as template* ada pilihan **Semua orang di workspace** atau **Hanya saya**. Template pribadi hanya terlihat oleh pembuatnya (ditandai ikon kunci) — orang lain, termasuk admin, tidak menerimanya. Template bawaan selalu untuk semua orang.
+- **Tata letak pas layar** (lebar ≥ 1181 px): halaman AI Hub tidak di-scroll; panel Creative setup, Kanvas, dan Properties scroll di dalamnya masing-masing. Status "belum terhubung" kini chip di header, riwayat generate menjadi strip di bawah kanvas, dan Creative setup terbagi ke bagian yang bisa dilipat (diingat per orang). Layar lebih kecil tetap seperti sebelumnya.
+- **Keyboard shortcuts** (tombol ?) tampil sebagai pop-up.
 
 # Pembaruan 1.6.0 — Styling
 

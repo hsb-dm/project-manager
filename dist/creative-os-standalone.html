@@ -5554,6 +5554,98 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-tpl-choice{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
 .ai-tpl-choice label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--color-text-primary);cursor:pointer;text-transform:none;letter-spacing:0}
 .ai-tpl-choice input{width:auto;margin:0}
+/* brand characters are optional: a switch, then who and as what */
+.ai-chars-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.ai-chars-head label{margin:0}
+.ai-chars .ai-char-picker{margin-bottom:10px}
+.ai-char-role-label{display:block;margin:2px 0 6px}
+.ai-chars textarea{margin-bottom:6px}
+
+/* ============ AI Hub fits the screen (Oct 2026; ai-hub-layout.js) ============ */
+/* the "not connected" chip beside the template's name */
+.ai-conn-chip{display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding:2px 9px;border-radius:var(--pill);border:1px solid color-mix(in srgb,var(--color-warning,#C9860A) 45%,var(--color-border));background:color-mix(in srgb,var(--color-warning,#C9860A) 12%,var(--color-surface));color:var(--color-text-primary);font-size:11px;font-weight:700;vertical-align:middle;cursor:pointer}
+.ai-conn-chip i{width:7px;height:7px;border-radius:50%;background:var(--color-warning,#C9860A)}
+.ai-conn-chip:hover{border-color:var(--color-warning,#C9860A)}
+/* Creative setup in sections that fold */
+.aihub-form>.ai-sec>summary::after,.aihub-form>.ai-details>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.55;transition:transform .15s}
+.aihub-form>.ai-sec[open]>summary::after,.aihub-form>.ai-details[open]>summary::after{transform:rotate(-135deg)}
+.aihub-form>.ai-sec .ai-details-body>.field{margin:0}
+/* generation history: a strip under the canvas */
+.ai-history-strip{margin:0 10px 10px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken)}
+.ai-hs-head{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 4px}
+.ai-hs-toggle{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:6px 8px;border:0;background:none;color:var(--color-text-primary);font-size:12px;font-weight:700;text-align:left;cursor:pointer}
+.ai-hs-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-hs-toggle .cnt{font-weight:600;color:var(--color-text-tertiary)}
+.ai-hs-caret{margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-135deg);opacity:.55}
+.ai-history-strip:not(.open) .ai-hs-caret{transform:rotate(45deg)}
+.ai-hs-track{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 10px 10px;overscroll-behavior:contain;scrollbar-width:thin}
+.ai-hs-item{position:relative;flex:none}
+.ai-hs-thumb{display:block;width:84px;height:62px;padding:0;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:var(--color-surface);cursor:pointer}
+.ai-hs-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ai-hs-thumb .ai-history-placeholder{width:100%;height:100%}
+.ai-hs-thumb:hover,.ai-hs-thumb:focus-visible{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+.ai-hs-peek{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--color-border);background:var(--color-surface);display:grid;place-items:center;opacity:0;transition:opacity .12s;cursor:pointer}
+.ai-hs-peek svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-hs-item:hover .ai-hs-peek,.ai-hs-peek:focus-visible{opacity:1}
+@media (hover:none){.ai-hs-peek{opacity:1}}
+/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself */
+@media (min-width:1181px) and (min-height:620px){
+  .content:has(>.ai-studio){height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+  .content:has(>.ai-studio)>*{flex:none;margin-top:0;margin-bottom:0}
+  .content:has(>.ai-studio)>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+  .ai-studio>.ai-setup,.ai-studio>.ai-props{position:static!important;top:auto!important;max-height:none!important;min-height:0;height:auto;overflow:auto;overscroll-behavior:contain}
+  .ai-studio>.ai-setup>.panel-head,.ai-studio>.ai-props>.panel-head{position:sticky;top:0;z-index:3;background:var(--color-surface)}
+  .ai-studio>.ai-props>.panel-body{padding-bottom:84px}   /* room above the floating AI button */
+  .ai-studio>.ai-canvas-column{min-height:0;display:flex;flex-direction:column}
+  .ai-canvas-column>.ai-artboard{flex:1 1 auto;min-height:0}
+  .ai-artboard>.panel-body{min-height:0}
+  .ai-artboard .ai-artboard-canvas,.ai-artboard .ai-zoom-viewport{flex:1 1 auto;height:auto!important;min-height:0!important}
+  /* the frame with the rulers takes the panel's height, so Fit measures the room there is, not the picture */
+  .ai-artboard>.panel-body>.ai-canvas-frame{flex:1 1 auto;min-height:0}
+  .ai-artboard>.panel-body>#aiCanvas{flex:1 1 auto!important;height:auto!important;min-height:0!important}   /* before the rulers wrap it, too */
+  .ai-hs-track{max-height:84px}
+}
+.ai-hs-empty{font-weight:500;margin-left:6px}
+/* a count typed straight over: no spinner arrows; the one in the panel's header sits in its pill */
+.count-input{font-variant-numeric:tabular-nums}
+.count-input.pill{width:46px;border:0;background:transparent;font:inherit;font-weight:700;text-align:center;outline:none;border-radius:6px;padding:2px 4px}
+.count-input.pill:focus{background:var(--color-surface);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 35%,transparent)}
+.av-count .count-input{width:56px;text-align:center}
+.av-count .count-input:focus{border-color:var(--color-primary);outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+/* the keyboard shortcuts: a pop-up over the page */
+.ai-shortcut-pop{position:fixed;z-index:300;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 32px));max-height:min(80vh,680px);overflow:auto;overscroll-behavior:contain;padding:18px 20px!important;border-radius:16px!important;background:var(--color-surface)!important;box-shadow:var(--shadow-lg),0 0 0 100vmax rgba(10,12,20,.28)}
+.ai-shortcut-pop>b{display:block;font-size:15px;margin-right:36px}
+.ai-shortcut-pop .ai-shortcut-x{position:absolute;top:12px;right:12px}
+.ai-hs-thumb .ai-history-placeholder[hidden]{display:none}
+/* a template only its maker sees */
+.ai-tpl-own{display:inline-flex;vertical-align:-2px;margin-left:5px;color:var(--color-text-tertiary)}
+.ai-tpl-own svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-tpl-audience{margin:0}
+.ai-tpl-audience input:disabled+span{opacity:.55}
+/* folding sections and the history strip: the same line chevron as the rest of the app (I.chevd), down when folded, up when open */
+.aihub-form>.ai-sec>summary::after,.aihub-form>.ai-details>summary::after,.ai-hs-caret{content:"";width:16px;height:16px;flex:none;margin-left:auto;border:0!important;opacity:.6;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  transform:none;transition:transform .15s}
+.aihub-form>.ai-sec[open]>summary::after,.aihub-form>.ai-details[open]>summary::after,.ai-history-strip.open .ai-hs-caret{transform:rotate(180deg)}
+.ai-history-strip:not(.open) .ai-hs-caret{transform:none}
+/* extra permissions for one person: the chip under their role in Members, and the dialog's list */
+.cap-grant-chip{display:inline-flex;align-items:center;gap:4px;margin-top:5px;padding:2px 8px;border-radius:var(--pill);border:1px dashed var(--color-border-strong);background:none;font-size:11px;font-weight:600;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
+.cap-grant-chip svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+.cap-grant-chip.on{border-style:solid;border-color:color-mix(in srgb,var(--color-primary) 40%,var(--color-border));background:var(--color-primary-soft);color:var(--color-primary)}
+.cap-grant-chip:disabled{cursor:default}
+.cap-grant-list{display:flex;flex-direction:column;gap:12px;max-height:46vh;overflow:auto;padding-right:4px}
+.cap-grant-group>b{display:block;font-size:12px;margin-bottom:4px}
+.cap-grant-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:0;color:var(--color-text-primary);cursor:pointer}
+.cap-grant-row input{width:auto;margin:0}
+.cap-grant-row.own{color:var(--color-text-tertiary);cursor:default}
+.cap-grant-row em{font-style:normal;font-size:11px;margin-left:auto;color:var(--color-text-tertiary)}
+/* the reference image: an upload area as wide as its panel, like a brand character's "Add photo" */
+.ai-ref-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:76px;padding:12px;border:1px dashed var(--color-border-strong);border-radius:10px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font:inherit;font-size:12px;font-weight:700;text-align:center;white-space:normal;cursor:pointer}
+.ai-ref-add svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-ref-add small{font-size:11px;font-weight:500;color:var(--color-text-tertiary)}
+.ai-ref-add:hover:not(:disabled){border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}
+.ai-ref-add:disabled{opacity:.55;cursor:not-allowed}
 
 </style>
 </head>
@@ -5878,7 +5970,7 @@ var TODAY=new Date(); TODAY.setHours(0,0,0,0);
 var ME="zein";
 var WS={}, TEAMS=[], PEOPLE={}, PROJECTS=[], TASKS=[], REQUESTS=[], ASSET_FOLDERS=[], ASSETS=[], KNOWLEDGE=[], KNOWLEDGE_FOLDERS=[], NOTIFS=[], ACTIVITY=[], VIEWS=[], ROLES=[], AN=null;
 var API={ on:false, base:"", features:{}, serving:false, demo:false }; var CAPS=[];
-var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workflow, brand"],["view_progress_notes","See tasks' progress notes"],["write_progress_notes","Write progress notes on any task they can see"],["manage_members","Add/remove members, change roles, reset passwords"],["approve_members","Approve or turn away people who sign up"],["manage_teams","Create teams, colors, icons, membership"],["manage_roles","Create and edit roles"],["create_project","Create projects"],["edit_any_project","Edit any project"],["delete_project","Delete projects"],["create_task","Create tasks for anyone"],["create_own_task","Create tasks assigned to themselves"],["edit_any_task","Edit any task"],["edit_team_tasks","Edit/assign/review tasks of teams they lead or belong to"],["edit_own_task","Edit tasks where they are assignee or reviewer"],["assign_task","Assign tasks to anyone"],["review_any","Approve / send back any task"],["delete_task","Delete tasks"],["upload_file","Upload files and versions"],["decide_request","Triage, accept, reject and convert creative requests"],["manage_assets","Add/edit assets and folders"],["manage_knowledge","Write knowledge pages"],["view_analytics","See analytics"],["view_all","See all projects and tasks"],["submit_request","Submit a request: an unassigned task in the first stage for the creative team to triage"],["use_ai_hub","Open AI Hub and generate visuals"],["view_ai_gallery","Browse the shared AI Gallery"],["publish_ai_gallery","Publish their own designs to the AI Gallery"],["duplicate_ai_gallery","Duplicate someone else's gallery design"],["manage_own_ai_gallery","Rename, archive and delete their own designs"],["manage_all_ai_gallery","Manage any member's gallery design"],["save_ai_templates","Save AI Hub canvases as templates for everyone"],["view_messages","Open Messages and read conversations they belong to"],["send_message","Send messages"],["create_group_chat","Create small group conversations"],["manage_group_chat","Rename any group and manage its members"],["create_team_channel","Create extra channels for their team"],["manage_team_channel","Edit or archive team channels"],["mention_everyone","Use @everyone in team channels"],["pin_message","Pin messages and resources in team channels"],["manage_any_message","Edit or delete any member's message"]];
+var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workflow, brand"],["view_progress_notes","See tasks' progress notes"],["write_progress_notes","Write progress notes on any task they can see"],["manage_members","Add/remove members, change roles, reset passwords"],["approve_members","Approve or turn away people who sign up"],["manage_teams","Create teams, colors, icons, membership"],["manage_roles","Create and edit roles"],["create_project","Create projects"],["edit_any_project","Edit any project"],["delete_project","Delete projects"],["create_task","Create tasks for anyone"],["create_own_task","Create tasks assigned to themselves"],["edit_any_task","Edit any task"],["edit_team_tasks","Edit/assign/review tasks of teams they lead or belong to"],["edit_own_task","Edit tasks where they are assignee or reviewer"],["assign_task","Assign tasks to anyone"],["review_any","Approve / send back any task"],["delete_task","Delete tasks"],["upload_file","Upload files and versions"],["decide_request","Triage, accept, reject and convert creative requests"],["manage_assets","Add/edit assets and folders"],["manage_knowledge","Write knowledge pages"],["view_analytics","See analytics"],["view_all","See all projects and tasks"],["submit_request","Submit a request: an unassigned task in the first stage for the creative team to triage"],["use_ai_hub","Open AI Hub and generate visuals"],["view_ai_gallery","Browse the shared AI Gallery"],["publish_ai_gallery","Publish their own designs to the AI Gallery"],["duplicate_ai_gallery","Duplicate someone else's gallery design"],["manage_own_ai_gallery","Rename, archive and delete their own designs"],["manage_all_ai_gallery","Manage any member's gallery design"],["save_ai_templates","Save AI Hub canvases as templates for everyone"],["save_own_ai_templates","Save AI Hub canvases as templates for themselves"],["view_messages","Open Messages and read conversations they belong to"],["send_message","Send messages"],["create_group_chat","Create small group conversations"],["manage_group_chat","Rename any group and manage its members"],["create_team_channel","Create extra channels for their team"],["manage_team_channel","Edit or archive team channels"],["mention_everyone","Use @everyone in team channels"],["pin_message","Pin messages and resources in team channels"],["manage_any_message","Edit or delete any member's message"]];
 var DEMO_CAPS={admin:DEMO_CAP_LIST.map(function(c){ return c[0]; }),creative_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","manage_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","manage_any_message","create_project","edit_any_project","delete_project","create_task","create_own_task","edit_any_task","assign_task","review_any","delete_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],team_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","submit_request","create_task","create_own_task","edit_team_tasks","edit_own_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],member:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","pin_message","submit_request","create_own_task","edit_own_task","upload_file","manage_assets","manage_knowledge","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],viewer:["view_progress_notes","view_messages","send_message","view_all","submit_request","view_ai_gallery"]};
 var S={ screen:"home", sub:null, railFilter:null, taskView:"kanban", taskScope:"mine", sort:"manual", sortDir:1, group:"", filters:{status:"",kind:"",assignee:"",reviewer:"",proj:"",prio:"",team:"",tag:"",dependency:"",due:"",archived:"",hidden:""}, activeView:null, actScope:"mine", gridFields:["status","team","assignee","prio","start","due","effort","tags"],
   calMode:"month", calMonth:TODAY.getMonth(), calYear:TODAY.getFullYear(), calDay:0, calScope:"all", calLabelsOpen:false, drawerTask:null, drawerTab:"brief", drawerVer:null, commentVis:"internal", replyTo:null, revOpen:false, briefEdit:false,
@@ -6176,7 +6268,7 @@ function replaceInto(target,src){ for (var k in target) if (Object.prototype.has
 /* ---------- permissions (mirror of server/permissions.js — the server is authoritative) ---------- */
 var RANK={viewer:0,member:1,team_lead:2,creative_lead:3,admin:4};
 function role(){ return person(ME).perm||"member"; }
-function has(cap){ var r=role(); if (r==="admin") return true; var ro=byId(ROLES,r); return !!(ro&&(ro.permissions||[]).indexOf(cap)>=0); }
+function has(cap){ var r=role(); if (r==="admin") return true; var ro=byId(ROLES,r); if (ro&&(ro.permissions||[]).indexOf(cap)>=0) return true; return typeof capGrantHas==="function"&&capGrantHas(cap); }   /* the role, then what an admin gave this person on top (cap-grants.js) */
 function leadsTeam(tid){ var t=team(tid); return !!(t&&t.lead===ME); }
 function teamScoped(t){ return has("edit_team_tasks")&&(leadsTeam(t.team)||teamsOf(ME).indexOf(t.team)>=0); }
 /* a draft (a new task closed before it was created) is its maker's to finish or delete — server/permissions.js draftOwner */
@@ -6371,7 +6463,7 @@ Object.assign(UI_ID,{
   "deadline":"tenggat","Project / task":"Proyek / tugas","Drop a task here or create one.":"Letakkan tugas di sini atau buat tugas baru.",
   "Optional: write the exact prompt for this generation":"Opsional: tulis prompt yang ingin dipakai persis untuk generasi ini","Text colour is set inside each text layer so headline, button, badge, and disclaimer stay independent.":"Warna teks diatur di masing-masing layer teks agar judul, tombol, badge, dan disclaimer dapat diatur secara terpisah.","Show safe zones":"Tampilkan area aman","Hide safe zones":"Sembunyikan area aman","Preview only; never included in the export.":"Hanya untuk pratinjau; tidak akan ikut di hasil ekspor.","Lock all sides":"Kunci semua sisi","Editing one edge updates all edges.":"Mengubah satu sisi akan memperbarui semua sisi.","Each edge can be set separately.":"Setiap sisi dapat diatur secara terpisah.","Edit sides separately":"Atur setiap sisi","Hide per-side controls":"Sembunyikan pengaturan per sisi",
   "Canvas background":"Latar kanvas","Background type":"Jenis latar","Linear gradient":"Gradasi linear","Primary color":"Warna utama","Secondary color":"Warna kedua","Direction (°)":"Arah (°)","Gradient stop (%)":"Titik akhir gradasi (%)","Background opacity (%)":"Opasitas latar (%)","All edges":"Semua sisi","Top":"Atas","Right":"Kanan","Bottom":"Bawah","Left":"Kiri",
-  "Visual brief":"Brief visual","Specific generation prompt":"Prompt generasi spesifik","Visual style":"Gaya visual","Custom style":"Gaya kustom","Advanced generation":"Generasi lanjutan","Reference image":"Gambar referensi","Add reference image":"Tambahkan gambar referensi","AI image generation model":"Model pembuatan gambar AI","Workspace default":"Bawaan workspace","Choose a model available from the API endpoint connected in Settings.":"Pilih model yang tersedia pada endpoint API yang terhubung di Pengaturan.","Use only a model supported by your endpoint":"Gunakan model yang didukung oleh endpoint Anda","Describe the visual you want…":"Jelaskan visual yang Anda inginkan…","Describe the visual style":"Jelaskan gaya visual","Watermarks, unreadable text…":"Watermark, teks sulit dibaca…","Canvas renders here":"Kanvas akan tampil di sini","Generating visual…":"Sedang membuat visual…","Generated visual stays behind every text, logo, and custom layer. Drag layers on the canvas; click text to edit it.":"Visual hasil generasi selalu berada di belakang teks, logo, dan layer kustom. Tarik layer di kanvas; klik teks untuk mengeditnya.","Blank":"Kosong","Canvas size":"Ukuran kanvas","Width":"Lebar","Height":"Tinggi",
+  "Visual brief":"Brief visual","Specific generation prompt":"Prompt generasi spesifik","Visual style":"Gaya visual","Custom style":"Gaya kustom","Advanced generation":"Pengaturan lanjutan","Reference image":"Gambar referensi","Add reference image":"Tambahkan gambar referensi","AI image generation model":"Model pembuatan gambar AI","Workspace default":"Bawaan workspace","Choose a model available from the API endpoint connected in Settings.":"Pilih model yang tersedia pada endpoint API yang terhubung di Pengaturan.","Use only a model supported by your endpoint":"Gunakan model yang didukung oleh endpoint Anda","Describe the visual you want…":"Jelaskan visual yang Anda inginkan…","Describe the visual style":"Jelaskan gaya visual","Watermarks, unreadable text…":"Watermark, teks sulit dibaca…","Canvas renders here":"Kanvas akan tampil di sini","Generating visual…":"Sedang membuat visual…","Generated visual stays behind every text, logo, and custom layer. Drag layers on the canvas; click text to edit it.":"Visual hasil generasi selalu berada di belakang teks, logo, dan layer kustom. Tarik layer di kanvas; klik teks untuk mengeditnya.","Blank":"Kosong","Canvas size":"Ukuran kanvas","Width":"Lebar","Height":"Tinggi",
   "Weekly capacity per person is set on each member; working days and hours drive the calendar weekends and the default 8h/day.":"Kapasitas mingguan tiap orang diatur pada profil anggota; hari dan jam kerja menentukan akhir pekan di kalender serta standar 8 jam per hari.","Time & working hours":"Waktu & jam kerja","Time zone":"Zona waktu","Working days":"Hari kerja","Work starts":"Jam mulai kerja","Work ends":"Jam selesai kerja","Working time saved":"Jam kerja disimpan",
   "Use one value by default, then unlock and edit each edge when a format needs custom protection.":"Gunakan satu nilai sebagai bawaan, lalu buka kunci dan atur setiap sisi saat suatu format memerlukan perlindungan khusus.","Locked":"Terkunci","Unlocked":"Tidak terkunci","Hide details":"Sembunyikan detail","Edit sides":"Atur sisi","Template styling & safe zones":"Gaya template & area aman","Layout template":"Template tata letak","Custom size…":"Ukuran kustom…","Width (px)":"Lebar (px)","Height (px)":"Tinggi (px)","Saves the current banner size, copy, canvas, safe zones, and styling as a reusable template.":"Menyimpan ukuran banner, naskah, kanvas, area aman, dan gaya saat ini sebagai template yang dapat digunakan kembali.","Leave blank to use the workspace default.":"Biarkan kosong untuk memakai bawaan workspace.","Add an image API key to generate visuals.":"Tambahkan kunci API gambar untuk membuat visual.","Preview renders here":"Pratinjau akan tampil di sini","Recent generations":"Generasi terbaru","Text & background style":"Gaya teks & latar","Style this layer independently.":"Atur gaya layer ini secara mandiri.","Background stroke":"Outline latar","Border around the background.":"Garis tepi di sekitar latar.","Stroke color":"Warna outline","Text stroke":"Outline teks","Outline around the letters.":"Garis tepi di sekitar huruf.","Text appearance":"Tampilan teks","Optional border around the letters.":"Garis tepi opsional di sekitar huruf.","Outline color":"Warna outline","Text background":"Latar teks",
   "Recommended 1200 × 800 px (3:2), JPG/PNG/WebP, under 400 KB — larger images are downscaled in the browser.":"Disarankan 1200 × 800 px (3:2), JPG/PNG/WebP, di bawah 400 KB — gambar lebih besar akan diperkecil di browser.","Brand asset":"Aset brand","Uploaded by":"Diunggah oleh","Attach it from a task’s Files tab.":"Lampirkan dari tab File pada tugas.","Thumbnail: images are downscaled to max 1200 × 800 px (3:2 recommended). Fonts: upload the .zip / .ttf / .otf / .woff and set type “font”.":"Thumbnail: gambar diperkecil hingga maksimum 1200 × 800 px (disarankan 3:2). Font: unggah .zip / .ttf / .otf / .woff dan pilih tipe “font”.","Paste a Google Drive, Docs, Sheets, or Slides share link. The file stays in Drive; ZenCrevia stores the link and shows a preview whenever Drive allows embedding.":"Tempel tautan berbagi Google Drive, Docs, Sheets, atau Slides. File tetap berada di Drive; ZenCrevia menyimpan tautannya dan menampilkan pratinjau saat Drive mengizinkan embedding.",
@@ -8171,7 +8263,7 @@ function sendRevision(){ var tk=task(S.drawerTask); if (!require(["revReason","r
 function fileIcon(f){ var c={image:"#8E24AA",video:"#0F766E",pdf:"#D63B3B",psd:"#1E5BB8",ai:"#E65100",figma:"#A259FF",other:"#546E7A",document:"#475569"}; return '<span class="ficon" style="background:'+(c[f.type]||"#546E7A")+'">'+(f.name.match(/\.(\w+)$/)?f.name.match(/\.(\w+)$/)[1].slice(0,4):f.type)+'</span>'; }
 function assetPanel(tk,ed){ var links=taskAssetLinks(tk); var fin=finalAssetLink(tk); var n=assetCount(tk);
   var h='<div class="panel" style="margin-bottom:14px"><div class="panel-head"><span class="sq blue">'+I.assets+'</span><h2>Assets</h2><span class="cnt">'+n+' '+tr("produced")+' \u00b7 '+links.length+' '+tr(links.length===1?"link":"links")+'</span><span class="spacer"></span>';
-  h+=(ed?'<label class="pillsel"><span>Assets produced</span><input type="number" min="0" step="1" value="'+n+'" style="width:58px;border:0;background:transparent;font-weight:700;outline:none" onchange="editTask(\'assetCount\',this.value)"></label>':'<span class="badge">'+n+' '+tr("assets")+'</span>');
+  h+=(ed?'<label class="pillsel"><span>Assets produced</span>'+countInputHtml(n,"Assets produced","assetCount","pill")+'</label>':'<span class="badge">'+n+' '+tr("assets")+'</span>');
   h+=(fin?'<button class="btn sm primary" onclick="openExternal('+jsq(fin.url)+')">'+I.ext+'Open final asset</button>':'')+'</div>';
   h+=links.length?'<div class="panel-body">'+links.map(function(l){ var isFinal=fin&&l.url===fin.url; return '<div class="alink">'+(l.kind==="version"?'<span class="ficon" style="background:var(--color-ink)">V'+l.v+'</span>':'<span class="ficon" style="background:#475569">'+esc((String(l.name).match(/\.(\w+)$/)||["","link"])[1].slice(0,4))+'</span>')+'<div style="min-width:0;flex:1"><div class="t">'+esc(l.name)+(isFinal?' <span class="badge approved">final</span>':'')+'</div><div class="u">'+esc(l.url)+'</div></div><button class="btn xs" onclick="openExternal('+jsq(l.url)+')">'+I.ext+'Open</button></div>'; }).join("")+'</div>':'<div class="panel-body pad"><p class="hint">No asset link yet. Upload a version or attach a cloud link below \u2014 links show up here, on the project Assets tab and in the Excel export.</p></div>';
   return h+'</div>'; }
@@ -8725,39 +8817,39 @@ var AI_DISCLAIMER_HSB = "HSB Investasi, Pialang Berjangka Teregulasi BAPPEBTI, O
 var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, glossy reflections, crisp edges, high detail";
 var AI_AVOID = "text, letters, numbers, logos, watermark, clutter, extra objects, cartoon, flat illustration, blue or purple colour cast";
 var AI_PROMPT_DEFAULT = [
-  { id:"p_thumb_object", name:"Video thumbnail \u2014 3D object", size:"thumb", layout:"left",
+  { id:"p_thumb_object", name:"Video thumbnail \u2014 3D object", size:"thumb", layout:"left", characterPrompt:"standing beside the hero object in the right half, half-turned to the camera, smiling, in a lime-green shirt",
     brief:"One large premium 3D hero object in the right half of the frame: a polished silver coin with a soft green glass video-camera icon, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"HSB INVESTASI WEBINAR", sub:"Insight Langsung dari Para Ahli", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
-  { id:"p_thumb_people", name:"Video thumbnail \u2014 people", size:"thumb", layout:"left", people:2,
+  { id:"p_thumb_people", name:"Video thumbnail \u2014 people", size:"thumb", layout:"left", people:2, characterPrompt:"the two people stand together in the right half, talking and holding smartphones, in lime-green overshirts over white T-shirts",
     brief:"Two friendly young Indonesian adults, a woman and a man, in lime-green linen overshirts over white T-shirts, talking to each other and holding smartphones, seen from the thighs up in the right half of the frame. A large frosted-glass circle with a pale green tint sits behind them. Natural, candid expressions. The left half is open dark background for the title.",
     style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, sharp focus", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
     headline:"TESTIMONI NASABAH", sub:"Kata mereka tentang HSB Investasi", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
-  { id:"p_feed_edu", name:"Educational feed", size:"feed34", layout:"poster",
+  { id:"p_feed_edu", name:"Educational feed", size:"feed34", layout:"poster", characterPrompt:"standing beside the glass jar in the middle band, smiling at the camera and holding a smartphone",
     brief:"A clear glass jar filled with stacked silver-and-gold coins and a cork lid, centred in the middle band of the frame, a few coins floating around it and one large coin leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Bisa Melek Finansial itu Privilege?", sub:"Makin paham kelola uang, makin cepet Financial Freedom!", cta:"", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
-  { id:"p_feed_engage", name:"Comment-to-DM post", size:"feed34", layout:"poster",
+  { id:"p_feed_engage", name:"Comment-to-DM post", size:"feed34", layout:"poster", characterPrompt:"standing behind the duffel bag in the middle band, looking at the banknotes with a curious expression",
     brief:"A tan leather duffel bag stuffed with bundles of Indonesian rupiah banknotes, standing on a dark green felt table in the middle band of the frame, a few loose bundles around it, moody low-key light. The top third and the bottom quarter stay dark and empty.",
     style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, sharp focus", negative:AI_AVOID,
     headline:"Penasaran gak, kenapa Rupiah termasuk mata uang terlemah?", sub:"Komen \u201cRupiah!\u201d & cek DM kamu buat tau alasannya!", cta:"HSB Investasi #JadiPilihan.", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
-  { id:"p_feed_promo", name:"Competition & promo", size:"feed34", layout:"poster",
+  { id:"p_feed_promo", name:"Competition & promo", size:"feed34", layout:"poster", characterPrompt:"standing next to the trophy in the middle band, raising a fist in celebration, in a lime-green shirt",
     brief:"A polished gold trophy wrapped in flowing electric-lime satin fabric, right of centre in the middle band, standing on a dark running track whose white lane lines converge towards a bright lime light flare on the horizon. The top third and the bottom quarter stay dark and calm.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"COMPETITION", sub:"Tanpa Modal & Tanpa Deposit!", cta:"HSB Investasi #JadiPilihan.", badge:"Demo trading",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
-  { id:"p_feed_market", name:"Weekly market highlight", size:"feed34", layout:"bottom",
+  { id:"p_feed_market", name:"Weekly market highlight", size:"feed34", layout:"bottom", characterPrompt:"standing beside the globe in the upper two-thirds, looking at a smartphone, calm and confident",
     brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a large silver dollar coin leaning against it, placed in the upper two-thirds with a soft reflection beneath. The bottom third stays dark and empty for text.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Market Highlight Minggu Ini", sub:"5\u20139 Oktober 2026", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
-  { id:"p_story_launch", name:"Product launch story", size:"story", layout:"poster",
+  { id:"p_story_launch", name:"Product launch story", size:"story", layout:"poster", characterPrompt:"standing beside the safe on the podium, smiling with arms crossed, in a lime-green shirt",
     brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; thin mist, and a few small curved glass panels showing rising candlestick charts around it. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Asuransi Perlindungan Dana Nasabah", sub:"Tanpa Biaya Tambahan", cta:"", badge:"Telah hadir",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
-  { id:"p_story_webinar", name:"Webinar story", size:"story", layout:"poster",
-    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft electric-lime glow made of fine halftone dots across the upper middle and a subtle grain. No people and no objects; speaker photos are added later as layers.",
-    style:"minimal abstract backdrop, soft gradient light, fine halftone texture", negative:"text, letters, logos, watermark, people, faces, objects, clutter, blue or purple colour cast",
+  { id:"p_story_webinar", name:"Webinar story", size:"story", layout:"poster", characterPrompt:"shown waist-up in the middle band as the speakers, side by side, friendly and professional",
+    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft electric-lime glow made of fine halftone dots across the upper middle and a subtle grain. No objects; speaker photos are usually added later as layers.",
+    style:"minimal abstract backdrop, soft gradient light, fine halftone texture", negative:"text, letters, logos, watermark, objects, clutter, blue or purple colour cast",
     headline:"Trading is More Than a Chart!", sub:"Kamis, 29 Oktober 2026 \u00b7 19:00\u201321:00 WIB", cta:"Daftar sekarang", badge:"Live webinar",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_LIME, ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB }
 ];
@@ -8788,6 +8880,8 @@ function aiTemplateLook(t){
   AIF.headlineFont=t.headlineFont||""; AIF.subFont=t.subFont||"";   /* empty: the workspace font */
   if(t.disclaimerText!==undefined){ AIF.disclaimerText=String(t.disclaimerText||""); AIF.disclaimer=!!String(t.disclaimerText||"").trim(); }
   AIF.characters=typeof aiCharactersFor==="function"?aiCharactersFor(t.people):[];
+  /* characters are in when the template has people; the template says what they do, for when they are put in */
+  AIF.useCharacters=(+t.people||0)>0; AIF.characterRole=String(t.characterPrompt||"");
 }
 function aiApplyTemplate(id){
   var t=null, list=aiPromptTemplates();
@@ -9459,11 +9553,7 @@ function aiStudioProperties(){
   body=body.replace(/\.gradient=this\.value===\'gradient\';renderScreen\(false\)/g,'.gradient=this.value===\'gradient\';aiRenderKeepScroll()');
   return '<section class="panel ai-props"><div class="panel-head"><span class="sq">'+I.edit+'</span><h2>Properties</h2><span class="spacer"></span><button class="iconbtn" title="Undo" aria-label="Undo" onclick="aiUndo()">↶</button><button class="iconbtn" title="Redo" aria-label="Redo" onclick="aiRedo()">↷</button></div><div class="panel-body pad" id="aiProperties"><div class="eyebrow">Layers</div>'+layer+'<button class="btn xs" onclick="aiResetAllPositions()">'+I.sync+'Reset all positions</button><div class="ai-prop-title">'+esc(selected.indexOf("extra_")===0?(aiExtra(selected.slice(6))||{}).name||"Custom layer":{canvas:"Canvas",logo:"Logo",badge:"Badge",headline:"Headline",sub:"Subheadline",cta:"Button",disclaimer:"Disclaimer"}[selected])+'</div><div class="ai-prop-body">'+body+'</div></div></section>';
 }
-function aiGenerationHistoryPanel(){
-  var current='<div class="ai-history-current"><div><div class="eyebrow">Recent setting</div><b>'+esc(AIF.headline||"Untitled canvas")+'</b><span>'+esc(aiSettingsLabel(AIF))+'</span></div>'+(AI_PREVIOUS_SETTINGS?'<button class="btn xs" onclick="aiRestoreRecentSettings()">Restore recent</button>':'<span class="hint">Current</span>')+'</div>';
-  var items=AI_RUNS.slice(0,8).map(function(r,i){ return '<div class="ai-history-item">'+(r.url?'<img src="'+attr(r.url)+'" alt="Generated visual">':'<span class="ai-history-placeholder">'+I.image+'</span>')+'<div class="ai-history-copy"><b>'+esc(r.headline||"Generated visual")+'</b>'+(r.brief&&r.brief.task_id?'<button class="ag-source-task" onclick="if(task('+jsq(r.brief.task_id)+'))openTask('+jsq(r.brief.task_id)+');else toast(tr(\'This task is no longer available to you.\'),\'bad\')" title="'+attr(tr("Generated from Task")+' · v'+(r.brief.admin_prompt_version||1))+'">'+I.tasks+'<span>'+tr("Generated from Task")+' · <b data-no-translate>'+esc(r.brief.task_title||r.brief.task_id)+'</b></span></button>':'')+'<span>'+esc(aiSettingsLabel(r.fields||{size:"custom",customW:r.w,customH:r.h,layout:"left",model:r.model}))+'</span><small>'+esc((r.prompt||"").slice(0,96))+'</small></div><div class="ai-history-actions"><button class="btn xs ghost" onclick="aiReuse('+i+')">Preview</button><button class="btn xs" '+(r.fields?'':'disabled')+' onclick="aiLoadRunSettings('+i+')">Use settings</button></div></div>'; }).join("");
-  return '<section class="panel ai-generation-history"><div class="panel-head"><span class="sq">'+I.sync+'</span><h2>Generation history</h2><span class="cnt" title="'+attr(tr("Saved generations per member"))+'">'+aiHistoryUsageLabel()+'</span>'+(AI_RUNS.length>=aiHistoryLimit()?'<span class="badge warn" title="'+attr(tr("Oldest generation is removed automatically."))+'">'+tr("At capacity")+'</span>':'')+'</div><div class="panel-body pad">'+current+(items?'<div class="ai-history-list">'+items+'</div>':'<p class="hint" style="padding:8px 0">No visuals generated yet.</p>')+'</div></section>';
-}
+/* generation history: a strip under the canvas, aiHistoryStrip() in ai-hub-layout.js */
 function renderAIHub(){
   if(!AI_RUNS_LOADED) aiLoadRuns();
   if(typeof aiApplyWorkspaceDefaults==="function") aiApplyWorkspaceDefaults();
@@ -9480,15 +9570,10 @@ function renderAIHub(){
      is a single card whose headline is the specific reason and whose button
      goes to the section that actually fixes it. */
   if(_gs.reason||!aiConfigured("image")){
-    var _fix=_gs.kind==="nomodel"?"models":"providers";
-    h+='<div class="banner warn ai-setup-notice">'+I.lock
-      + '<div><b>'+esc(_gs.reason||tr("Add an image API key to generate visuals."))+'</b>'
-      + '<br><span class="tiny">'+tr("You can still compose and export the branded template.")+'</span></div>'
-      + '<span class="spacer"></span>'
-      + '<button class="btn sm" onclick="S.aiSettingsSection=\''+_fix+'\';go(\'settings\',\'ai\')">'+I.settings
-      + tr(_gs.kind==="nomodel"?"Open AI models":"Open AI keys")+'</button></div>';
+    /* Oct 2026: a chip beside the template's name in the header, not a banner over the panels (ai-hub-layout.js) */
+    h=h.replace(/(<p class="sub">[\s\S]*?)<\/p>/,function(m,a){ return a+' '+aiConnChip(_gs)+'</p>'; });
   }
-  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form"><div class="field"><label>Template</label><div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'"'+(t.owner?' title="'+attr(tr("By")+" "+person(t.owner).name)+'"':'')+' onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div></div>'+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+(typeof aiCharactersFieldHtml==="function"?aiCharactersFieldHtml():"")+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!aiSelectedModelCan("reference")?'<button class="btn" disabled>'+I.up+tr("Add reference image")+'</button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>':'<button class="btn" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'Add reference image</button>')+'</div>'+fieldHtml("","AI image generation model",
+  var left='<section class="panel ai-setup"><div class="panel-head"><span class="sq">'+I.sparkle+'</span><h2>Creative setup</h2></div><div class="panel-body pad aihub-form">'+aiSecOpenTag("template","Template")+'<div class="ai-template-picker">'+tpls.map(function(t,i){return '<button class="ai-template-card '+(AIF.template===t.id?"on":"")+'"'+(t.owner?' title="'+attr(tr("By")+" "+person(t.owner).name)+'"':'')+' onclick="aiApplyTemplate(\''+t.id+'\')"><span class="ai-template-thumb t'+(i%5)+'"><i></i><i></i><i></i></span><span>'+esc(t.name)+(t.private?'<span class="ai-tpl-own" title="'+attr(tr("Only you"))+'" aria-label="'+attr(tr("Only you"))+'">'+I.lock+'</span>':'')+'</span></button>';}).join("")+'<button class="ai-template-card" onclick="aiClearForm()"><span class="ai-template-thumb blank"><i></i></span><span>Blank</span></button></div>'+aiSecClose()+aiSecOpenTag("brief","Brief & style")+fieldHtml("","Canvas size",'<select onchange="AIF.size=this.value;renderScreen(false)">'+AI_SIZES.map(function(s){return '<option value="'+s.id+'"'+(AIF.size===s.id?" selected":"")+'>'+esc(s.name)+' · '+s.w+'×'+s.h+'</option>';}).join("")+'<option value="custom"'+(AIF.size==="custom"?" selected":"")+'>Custom size…</option></select>')+(AIF.size==="custom"?'<div class="field-row">'+fieldHtml("","Width",'<input type="number" min="64" max="4096" value="'+(AIF.customW||1200)+'" oninput="AIF.customW=this.value">')+fieldHtml("","Height",'<input type="number" min="64" max="4096" value="'+(AIF.customH||628)+'" oninput="AIF.customH=this.value">')+'</div>':'')+(typeof aiBriefSourceHtml==="function"?aiBriefSourceHtml():"")+(typeof AI_BRIEF!=="undefined"&&AI_BRIEF.source==="task"?"":fieldHtml("","Visual brief",'<textarea rows="4" placeholder="Describe the visual you want…" oninput="aiSetBrief(this.value)">'+esc(AIF.brief)+'</textarea>')+fieldHtml("","Specific generation prompt",'<textarea rows="4" placeholder="Optional: write the exact prompt for this generation" oninput="AIF.prompt=this.value">'+esc(AIF.prompt)+'</textarea>'))+fieldHtml("","Visual style",'<select onchange="if(this.value===\'custom\'){AIF.styleMode=\'custom\';}else{AIF.styleMode=\'\';AIF.style=this.value;}renderScreen(false)">'+styleOpts.map(function(x){return '<option value="'+attr(x[0])+'"'+((x[0]==="custom"?isCustom:AIF.style===x[0])?" selected":"")+'>'+esc(x[1])+'</option>';}).join("")+'</select>')+(isCustom?fieldHtml("","Custom style",'<input value="'+attr(AIF.style)+'" placeholder="Describe the visual style" oninput="AIF.style=this.value">'):"")+aiSecClose()+aiSecCharacters()+'<details class="ai-details"'+aiPanelOpen("advanced")+' ontoggle="aiPanelToggle(\'advanced\',this.open)"><summary>Advanced generation</summary><div class="ai-details-body"><div class="field"><label>Reference image</label>'+(!aiSelectedModelCan("reference")?'<button type="button" class="ai-ref-add" disabled>'+I.up+'<span>'+tr("Add reference image")+'</span></button><p class="hint">'+tr("This model does not support reference images.")+'</p>':AIF.reference?'<div class="ai-reference"><img src="'+attr(AIF.reference)+'"><div><b>'+esc(AIF.referenceName||"Reference image")+'</b><button class="btn xs ghost" onclick="aiClearReference()">Remove</button></div></div>':'<button type="button" class="ai-ref-add" aria-label="'+attr(tr("Upload reference image"))+'" onclick="aiPickReference()">'+I.up+'<span>'+tr("Add reference image")+'</span><small>'+tr("PNG, JPEG or WebP")+'</small></button>')+'</div>'+fieldHtml("","AI image generation model",
     /* §P1-1 members choose a registry entry by display name. There is no
        arbitrary Model ID entry; the server resolves the real ID. */
     '<select onchange="aiSetModel(this.value)">'
@@ -9499,15 +9584,15 @@ function renderAIHub(){
      list is the Admin registry, so there is nothing left to patch. */
   var saveToDrive=typeof gdAuto==="function"&&gdAuto(), saveLabel=saveToDrive?tr("Save to Google Drive"):tr("Save to assets"), saveIcon=saveToDrive&&typeof driveIcon==="function"?driveIcon():I.assets;
   var expandReason=typeof aiExpandDisabledReason==="function"?aiExpandDisabledReason():"";
-  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div><div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
-  var canvasColumn='<div class="ai-canvas-column">'+center+aiGenerationHistoryPanel()+'</div>';
+  var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div>'+aiHistoryStrip()+'<div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
+  var canvasColumn='<div class="ai-canvas-column">'+center+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
 }
 function aiSetBrief(v){ AIF.brief=v; AIF.template=""; }
 function aiClearForm(){
   AG_EDIT=null; AIF.logoText="";
-  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoBg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.editMode=true; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt=""; AIF.characters=[]; AIF.templateSource=""; AI_LAST=null;
+  aiHistoryBefore(); AIF.brief=""; AIF.style=""; AIF.styleMode=""; AIF.negative=""; AIF.headline=""; AIF.sub=""; AIF.cta=""; AIF.badge=""; AIF.background=""; AIF.canvasBg={type:"solid",color:"",color2:"#4F46E5",angle:135,stop:100,opacity:100}; AIF.textColor="#FFFFFF"; AIF.accentColor=""; AIF.badgeColor=""; AIF.ctaColor=""; AIF.logoPosition="top_left"; AIF.logoImg=""; AIF.logoBg=""; AIF.logoHidden=false; AIF.safeUnit="percent"; AIF.safeLocked=true; AIF.safeTop=8; AIF.safeRight=8; AIF.safeBottom=8; AIF.safeLeft=8; AIF.template=""; AIF.selectedLayer="canvas"; AIF.editMode=true; AIF.layerStyles={}; AIF.layerPositions={}; AIF.extraLayers=[]; AIF.layerMeta={}; AIF.layerOrder=[]; AIF.hideGenerated=false; AIF.prompt=""; AIF.characters=[]; AIF.useCharacters=false; AIF.characterRole=""; AIF.templateSource=""; AI_LAST=null;
   renderScreen(false);
 }
 function aiStartNew(){aiClearForm();AI_HISTORY=[];AI_REDO=[];AI_PROJECT_BASE=null;renderScreen(false);setTimeout(aiProjectMarkSaved,0);toast(tr('New design ready'));}
@@ -9944,7 +10029,8 @@ function aiLocalAnswer(q){
   "Choose 1 automatically":"Pilih 1 otomatis",
   "Choose 2 automatically":"Pilih 2 otomatis",
   "Legal line shown at the bottom":"Kalimat legal di bagian bawah",
-  "Each line stays on its own line. Leave empty for no disclaimer.":"Setiap baris tetap di barisnya sendiri. Kosongkan bila tanpa disclaimer."
+  "Each line stays on its own line. Leave empty for no disclaimer.":"Setiap baris tetap di barisnya sendiri. Kosongkan bila tanpa disclaimer.",
+  "PNG, JPEG or WebP":"PNG, JPEG, atau WebP"
 });
 </script>
 <script>
@@ -10930,32 +11016,50 @@ function aiCharactersAll(){ return ((typeof WS!=="undefined"&&WS.ai&&WS.ai.chara
 /* the ones a generation can use: those with at least one photo */
 function aiCharacters(){ return aiCharactersAll().filter(function(c){ return (c.photos||[]).some(aiCharPhotoOk); }); }
 function aiCharactersFor(n){ n=Math.max(0,Math.min(AI_CHAR_PICK,+n||0)); return aiCharacters().slice(0,n).map(function(c){ return c.id; }); }
+/* Characters are optional (Oct 2026): a switch in AI Hub puts them in or leaves them out. A template with people
+   turns it on and chooses them; any other starts with it off. A design from before the switch counts as on when it
+   has characters chosen. */
+function aiCharactersOn(){ if(typeof AIF==="undefined") return false; return AIF.useCharacters!==undefined?!!AIF.useCharacters:(AIF.characters||[]).length>0; }
 function aiSelectedCharacters(){
+  if (!aiCharactersOn()) return [];
   if (typeof aiSelectedModelCan==="function" && !aiSelectedModelCan("reference")) return [];
   var list=aiCharacters();
   return ((AIF&&AIF.characters)||[]).map(function(id){ return byId(list,id); }).filter(Boolean).slice(0,AI_CHAR_PICK);
 }
+/* what they do in this visual, when nobody wrote it */
+var AI_CHAR_ROLE_DEFAULT="placed naturally in the scene next to the hero subject, facing the camera, and kept clear of the text area";
 /* what the model is told about them; the photos themselves go with the request */
 function aiCharactersPrompt(){
   var list=aiSelectedCharacters(); if(!list.length) return "";
   var who=list.map(function(c){ return c.name+(c.description?" ("+c.description+")":""); }).join(" and ");
-  return "People: the reference photos show "+who+". "+(list.length>1?"They are the main people":"This person is the main person")+" in this visual — keep each face, hairstyle, skin tone and build true to the photos, and change only pose, clothing and expression as the brief asks. Do not add any other recognisable person.";
+  var role=String(AIF.characterRole||"").trim()||AI_CHAR_ROLE_DEFAULT;
+  return "People: the reference photos show "+who+". "+(list.length>1?"They are the main people":"This person is the main person")+" in this visual — keep each face, hairstyle, skin tone and build true to the photos, and change only pose, clothing and expression as described. In this visual: "+role+". Do not add any other recognisable person.";
 }
 
-/* ---------- AI Hub: choosing who appears ---------- */
+/* ---------- AI Hub: whether people appear, who, and as what ---------- */
 function aiCharactersFieldHtml(){
   var list=aiCharacters(); if(!list.length) return "";
-  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), on=AIF.characters||[];
-  return '<div class="field ai-chars"><label>'+tr("Brand characters")+'</label><div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
+  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), use=aiCharactersOn(), on=AIF.characters||[];
+  var h='<div class="field ai-chars"><div class="ai-chars-head"><label for="aiCharsSwitch">'+tr("Include brand characters")+'</label><button type="button" id="aiCharsSwitch" class="switch'+(use?" on":"")+'" role="switch" aria-checked="'+(use?"true":"false")+'" onclick="aiCharactersSwitch()"></button></div>';
+  if(!use) return h+'<p class="hint">'+tr("Off: no people from your brand characters, and nothing about them in the prompt.")+'</p></div>';
+  return h+'<div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
     + list.map(function(c){ var sel=can&&on.indexOf(c.id)>=0, ph=(c.photos||[]).filter(aiCharPhotoOk)[0];
         return '<button type="button" class="ai-char-card'+(sel?' on':'')+'" aria-pressed="'+(sel?"true":"false")+'"'+(can?'':' disabled')+' title="'+attr(c.description||c.name)+'" onclick="aiToggleCharacter('+jsq(c.id)+')"><img src="'+attr(ph)+'" alt=""><span data-no-trans>'+esc(c.name)+'</span></button>'; }).join("")
-    + '</div><p class="hint">'+(can?tr("The people you choose are the main reference whenever the visual shows a person. Choose up to two."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+    + '</div>'
+    + (can?'<label class="ai-char-role-label" for="aiCharRole">'+tr("Character role")+'</label><textarea id="aiCharRole" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'" oninput="AIF.characterRole=this.value">'+esc(AIF.characterRole||"")+'</textarea>':'')
+    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+}
+/* on: the first character is chosen if nobody is yet */
+function aiCharactersSwitch(){
+  aiHistoryBefore(); var use=!aiCharactersOn(); AIF.useCharacters=use;
+  if(use&&!(AIF.characters||[]).some(function(id){ return byId(aiCharacters(),id); })) AIF.characters=aiCharactersFor(1);
+  renderScreen(false);
 }
 function aiToggleCharacter(id){
   var on=(AIF.characters||[]).slice(), i=on.indexOf(id);
   if(i>=0) on.splice(i,1);
   else { if(on.length>=AI_CHAR_PICK) return toast(tr("Choose up to two people"),"bad"); on.push(id); }
-  aiHistoryBefore(); AIF.characters=on; renderScreen(false);
+  aiHistoryBefore(); AIF.characters=on; AIF.useCharacters=true; renderScreen(false);
 }
 
 /* ---------- Settings: the admin's list ---------- */
@@ -11033,6 +11137,13 @@ function aiCharPhotoRemove(id,i){
   "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang kamu pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
   "This model cannot use reference photos. Choose a model that accepts reference images to use brand characters.":"Model ini tidak bisa memakai foto acuan. Pilih model yang menerima gambar referensi untuk memakai karakter brand.",
   "Choose up to two people":"Pilih maksimal dua orang",
+  "Include brand characters":"Masukkan karakter brand",
+  "Off: no people from your brand characters, and nothing about them in the prompt.":"Mati: tidak ada orang dari karakter brand, dan tidak ada kalimat tentang mereka di prompt.",
+  "Character role":"Peran karakter",
+  "e.g. standing to the right of the trophy, smiling, holding a phone":"mis. berdiri di kanan piala, tersenyum, memegang ponsel",
+  "Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text.":"Pilih maksimal dua. Peran menjelaskan posisi dan kegiatannya; bila kosong, mereka berdiri natural di samping objek utama, tidak menutupi teks.",
+  "Character prompt":"Prompt karakter",
+  "What the brand characters do in this template when they are included. Empty: they stand beside the main subject, clear of the text.":"Apa yang dilakukan karakter brand di template ini saat dimasukkan. Kosong: mereka berdiri di samping objek utama, tidak menutupi teks.",
   "People added here are the main reference whenever someone generates a person in AI Hub. Members choose them in AI Hub, and templates with people choose them on their own. Use one to three clear, well-lit photos of the face and upper body. Only add people who agreed to appear in AI-generated visuals.":"Orang yang ditambahkan di sini menjadi acuan utama setiap kali seseorang membuat visual berisi orang di AI Hub. Member memilihnya di AI Hub, dan template yang berisi orang memilihnya otomatis. Gunakan satu sampai tiga foto wajah dan badan bagian atas yang jelas dan terang. Tambahkan hanya orang yang sudah setuju tampil di visual buatan AI.",
   "No brand characters yet.":"Belum ada karakter brand.",
   "Add character":"Tambah karakter",
@@ -11175,9 +11286,12 @@ function aiFontDelete(id){
    first), so templates never weigh down the workspace. The server keeps the list (/api/ai/templates); in the
    standalone demo it stays in the page.
    ============================================================ */
+/* two permissions (Oct 2026): templates for everyone, and templates for oneself (the everyone one covers both) */
 canI.saveAiTemplates=function(){ return !API.on||has("save_ai_templates"); };
-function aiTemplateCanSave(){ return canI.saveAiTemplates(); }
-function aiTemplateCanEdit(t){ if(!t) return false; if(!API.on||canI.manageWorkspace()) return true; return !!t.owner&&t.owner===ME&&canI.saveAiTemplates(); }
+canI.saveOwnAiTemplates=function(){ return !API.on||has("save_own_ai_templates")||has("save_ai_templates"); };
+function aiTemplateCanSave(){ return canI.saveAiTemplates()||canI.saveOwnAiTemplates(); }
+function aiTemplateMayKeep(isPrivate){ return isPrivate?canI.saveOwnAiTemplates():canI.saveAiTemplates(); }
+function aiTemplateCanEdit(t){ if(!t) return false; if(!API.on||canI.manageWorkspace()) return true; return !!t.owner&&t.owner===ME&&aiTemplateMayKeep(!!t.private); }
 /* the template being worked on: the one opened last, even after its brief was changed */
 function aiTemplateOpen(){ var id=AIF.template||AIF.templateSource; return id?byId(aiPromptTemplates(),id):null; }
 /* the canvas as a template */
@@ -11190,7 +11304,7 @@ function aiTemplateFromCanvas(name){
     background:hex((AIF.canvasBg||{}).color||AIF.background), textColor:hex(aiLayerStyle("headline").textFill), subColor:hex(aiLayerStyle("sub").textFill),
     accentColor:hex(AIF.accentColor), badgeColor:hex(AIF.badgeColor), ctaColor:hex(AIF.ctaColor), ctaStroke:!!AIF.ctaStroke, ctaStrokeColor:hex(AIF.ctaStrokeColor), ctaRadius:+AIF.ctaRadius||0,
     textAlign:AIF.textAlign||"auto", disclaimerText:AIF.disclaimer?String(AIF.disclaimerText||""):"", headlineFont:AIF.headlineFont||"", subFont:AIF.subFont||"",
-    people:Math.min(2,(AIF.characters||[]).length), logoPosition:AIF.logoPosition, safeUnit:AIF.safeUnit, safeLocked:AIF.safeLocked!==false,
+    people:typeof aiCharactersOn==="function"&&aiCharactersOn()?Math.min(2,(AIF.characters||[]).length):0, characterPrompt:String(AIF.characterRole||""), logoPosition:AIF.logoPosition, safeUnit:AIF.safeUnit, safeLocked:AIF.safeLocked!==false,
     safeMargin:+AIF.safeTop||0, safeTop:+AIF.safeTop||0, safeRight:+AIF.safeRight||0, safeBottom:+AIF.safeBottom||0, safeLeft:+AIF.safeLeft||0, editorFields:f };
 }
 /* a picture the server can store: our own file as it is; a data URL, made lighter when it is large; anything
@@ -11216,7 +11330,7 @@ function aiTemplatePut(t,isNew){
   if(!API.on){ var list=(WS.ai.promptTemplates||[]).filter(function(x){ return x&&x.id!==t.id; }); if(isNew){ t.id="p_"+Math.random().toString(36).slice(2,9); t.owner=ME; } list.push(t); WS.ai.promptTemplates=list; saveWS(isNew?"Template saved for everyone":"Template updated"); renderScreen(false); return Promise.resolve(t.id); }
   toast(tr("Saving template…"));
   return aiTemplatePrepare(t).then(function(ready){ return apiFetch(isNew?"POST":"PUT",isNew?"/api/ai/templates":"/api/ai/templates/"+encodeURIComponent(t.id),{template:ready}); })
-    .then(function(r){ WS.ai.promptTemplates=r.promptTemplates; toast(tr(isNew?"Template saved for everyone":"Template updated")); renderScreen(false); return r.id||t.id; })
+    .then(function(r){ WS.ai.promptTemplates=r.promptTemplates; toast(tr(!isNew?"Template updated":t.private?"Template saved for you":"Template saved for everyone")); renderScreen(false); return r.id||t.id; })
     .catch(function(e){ toast(tr("Couldn't save the template")+": "+e.message,"bad"); return null; });
 }
 function aiTemplateDelete(id){
@@ -11233,19 +11347,31 @@ function aiTemplateSaveModal(){
   if(!aiTemplateCanSave()) return toast(tr("Your role cannot save templates for everyone."),"bad");
   var cur=aiTemplateOpen(), upd=!!cur&&aiTemplateCanEdit(cur);
   openModal(tr("Save as template"),
-    '<p class="hint" style="margin-bottom:12px">'+tr("Everyone in the workspace can start from it in AI Hub: the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.")+'</p>'
+    '<p class="hint" style="margin-bottom:12px">'+tr("Saves the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.")+'</p>'
     + (upd?'<div class="ai-tpl-choice" role="radiogroup" aria-label="'+attr(tr("Save as template"))+'"><label><input type="radio" name="ai_tpl_mode" value="update" checked onchange="aiTemplateModeSync()"> <span>'+tr("Update")+' “<span data-no-trans>'+esc(cur.name)+'</span>”</span></label><label><input type="radio" name="ai_tpl_mode" value="new" onchange="aiTemplateModeSync()"> <span>'+tr("Save as a new template")+'</span></label></div>':'')
-    + fieldHtml("ai_tpl_name","Template name",'<input id="ai_tpl_name" maxlength="80" value="'+attr(upd?cur.name:"")+'" placeholder="'+attr(tr("e.g. Testimonial thumbnail"))+'">'),
+    + fieldHtml("ai_tpl_name","Template name",'<input id="ai_tpl_name" maxlength="80" value="'+attr(upd?cur.name:"")+'" placeholder="'+attr(tr("e.g. Testimonial thumbnail"))+'">')
+    /* who can start from it: everyone, or only the one saving it */
+    + '<div class="field"><label>'+tr("Who can use it")+'</label><div class="ai-tpl-choice ai-tpl-audience" role="radiogroup" aria-label="'+attr(tr("Who can use it"))+'"><label><input type="radio" name="ai_tpl_aud" value="everyone"'+((upd?cur.private:!canI.saveAiTemplates())?'':' checked')+'> <span>'+tr("Everyone in the workspace")+'</span></label><label><input type="radio" name="ai_tpl_aud" value="me"'+((upd?cur.private:!canI.saveAiTemplates())?' checked':'')+'> <span>'+tr("Only me")+'</span></label></div><p class="hint" id="ai_tpl_aud_hint"></p></div>',
     (upd?'<button class="btn ghost" onclick="closeModal();aiTemplateDelete('+jsq(cur.id)+')">'+I.trash+tr("Delete template")+'</button><span class="spacer"></span>':'')
     + '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="aiTemplateSaveFromModal()">'+tr("Save template")+'</button>');
+  aiTemplateModeSync();
 }
 /* a new template starts without the old one's name; going back to Update brings it back */
-function aiTemplateModeSync(){ var el=document.querySelector('input[name="ai_tpl_mode"]:checked'), cur=aiTemplateOpen(), name=document.getElementById("ai_tpl_name"); if(!name||!cur) return;
+/* who sees it is the maker's to say: updating a built-in or someone else's template keeps whom it is for */
+function aiTemplateModeSync(){ var el=document.querySelector('input[name="ai_tpl_mode"]:checked'), cur=aiTemplateOpen(), name=document.getElementById("ai_tpl_name"), aud=document.querySelectorAll('input[name="ai_tpl_aud"]'), hint=document.getElementById("ai_tpl_aud_hint");
+  var updating=!!(el&&el.value==="update"&&cur), fixed=updating&&!(cur.owner&&cur.owner===ME);
+  /* and each choice takes its own permission */
+  Array.prototype.forEach.call(aud,function(r){ r.disabled=fixed||!aiTemplateMayKeep(r.value==="me"); });
+  /* then which is chosen: the template's own when it is fixed, else one the role may use */
+  Array.prototype.forEach.call(aud,function(r){ if(fixed) r.checked=r.value===(cur.private?"me":"everyone"); else if(r.checked&&r.disabled){ r.checked=false; var o=Array.prototype.filter.call(aud,function(x){ return x!==r&&!x.disabled; })[0]; if(o) o.checked=true; } });
+  if(hint) hint.textContent=fixed?tr(cur.owner?"Only its maker decides who can use it.":"A built-in template is for everyone."):!canI.saveAiTemplates()?tr("Your role saves templates for yourself only."):!canI.saveOwnAiTemplates()?tr("Your role saves templates for everyone only."):"";
+  if(!name||!cur) return;
   if(el&&el.value==="new"&&name.value===cur.name) name.value=""; else if(el&&el.value==="update"&&!name.value.trim()) name.value=cur.name; }
 function aiTemplateSaveFromModal(){
   var name=val("ai_tpl_name"); if(!name) return toast(tr("Give the template a name"),"bad");
   var mode=(document.querySelector('input[name="ai_tpl_mode"]:checked')||{}).value||"new", cur=aiTemplateOpen(), isNew=!(mode==="update"&&cur&&aiTemplateCanEdit(cur));
   var t=aiTemplateFromCanvas(name); if(!isNew){ t.id=cur.id; if(cur.owner) t.owner=cur.owner; }
+  var aud=document.querySelector('input[name="ai_tpl_aud"]:checked'); if(aud&&aud.value==="me") t.private=true;
   closeModal();
   aiTemplatePut(t,isNew).then(function(id){ if(id){ AIF.template=id; AIF.templateSource=id; if(typeof aiProjectMarkSaved==="function") aiProjectMarkSaved(); renderScreen(false); } });
 }
@@ -11270,7 +11396,78 @@ function aiTemplateSaveFromModal(){
   "Couldn't delete the template":"Template tidak bisa dihapus",
   "Your role cannot save templates for everyone.":"Role kamu tidak bisa menyimpan template untuk semua orang.",
   "A picture in this design could not be saved. Download it and add it again as an image layer.":"Ada gambar di desain ini yang tidak bisa disimpan. Unduh gambarnya lalu tambahkan lagi sebagai layer gambar.",
-  "By":"Oleh"
+  "By":"Oleh",
+  "Saves the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Menyimpan ukuran, layout, layer, gambar, warna, font, dan teks persis seperti di kanvas.",
+  "Who can use it":"Siapa yang bisa memakainya",
+  "Everyone in the workspace":"Semua orang di workspace",
+  "Only me":"Hanya saya",
+  "Only you":"Hanya kamu",
+  "Only its maker decides who can use it.":"Hanya pembuatnya yang menentukan siapa yang bisa memakainya.",
+  "A built-in template is for everyone.":"Template bawaan berlaku untuk semua orang.",
+  "Template saved for you":"Template tersimpan untuk kamu",
+  "Save AI Hub canvases as templates for themselves":"Menyimpan kanvas AI Hub sebagai template untuk diri sendiri",
+  "Your role saves templates for yourself only.":"Role kamu hanya bisa menyimpan template untuk diri sendiri.",
+  "Your role saves templates for everyone only.":"Role kamu hanya bisa menyimpan template untuk semua orang."
+});
+</script>
+<script>
+/* ============================================================
+   AI HUB FITS THE SCREEN (Oct 2026)
+   The page scrolled and the Properties panel scrolled too, so a wheel turned outside a panel moved the canvas and
+   the setup away while Properties stayed put. On a laptop or desktop (three columns: at least 1181 × 620) the page now stays still
+   and each panel scrolls inside itself (v38.css): the header is one row, the "not connected" banner is a chip in
+   it, the canvas fills its panel (Fit uses the panel's height), the generation history is a strip under the
+   canvas, and Creative setup is in sections that fold (remembered per person). Smaller screens keep the page that
+   scrolls, as before: a scroll inside a scroll is harder on a touch screen.
+   ============================================================ */
+function aiHubFits(){ try{ return window.matchMedia("(min-width:1181px) and (min-height:620px)").matches; }catch(e){ return false; } }
+/* the canvas's room: its own panel when the page fits the screen, else as before */
+function aiCanvasFitH(el){ if(!(aiHubFits()&&el&&el.clientHeight>120)) return Math.min(innerHeight*.62,620); return el.clientHeight-(el.closest(".ai-canvas-frame")?0:22); }   /* the rulers come in above it on the first draw */
+
+/* ---------- sections that fold ---------- */
+var AI_SEC_DEFAULT={ template:true, brief:true, characters:true, history:true };
+function aiSecKey(){ return "cos.ai.sections."+((typeof ME!=="undefined"&&ME)||""); }
+function aiSecState(){ var s={}; try{ s=JSON.parse(localStorage.getItem(aiSecKey())||"{}")||{}; }catch(e){} return Object.assign({},AI_SEC_DEFAULT,s); }
+function aiSecIsOpen(id){ return !!aiSecState()[id]; }
+function aiSecToggle(id,open){ var s=aiSecState(); s[id]=!!open; try{ localStorage.setItem(aiSecKey(),JSON.stringify(s)); }catch(e){} }
+function aiSecOpenTag(id,title){ return '<details class="ai-details ai-sec" data-sec="'+id+'"'+(aiSecIsOpen(id)?' open':'')+' ontoggle="aiSecToggle(\''+id+'\',this.open)"><summary>'+esc(tr(title))+'</summary><div class="ai-details-body">'; }
+function aiSecClose(){ return '</div></details>'; }
+function aiSecCharacters(){ var h=typeof aiCharactersFieldHtml==="function"?aiCharactersFieldHtml():""; return h?aiSecOpenTag("characters","Brand characters")+h+aiSecClose():""; }
+
+/* ---------- the header chip that was a banner ---------- */
+function aiConnChip(gs){
+  gs=gs||{}; var fix=gs.kind==="nomodel"?"models":"providers", why=(gs.reason||tr("Add an image API key to generate visuals."))+" "+tr("You can still compose and export the branded template.");
+  return '<button type="button" class="ai-conn-chip" title="'+attr(why)+'" aria-label="'+attr(why)+'" onclick="S.aiSettingsSection=\''+fix+'\';go(\'settings\',\'ai\')"><i aria-hidden="true"></i>'+tr(gs.kind==="nomodel"?"No image model":"Image generation not connected")+'</button>';
+}
+
+/* ---------- generation history, a strip under the canvas ---------- */
+function aiHistoryStrip(){
+  var open=aiSecIsOpen("history"), runs=AI_RUNS.slice(0,typeof aiHistoryLimit==="function"?aiHistoryLimit():24);
+  var items=runs.map(function(r,i){
+    var label=(r.headline||tr("Generated visual"))+" · "+aiSettingsLabel(r.fields||{size:"custom",customW:r.w,customH:r.h,layout:"left",model:r.model})+(r.brief&&(r.brief.task_title||r.brief.task_id)?" · "+tr("Generated from Task")+": "+(r.brief.task_title||r.brief.task_id):"");
+    /* a click puts the whole design back; the eye shows only its picture. A picture the provider no longer keeps
+       shows the placeholder, not a broken image. */
+    return '<div class="ai-hs-item"><button type="button" class="ai-hs-thumb" title="'+attr(label)+'" aria-label="'+attr((r.fields?tr("Use settings"):tr("Preview"))+": "+label)+'" onclick="'+(r.fields?'aiLoadRunSettings('+i+')':'aiReuse('+i+')')+'">'+(r.url?'<img src="'+attr(r.url)+'" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="ai-history-placeholder" hidden>'+I.image+'</span>':'<span class="ai-history-placeholder">'+I.image+'</span>')+'</button>'
+      + (r.fields&&r.url?'<button type="button" class="ai-hs-peek" title="'+attr(tr("Preview"))+'" aria-label="'+attr(tr("Preview")+": "+label)+'" onclick="aiReuse('+i+')">'+I.eye+'</button>':'')+'</div>'; }).join("");
+  return '<div class="ai-history-strip'+(open?' open':'')+'"><div class="ai-hs-head"><button type="button" class="ai-hs-toggle" aria-expanded="'+(open?"true":"false")+'" onclick="aiSecToggle(\'history\',!aiSecIsOpen(\'history\'));renderScreen(false)">'+I.sync+'<span>'+tr("Generation history")+'</span><span class="cnt">'+(typeof aiHistoryUsageLabel==="function"?aiHistoryUsageLabel():AI_RUNS.length)+'</span>'
+    + (typeof aiHistoryLimit==="function"&&AI_RUNS.length>=aiHistoryLimit()?'<span class="badge warn" title="'+attr(tr("Oldest generation is removed automatically."))+'">'+tr("At capacity")+'</span>':'')+(items?'':'<span class="hint ai-hs-empty">'+tr("No visuals generated yet.")+'</span>')+'<span class="ai-hs-caret" aria-hidden="true"></span></button>'
+    + (AI_PREVIOUS_SETTINGS?'<button type="button" class="btn xs" onclick="aiRestoreRecentSettings()">'+tr("Restore recent")+'</button>':'')+'</div>'
+    /* nothing generated yet: one line, so the canvas keeps the room */
+    + (open&&items?'<div class="ai-hs-track">'+items+'</div>':'')+'</div>';
+}
+
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Template":"Template",
+  "Brief & style":"Brief & gaya",
+  "Image generation not connected":"Generate gambar belum terhubung",
+  "No image model":"Belum ada model gambar",
+  "Generation history":"Riwayat generate",
+  "Generated visual":"Visual hasil generate",
+  "No visuals generated yet.":"Belum ada visual yang dibuat.",
+  "Restore recent":"Kembalikan pengaturan terbaru",
+  "At capacity":"Penuh",
+  "Use settings":"Gunakan pengaturan",
+  "Preview":"Pratinjau"
 });
 </script>
 <script>
@@ -12212,7 +12409,7 @@ function setPromptTemplates(){
   var rows=list.map(function(t,i){
     return '<div class="alink" style="align-items:flex-start"><span class="ficon" style="background:var(--color-primary)">'+(i+1)+'</span>'
       + '<div style="min-width:0;flex:1"><div class="t">'+esc(t.name)+'</div>'
-      + '<div class="m"><span class="mono">'+esc(tr((byId(AI_SIZES,t.size||"web_hero")||{}).name||t.size||"Website hero"))+'</span><span class="mono">'+esc(tr((byId(AI_LAYOUTS,t.layout||"left")||{}).name||t.layout||"Left aligned"))+'</span>'+(t.headline?'<span>\u201c'+esc(t.headline)+'\u201d</span>':'')+(t.owner?'<span>'+tr("By")+' '+esc(person(t.owner).name)+'</span>':'')+'</div>'
+      + '<div class="m"><span class="mono">'+esc(tr((byId(AI_SIZES,t.size||"web_hero")||{}).name||t.size||"Website hero"))+'</span><span class="mono">'+esc(tr((byId(AI_LAYOUTS,t.layout||"left")||{}).name||t.layout||"Left aligned"))+'</span>'+(t.headline?'<span>\u201c'+esc(t.headline)+'\u201d</span>':'')+(t.owner?'<span>'+tr("By")+' '+esc(person(t.owner).name)+'</span>':'')+(t.private?'<span>'+tr("Only you")+'</span>':'')+'</div>'
       + '<div class="u">'+esc((t.brief||"").slice(0,130))+'</div></div>'
       + '<div style="display:flex;gap:4px">'+(ed?'<button class="btn xs" onclick="promptTplModal(\''+t.id+'\')">'+I.edit+'Edit</button><button class="btn xs ghost" onclick="delPromptTpl(\''+t.id+'\')">'+I.trash+'</button>':'')
       + '<button class="btn xs" onclick="aiApplyTemplate(\''+t.id+'\');go(\'aihub\')">Use</button></div></div>'; }).join("");
@@ -12247,6 +12444,7 @@ function promptTplModal(id){
     + (function(){ var fonts=[["",tr("Workspace font")]].concat((typeof aiWorkspaceFonts==="function"?aiWorkspaceFonts():[]).map(function(f){ return [f,f]; })), keep=function(v){ return v&&!fonts.some(function(x){ return x[0]===v; })?[[v,v]]:[]; };
         return '<div class="field-row">'+fieldHtml("pt_head_font","Headline font",selectHtml("pt_head_font",fonts.concat(keep(t.headlineFont)),t.headlineFont||"",""))+fieldHtml("pt_sub_font","Subheadline font",selectHtml("pt_sub_font",fonts.concat(keep(t.subFont)),t.subFont||"",""))+'</div>'; })()
     + '<div class="field-row">'+fieldHtml("pt_logo","Logo position",selectHtml("pt_logo",[["top_left","Top left"],["top_right","Top right"],["bottom_left","Bottom left"],["bottom_right","Bottom right"]],t.logoPosition||"top_left",""))+fieldHtml("pt_people","Brand characters",selectHtml("pt_people",[["0","None"],["1","Choose 1 automatically"],["2","Choose 2 automatically"]],String(+t.people||0),""))+'</div>'
+    + fieldHtml("pt_char_prompt","Character prompt",'<textarea id="pt_char_prompt" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'">'+esc(t.characterPrompt||"")+'</textarea>')+'<div class="hint">'+tr("What the brand characters do in this template when they are included. Empty: they stand beside the main subject, clear of the text.")+'</div>'
     + fieldHtml("pt_disc","Disclaimer",'<textarea id="pt_disc" rows="2" placeholder="'+attr(tr("Legal line shown at the bottom"))+'">'+esc(t.disclaimerText||"")+'</textarea>')+'<div class="hint">'+tr("Each line stays on its own line. Leave empty for no disclaimer.")+'</div>'
     + fieldHtml("pt_safe","Safe-zone margin (%)",'<input id="pt_safe" type="number" min="0" max="25" value="'+(+t.safeMargin||8)+'" placeholder="8">')+'<div class="hint">Keep text and logo away from edges or social-media interface overlays. 8–10% is a good starting point.</div>',
     '<button class="btn primary" onclick="savePromptTpl(\''+(t.id||"")+'\')">Save template</button>');
@@ -12259,7 +12457,7 @@ function savePromptTpl(id){
           size:val("pt_size"), customW:Math.max(64,Math.min(4096,+val("pt_w")||1200)), customH:Math.max(64,Math.min(4096,+val("pt_h")||628)), layout:val("pt_layout"), background:val("pt_bg"), textColor:val("pt_text"), accentColor:val("pt_accent"), logoPosition:val("pt_logo"), safeMargin:Math.max(0,Math.min(25,+val("pt_safe")||8)) };
   /* the template's type; fields the modal does not show are kept from the template being edited */
   var box=function(id){ var el=typeof document!=="undefined"&&document.getElementById(id); return el||null; };
-  if (box("pt_sub_color")) Object.assign(t,{ subColor:val("pt_sub_color"), ctaColor:val("pt_cta_color"), ctaRadius:Math.max(0,Math.min(50,+val("pt_cta_shape")||0)), ctaStroke:!!(box("pt_cta_stroke")&&box("pt_cta_stroke").checked), ctaStrokeColor:val("pt_cta_stroke_color"), textAlign:val("pt_align")||"auto", headlineFont:val("pt_head_font"), subFont:val("pt_sub_font"), people:Math.max(0,Math.min(2,+val("pt_people")||0)), disclaimerText:(box("pt_disc").value||"").replace(/\r/g,"").trim() });
+  if (box("pt_sub_color")) Object.assign(t,{ subColor:val("pt_sub_color"), ctaColor:val("pt_cta_color"), ctaRadius:Math.max(0,Math.min(50,+val("pt_cta_shape")||0)), ctaStroke:!!(box("pt_cta_stroke")&&box("pt_cta_stroke").checked), ctaStrokeColor:val("pt_cta_stroke_color"), textAlign:val("pt_align")||"auto", headlineFont:val("pt_head_font"), subFont:val("pt_sub_font"), people:Math.max(0,Math.min(2,+val("pt_people")||0)), characterPrompt:val("pt_char_prompt"), disclaimerText:(box("pt_disc").value||"").replace(/\r/g,"").trim() });
   var found=false;
   list=list.map(function(x){ if (x.id===id){ found=true; t=Object.assign({},x,t); delete t.editorFields; if(x.editorFields){t.editorFields=clone(x.editorFields);Object.keys(t).forEach(function(k){if(k!=="editorFields"&&k!=="id"&&k!=="name")t.editorFields[k]=t[k];});if(t.editorFields.canvasBg)t.editorFields.canvasBg.color=t.background;if(t.editorFields.layerStyles&&t.editorFields.layerStyles.headline)t.editorFields.layerStyles.headline.textFill=t.textColor;if(t.subColor&&t.editorFields.layerStyles&&t.editorFields.layerStyles.sub)t.editorFields.layerStyles.sub.textFill=t.subColor;if(t.disclaimerText!==undefined)t.editorFields.disclaimer=!!t.disclaimerText;} return t; } return x; });
   if (!found) list.push(t);
@@ -12744,7 +12942,7 @@ function retagEverything(from,to){
 /* §P0-2 the second, string-based addTag() that used to live here was removed.
    createWorkspaceTag() in the tag picker is now the only creation path. */
 /* members */
-function setMembers(){ var ed=canI.manageMembers(); return sp("Members & roles",'<p class="hint" style="margin-bottom:8px">'+(API.on?'New people register with the join code (Workspace tab) and start as <b>'+esc((byId(ROLES,WS.defaultRole||"member")||{}).name||"Member")+'</b>; change their role, teams and capacity here.':'In demo mode there are no passwords.')+'</p><div class="tbl-wrap"><table class="tbl members-tbl"><thead><tr><th>Member</th><th>Role title</th><th>Permission role</th><th>Teams</th><th>Capacity</th><th>Login</th><th></th></tr></thead><tbody>'+Object.keys(PEOPLE).map(function(id){ var p=PEOPLE[id]; var ro=ed?"":" disabled"; return memberRowLabels('<tr style="cursor:default'+(p.active===false?";opacity:.5":"")+'"><td class="t"><span class="cell-flex">'+av(id)+'<span>'+esc(p.name)+(p.active===false?' <span class="badge bad">deactivated</span>':'')+'<div class="tiny muted" style="font-weight:400">'+(ed?'<input value="'+attr(p.email||"")+'" placeholder="email for sign-in" onchange="setEmail(\''+id+'\',this.value)" style="border:1px solid transparent;border-radius:6px;padding:1px 4px;background:transparent;width:100%;font-size:11.5px;color:var(--color-text-secondary)" onfocus="this.style.borderColor=\'var(--color-border)\'">':esc(p.email||""))+'</div></span></span></td><td><input'+ro+' value="'+attr(p.role)+'" onchange="PEOPLE[\''+id+'\'].role=this.value;persistPerson(\''+id+'\')" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;width:100%;background:var(--color-surface)"></td><td><select'+ro+' onchange="setPerm(\''+id+'\',this.value)" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;background:var(--color-surface)">'+ROLES.map(function(r){ return '<option value="'+r.id+'"'+(p.perm===r.id?" selected":"")+'>'+esc(r.name)+'</option>'; }).join("")+'</select></td><td><span style="display:flex;gap:4px;flex-wrap:wrap">'+(p.teams||[]).map(function(x){ return teamBadge(x[0]); }).join("")+(ed?'<button class="btn xs ghost" onclick="memberTeamsModal(\''+id+'\')">'+I.edit+'</button>':'')+'</span></td><td><input'+ro+' type="number" min="0" value="'+p.cap+'" onchange="PEOPLE[\''+id+'\'].cap=+this.value;persistPerson(\''+id+'\')" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;width:64px;background:var(--color-surface)"></td><td class="hint">'+(API.on?(p.hasPassword?(p.lastLogin?ago(minAgo(p.lastLogin)):"never"):"no password"):"demo")+'</td><td style="white-space:nowrap">'+(id!==ME&&ed?(API.on?'<button class="iconbtn flat" style="width:26px;height:26px" title="Reset password" onclick="resetPasswordModal(\''+id+'\')">'+I.lock+'</button>':'')+(API.on?'<button class="btn xs ghost member-active-toggle" title="'+(p.active===false?tr("Allow this member to sign in again"):tr("Block sign-in but keep their work and history"))+'" onclick="toggleMemberActive(\''+id+'\')">'+tr(p.active===false?"Reactivate":"Deactivate")+'</button>':'')+'<button class="iconbtn flat" style="width:26px;height:26px" title="Remove" onclick="removeMember(\''+id+'\')">'+I.trash+'</button>':'<span class="hint">you</span>')+'</td></tr>'); }).join("")+'</tbody></table></div>',ed?'<button class="btn" onclick="addMemberModal()">'+I.plus+'Add member</button>':'',I.team); }
+function setMembers(){ var ed=canI.manageMembers(); return sp("Members & roles",'<p class="hint" style="margin-bottom:8px">'+(API.on?'New people register with the join code (Workspace tab) and start as <b>'+esc((byId(ROLES,WS.defaultRole||"member")||{}).name||"Member")+'</b>; change their role, teams and capacity here.':'In demo mode there are no passwords.')+'</p><div class="tbl-wrap"><table class="tbl members-tbl"><thead><tr><th>Member</th><th>Role title</th><th>Permission role</th><th>Teams</th><th>Capacity</th><th>Login</th><th></th></tr></thead><tbody>'+Object.keys(PEOPLE).map(function(id){ var p=PEOPLE[id]; var ro=ed?"":" disabled"; return memberRowLabels('<tr style="cursor:default'+(p.active===false?";opacity:.5":"")+'"><td class="t"><span class="cell-flex">'+av(id)+'<span>'+esc(p.name)+(p.active===false?' <span class="badge bad">deactivated</span>':'')+'<div class="tiny muted" style="font-weight:400">'+(ed?'<input value="'+attr(p.email||"")+'" placeholder="email for sign-in" onchange="setEmail(\''+id+'\',this.value)" style="border:1px solid transparent;border-radius:6px;padding:1px 4px;background:transparent;width:100%;font-size:11.5px;color:var(--color-text-secondary)" onfocus="this.style.borderColor=\'var(--color-border)\'">':esc(p.email||""))+'</div></span></span></td><td><input'+ro+' value="'+attr(p.role)+'" onchange="PEOPLE[\''+id+'\'].role=this.value;persistPerson(\''+id+'\')" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;width:100%;background:var(--color-surface)"></td><td><select'+ro+' onchange="setPerm(\''+id+'\',this.value)" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;background:var(--color-surface)">'+ROLES.map(function(r){ return '<option value="'+r.id+'"'+(p.perm===r.id?" selected":"")+'>'+esc(r.name)+'</option>'; }).join("")+'</select>'+(typeof capGrantChip==="function"?capGrantChip(id):'')+'</td><td><span style="display:flex;gap:4px;flex-wrap:wrap">'+(p.teams||[]).map(function(x){ return teamBadge(x[0]); }).join("")+(ed?'<button class="btn xs ghost" onclick="memberTeamsModal(\''+id+'\')">'+I.edit+'</button>':'')+'</span></td><td><input'+ro+' type="number" min="0" value="'+p.cap+'" onchange="PEOPLE[\''+id+'\'].cap=+this.value;persistPerson(\''+id+'\')" style="border:1px solid var(--color-border);border-radius:8px;padding:4px 8px;width:64px;background:var(--color-surface)"></td><td class="hint">'+(API.on?(p.hasPassword?(p.lastLogin?ago(minAgo(p.lastLogin)):"never"):"no password"):"demo")+'</td><td style="white-space:nowrap">'+(id!==ME&&ed?(API.on?'<button class="iconbtn flat" style="width:26px;height:26px" title="Reset password" onclick="resetPasswordModal(\''+id+'\')">'+I.lock+'</button>':'')+(API.on?'<button class="btn xs ghost member-active-toggle" title="'+(p.active===false?tr("Allow this member to sign in again"):tr("Block sign-in but keep their work and history"))+'" onclick="toggleMemberActive(\''+id+'\')">'+tr(p.active===false?"Reactivate":"Deactivate")+'</button>':'')+'<button class="iconbtn flat" style="width:26px;height:26px" title="Remove" onclick="removeMember(\''+id+'\')">'+I.trash+'</button>':'<span class="hint">you</span>')+'</td></tr>'); }).join("")+'</tbody></table></div>',ed?'<button class="btn" onclick="addMemberModal()">'+I.plus+'Add member</button>':'',I.team); }
 /* v34 each member cell carries its column name, so the phone card layout can label it */
 function memberRowLabels(html){ var heads=["Member","Role title","Permission role","Teams","Capacity","Login",""].map(function(x){ return x?tr(x):""; }), i=0; return html.replace(/<td(?=[ >])/g,function(){ return '<td data-l="'+attr(heads[i++]||"")+'"'; }); }
 function setEmail(id,v){ v=v.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return toast("Enter a valid email","bad"); PEOPLE[id].email=v; persistPerson(id).then(function(saved){ if(saved===false)return false; toast("Email updated — "+first(id)+" signs in with "+v); }); }
@@ -15324,7 +15522,7 @@ Object.assign(UI_ID,{
   "Grow the canvas and let AI fill the new area":"Perbesar kanvas dan biarkan AI mengisi area barunya",
   "Generative Expand needs the connected server — not available in the standalone demo.":"Perluas Generatif memerlukan server yang terhubung — tidak tersedia pada demo standalone.",
   "Generate a visual first, then expand it.":"Buat visual terlebih dahulu, baru perluas.",
-  "This model does not support Generative Expand. Choose a different model under Advanced generation.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain di bagian Generasi lanjutan.",
+  "This model does not support Generative Expand. Choose a different model under Advanced generation.":"Model ini tidak mendukung Perluas Generatif. Pilih model lain di bagian Pengaturan lanjutan.",
   "This model does not support Generative Expand. Choose a model with reference-image support in Settings → AI → Models.":"Model ini tidak mendukung Perluas Generatif. Pilih model yang mendukung gambar referensi di Pengaturan → AI → Model.",
   "Could not load the current visual to expand.":"Tidak dapat memuat visual saat ini untuk diperluas.",
   "Aspect ratio":"Rasio aspek","Original":"Asli","Freeform":"Bebas",
@@ -15701,8 +15899,8 @@ function aiCanvasIcon(name){var p={eyeOff:'<path d="m3 3 18 18M10.6 10.6a2 2 0 0
 function aiViewZoom(value){var el=document.getElementById('aiCanvas');if(!el)return;var input=document.getElementById('aiZoomValue'),current=Number(input&&input.value)||100;AI_VIEW.zoom=value==='fit'?0:Math.max(10,Math.min(400,value==='in'?current+10:value==='out'?current-10:Number(value)||100));aiPreview();}
 var _aiZoomInputT;function aiZoomInput(value){clearTimeout(_aiZoomInputT);_aiZoomInputT=setTimeout(function(){aiViewZoom(value);},250);}
 function aiCanvasZoomUI(percent){var bar=document.querySelector('.ai-canvas-toolbar');if(!bar)return;var old=bar.querySelector('.ai-zoom-tools');if(old){var input=old.querySelector('input');if(document.activeElement!==input)input.value=percent;return;}var ui=document.createElement('div');ui.className='ai-zoom-tools';ui.innerHTML='<button class="iconbtn" title="'+attr(tr('Zoom out'))+'" aria-label="'+attr(tr('Zoom out'))+'" onclick="aiViewZoom(\'out\')">−</button><label><input id="aiZoomValue" aria-label="'+attr(tr('Canvas zoom (%)'))+'" type="number" min="10" max="400" value="'+percent+'" oninput="aiZoomInput(this.value)" onchange="aiViewZoom(this.value)"><span>%</span></label><button class="iconbtn" title="'+attr(tr('Zoom in'))+'" aria-label="'+attr(tr('Zoom in'))+'" onclick="aiViewZoom(\'in\')">+</button><button class="btn xs" onclick="aiViewZoom(\'fit\')">'+esc(tr('Fit'))+'</button><button class="iconbtn" title="'+attr(tr('Keyboard shortcuts'))+'" aria-label="'+attr(tr('Keyboard shortcuts'))+'" onclick="aiShortcutHelp()">?</button>';bar.prepend(ui);}
-aiPreview=function(){var el=document.getElementById('aiCanvas');if(!el)return;clearTimeout(_aiPreviewT);_aiPreviewT=null;if(typeof aiCaptureView==='function')aiCaptureView();var seq=++AI_VIEW.sequence,sx=el.scrollLeft,sy=el.scrollTop;
- aiCompose(function(cv){var el=document.getElementById('aiCanvas');if(!el||seq!==AI_VIEW.sequence)return;el.innerHTML='';el.classList.add('ai-zoom-viewport');var wrap=document.createElement('div');wrap.className='ai-zoom-stage';var fit=Math.min((el.clientWidth-48)/cv.width,(Math.min(innerHeight*.62,620)-48)/cv.height),zoom=AI_VIEW.zoom?AI_VIEW.zoom/100:Math.max(.01,fit);wrap.style.width=Math.round(cv.width*zoom)+'px';wrap.style.height=Math.round(cv.height*zoom)+'px';wrap.style.marginTop=Math.max(0,(el.clientHeight-48-cv.height*zoom)/2)+'px';cv.style.cssText='display:block;width:100%;height:100%;border-radius:0;touch-action:none';cv.tabIndex=0;cv.setAttribute('aria-label',tr('Design canvas'));cv.style.cursor=AIF.editMode===false?'default':'grab';if(AIF.editMode!==false){cv.addEventListener('pointerdown',function(e){cv.focus({preventScroll:true});aiTextDragStart(e,cv);});cv.addEventListener('click',function(e){aiCanvasEditAt(e,cv);});cv.addEventListener('dblclick',function(e){var h=aiHitAt(e,cv);if(h){aiSetSelection([h.id]);aiShowSelectionHandle(cv.parentNode,cv);aiOpenInlineEditor(cv,h);aiRefreshProperties();}});}wrap.append(cv);el.append(wrap);if(typeof aiMountNavigation==='function')aiMountNavigation(el,wrap,cv,zoom);else{el.scrollLeft=sx;el.scrollTop=sy;}aiCanvasZoomUI(Math.round(zoom*100));requestAnimationFrame(function(){aiShowSelectionHandle(wrap,cv);});
+aiPreview=function(){var el=document.getElementById('aiCanvas');if(!el)return;clearTimeout(_aiPreviewT);_aiPreviewT=null;if(AI_VIEW.recentre){AI_VIEW.recentre=false;AI_VIEW.center=null;}else if(typeof aiCaptureView==='function')aiCaptureView();var seq=++AI_VIEW.sequence,sx=el.scrollLeft,sy=el.scrollTop;
+ aiCompose(function(cv){var el=document.getElementById('aiCanvas');if(!el||seq!==AI_VIEW.sequence)return;el.innerHTML='';el.classList.add('ai-zoom-viewport');var wrap=document.createElement('div');wrap.className='ai-zoom-stage';var fit=Math.min((el.clientWidth-48)/cv.width,((typeof aiCanvasFitH==='function'?aiCanvasFitH(el):Math.min(innerHeight*.62,620))-48)/cv.height),zoom=AI_VIEW.zoom?AI_VIEW.zoom/100:Math.max(.01,fit);wrap.style.width=Math.round(cv.width*zoom)+'px';wrap.style.height=Math.round(cv.height*zoom)+'px';wrap.style.marginTop=Math.max(0,(el.clientHeight-48-cv.height*zoom)/2)+'px';cv.style.cssText='display:block;width:100%;height:100%;border-radius:0;touch-action:none';cv.tabIndex=0;cv.setAttribute('aria-label',tr('Design canvas'));cv.style.cursor=AIF.editMode===false?'default':'grab';if(AIF.editMode!==false){cv.addEventListener('pointerdown',function(e){cv.focus({preventScroll:true});aiTextDragStart(e,cv);});cv.addEventListener('click',function(e){aiCanvasEditAt(e,cv);});cv.addEventListener('dblclick',function(e){var h=aiHitAt(e,cv);if(h){aiSetSelection([h.id]);aiShowSelectionHandle(cv.parentNode,cv);aiOpenInlineEditor(cv,h);aiRefreshProperties();}});}wrap.append(cv);el.append(wrap);if(typeof aiMountNavigation==='function')aiMountNavigation(el,wrap,cv,zoom);else{el.scrollLeft=sx;el.scrollTop=sy;}aiCanvasZoomUI(Math.round(zoom*100));requestAnimationFrame(function(){aiShowSelectionHandle(wrap,cv);});
  },true);
 };
 function aiTransformShape(start,dx,dy,edge,sz,unit){var r=start.rotation*Math.PI/180,lx=dx*Math.cos(r)+dy*Math.sin(r),ly=-dx*Math.sin(r)+dy*Math.cos(r),ex=edge.includes('e')?1:edge.includes('w')?-1:0,ey=edge.includes('s')?1:edge.includes('n')?-1:0,w=Math.max(8,Math.min(sz.w*2*start.scale,start.w+ex*lx)),h=Math.max(8,Math.min(sz.h*2*start.scale,start.h+ey*ly)),mx=ex*(w-start.w)/2,my=ey*(h-start.h)/2;return {w:w/sz.w*100/start.scale,h:h/sz.h*100/start.scale,x:start.x+(mx*Math.cos(r)-my*Math.sin(r))*(unit==='px'?1:100/sz.w),y:start.y+(mx*Math.sin(r)+my*Math.cos(r))*(unit==='px'?1:100/sz.h)};}
@@ -15718,7 +15916,8 @@ function aiTransformStart(ev,id,cv,edge){if(aiLayerMeta(id).locked)return;ev.pre
 aiResizeStart=function(ev,id,cv){aiTransformStart(ev,id,cv,'se');};
 aiShowSelectionHandle=function(wrap,cv){if(!wrap)return;var old=wrap.querySelector('.ai-selection-box');if(old)old.remove();if(AIF.editMode===false)return;var id=AIF.selectedLayer,hit=AI_LAYER_BASE_HITS.find(function(h){return h.id===id;});if(!hit||aiLayerMeta(id).visible===false)return;var ratio=cv.getBoundingClientRect().width/cv.width,box=document.createElement('div'),m=aiLayerMeta(id),x=id.indexOf('extra_')===0?aiExtra(id.slice(6)):null;box.className='ai-selection-box';box.style.cssText='left:'+hit.x*ratio+'px;top:'+hit.y*ratio+'px;width:'+hit.w*ratio+'px;height:'+hit.h*ratio+'px;transform:rotate('+(Number(m.rotation)||0)+'deg)';if(!m.locked){var edges=x&&x.type==='shape'?['nw','n','ne','e','se','s','sw','w']:['se'];edges.concat(['rotate']).forEach(function(edge){var b=document.createElement('button');b.className='ai-transform-handle ai-handle-'+edge;b.type='button';b.title=tr(edge==='rotate'?'Rotate layer':edge==='e'||edge==='w'?'Resize width':edge==='n'||edge==='s'?'Resize height':'Resize layer');b.setAttribute('aria-label',b.title);if(edge==='rotate')b.innerHTML=aiCanvasIcon('rotate');b.addEventListener('pointerdown',function(e){aiTransformStart(e,id,cv,edge);});box.append(b);});}wrap.append(box);};
 function aiNudgeLayer(id,dx,dy){if(aiLayerMeta(id).locked)return;var sz=aiActiveSize(),p=id.indexOf('extra_')===0?aiExtra(id.slice(6)):aiLayerPosition(id);if(!p)return;p.x=(Number(p.x)||0)+dx*(AIF.offsetUnit==='px'?1:100/sz.w);p.y=(Number(p.y)||0)+dy*(AIF.offsetUnit==='px'?1:100/sz.h);aiPreview();aiRefreshProperties();}
-function aiShortcutHelp(){var old=document.getElementById('aiShortcutHelp');if(old){old.remove();return;}var box=document.createElement('div');box.id='aiShortcutHelp';box.className='ai-shortcut-help';box.innerHTML='<b>'+esc(tr('Keyboard shortcuts'))+'</b><p>'+esc(tr('Delete / Backspace: delete layer'))+'<br>'+esc(tr('Arrow keys: move 1 px · Shift: 10 px'))+'<br>Ctrl / ⌘ + Z: '+esc(tr('Undo'))+'<br>Ctrl / ⌘ + Shift + Z: '+esc(tr('Redo'))+'<br>Ctrl / ⌘ + D: '+esc(tr('Duplicate custom layer'))+'<br>T: '+esc(tr('Text'))+' · R: '+esc(tr('Shape'))+'<br>Ctrl / ⌘ + Shift + L: '+esc(tr('Lock / unlock layer'))+'<br>Ctrl / ⌘ + ] / [: '+esc(tr('Move up'))+' / '+esc(tr('Move down'))+'<br>+ / −: '+esc(tr('Canvas zoom (%)'))+' · 0: '+esc(tr('Fit'))+'<br>Esc: '+esc(tr('Deselect'))+'</p>';document.querySelector('.ai-canvas-toolbar').append(box);}
+/* a pop-up over the page (Oct 2026): inside the toolbar it pushed into the history and the buttons below */
+function aiShortcutHelp(){var old=document.getElementById('aiShortcutHelp');if(old){old.remove();return;}var box=document.createElement('div');box.id='aiShortcutHelp';box.className='ai-shortcut-help ai-shortcut-pop';box.setAttribute('role','dialog');box.setAttribute('aria-label',tr('Keyboard shortcuts'));setTimeout(function(){document.addEventListener('pointerdown',function away(e){var b=document.getElementById('aiShortcutHelp');if(!b){document.removeEventListener('pointerdown',away,true);return;}if(!b.contains(e.target)&&!(e.target.closest&&e.target.closest('[onclick="aiShortcutHelp()"]'))){b.remove();document.removeEventListener('pointerdown',away,true);}},true);},0);box.innerHTML='<button type="button" class="iconbtn ai-shortcut-x" aria-label="'+attr(tr('Close'))+'" onclick="aiShortcutHelp()">'+I.x+'</button><b>'+esc(tr('Keyboard shortcuts'))+'</b><p>'+esc(tr('Delete / Backspace: delete layer'))+'<br>'+esc(tr('Arrow keys: move 1 px · Shift: 10 px'))+'<br>Ctrl / ⌘ + Z: '+esc(tr('Undo'))+'<br>Ctrl / ⌘ + Shift + Z: '+esc(tr('Redo'))+'<br>Ctrl / ⌘ + D: '+esc(tr('Duplicate custom layer'))+'<br>T: '+esc(tr('Text'))+' · R: '+esc(tr('Shape'))+'<br>Ctrl / ⌘ + Shift + L: '+esc(tr('Lock / unlock layer'))+'<br>Ctrl / ⌘ + ] / [: '+esc(tr('Move up'))+' / '+esc(tr('Move down'))+'<br>+ / −: '+esc(tr('Canvas zoom (%)'))+' · 0: '+esc(tr('Fit'))+'<br>Esc: '+esc(tr('Deselect'))+'</p>';document.body.append(box);}
 function aiEditorKeydown(e){var target=e.target;if(!document.getElementById('aiCanvas')||AIF.editMode===false||target.closest('input,textarea,select,[contenteditable="true"],.modal,.menu,.ai-chat')||document.querySelector('#modalWrap.open'))return;if(typeof aiMultiKeydown==='function'&&aiMultiKeydown(e))return;var id=AIF.selectedLayer,key=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey,act=null;
  if(mod&&key==='z')act=e.shiftKey?aiRedo:aiUndo;else if(mod&&key==='y')act=aiRedo;
  else if(!mod&&(key==='+'||key==='='||key==='-'||key==='0'))act=function(){aiViewZoom(key==='0'?'fit':key==='-'?'out':'in');};
@@ -15727,7 +15926,7 @@ function aiEditorKeydown(e){var target=e.target;if(!document.getElementById('aiC
  if(act){e.preventDefault();e.stopImmediatePropagation();act();}
 }
 document.addEventListener('keydown',aiEditorKeydown,true);
-var _aiViewResizeT;window.addEventListener('resize',function(){clearTimeout(_aiViewResizeT);_aiViewResizeT=setTimeout(function(){if(!AI_VIEW.zoom)aiPreview();},120);});
+var _aiViewResizeT;window.addEventListener('resize',function(){clearTimeout(_aiViewResizeT);_aiViewResizeT=setTimeout(function(){if(!AI_VIEW.zoom){AI_VIEW.recentre=true;aiPreview();}},120);   /* at Fit, a new window size fits again, in the middle */});
 Object.assign(UI_ID,{'Duplicate custom layer':'Duplikat layer tambahan','Lock / unlock layer':'Kunci / buka kunci layer','Rounded rectangle':'Persegi membulat','Zoom out':'Perkecil','Zoom in':'Perbesar','Canvas zoom (%)':'Zoom kanvas (%)','Fit':'Pas layar','Keyboard shortcuts':'Pintasan keyboard','Design canvas':'Kanvas desain','Rotate layer':'Putar layer','Resize width':'Ubah lebar','Resize height':'Ubah tinggi','Resize layer':'Ubah ukuran layer','Delete / Backspace: delete layer':'Delete / Backspace: hapus layer','Arrow keys: move 1 px · Shift: 10 px':'Tombol panah: geser 1 px · Shift: 10 px','Deselect':'Batalkan pilihan'});
 </script>
 <script>
@@ -15772,7 +15971,7 @@ function aiMultiKeydown(e){var key=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey,
 var aiSingleShortcutHelp=aiShortcutHelp;
 aiShortcutHelp=function(){aiSingleShortcutHelp();var el=document.getElementById('aiShortcutHelp');if(el)el.insertAdjacentHTML('beforeend','<p>Shift + '+esc(tr('click'))+': '+esc(tr('Toggle layer selection'))+'<br>Ctrl / ⌘ + A: '+esc(tr('Select all'))+'<br>Alt + Shift + L / C / R: '+esc(tr('Align left / center / right'))+'<br>Alt + Shift + T / M / B: '+esc(tr('Align top / middle / bottom'))+'</p>');};
 Object.assign(UI_ID,{'Select layer':'Pilih layer','Select all':'Pilih semua','layers selected':'layer terpilih','Align to':'Ratakan terhadap','Selection bounds':'Batas pilihan','Shift-click to select several layers.':'Shift+klik untuk memilih beberapa layer.','Locked layers stay in place.':'Layer terkunci tetap pada posisinya.','Delete selected layers':'Hapus layer terpilih','Align left':'Rata kiri','Align horizontal centers':'Rata tengah horizontal','Align right':'Rata kanan','Align top':'Rata atas','Align vertical centers':'Rata tengah vertikal','Align bottom':'Rata bawah','click':'klik','Toggle layer selection':'Tambah atau lepas pilihan layer','Align left / center / right':'Rata kiri / tengah / kanan','Align top / middle / bottom':'Rata atas / tengah / bawah','Drag to move layers. Double-click text to edit.':'Seret untuk memindahkan layer. Klik dua kali pada teks untuk mengedit.'});
-Object.assign(UI_ID,{"Position":"Posisi","Opacity (%)":"Opasitas (%)","X offset":"Pergeseran X","Y offset":"Pergeseran Y","Workspace headline font":"Font judul utama workspace","Workspace body font":"Font isi workspace","Size (%)":"Ukuran (%)","Text size (%)":"Ukuran teks (%)","Alignment":"Perataan","Follow layout":"Ikuti tata letak","Center":"Tengah","Color type":"Jenis warna","Solid":"Warna tunggal","Text opacity (%)":"Opasitas teks (%)","Show background":"Tampilkan latar","Reset layer style":"Atur ulang gaya layer","Background type":"Jenis latar","Solid color":"Warna tunggal","Linear gradient":"Gradasi linear","Background opacity (%)":"Opasitas latar (%)","Primary color":"Warna utama","Secondary color":"Warna kedua","Direction (°)":"Arah (°)","Gradient stop (%)":"Batas gradasi (%)","Corner radius":"Lengkungan sudut","Corner radius (%)":"Lengkungan sudut (%)","Background details":"Detail latar","Padding horizontal":"Jarak tepi horizontal","Padding vertical":"Jarak tepi vertikal","Background outline":"Garis tepi latar","Outline color":"Warna garis tepi","Outline width":"Ketebalan garis tepi","Text outline":"Garis tepi teks","Drop shadow":"Bayangan","Shadow color":"Warna bayangan","Distance":"Jarak","Blur width":"Tingkat blur","Pill":"Kapsul","Glass":"Kaca","Badge":"Label","Disclaimer":"Catatan","Badge text":"Teks label","Badge color":"Warna label","Button text":"Teks tombol","Button color":"Warna tombol","Button outline":"Garis tepi tombol","Logo position":"Posisi logo","Logo size (%)":"Ukuran logo (%)","Logo source":"Sumber logo","Custom logo":"Logo khusus","Use workspace logo":"Gunakan logo workspace","Upload custom logo":"Unggah logo khusus","Using the workspace logo from Settings by default.":"Menggunakan logo workspace dari Pengaturan.","Show disclaimer":"Tampilkan catatan","Disclaimer text":"Teks catatan","Exported together with the design.":"Disertakan pada hasil ekspor desain.","Specific generation prompt":"Prompt khusus untuk gambar ini","Optional: write the exact prompt for this generation":"Opsional: tulis prompt yang ingin dipakai untuk gambar ini","Advanced generation":"Pengaturan pembuatan gambar","Visual brief":"Arahan visual","Custom style":"Gaya khusus","Custom size…":"Ukuran khusus…","Display 300×250":"Banner 300×250","Display 728×90":"Banner 728×90","Display 300×600":"Banner 300×600","Text layer":"Layer teks","New text":"Teks baru","Custom layer":"Layer tambahan","Text box width (%)":"Lebar kotak teks (%)","Width (%)":"Lebar (%)","Height (%)":"Tinggi (%)","Top left":"Kiri atas","Top right":"Kanan atas","Bottom left":"Kiri bawah","Bottom right":"Kanan bawah","Text appearance":"Tampilan teks","Text background":"Latar teks","All edges":"Semua sisi","Lock all sides":"Samakan semua sisi","Edit sides separately":"Atur sisi satu per satu","Hide per-side controls":"Tutup pengaturan per sisi","Preview only; never included in the export.":"Hanya untuk pratinjau, tidak disertakan pada ekspor.","Each edge can be set separately.":"Setiap sisi bisa diatur sendiri.","Layer name":"Nama layer","Font weight":"Ketebalan font","Medium":"Sedang","Black":"Sangat tebal","Text":"Teks","Content":"Konten","Appearance":"Tampilan","Effects":"Efek","Layout":"Ukuran","Regular":"Normal"});
+Object.assign(UI_ID,{"Position":"Posisi","Opacity (%)":"Opasitas (%)","X offset":"Pergeseran X","Y offset":"Pergeseran Y","Workspace headline font":"Font judul utama workspace","Workspace body font":"Font isi workspace","Size (%)":"Ukuran (%)","Text size (%)":"Ukuran teks (%)","Alignment":"Perataan","Follow layout":"Ikuti tata letak","Center":"Tengah","Color type":"Jenis warna","Solid":"Warna tunggal","Text opacity (%)":"Opasitas teks (%)","Show background":"Tampilkan latar","Reset layer style":"Atur ulang gaya layer","Background type":"Jenis latar","Solid color":"Warna tunggal","Linear gradient":"Gradasi linear","Background opacity (%)":"Opasitas latar (%)","Primary color":"Warna utama","Secondary color":"Warna kedua","Direction (°)":"Arah (°)","Gradient stop (%)":"Batas gradasi (%)","Corner radius":"Lengkungan sudut","Corner radius (%)":"Lengkungan sudut (%)","Background details":"Detail latar","Padding horizontal":"Jarak tepi horizontal","Padding vertical":"Jarak tepi vertikal","Background outline":"Garis tepi latar","Outline color":"Warna garis tepi","Outline width":"Ketebalan garis tepi","Text outline":"Garis tepi teks","Drop shadow":"Bayangan","Shadow color":"Warna bayangan","Distance":"Jarak","Blur width":"Tingkat blur","Pill":"Kapsul","Glass":"Kaca","Badge":"Label","Disclaimer":"Catatan","Badge text":"Teks label","Badge color":"Warna label","Button text":"Teks tombol","Button color":"Warna tombol","Button outline":"Garis tepi tombol","Logo position":"Posisi logo","Logo size (%)":"Ukuran logo (%)","Logo source":"Sumber logo","Custom logo":"Logo khusus","Use workspace logo":"Gunakan logo workspace","Upload custom logo":"Unggah logo khusus","Using the workspace logo from Settings by default.":"Menggunakan logo workspace dari Pengaturan.","Show disclaimer":"Tampilkan catatan","Disclaimer text":"Teks catatan","Exported together with the design.":"Disertakan pada hasil ekspor desain.","Specific generation prompt":"Prompt khusus untuk gambar ini","Optional: write the exact prompt for this generation":"Opsional: tulis prompt yang ingin dipakai untuk gambar ini","Advanced generation":"Pengaturan lanjutan","Visual brief":"Arahan visual","Custom style":"Gaya khusus","Custom size…":"Ukuran khusus…","Display 300×250":"Banner 300×250","Display 728×90":"Banner 728×90","Display 300×600":"Banner 300×600","Text layer":"Layer teks","New text":"Teks baru","Custom layer":"Layer tambahan","Text box width (%)":"Lebar kotak teks (%)","Width (%)":"Lebar (%)","Height (%)":"Tinggi (%)","Top left":"Kiri atas","Top right":"Kanan atas","Bottom left":"Kiri bawah","Bottom right":"Kanan bawah","Text appearance":"Tampilan teks","Text background":"Latar teks","All edges":"Semua sisi","Lock all sides":"Samakan semua sisi","Edit sides separately":"Atur sisi satu per satu","Hide per-side controls":"Tutup pengaturan per sisi","Preview only; never included in the export.":"Hanya untuk pratinjau, tidak disertakan pada ekspor.","Each edge can be set separately.":"Setiap sisi bisa diatur sendiri.","Layer name":"Nama layer","Font weight":"Ketebalan font","Medium":"Sedang","Black":"Sangat tebal","Text":"Teks","Content":"Konten","Appearance":"Tampilan","Effects":"Efek","Layout":"Ukuran","Regular":"Normal"});
 </script>
 <script>
 function agShowAll(){AG.mode='all';AG.q='';AG.offset=0;renderAIGallery();}
@@ -20256,11 +20455,31 @@ function avShowComment(cid){
   },60);
 }
 
+/* ---------- a count typed straight over (Oct 2026) ----------
+   A task's "Assets produced", here and in the panel's header: focused, the number is selected whole, so typing
+   replaces it; only digits, and no spinner arrows beside it (↑/↓ on the keyboard still step it); Enter keeps it,
+   Esc puts it back without closing the panel. Left empty, it stays what it was. */
+var COUNT_JUST_FOCUSED=null;
+function countInputHtml(n,label,field,kind){
+  n=Math.max(0,parseInt(n,10)||0);
+  return '<input class="count-input'+(kind?' '+kind:'')+'" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="5" value="'+n+'" data-was="'+n+'" aria-label="'+attr(tr(label))+'" onfocus="countFocus(this)" onmouseup="return countMouseUp(this)" oninput="countClean(this)" onkeydown="countKey(event,this)" onchange="countCommit(this,'+jsq(field)+')">';
+}
+function countFocus(el){ el.select(); COUNT_JUST_FOCUSED=el; }
+/* the click that focused it would otherwise drop the selection for a caret */
+function countMouseUp(el){ if(COUNT_JUST_FOCUSED===el){ COUNT_JUST_FOCUSED=null; return false; } return true; }
+function countClean(el){ var v=el.value.replace(/[^0-9]/g,"").slice(0,5); if(v!==el.value) el.value=v; }
+function countKey(e,el){
+  if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); el.value=Math.max(0,(parseInt(el.value,10)||0)+(e.key==="ArrowUp"?1:-1)); el.select(); return; }
+  if(e.key==="Enter"){ e.preventDefault(); el.blur(); return; }
+  if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); el.value=el.getAttribute("data-was"); el.blur(); }
+}
+function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v); editTask(field,String(v)); }
+
 /* ---------- the count used by reports ---------- */
 function avCountRow(tk,ed){
   var n=assetCount(tk);
   return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
-    + (ed?'<input type="number" min="0" step="1" value="'+n+'" aria-label="'+attr(tr("Assets produced"))+'" onchange="editTask(\'assetCount\',this.value)">':'<b>'+n+'</b>')+'</div>';
+    + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
 }
 
 /* notes in the history */
@@ -21900,7 +22119,7 @@ var CAP_GROUPS=[
   ["Reviews & requests",["review_any","submit_request","decide_request"]],
   ["Progress notes",["view_progress_notes","write_progress_notes"]],
   ["Assets & knowledge",["manage_assets","manage_knowledge"]],
-  ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates"]],
+  ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates","save_own_ai_templates"]],
   ["Insights",["view_analytics"]]];
 var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Other":"more"};
 /* the capabilities of a role, in their groups; any the list does not name yet go under Other */
@@ -21924,6 +22143,89 @@ Object.assign(UI_ID,{
   "See, create, verify and restore backups":"Melihat, membuat, memeriksa, dan memulihkan backup","Submit a request (a task in the first stage, unassigned) for the creative team to triage":"Mengajukan permintaan (task di tahap pertama, tanpa penanggung jawab) untuk disortir tim kreatif",
   "Open AI Hub and generate visuals":"Membuka AI Hub dan membuat visual","Browse the shared AI Gallery":"Menjelajah AI Gallery bersama","Publish their own designs to the AI Gallery":"Menerbitkan desain sendiri ke AI Gallery",
   "Duplicate someone else's gallery design":"Menduplikat desain galeri milik orang lain","Rename, archive and delete their own designs":"Mengganti nama, mengarsipkan, dan menghapus desain sendiri","Manage any member's gallery design":"Mengelola desain galeri anggota mana pun"
+});
+</script>
+<script>
+/* ============================================================
+   EXTRA PERMISSIONS FOR ONE PERSON (Oct 2026)
+   Someone who manages roles gives one person permissions on top of their role, say a Member who looks after the AI
+   Hub templates for a while, without changing that role. All of a person's extra permissions run until the same
+   optional last day, then go by themselves; they are given and changed from the person's row in Settings → Members,
+   and Roles & permissions lists who has them. The server adds them to the person's role (cap_grants); here has()
+   counts them too (core.js), so the page shows what the person may do.
+   ============================================================ */
+var MY_GRANTS=[], CAP_GRANTS=[];
+function capGrantToday(){ return new Date().toISOString().slice(0,10); }
+function capGrantLive(g){ return !!g&&(!g.expiresAt||g.expiresAt>=capGrantToday()); }
+function capGrantHas(cap){ return MY_GRANTS.some(function(g){ return g.cap===cap&&capGrantLive(g); }); }
+function capGrantsOf(id){ return CAP_GRANTS.filter(function(g){ return g.userId===id&&capGrantLive(g); }); }
+function capLabel(cap){ var c=((typeof CAPS!=="undefined"&&CAPS)||[]).filter(function(x){ return x[0]===cap; })[0]; return c?tr(c[1]):cap; }
+function capGrantDate(d){ try{ return new Date(d+"T12:00:00").toLocaleDateString(UI_LANG==="id"?"id-ID":"en-GB",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return d; } }
+function capGrantCanGive(id){ var p=PEOPLE[id]; return !!(API.on&&p&&canI.manageRoles&&canI.manageRoles()&&id!==ME&&p.perm!=="admin"&&p.active!==false); }
+
+/* ---------- Members: the chip under a person's role ---------- */
+function capGrantChip(id){
+  var mine=capGrantsOf(id), can=capGrantCanGive(id); if(!mine.length&&!can) return "";
+  var label=mine.length?"+"+mine.length+" "+tr(mine.length===1?"extra permission":"extra permissions")+(mine[0].expiresAt?" · "+tr("until")+" "+capGrantDate(mine[0].expiresAt):""):tr("Extra permissions");
+  var tip=mine.length?mine.map(function(g){ return capLabel(g.cap); }).join(", "):tr("Give permissions on top of this role");
+  return '<button type="button" class="cap-grant-chip'+(mine.length?' on':'')+'" title="'+attr(tip)+'" aria-label="'+attr(label+(mine.length?": "+tip:""))+'"'+(can?' onclick="capGrantModal('+jsq(id)+')"':' disabled')+'>'+(mine.length?I.lock:I.plus)+'<span>'+esc(label)+'</span></button>';
+}
+/* every permission, in the role editor's groups; the role's own ones shown, not to be given again */
+function capGrantModal(id){
+  var p=PEOPLE[id]; if(!p) return; var ro=byId(ROLES,p.perm)||{permissions:[],name:p.perm}, mine=capGrantsOf(id), have={}, fromRole={}, seen={};
+  (ro.permissions||[]).forEach(function(c){ fromRole[c]=1; }); mine.forEach(function(g){ have[g.cap]=1; });
+  var all=(typeof CAPS!=="undefined"&&CAPS)||[], byCap={}; all.forEach(function(c){ byCap[c[0]]=c; });
+  var groups=((typeof CAP_GROUPS!=="undefined"&&CAP_GROUPS)||[]).map(function(g){ return [g[0],g[1].map(function(id){ seen[id]=1; return byCap[id]; }).filter(Boolean)]; });
+  var rest=all.filter(function(c){ return !seen[c[0]]; }); if(rest.length) groups.push(["Other",rest]);
+  var html=groups.filter(function(g){ return g[1].length; }).map(function(g){
+    return '<div class="cap-grant-group"><b>'+esc(tr(g[0]))+'</b>'+g[1].map(function(c){ var own=!!fromRole[c[0]];
+      return '<label class="cap-grant-row'+(own?' own':'')+'"><input type="checkbox" name="cap_grant" value="'+attr(c[0])+'"'+(own||have[c[0]]?' checked':'')+(own?' disabled':'')+'><span>'+esc(tr(c[1]))+'</span>'+(own?'<em>'+tr("from the role")+'</em>':'')+'</label>'; }).join("")+'</div>'; }).join("");
+  openModal(tr("Extra permissions")+" · "+p.name,
+    '<p class="hint" style="margin-bottom:12px">'+tr("On top of the role {role}. The role itself stays as it is.").replace("{role}",'<b>'+esc(ro.name||p.perm)+'</b>')+'</p>'
+    + '<div class="field"><label for="cap_grant_until">'+tr("Last day (optional)")+'</label><input type="date" id="cap_grant_until" value="'+attr((mine[0]&&mine[0].expiresAt)||"")+'" min="'+capGrantToday()+'"><p class="hint">'+tr("Empty: until taken back.")+'</p></div>'
+    + '<div class="cap-grant-list">'+html+'</div>',
+    (mine.length?'<button class="btn ghost" onclick="capGrantSave('+jsq(id)+',true)">'+I.trash+tr("Remove all")+'</button><span class="spacer"></span>':'')
+    + '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" onclick="capGrantSave('+jsq(id)+')">'+tr("Save")+'</button>');
+}
+function capGrantSave(id,clear){
+  var caps=clear?[]:Array.prototype.map.call(document.querySelectorAll('input[name="cap_grant"]:checked:not(:disabled)'),function(x){ return x.value; });
+  var until=clear?null:(val("cap_grant_until")||null);
+  apiFetch("PUT","/api/members/"+encodeURIComponent(id)+"/cap-grants",{caps:caps,expiresAt:until}).then(function(r){
+    CAP_GRANTS=(r&&r.grants)||[]; closeModal(); toast(tr(caps.length?"Extra permissions saved":"Extra permissions removed")); renderScreen(false);
+  }).catch(function(e){ toast(e.message,"bad"); });
+}
+
+/* ---------- Roles & permissions: who has extra permissions ---------- */
+function capGrantsSection(){
+  if(!API.on||!(canI.manageRoles&&canI.manageRoles())) return "";
+  var by={}; CAP_GRANTS.filter(capGrantLive).forEach(function(g){ (by[g.userId]=by[g.userId]||[]).push(g); });
+  var ids=Object.keys(by).filter(function(id){ return PEOPLE[id]; });
+  return sp("Extra permissions",'<p class="hint" style="margin-bottom:10px">'+tr("People with permissions on top of their role. Give or change them from a person's row in Members.")+'</p>'
+    + (ids.length?ids.map(function(id){ var g=by[id], ro=byId(ROLES,PEOPLE[id].perm)||{};
+        return '<div class="pref"><div class="pl"><b>'+esc(PEOPLE[id].name)+' <span class="badge">'+esc(ro.name||PEOPLE[id].perm)+'</span></b><span>'+g.map(function(x){ return esc(capLabel(x.cap)); }).join(", ")+(g[0].expiresAt?' · '+tr("until")+' '+capGrantDate(g[0].expiresAt):'')+'</span></div>'
+          + (capGrantCanGive(id)?'<button class="btn xs" onclick="capGrantModal('+jsq(id)+')">'+I.edit+tr("Edit")+'</button>':'')+'</div>'; }).join("")
+      :'<div class="hint">'+tr("Nobody has extra permissions.")+'</div>'), null, I.lock);
+}
+(function(){ if(typeof setRoles!=="function") return; var base=setRoles; setRoles=function(){ return base.apply(this,arguments)+capGrantsSection(); }; })();
+/* from the workspace as it arrives, and again when an admin changes them */
+(function(){ if(typeof loadBootstrap!=="function") return; var base=loadBootstrap; loadBootstrap=function(d){ var r=base.apply(this,arguments); MY_GRANTS=(d&&d.me&&d.me.extraCaps)||[]; CAP_GRANTS=(d&&d.capGrants)||[]; return r; }; })();
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ if(ev&&ev.type==="ws_changed"&&ev.kind==="grants"&&API.on){ apiFetch("GET","/api/live/grants").then(function(d){ MY_GRANTS=d.mine||[]; CAP_GRANTS=d.grants||[]; refresh(); }).catch(function(){}); } return base.apply(this,arguments); }; })();
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Extra permissions":"Izin tambahan",
+  "extra permission":"izin tambahan",
+  "extra permissions":"izin tambahan",
+  "until":"s/d",
+  "Give permissions on top of this role":"Beri izin di luar role ini",
+  "On top of the role {role}. The role itself stays as it is.":"Di luar role {role}. Role-nya sendiri tidak berubah.",
+  "Last day (optional)":"Berlaku sampai (opsional)",
+  "Empty: until taken back.":"Kosong: berlaku sampai dicabut.",
+  "from the role":"dari role",
+  "Remove all":"Hapus semua",
+  "Extra permissions saved":"Izin tambahan tersimpan",
+  "Extra permissions removed":"Izin tambahan dihapus",
+  "People with permissions on top of their role. Give or change them from a person's row in Members.":"Orang yang punya izin di luar role-nya. Beri atau ubah dari baris orang tersebut di Members.",
+  "Nobody has extra permissions.":"Belum ada yang punya izin tambahan.",
+  "Other":"Lainnya"
 });
 </script>
 <script>

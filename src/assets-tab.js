@@ -604,11 +604,31 @@ function avShowComment(cid){
   },60);
 }
 
+/* ---------- a count typed straight over (Oct 2026) ----------
+   A task's "Assets produced", here and in the panel's header: focused, the number is selected whole, so typing
+   replaces it; only digits, and no spinner arrows beside it (↑/↓ on the keyboard still step it); Enter keeps it,
+   Esc puts it back without closing the panel. Left empty, it stays what it was. */
+var COUNT_JUST_FOCUSED=null;
+function countInputHtml(n,label,field,kind){
+  n=Math.max(0,parseInt(n,10)||0);
+  return '<input class="count-input'+(kind?' '+kind:'')+'" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="5" value="'+n+'" data-was="'+n+'" aria-label="'+attr(tr(label))+'" onfocus="countFocus(this)" onmouseup="return countMouseUp(this)" oninput="countClean(this)" onkeydown="countKey(event,this)" onchange="countCommit(this,'+jsq(field)+')">';
+}
+function countFocus(el){ el.select(); COUNT_JUST_FOCUSED=el; }
+/* the click that focused it would otherwise drop the selection for a caret */
+function countMouseUp(el){ if(COUNT_JUST_FOCUSED===el){ COUNT_JUST_FOCUSED=null; return false; } return true; }
+function countClean(el){ var v=el.value.replace(/[^0-9]/g,"").slice(0,5); if(v!==el.value) el.value=v; }
+function countKey(e,el){
+  if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); el.value=Math.max(0,(parseInt(el.value,10)||0)+(e.key==="ArrowUp"?1:-1)); el.select(); return; }
+  if(e.key==="Enter"){ e.preventDefault(); el.blur(); return; }
+  if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); el.value=el.getAttribute("data-was"); el.blur(); }
+}
+function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v); editTask(field,String(v)); }
+
 /* ---------- the count used by reports ---------- */
 function avCountRow(tk,ed){
   var n=assetCount(tk);
   return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
-    + (ed?'<input type="number" min="0" step="1" value="'+n+'" aria-label="'+attr(tr("Assets produced"))+'" onchange="editTask(\'assetCount\',this.value)">':'<b>'+n+'</b>')+'</div>';
+    + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
 }
 
 /* notes in the history */

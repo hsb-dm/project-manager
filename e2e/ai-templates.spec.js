@@ -23,11 +23,17 @@ test("a canvas becomes a template for everyone, opens as it was, is changed from
     await save.click();
     /* the template it came from can be updated; this time it is a new one */
     await expect(page.getByText("Update “Educational feed”")).toBeVisible();
+    /* updating a built-in: it stays everyone's */
+    await expect(page.getByLabel("Only me")).toBeDisabled();
+    await expect(page.locator("#ai_tpl_aud_hint")).toHaveText("A built-in template is for everyone.");
     await page.getByLabel("Save as a new template").check();
+    await expect(page.getByLabel("Only me")).toBeEnabled();
+    await page.getByLabel("Only me").check();
     await expect(page.locator("#ai_tpl_name")).toHaveValue("");
     await page.locator("#ai_tpl_name").fill("E2E poster template");
     await page.getByRole("button", { name: "Save template" }).click();
-    await page.waitForFunction(() => aiPromptTemplates().some(t => t.name === "E2E poster template" && t.owner === ME));
+    await page.waitForFunction(() => aiPromptTemplates().some(t => t.name === "E2E poster template" && t.owner === ME && t.private === true));
+    await expect(page.locator(".ai-template-card", { hasText: "E2E poster template" }).locator(".ai-tpl-own")).toBeVisible();
     const made = await page.evaluate(() => aiPromptTemplates().find(t => t.name === "E2E poster template"));
     expect(made.editorFields.extraLayers.find(l => l.id === "e2epic").src).toMatch(/^\/files\/[a-f0-9]{64}\.png$/);
     expect(made.layout).toBe("poster");
@@ -40,6 +46,8 @@ test("a canvas becomes a template for everyone, opens as it was, is changed from
     await page.evaluate(() => { AIF.headline = "Updated from the canvas"; aiSetBrief("A changed brief"); renderScreen(false); });
     await save.click();
     await expect(page.getByLabel(/Update/)).toBeChecked();
+    await expect(page.getByLabel("Only me")).toBeChecked();   /* its own: still only for its maker, and changeable */
+    await expect(page.getByLabel("Only me")).toBeEnabled();
     await expect(page.locator("#ai_tpl_name")).toHaveValue("E2E poster template");
     await page.getByRole("button", { name: "Save template" }).click();
     await page.waitForFunction(id => { const t = aiPromptTemplates().find(x => x.id === id); return t && t.editorFields.headline === "Updated from the canvas" && t.brief === "A changed brief"; }, made.id);
@@ -50,8 +58,8 @@ test("a canvas becomes a template for everyone, opens as it was, is changed from
     await page.locator("#modalWrap").getByRole("button", { name: "Delete" }).click();
     await page.waitForFunction(id => !aiPromptTemplates().some(t => t.id === id), made.id);
     await expect(page.locator(".ai-template-card", { hasText: "E2E poster template" })).toHaveCount(0);
-    /* a role without the permission has no button */
-    await page.evaluate(() => { window.__has = has; has = c => c === "save_ai_templates" ? false : window.__has(c); renderScreen(false); });
+    /* a role with neither template permission has no button */
+    await page.evaluate(() => { window.__has = has; has = c => c === "save_ai_templates" || c === "save_own_ai_templates" ? false : window.__has(c); renderScreen(false); });
     await expect(page.getByRole("button", { name: "Save as template" })).toHaveCount(0);
     await page.evaluate(() => { has = window.__has; renderScreen(false); });
     /* in Indonesian */

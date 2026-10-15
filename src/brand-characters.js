@@ -14,32 +14,50 @@ function aiCharactersAll(){ return ((typeof WS!=="undefined"&&WS.ai&&WS.ai.chara
 /* the ones a generation can use: those with at least one photo */
 function aiCharacters(){ return aiCharactersAll().filter(function(c){ return (c.photos||[]).some(aiCharPhotoOk); }); }
 function aiCharactersFor(n){ n=Math.max(0,Math.min(AI_CHAR_PICK,+n||0)); return aiCharacters().slice(0,n).map(function(c){ return c.id; }); }
+/* Characters are optional (Oct 2026): a switch in AI Hub puts them in or leaves them out. A template with people
+   turns it on and chooses them; any other starts with it off. A design from before the switch counts as on when it
+   has characters chosen. */
+function aiCharactersOn(){ if(typeof AIF==="undefined") return false; return AIF.useCharacters!==undefined?!!AIF.useCharacters:(AIF.characters||[]).length>0; }
 function aiSelectedCharacters(){
+  if (!aiCharactersOn()) return [];
   if (typeof aiSelectedModelCan==="function" && !aiSelectedModelCan("reference")) return [];
   var list=aiCharacters();
   return ((AIF&&AIF.characters)||[]).map(function(id){ return byId(list,id); }).filter(Boolean).slice(0,AI_CHAR_PICK);
 }
+/* what they do in this visual, when nobody wrote it */
+var AI_CHAR_ROLE_DEFAULT="placed naturally in the scene next to the hero subject, facing the camera, and kept clear of the text area";
 /* what the model is told about them; the photos themselves go with the request */
 function aiCharactersPrompt(){
   var list=aiSelectedCharacters(); if(!list.length) return "";
   var who=list.map(function(c){ return c.name+(c.description?" ("+c.description+")":""); }).join(" and ");
-  return "People: the reference photos show "+who+". "+(list.length>1?"They are the main people":"This person is the main person")+" in this visual — keep each face, hairstyle, skin tone and build true to the photos, and change only pose, clothing and expression as the brief asks. Do not add any other recognisable person.";
+  var role=String(AIF.characterRole||"").trim()||AI_CHAR_ROLE_DEFAULT;
+  return "People: the reference photos show "+who+". "+(list.length>1?"They are the main people":"This person is the main person")+" in this visual — keep each face, hairstyle, skin tone and build true to the photos, and change only pose, clothing and expression as described. In this visual: "+role+". Do not add any other recognisable person.";
 }
 
-/* ---------- AI Hub: choosing who appears ---------- */
+/* ---------- AI Hub: whether people appear, who, and as what ---------- */
 function aiCharactersFieldHtml(){
   var list=aiCharacters(); if(!list.length) return "";
-  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), on=AIF.characters||[];
-  return '<div class="field ai-chars"><label>'+tr("Brand characters")+'</label><div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
+  var can=typeof aiSelectedModelCan!=="function"||aiSelectedModelCan("reference"), use=aiCharactersOn(), on=AIF.characters||[];
+  var h='<div class="field ai-chars"><div class="ai-chars-head"><label for="aiCharsSwitch">'+tr("Include brand characters")+'</label><button type="button" id="aiCharsSwitch" class="switch'+(use?" on":"")+'" role="switch" aria-checked="'+(use?"true":"false")+'" onclick="aiCharactersSwitch()"></button></div>';
+  if(!use) return h+'<p class="hint">'+tr("Off: no people from your brand characters, and nothing about them in the prompt.")+'</p></div>';
+  return h+'<div class="ai-char-picker" role="group" aria-label="'+attr(tr("Brand characters"))+'">'
     + list.map(function(c){ var sel=can&&on.indexOf(c.id)>=0, ph=(c.photos||[]).filter(aiCharPhotoOk)[0];
         return '<button type="button" class="ai-char-card'+(sel?' on':'')+'" aria-pressed="'+(sel?"true":"false")+'"'+(can?'':' disabled')+' title="'+attr(c.description||c.name)+'" onclick="aiToggleCharacter('+jsq(c.id)+')"><img src="'+attr(ph)+'" alt=""><span data-no-trans>'+esc(c.name)+'</span></button>'; }).join("")
-    + '</div><p class="hint">'+(can?tr("The people you choose are the main reference whenever the visual shows a person. Choose up to two."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+    + '</div>'
+    + (can?'<label class="ai-char-role-label" for="aiCharRole">'+tr("Character role")+'</label><textarea id="aiCharRole" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'" oninput="AIF.characterRole=this.value">'+esc(AIF.characterRole||"")+'</textarea>':'')
+    + '<p class="hint">'+(can?tr("Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text."):tr("This model cannot use reference photos. Choose a model that accepts reference images to use brand characters."))+'</p></div>';
+}
+/* on: the first character is chosen if nobody is yet */
+function aiCharactersSwitch(){
+  aiHistoryBefore(); var use=!aiCharactersOn(); AIF.useCharacters=use;
+  if(use&&!(AIF.characters||[]).some(function(id){ return byId(aiCharacters(),id); })) AIF.characters=aiCharactersFor(1);
+  renderScreen(false);
 }
 function aiToggleCharacter(id){
   var on=(AIF.characters||[]).slice(), i=on.indexOf(id);
   if(i>=0) on.splice(i,1);
   else { if(on.length>=AI_CHAR_PICK) return toast(tr("Choose up to two people"),"bad"); on.push(id); }
-  aiHistoryBefore(); AIF.characters=on; renderScreen(false);
+  aiHistoryBefore(); AIF.characters=on; AIF.useCharacters=true; renderScreen(false);
 }
 
 /* ---------- Settings: the admin's list ---------- */
@@ -117,6 +135,13 @@ function aiCharPhotoRemove(id,i){
   "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang kamu pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
   "This model cannot use reference photos. Choose a model that accepts reference images to use brand characters.":"Model ini tidak bisa memakai foto acuan. Pilih model yang menerima gambar referensi untuk memakai karakter brand.",
   "Choose up to two people":"Pilih maksimal dua orang",
+  "Include brand characters":"Masukkan karakter brand",
+  "Off: no people from your brand characters, and nothing about them in the prompt.":"Mati: tidak ada orang dari karakter brand, dan tidak ada kalimat tentang mereka di prompt.",
+  "Character role":"Peran karakter",
+  "e.g. standing to the right of the trophy, smiling, holding a phone":"mis. berdiri di kanan piala, tersenyum, memegang ponsel",
+  "Choose up to two. The role says where they are and what they do; empty, they stand naturally beside the main subject, clear of the text.":"Pilih maksimal dua. Peran menjelaskan posisi dan kegiatannya; bila kosong, mereka berdiri natural di samping objek utama, tidak menutupi teks.",
+  "Character prompt":"Prompt karakter",
+  "What the brand characters do in this template when they are included. Empty: they stand beside the main subject, clear of the text.":"Apa yang dilakukan karakter brand di template ini saat dimasukkan. Kosong: mereka berdiri di samping objek utama, tidak menutupi teks.",
   "People added here are the main reference whenever someone generates a person in AI Hub. Members choose them in AI Hub, and templates with people choose them on their own. Use one to three clear, well-lit photos of the face and upper body. Only add people who agreed to appear in AI-generated visuals.":"Orang yang ditambahkan di sini menjadi acuan utama setiap kali seseorang membuat visual berisi orang di AI Hub. Member memilihnya di AI Hub, dan template yang berisi orang memilihnya otomatis. Gunakan satu sampai tiga foto wajah dan badan bagian atas yang jelas dan terang. Tambahkan hanya orang yang sudah setuju tampil di visual buatan AI.",
   "No brand characters yet.":"Belum ada karakter brand.",
   "Add character":"Tambah karakter",
