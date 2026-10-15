@@ -1434,6 +1434,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-shortcut-pop>b{display:block;font-size:15px;margin-right:36px}
 .ai-shortcut-pop .ai-shortcut-x{position:absolute;top:12px;right:12px}
 .ai-hs-thumb .ai-history-placeholder[hidden]{display:none}
+/* a picture the provider no longer keeps is hidden for the placeholder (onerror); display:block above would keep it */
+.ai-hs-thumb img[hidden]{display:none}
 /* a template only its maker sees */
 .ai-tpl-own{display:inline-flex;vertical-align:-2px;margin-left:5px;color:var(--color-text-tertiary)}
 .ai-tpl-own svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
@@ -1473,3 +1475,51 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-ref-strength{display:grid;grid-template-columns:auto minmax(0,1fr) 28px;align-items:center;gap:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--color-text-secondary);margin:0}
 .ai-ref-strength input{width:100%;accent-color:var(--color-primary)}
 .ai-ref-strength b{text-align:right;color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+
+/* Assets produced, per person: one count each on a task with several people; the total adds them up */
+.av-count.av-split{display:block}
+.av-split-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.av-split-total{font-weight:600;color:var(--color-text-secondary)}
+.av-split-total b{color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+.av-split-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.av-split-row{display:flex;align-items:center;gap:8px;min-width:0}
+.av-split-row .av{flex:0 0 auto}
+.av-split-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.av-split-guess{margin:8px 0 0;font-weight:500}
+/* a team's lead: the team's assets, beside their own */
+.wl-assets.wl-team-assets{background:var(--color-success-soft);color:var(--color-success)}
+.wl-assets.wl-team-assets.zero{background:var(--color-surface-sunken);color:var(--color-text-tertiary)}
+/* Settings → Teams: how assets produced are counted per person */
+.asset-lead{display:flex;flex-direction:column;gap:8px}
+.asset-lead-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;cursor:pointer}
+.asset-lead-opt.on{border-color:var(--color-primary);background:var(--color-primary-soft)}
+.asset-lead-opt input{margin-top:3px;accent-color:var(--color-primary)}
+.asset-lead-opt>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.asset-lead-opt .hint{font-weight:500}
+/* folded to one line until opened; a team's lead sees whether the counts are validated */
+.av-split-head{display:flex;align-items:center;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.av-split-title{flex:none}
+.av-split-sum{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av-split-total{flex:none}
+.av-split-badge{flex:none;display:inline-flex;align-items:center;gap:3px;font-size:11px}
+.av-split-badge svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5}
+.av-split-caret{flex:none;width:16px;height:16px;opacity:.6;background:currentColor;transition:transform .15s;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat}
+.av-split.open .av-split-caret{transform:rotate(180deg)}
+.av-split-head:focus-visible{outline:2px solid var(--color-primary);outline-offset:4px;border-radius:6px}
+.av-split-ok{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--color-warning-soft,#FEF3C7);color:var(--color-warning,#92400E);font-weight:500}
+.av-split-ok.done{background:var(--color-success-soft);color:var(--color-success)}
+.av-split-ok svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;flex:none}
+.av-split-ok .btn svg{width:12px;height:12px}
+/* a picture the provider no longer keeps: an image icon in its place, centred */
+.ai-hs-thumb .ai-history-placeholder{display:grid;place-items:center;border-radius:0;background:var(--color-surface-sunken);color:var(--color-text-tertiary)}
+.ai-hs-thumb .ai-history-placeholder svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.75}
+/* a new version of ZenCrevia is ready: a bar at the top, until reloaded or put off */
+.zc-new-version{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:310;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:8px 8px 8px 14px;border:1px solid var(--color-border);border-radius:var(--pill,999px);background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(15,23,42,.16);font-size:13px;font-weight:600}
+.zc-nv-ic{display:grid;place-items:center;color:var(--color-primary)}
+.zc-nv-ic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.zc-nv-text{min-width:0}
+.zc-new-version .btn{flex:none}
+.zc-nv-later svg{width:14px;height:14px}
+@media(max-width:600px){.zc-new-version{width:calc(100vw - 32px);border-radius:14px}.zc-nv-text{flex:1}}

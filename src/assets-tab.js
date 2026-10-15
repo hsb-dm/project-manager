@@ -352,12 +352,12 @@ function saveRevised(){
   var same=!!raw&&raw===v.driveUrl, url=same?raw:normalizedAttachUrl(raw);
   if(!url) return toast(tr("Paste the link to the revised work, or upload the revised file."),"bad");
   closeModal();
-  pushVersionFrom(tk,same?{url:url,driveId:v.driveId||null,img:v.img||""}:{url:url},note);
+  pushVersionFrom(tk,same?{url:url,driveId:v.driveId||null,img:v.img||""}:{url:url},note,false,true);
 }
 /* The next version, from a link or a stored picture — nothing is uploaded again. It is not in review
    until it is submitted (avDecision), and there is no limit: V2, V3 … as many rounds as it takes. */
 function nextVersionNo(tk){ return tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; }
-function pushVersionFrom(tk,src,note,quiet){
+function pushVersionFrom(tk,src,note,quiet,fileIt){
   var sent=false, n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   S.drawerVer=n; S.drawerTab="files";
   return editTaskWith(tk,function(t){
@@ -366,7 +366,7 @@ function pushVersionFrom(tk,src,note,quiet){
     if(src.img) x.img=src.img;
     if(src.driveId) x.driveId=src.driveId;
     else if(src.url&&isDriveUrl(src.url)){ var id=(src.url.match(/\/d\/([^/?#]+)/)||src.url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) x.driveId=id; }
-    t.versions.push(x); log(t,"upload",{v:n});
+    t.versions.push(x); if(fileIt&&!src.img) verLinkFile(t,src.url,x.driveId,""); log(t,"upload",{v:n});
     /* Settings → Automation can send it to review at once — when the task has a reviewer to send
        it to (a review stage may require one, and the save would be refused) */
     var rs=reviewFlow().autoSubmit?stageOfKind("review"):null;
@@ -503,6 +503,8 @@ function saveLinkVersion(){
   if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var tk=task(S.drawerTask); if(!tk) return;
   var drive=isDriveUrl(url), note=val("lv_note").trim(), host=""; try{ host=new URL(url).hostname.replace(/^www\./,""); }catch(e){}
+  /* the name read from the link while it was pasted (linkNameSoon) names its row under Final files */
+  var noteEl=document.getElementById("lv_note"), named=noteEl&&noteEl.getAttribute("data-auto")||"";
   var n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1;
   var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   closeModal(); S.drawerVer=n; S.drawerTab="files";
@@ -511,8 +513,19 @@ function saveLinkVersion(){
     /* drive_url is the column every version keeps its source address in, Drive or not */
     v.driveUrl=url;
     if(drive){ var id=(url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) v.driveId=id; }
-    t.versions.push(v); log(t,"upload",{v:n});
+    t.versions.push(v); verLinkFile(t,url,v.driveId,named); log(t,"upload",{v:n});
   }).then(function(saved){ if(saved===false) return false; notifyTask("upload",tk); toast(tr("Version")+" "+n+" "+tr("attached")); });
+}
+/* A version attached as a link is delivered work, as an uploaded one is: it is filed under Final files too, where
+   it says which version it is and whether that is final (useAsFinalHtml). A link already there — the same folder
+   kept through Revised, a link handed over in a comment — is not filed again. Without a name read from the link it
+   gets the link's stand-in name, which avHealDriveNames replaces with the real one. */
+function verLinkFile(t,url,driveId,name){
+  if(!/^https:\/\//i.test(url||"")) return null;
+  if((t.files||[]).some(function(f){ return f.url===url||(!!driveId&&f.driveId===driveId); })) return null;
+  var google=typeof isGoogleLink==="function"&&isGoogleLink(url);
+  var f=F(name||(typeof linkLabelNow==="function"&&linkLabelNow(url))||(typeof cmtLinkLabel==="function"?cmtLinkLabel(url):url),"document",google?"gdrive":"link","Link",0,url,driveId?{driveId:driveId}:null);
+  (t.files=t.files||[]).push(f); if(avIsStandIn(f)) delete AV_HEALED[t.id]; return f;
 }
 
 /* ---------- 2. final files ---------- */
@@ -558,7 +571,11 @@ function verEditLinkModal(n){ var tk=task(S.drawerTask), v=tk&&tk.versions.filte
   avLinkModal(tr("Edit the link of Version")+" "+n,v.driveUrl,"Version note (optional)",v.note||"",auto,"verSaveLink("+n+")"); }
 function verSaveLink(n){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var tk=task(S.drawerTask); if(!tk) return closeModal(); var note=val("el_name").trim(); closeModal();
-  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return; x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
+  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return;
+    /* the row filed for this link under Final files follows it — not one another version still points to */
+    (t.files||[]).forEach(function(f){ var l=fileLinkedVersions(t,f); if(l.length!==1||l[0]!==x) return; var standIn=avIsStandIn(f);
+      f.url=url; f.driveId=avDriveIdOf(url); f.source=isGoogleLink(url)?"gdrive":"link"; if(standIn){ f.name=linkLabelNow(url)||cmtLinkLabel(url); delete AV_HEALED[t.id]; } });
+    x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
     .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }
 
 /* ---------- 3. from comments ---------- */
@@ -622,13 +639,88 @@ function countKey(e,el){
   if(e.key==="Enter"){ e.preventDefault(); el.blur(); return; }
   if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); el.value=el.getAttribute("data-was"); el.blur(); }
 }
-function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v); editTask(field,String(v)); }
+function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v);
+  if(/^split:/.test(field)) return assetSplitCommit(field.slice(6),v);
+  editTask(field,String(v)); }
 
-/* ---------- the count used by reports ---------- */
+/* ---------- the count used by reports ----------
+   One person on the task: one number. More than one (Oct 2026): each person's own count — what they produced, not
+   the total shared out — and the task's total is their sum. Until somebody types them, the counts shown are the
+   ones the reports work out (taskAssetCredit: who uploaded the versions, else shared among the assignees), rounded
+   to whole assets, and say so. Someone who is no longer on the task keeps a count they were given. */
+function assetSplitPeople(tk){
+  var ids=assigneesOf(tk).filter(Boolean), s=typeof taskAssetSplit==="function"?taskAssetSplit(tk):null, add=function(id){ if(id&&ids.indexOf(id)<0&&PEOPLE[id]) ids.push(id); };
+  if(s) Object.keys(s).forEach(add);
+  else if(assetCount(tk)&&typeof taskAssetCredit==="function") Object.keys(taskAssetCredit(tk).by).forEach(add);
+  return ids;
+}
+function assetSplitOn(tk){ return !!tk&&!tk._draft&&assetSplitPeople(tk).length>1; }
+/* the counts shown: as typed, or as the reports credit them, whole numbers that add up to the total */
+function assetSplitShown(tk,ids){
+  var raw=(tk.meta&&tk.meta.assetSplit)||null;
+  if(raw&&typeof raw==="object"&&Object.keys(raw).length) return {vals:ids.map(function(id){ return Math.max(0,Math.round(+raw[id]||0)); }),typed:true};
+  var total=assetCount(tk), by=total&&typeof taskAssetCredit==="function"?taskAssetCredit(tk).by:{};
+  var exact=ids.map(function(id){ return by[id]||0; }), vals=exact.map(Math.floor), left=total-vals.reduce(function(a,b){ return a+b; },0);
+  ids.map(function(id,i){ return i; }).sort(function(a,b){ return (exact[b]-vals[b])-(exact[a]-vals[a])||a-b; }).forEach(function(i){ if(left>0){ vals[i]++; left--; } });
+  return {vals:vals,typed:false};
+}
+function assetSplitCommit(id,v){
+  var tk=task(S.drawerTask); if(!tk||!canI.editTask(tk)) return;
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  ids.forEach(function(x,i){ split[x]=x===id?Math.max(0,Math.round(+v||0)):shown.vals[i]; });
+  var was=shown.typed?shown.vals[ids.indexOf(id)]:null; if(was===split[id]) return;
+  editTaskWith(tk,function(t){ t.meta=t.meta||{}; t.meta.assetSplit=split; t.assetCount=Object.keys(split).reduce(function(a,k){ return a+split[k]; },0); log(t,"edited",{what:"assetCount"}); });
+}
 function avCountRow(tk,ed){
   var n=assetCount(tk);
-  return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
+  if(!assetSplitOn(tk)) return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
     + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), open=assetSplitOpen(), val=assetSplitCanValidate(tk)&&(shown.typed||n>0)?assetSplitOkState(tk):null;
+  /* folded, the head says it all in one line: who, how many, the total */
+  var who=ids.map(function(id,i){ return esc(first(id))+' '+shown.vals[i]; }).join(' · ')+(shown.typed?'':' · '+tr("estimate"));
+  var badge=!val?'':val.state==="ok"?'<span class="badge ok av-split-badge">'+I.check+tr("Validated")+'</span>':'<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
+  return '<div class="av-count av-split'+(open?' open':'')+'"><button type="button" class="av-split-head" aria-expanded="'+open+'" onclick="assetSplitToggle()"><span class="av-split-title">'+tr("Assets produced")+'</span>'
+    + '<span class="hint av-split-sum">'+(open?tr("each person's own, used in reports"):who)+'</span>'+badge+'<span class="spacer"></span><span class="av-split-total">'+tr("Total")+' <b>'+n+'</b></span><span class="av-split-caret" aria-hidden="true"></span></button>'
+    + (open?'<div class="av-split-rows">'+ids.map(function(id,i){ var nm=person(id).name;
+      return '<div class="av-split-row">'+av(id)+'<span class="av-split-name">'+esc(nm)+(assigneesOf(tk).indexOf(id)<0?' <span class="hint">· '+tr("not on the task now")+'</span>':'')+'</span>'
+        + (ed?countInputHtml(shown.vals[i],tr("Assets produced by")+" "+nm,"split:"+id,"split"):'<b>'+shown.vals[i]+'</b>')+'</div>'; }).join("")+'</div>'
+    + (shown.typed?'':'<p class="hint av-split-guess">'+tr(n?"An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Type what each person produced; the total adds them up.")+'</p>')
+    + (val?assetSplitOkHtml(val):''):'')+'</div>';
+}
+/* folded or open, as this person last left it — folded at first, so it takes one line */
+function assetSplitOpen(){ try{ return localStorage.getItem("cos.avsplit.open."+ME)==="1"; }catch(e){ return false; } }
+function assetSplitToggle(){ var on=!assetSplitOpen(); try{ localStorage.setItem("cos.avsplit.open."+ME,on?"1":"0"); }catch(e){} renderDrawer(); }
+
+/* ---------- a team's lead validates the counts (Oct 2026) ----------
+   The lead of the task's team, or of a team someone counted on it is in, sees whether the counts are validated and
+   approves them; whoever manages the workspace can too. Members see none of it, and the counts are counted the same
+   before and after. A count changed after it was validated shows as changed since, to be approved again. Approving
+   an estimate keeps it as typed. The server holds the same rule and writes who and when (cleanAssetSplitOk). */
+function assetSplitCanValidate(tk){
+  if(!tk||tk._draft) return false;
+  if(canI.manageWorkspace()) return true;
+  var led=activeTeams().filter(function(t){ return t.lead===ME; }).map(function(t){ return t.id; }); if(!led.length) return false;
+  if(tk.team&&led.indexOf(tk.team)>=0) return true;
+  return assetSplitPeople(tk).some(function(id){ return teamsOf(id).some(function(x){ return led.indexOf(x)>=0; }); });
+}
+function assetSplitKey(s){ s=s||{}; return Object.keys(s).filter(function(k){ return +s[k]>0; }).sort().map(function(k){ return k+":"+Math.round(+s[k]); }).join(","); }
+function assetSplitOkState(tk){
+  var ok=tk.meta&&tk.meta.assetSplitOk; if(!ok||!ok.split) return {state:"none"};
+  return {state:assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit)?"ok":"stale",by:ok.by,at:ok.at};
+}
+function assetSplitOkHtml(val){
+  if(val.state==="ok") return '<div class="av-split-ok done">'+I.check+'<span>'+tr("Validated by")+' <b>'+esc(person(val.by).name)+'</b>'+(val.at?' · '+ago(null,val.at):'')+'</span></div>';
+  return '<div class="av-split-ok'+(val.state==="stale"?' stale':'')+'"><span>'+(val.state==="stale"?tr("Changed since")+' <b>'+esc(person(val.by).name)+'</b> '+tr("validated it")+'.':tr("Validate the counts."))+' '+tr("They count even before they are validated.")+'</span><span class="spacer"></span>'
+    + '<button type="button" class="btn xs primary" onclick="assetSplitApprove()">'+I.check+tr(val.state==="stale"?"Approve again":"Approve counts")+'</button></div>';
+}
+function assetSplitApprove(){
+  var tk=task(S.drawerTask); if(!tk||!assetSplitCanValidate(tk)) return;
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  ids.forEach(function(id,i){ split[id]=shown.vals[i]; });
+  editTaskWith(tk,function(t){ t.meta=t.meta||{};
+    if(!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
+    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:t.meta.assetSplit};
+  }).then(function(saved){ if(saved!==false) toast(tr("Asset counts validated")); });
 }
 
 /* notes in the history */
@@ -813,4 +905,14 @@ function restoreDo(type,id,actId){
 }
 /* only words not translated already: a common word keeps the translation it has elsewhere */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Go back":"Kembalikan","Go back to this point":"Kembalikan ke titik ini","Go back to this point?":"Kembalikan ke titik ini?","The task is put back to how it was on":"Task dikembalikan seperti keadaannya pada","The project is put back to how it was on":"Project dikembalikan seperti keadaannya pada","Now":"Sekarang","After going back":"Setelah dikembalikan","Nothing would change — it is already like this.":"Tidak ada yang berubah — keadaannya sudah seperti ini.","Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.":"Komentar dan riwayat tetap seperti sekarang. Pengembalian juga tercatat, jadi bisa dibatalkan dengan cara yang sama.","Gone back to the earlier point":"Sudah dikembalikan ke titik sebelumnya","goes back to how it was":"kembali seperti semula","Stage":"Tahap","Assignees":"Assignee","Reviewers":"Reviewer","Due date":"Tenggat","Start date":"Tanggal mulai","Versions":"Versi","Files":"File","Description":"Deskripsi","Creative brief":"Creative brief","Tags":"Tag","Labels":"Label","Name":"Nama","Status":"Status","Teams":"Tim","Title":"Judul","Priority":"Prioritas"});
+/* Assets produced, per person (avCountRow) */
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"each person's own, used in reports":"milik masing-masing, dipakai di laporan","Total":"Total",
+  "not on the task now":"sudah tidak di task ini","Assets produced by":"Aset dihasilkan oleh",
+  "An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Perkiraan sampai jumlah tiap orang diisi — dari siapa yang mengunggah versi, atau dibagi rata.",
+  "Type what each person produced; the total adds them up.":"Isi berapa yang dihasilkan tiap orang; totalnya dijumlahkan otomatis.",
+  "Type each person's count under Assets & versions — the total adds them up.":"Isi jumlah tiap orang di Aset & versi — totalnya dijumlahkan otomatis.",
+  "estimate":"perkiraan","Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validated":"Berubah sejak divalidasi",
+  "Validated by":"Divalidasi oleh","Changed since":"Berubah sejak","validated it":"memvalidasinya","Validate the counts.":"Validasi jumlahnya.",
+  "They count even before they are validated.":"Tetap dihitung walau belum divalidasi.","Approve counts":"Setujui jumlah","Approve again":"Setujui lagi",
+  "Asset counts validated":"Jumlah aset divalidasi"});
 </script>

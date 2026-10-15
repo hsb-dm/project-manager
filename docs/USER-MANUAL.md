@@ -263,7 +263,11 @@ atau **n required fields missing**.
      **Lihat catatan V1**; setelah lebih dari tiga versi, tombol **Semua versi** membuka daftar
      lengkapnya.
 2. **File final** — hasil kerja yang diserahkan: **Upload images**, **Upload file**,
-   **Link Google Drive**, **Attach link**, **Attach from library**.
+   **Link Google Drive**, **Attach link**, **Attach from library**. Versi yang dibuat dari tautan
+   (**Attach link**, atau **Sudah direvisi** dengan tautan baru) ikut tercatat di sini, dengan badge
+   **Versi N · Belum final** / **Final**; tautan yang sama dipakai lagi di versi berikutnya tidak
+   dicatat dua kali, dan mengubah tautan versi ikut mengubah barisnya. Tautan versi yang dibuat
+   sebelum Oktober 2026 dicatat sekali saat server dinyalakan ulang.
 3. **Dari komentar** — screenshot dan tautan yang dibagikan di komentar. Bukan hasil kerja sampai
    ditandai **Tandai final**. Tombol **Jadikan versi baru** menjadikan tautan atau screenshot itu
    versi berikutnya apa adanya, tanpa mengunggah ulang; barisnya lalu bertanda **Versi N**.
@@ -390,7 +394,31 @@ KPI Utilization / Open tasks / In review / Overdue, lalu panel **Members** (deng
 
 Foto (klik untuk mengganti), nama, jabatan, badge role dan tim, angka **Capacity** (jam/minggu),
 serta KPI Utilization / Open tasks / To review / Overdue / **Assets produced** (total, dengan jumlah
-yang sudah terkirim dan bulan ini di bawahnya).
+yang sudah terkirim dan bulan ini di bawahnya). Lead sebuah tim juga punya KPI **Aset tim**.
+
+### Aset dihasilkan, per orang
+
+- Task dengan **satu orang**: satu angka **Aset dihasilkan**, seperti biasa.
+- Task dengan **lebih dari satu orang**: di bawah **Aset & versi**, setiap orang punya angkanya
+  sendiri — berapa aset yang *dia* hasilkan, bukan total yang dibagi rata. **Total** task adalah
+  penjumlahannya. Selama belum diisi, angka yang tampil adalah perkiraan laporan (dari siapa yang
+  mengunggah versi, atau dibagi rata) dan ditandai begitu. Total tidak bisa diketik di tempat lain
+  selama ada angka per orang.
+- Bagian ini terlipat jadi satu baris (siapa, berapa, total); klik untuk membukanya. Terbuka atau
+  terlipat diingat per orang.
+- **Validasi oleh team lead** — lead tim task itu, atau lead tim salah satu orang yang dihitung (dan
+  admin), melihat badge **Belum divalidasi** / **Divalidasi** / **Berubah sejak divalidasi** dan tombol
+  **Setujui jumlah**. Member tidak melihatnya. Angka tetap dihitung normal walau belum divalidasi;
+  angka yang diubah setelah divalidasi tampil sebagai *berubah sejak divalidasi* untuk disetujui lagi.
+- Tanpa angka per orang, laporan memberi kredit ke yang mengunggah versi; kalau tidak ada unggahan,
+  dibagi rata ke assignee dan ditandai `*` (perkiraan).
+- **Settings → Teams → Aset dihasilkan, per orang** (yang mengelola workspace):
+  - **Team lead ikut terhitung dari aset timnya** (default) — setiap orang tetap punya angkanya
+    sendiri; lead tim (yang dipilih sebagai *Lead* di tim itu) juga mendapat angka **Tim**: yang
+    dihasilkan anggota tim yang dipimpinnya, termasuk dirinya. Tampil di samping angkanya sendiri,
+    di halaman anggota, dan di kolom **Team assets (as lead)** sheet Workload. Angka orang-orang
+    tidak dijumlah dua kali.
+  - **Per anggota saja** — setiap orang hanya menghitung asetnya sendiri; tidak ada angka tim.
 
 ---
 
@@ -633,7 +661,8 @@ Everything in the period / Open tasks only / Completed tasks only.
   Slide sampul selalu ikut.
 - XLSX: Summary, Tasks, Task assets, Projects, Teams, Workload, Weekly, Pipeline, Asset library.
   Sheet **Workload** memuat **Assets produced**, **Assets delivered** (task selesai), dan
-  **Asset credit** (dari unggahan versi, atau perkiraan dari assignee) untuk tiap orang. Slide
+  **Asset credit** (diisi per orang, dari unggahan versi, atau perkiraan dari assignee) untuk tiap
+  orang, plus **Team assets (as lead)** untuk lead tim bila pengaturannya aktif. Slide
   **Workload by person** menulis jumlah aset di bawah nama, dan **Performance by person**
   menampilkannya sebagai salah satu angka.
 - CSV: selalu satu tabel task dengan seluruh kolom.

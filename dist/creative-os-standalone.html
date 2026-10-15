@@ -2,6 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
+<meta name="zc-build" content="a164ec99a917">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5617,6 +5618,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-shortcut-pop>b{display:block;font-size:15px;margin-right:36px}
 .ai-shortcut-pop .ai-shortcut-x{position:absolute;top:12px;right:12px}
 .ai-hs-thumb .ai-history-placeholder[hidden]{display:none}
+/* a picture the provider no longer keeps is hidden for the placeholder (onerror); display:block above would keep it */
+.ai-hs-thumb img[hidden]{display:none}
 /* a template only its maker sees */
 .ai-tpl-own{display:inline-flex;vertical-align:-2px;margin-left:5px;color:var(--color-text-tertiary)}
 .ai-tpl-own svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
@@ -5656,6 +5659,54 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-ref-strength{display:grid;grid-template-columns:auto minmax(0,1fr) 28px;align-items:center;gap:8px;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--color-text-secondary);margin:0}
 .ai-ref-strength input{width:100%;accent-color:var(--color-primary)}
 .ai-ref-strength b{text-align:right;color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+
+/* Assets produced, per person: one count each on a task with several people; the total adds them up */
+.av-count.av-split{display:block}
+.av-split-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.av-split-total{font-weight:600;color:var(--color-text-secondary)}
+.av-split-total b{color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+.av-split-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.av-split-row{display:flex;align-items:center;gap:8px;min-width:0}
+.av-split-row .av{flex:0 0 auto}
+.av-split-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.av-split-guess{margin:8px 0 0;font-weight:500}
+/* a team's lead: the team's assets, beside their own */
+.wl-assets.wl-team-assets{background:var(--color-success-soft);color:var(--color-success)}
+.wl-assets.wl-team-assets.zero{background:var(--color-surface-sunken);color:var(--color-text-tertiary)}
+/* Settings → Teams: how assets produced are counted per person */
+.asset-lead{display:flex;flex-direction:column;gap:8px}
+.asset-lead-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;cursor:pointer}
+.asset-lead-opt.on{border-color:var(--color-primary);background:var(--color-primary-soft)}
+.asset-lead-opt input{margin-top:3px;accent-color:var(--color-primary)}
+.asset-lead-opt>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.asset-lead-opt .hint{font-weight:500}
+/* folded to one line until opened; a team's lead sees whether the counts are validated */
+.av-split-head{display:flex;align-items:center;gap:8px;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0}
+.av-split-title{flex:none}
+.av-split-sum{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av-split-total{flex:none}
+.av-split-badge{flex:none;display:inline-flex;align-items:center;gap:3px;font-size:11px}
+.av-split-badge svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5}
+.av-split-caret{flex:none;width:16px;height:16px;opacity:.6;background:currentColor;transition:transform .15s;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/16px 16px no-repeat}
+.av-split.open .av-split-caret{transform:rotate(180deg)}
+.av-split-head:focus-visible{outline:2px solid var(--color-primary);outline-offset:4px;border-radius:6px}
+.av-split-ok{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--color-warning-soft,#FEF3C7);color:var(--color-warning,#92400E);font-weight:500}
+.av-split-ok.done{background:var(--color-success-soft);color:var(--color-success)}
+.av-split-ok svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;flex:none}
+.av-split-ok .btn svg{width:12px;height:12px}
+/* a picture the provider no longer keeps: an image icon in its place, centred */
+.ai-hs-thumb .ai-history-placeholder{display:grid;place-items:center;border-radius:0;background:var(--color-surface-sunken);color:var(--color-text-tertiary)}
+.ai-hs-thumb .ai-history-placeholder svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.75}
+/* a new version of ZenCrevia is ready: a bar at the top, until reloaded or put off */
+.zc-new-version{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:310;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:8px 8px 8px 14px;border:1px solid var(--color-border);border-radius:var(--pill,999px);background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 8px 28px rgba(15,23,42,.16);font-size:13px;font-weight:600}
+.zc-nv-ic{display:grid;place-items:center;color:var(--color-primary)}
+.zc-nv-ic svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.zc-nv-text{min-width:0}
+.zc-new-version .btn{flex:none}
+.zc-nv-later svg{width:14px;height:14px}
+@media(max-width:600px){.zc-new-version{width:calc(100vw - 32px);border-radius:14px}.zc-nv-text{flex:1}}
 
 </style>
 </head>
@@ -6248,9 +6299,10 @@ function fileFromComment(t,f){
     return !!(f.url&&/^https?:/i.test(f.url)&&String(c.text||"").indexOf(f.url)>=0);
   });
 }
-function taskAssetLinks(t){ var out=[]; if (!t) return out;
-  (t.versions||[]).forEach(function(v){ var u=v.driveUrl||v.url; if (isLink(u)) out.push({url:u,name:"Version "+v.n+(v.note?" \u2014 "+v.note:""),kind:"version",v:v.n,state:v.state,ago:v.ago,by:v.by,task:t}); });
-  (t.files||[]).forEach(function(f){ if (isLink(f.url)&&!fileFromComment(t,f)) out.push({url:f.url,name:f.name,kind:"file",src:f.source,size:f.size,ago:f.ago,task:t}); });
+function taskAssetLinks(t){ var out=[], seen={}; if (!t) return out;
+  (t.versions||[]).forEach(function(v){ var u=v.driveUrl||v.url; if (!isLink(u)) return; seen[u]=1; out.push({url:u,name:"Version "+v.n+(v.note?" \u2014 "+v.note:""),kind:"version",v:v.n,state:v.state,ago:v.ago,by:v.by,task:t}); });
+  /* a version's link is filed under Final files too (verLinkFile): one link, counted as the version */
+  (t.files||[]).forEach(function(f){ if (isLink(f.url)&&!seen[f.url]&&!fileFromComment(t,f)) out.push({url:f.url,name:f.name,kind:"file",src:f.source,size:f.size,ago:f.ago,task:t}); });
   out.sort(function(a,b){ return (a.ago||0)-(b.ago||0); }); return out; }
 function assetLinks(list){ var out=[]; (list||[]).forEach(function(t){ out=out.concat(taskAssetLinks(t)); }); return out; }
 /* the one link people actually want: the approved version, else the newest link on the task */
@@ -6291,7 +6343,7 @@ var canI={ submitRequest:function(){ return has("submit_request")||has("create_t
 /* ---------- API + hydration (wire docs use ISO dates; the UI works in day offsets / minutes ago) ---------- */
 var SESSION={user:null,ws:null,canRegister:true};
 function httpStatusMessage(st){ return st===502||st===503?tr("The server could not be reached (")+st+tr("). It may be restarting — try again in a minute."):st===504||st===524?tr("The request took too long (")+st+tr("). Try again; for AI, pick a faster model or a smaller size."):st===413?tr("That upload is too large."):tr("Unexpected server response (HTTP ")+st+")."; }
-function apiFetch(method,path,body){ var h={"Content-Type":"application/json"}; if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
+function apiFetch(method,path,body){ var h={"Content-Type":"application/json"}; if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ if(typeof zcBuildSeen==="function") zcBuildSeen(r.headers.get("X-ZC-Build")); return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
 function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(d.dependencies)?d.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(d.labels)?d.labels.slice():[]; t.alsoIn=Array.isArray(d.alsoIn)?d.alsoIn.slice():[]; t.custom=t.custom||{}; t.description=t.description||"";
   t.versions=(d.versions||[]).map(function(v){ var x=clone(v); x.ago=minAgo(v.createdAt); x.decidedAgo=v.decidedAt?minAgo(v.decidedAt):null; return x; }); t.files=(d.files||[]).map(function(f){ var x=clone(f); x.ago=minAgo(f.createdAt); return x; }); t.comments=(d.comments||[]).map(function(c){ var x=clone(c); x.ago=minAgo(c.createdAt); x.attachments=x.attachments||[]; return x; }); t.activity=(d.activity||[]).map(function(a){ var x=clone(a); x.ago=minAgo(a.createdAt); return x; }); return t; }
 function dTask(t){ var d=clone(t); d.dueDate=iso(t.due); d.startDate=t._dates&&t._dates[1]===t.due&&t._dates[2]===t.span?t._dates[0]:iso(t.due-(t.span||1)); delete d._dates; d.createdAt=t.createdAt||isoAgo(t.ago); delete d.due; delete d.span; delete d.ago;
@@ -7906,7 +7958,9 @@ function editTask(k,v){ var tk=task(S.drawerTask); if (!tk) return;
   if (k==="status"){ if (v!==old) setStatus(tk.id,v); return; } if (k==="prio"){ if (v!==old) setPrio(tk.id,v); return; } if (k==="team"){ if ((v||null)!==(old||null)) moveTask(tk,{type:"MOVE_TASK_TEAM",teamId:v||null},function(t){ t.team=v||null; }); return; } if (k==="proj"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_PROJECT",projectId:v},function(t){ t.proj=v; }); return; }
   if (k==="assignee"){ if (v!==old) moveTask(tk,{type:"MOVE_TASK_ASSIGNEE",assigneeId:v},function(t){ t.assignee=v; }).then(function(saved){ if(saved===false)return false; notify("assigned",v,tk.id); }); return; }
   if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):tk.due; var start=k==="start"?offsetFromIso(v):tk.due-tk.span; if (start>due) start=due; if (due===tk.due&&start===tk.due-tk.span) return; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(start),dueDate:iso(due)},function(t){ t.due=due; t.span=Math.max(1,due-start); }); return; }
-  var saving=editTaskWith(tk,function(t){ if (k==="assetCount") t.assetCount=Math.max(0,Math.round(+v||0)); else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title"){ if (!v.trim()) return; t.title=v.trim(); } else if (k==="description") t.description=v; else if (k==="reviewer") t.reviewer=v; if (k!=="description"||v!==old) log(t,"edited",{what:k==="description"?"the description":k}); });
+  /* with several people on it, a task's total is the sum of each one's count (avCountRow) */
+  if (k==="assetCount"&&typeof assetSplitOn==="function"&&assetSplitOn(tk)) return toast(tr("Type each person's count under Assets & versions — the total adds them up."),"bad");
+  var saving=editTaskWith(tk,function(t){ if (k==="assetCount"){ t.assetCount=Math.max(0,Math.round(+v||0)); if(t.meta&&t.meta.assetSplit) delete t.meta.assetSplit; } else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title"){ if (!v.trim()) return; t.title=v.trim(); } else if (k==="description") t.description=v; else if (k==="reviewer") t.reviewer=v; if (k!=="description"||v!==old) log(t,"edited",{what:k==="description"?"the description":k}); });
   if (k==="reviewer"&&v&&v!==old) saving.then(function(saved){ if(saved!==false) notify("reviewer",v,tk.id); }); }
 /* §P0-3 the picker hands back an array; nothing re-serialises it to a
    comma string on the way in. */
@@ -8544,7 +8598,7 @@ function renderMember(){ var id=S.memberId; var p=PEOPLE[id]; if (!p){ S.memberI
   /* v19.5 header: avatar with a hover pencil (photo change / remove), name + a settings shortcut for the owner, and only the title line — details live in Settings → My profile */
   var avatarHtml=canEditPhoto(id)?'<span class="mp-avatar" data-menu role="button" tabindex="0" title="'+attr(tr("Change photo"))+'" onclick="avatarEditMenu(this,\''+id+'\')">'+av(id,"xl")+'<span class="mp-avatar-edit" aria-hidden="true">'+I.edit+'</span></span>':(person(id).avatar?'<span class="mp-avatar mp-avatar-view" role="button" tabindex="0" title="'+attr(tr("View photo"))+'" onclick="avatarPreview(\''+id+'\')">'+av(id,"xl")+'</span>':'<span class="mp-avatar">'+av(id,"xl")+'</span>');
   var h='<div><button class="btn ghost sm" onclick="go(\'teams\')">'+I.back+'Teams</button></div><div class="pagehead"><div style="display:flex;gap:14px;align-items:center">'+avatarHtml+'<div><h1 style="display:flex;align-items:center;gap:8px"><span data-no-translate>'+esc(p.name)+'</span>'+(id===ME?'<button class="iconbtn mp-settings" title="'+attr(tr("Edit my profile"))+'" aria-label="'+attr(tr("Edit my profile"))+'" onclick="go(\'settings\',\'profile\')">'+I.settings+'</button>':'')+'</h1><div class="muted" style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+esc(p.role)+' · <span class="badge">'+esc(r?r.name:p.perm)+'</span> · '+(p.teams||[]).map(function(x){ return teamBadge(x[0])+(x[1]?'<span class="hint">'+tr("primary")+'</span>':''); }).join(" ")+'</div></div></div><div class="actions">'+(canI.manageMembers()||id===ME?'<label class="pillsel"><span>Capacity</span><input type="number" min="0" value="'+p.cap+'" style="width:56px;border:0;background:transparent;font-weight:600;outline:none" onchange="PEOPLE[\''+id+'\'].cap=+this.value;renderScreen(false);persistPerson(\''+id+'\')"><span>h / week</span></label>':'')+(canI.manageMembers()?'<button class="btn" onclick="go(\'settings\',\'members\')">'+I.edit+'Edit member</button>':'')+'</div></div>';
-  var ma=memberAssets(id); h+='<div class="kpis team-kpis">'+kpi(pct>100?"danger":pct>=90?"warn":"accent",pct+"%","Utilization",a+"h of "+p.cap+"h","",I.analytics,"blue")+kpi("",open.length,"Open tasks","assigned","",I.tasks,"ink")+kpi("",rev.length,"To review","as reviewer","",I.eye,"lime")+kpi(open.filter(function(t){return t.due<0;}).length?"danger":"good",open.filter(function(t){return t.due<0;}).length,"Overdue","","",I.bell,"")+kpi("accent",ma.total+(ma.attributed?" *":""),"Assets produced",memberAssetsLine(ma),"",I.assets,"blue")+'</div>';
+  var ma=memberAssets(id); h+='<div class="kpis team-kpis">'+kpi(pct>100?"danger":pct>=90?"warn":"accent",pct+"%","Utilization",a+"h of "+p.cap+"h","",I.analytics,"blue")+kpi("",open.length,"Open tasks","assigned","",I.tasks,"ink")+kpi("",rev.length,"To review","as reviewer","",I.eye,"lime")+kpi(open.filter(function(t){return t.due<0;}).length?"danger":"good",open.filter(function(t){return t.due<0;}).length,"Overdue","","",I.bell,"")+kpi("accent",ma.total+(ma.attributed?" *":""),"Assets produced",memberAssetsLine(ma),"",I.assets,"blue")+(function(tm){ return tm?kpi("",tm.total+(tm.attributed?" *":""),"Team assets",tr("lead of")+' '+ledTeams(id).map(function(t){ return t.name; }).join(", "),"",I.team,"lime"):""; })(leadTeamAssets(id))+'</div>';
   h+='<div class="grid g-2-1">'+panel("Assigned tasks",open.length,open.length?open.map(function(t){ return taskRow(t,{showAssignee:false}); }).join(""):emptyBox("Nothing assigned","Free capacity — assign something from the board."),null,null,I.tasks)+panel("Reviewing",rev.length,rev.length?rev.map(function(t){ return taskRow(t,{showStatus:false}); }).join(""):emptyBox("Nothing to review",""),null,null,I.eye)+'</div>';
   h+=panel("Completed",mine.filter(function(t){return isClosed(t);}).length,mine.filter(function(t){return isClosed(t);}).slice(0,12).map(function(t){ return taskRow(t,{showAssignee:false}); }).join("")||emptyBox("No completed tasks yet",""),null,null,I.check);
   document.getElementById("content").innerHTML=h; }
@@ -8555,18 +8609,76 @@ function avatarEditMenu(a,id){ if(!canEditPhoto(id)) return; if(!person(id).avat
    recorded — then the number is marked with *. The total is every task's "Assets produced" (a
    declined task produced nothing), as in the Excel Workload sheet; delivered counts finished tasks,
    and this month the ones finished this month, the window of the team's own figure. */
+function memberAssetSets(){ var all=TASKS.filter(function(t){ return t.status!=="declined"; }), done=all.filter(isSuccessfulTask); return {all:all,done:done,month:done.filter(teamDoneThisMonth)}; }
 function memberAssets(id){
   if(typeof personAssetCredit!=="function") return {total:0,delivered:0,month:0,attributed:false};
-  var all=TASKS.filter(function(t){ return t.status!=="declined"; }), done=all.filter(isSuccessfulTask), month=done.filter(teamDoneThisMonth);
-  var t=personAssetCredit(id,all), d=personAssetCredit(id,done), m=personAssetCredit(id,month);
+  var s=memberAssetSets(), t=personAssetCredit(id,s.all), d=personAssetCredit(id,s.done), m=personAssetCredit(id,s.month);
   return {total:t.count,delivered:d.count,month:m.count,attributed:t.attributed};
 }
 function memberAssetsLine(a){ return a.delivered+' '+tr("delivered")+' · '+a.month+' '+tr("this month"); }
 function memberAssetsChip(id){
-  var a=memberAssets(id);
-  return '<span class="wl-assets'+(a.total?'':' zero')+'" title="'+attr(tr("Assets produced")+': '+a.total+' · '+memberAssetsLine(a))+'">'+I.assets+a.total+(a.attributed?'*':'')+'</span>';
+  var a=memberAssets(id), tm=leadTeamAssets(id);
+  return '<span class="wl-assets'+(a.total?'':' zero')+'" title="'+attr(tr("Assets produced")+': '+a.total+' · '+memberAssetsLine(a))+'">'+I.assets+a.total+(a.attributed?'*':'')+'</span>'
+    + (tm?'<span class="wl-assets wl-team-assets'+(tm.total?'':' zero')+'" title="'+attr(leadTeamTitle(id)+': '+tm.total+' · '+memberAssetsLine(tm))+'">'+tr("Team")+' '+tm.total+(tm.attributed?'*':'')+'</span>':'');
+}
+
+/* ---------- a team's lead, and the team's assets (Oct 2026) ----------
+   Settings → Teams chooses how assets produced are counted per person:
+   • "team" (the default): everyone has their own number, and a team's lead also has the team's — what the people of
+     the teams they lead produced, the lead included — as a figure of its own, beside theirs. Adding up the people
+     never counts anything twice;
+   • "manual": per member only — everyone has their own number and nothing more.
+   Kept with the workspace's other settings in WS.autoHide (the auto_hide column), under "assets". */
+function assetLeadMode(){ var a=(WS&&WS.autoHide&&WS.autoHide.assets)||{}; return a.lead==="manual"?"manual":"team"; }
+function ledTeams(id){ return activeTeams().filter(function(t){ return t.lead===id; }); }
+/* the people of the teams someone leads, them included; none for someone who leads no team with anyone else in it */
+function leadTeamPeople(id){
+  var seen={}, out=[];
+  ledTeams(id).forEach(function(t){ teamMembers(t.id).forEach(function(m){ if(!seen[m]&&PEOPLE[m]&&!PEOPLE[m].stakeholder){ seen[m]=1; out.push(m); } }); });
+  if(!seen[id]) out.unshift(id);
+  return out.length>1?out:[];
+}
+/* the team's figure over a task list (the report's period); null when it is not counted. The people's shares are
+   added before rounding, so a task shared out stays whole: 1.5 + 1.5 is 3. */
+function leadTeamCredit(id,tasks){
+  if(assetLeadMode()!=="team"||typeof personAssetCredit!=="function") return null;
+  var ppl=leadTeamPeople(id); if(!ppl.length) return null;
+  var n=0, approx=false; ppl.forEach(function(m){ var c=personAssetCredit(m,tasks); n+=c.raw; if(c.attributed) approx=true; });
+  return {count:Math.round(n),attributed:approx};
+}
+/* the same, as the member chip and the person's page count: all, delivered, this month */
+function leadTeamAssets(id){
+  var s=memberAssetSets(), t=leadTeamCredit(id,s.all); if(!t) return null;
+  return {total:t.count,delivered:leadTeamCredit(id,s.done).count,month:leadTeamCredit(id,s.month).count,attributed:t.attributed};
+}
+function leadTeamTitle(id){ var ts=ledTeams(id).map(function(t){ return t.name; }).join(", "); return tr("Team assets")+' ('+tr("lead of")+' '+ts+')'; }
+
+/* Settings → Teams: the choice */
+function assetLeadSettingsHtml(){
+  var ed=canI.manageWorkspace(), mode=assetLeadMode();
+  var opt=function(v,label,help){ return '<label class="asset-lead-opt'+(mode===v?' on':'')+'"><input type="radio" name="asset_lead" value="'+v+'"'+(mode===v?' checked':'')+(ed?' onchange="saveAssetLead(this.value)"':' disabled')+'><span><b>'+tr(label)+'</b><span class="hint">'+tr(help)+'</span></span></label>'; };
+  return sp("Assets produced, per person",
+    '<p class="hint" style="margin-bottom:10px">'+tr("A task with more than one person on it takes each one's count under Assets & versions; the task's total adds them up. Without them, a task's assets go to whoever uploaded its versions.")+'</p>'
+    + '<div class="asset-lead" role="radiogroup" aria-label="'+attr(tr("Assets produced, per person"))+'">'
+    + opt("team","Team leads also count their team's assets","Everyone keeps their own number. A team's lead also gets the team's: what the people of the teams they lead produced, them included — shown beside their own, and in the report.")
+    + opt("manual","Per member only","Everyone counts only their own assets; nobody gets a team figure.")
+    + '</div>'+(ed?'':'<p class="hint" style="margin-top:8px">'+tr("Only people who manage the workspace can change this.")+'</p>'),null,I.assets);
+}
+function saveAssetLead(v){
+  if(!canI.manageWorkspace()) return;
+  var a=Object.assign({},(WS.autoHide&&WS.autoHide.assets)||{},{lead:v==="manual"?"manual":"team"});
+  WS.autoHide=Object.assign({},WS.autoHide||{},{assets:a});
+  saveWS(tr("Saved")); renderScreen(false);
 }
 Object.assign(UI_ID,{"assets produced":"aset dihasilkan","this month":"bulan ini","delivered":"terkirim"});
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Team":"Tim","Team assets":"Aset tim","lead of":"lead dari",
+  "Assets produced, per person":"Aset dihasilkan, per orang",
+  "A task with more than one person on it takes each one's count under Assets & versions; the task's total adds them up. Without them, a task's assets go to whoever uploaded its versions.":"Task dengan lebih dari satu orang diisi jumlah masing-masing di Aset & versi; total task adalah penjumlahannya. Tanpa itu, aset task dihitung untuk yang mengunggah versinya.",
+  "Team leads also count their team's assets":"Team lead ikut terhitung dari aset timnya",
+  "Everyone keeps their own number. A team's lead also gets the team's: what the people of the teams they lead produced, them included — shown beside their own, and in the report.":"Setiap orang tetap punya angkanya sendiri. Lead sebuah tim juga mendapat angka tim: yang dihasilkan anggota tim yang dipimpinnya, termasuk dirinya — tampil di samping angkanya sendiri, dan di laporan.",
+  "Per member only":"Per anggota saja",
+  "Everyone counts only their own assets; nobody gets a team figure.":"Setiap orang hanya menghitung asetnya sendiri; tidak ada angka tim.",
+  "Only people who manage the workspace can change this.":"Hanya yang mengelola workspace yang bisa mengubah ini."});
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"from other teams":"dari tim lain","in this team":"di tim ini","Includes other teams' tasks that this team's people are assigned to — each keeps its own team.":"Termasuk task tim lain yang di-assign ke anggota tim ini — task itu tetap milik timnya sendiri.","Includes other teams' tasks assigned to its people":"Termasuk task tim lain yang di-assign ke anggotanya","No tasks with dates yet.":"Belum ada task bertanggal.","No tasks match the current filters.":"Tidak ada task yang cocok dengan filter."});
 </script>
 <script>
@@ -13008,7 +13120,7 @@ function saveRole(id){ if (!require(["rl_name"])) return; var perms=[]; document
   apiFetch(id?"PUT":"POST",id?"/api/roles/"+id:"/api/roles",body).then(function(list){ ROLES=list; refresh(); toast("Role saved"); }).catch(function(e){ fail(e); }); }
 function deleteRole(id){ closeModal(); confirmModal("Delete role?","Members with this role become Member.",function(){ if (!API.on){ ROLES=ROLES.filter(function(r){ return r.id!==id; }); Object.keys(PEOPLE).forEach(function(u){ if (PEOPLE[u].perm===id) PEOPLE[u].perm="member"; }); return refresh(); } apiFetch("DELETE","/api/roles/"+id).then(function(list){ ROLES=list; reloadAll(); toast("Role deleted","bad"); }).catch(function(e){ fail(e); }); },true); }
 /* teams */
-function setTeamsTab(){ var ed=canI.manageTeams(); return sp("Teams",'<p class="hint" style="margin-bottom:8px">Edit team names, colors, icons, leads, and order. Team colors mark tasks on boards and calendars.</p>'+activeTeams().map(function(t,i){ var w=teamWorkload(t.id); return '<div class="pref">'+teamIcon(t,true)+'<div class="pl"><b>'+esc(t.name)+' <span class="tbadge" style="--tc:'+teamColorCss(t.color)+'"><i></i>'+tr(t.color)+'</span></b><span><span data-no-translate>'+esc(t.description||"")+'</span> · '+uiCount(teamMembers(t.id).length,"member","members")+' · '+w.open+' '+tr("open tasks")+(t.lead?' · '+tr("lead")+' <span data-no-translate>'+esc(first(t.lead))+'</span>':'')+'</span></div>'+(ed?'<div class="ord" style="display:flex;gap:2px"><button class="iconbtn flat" style="width:26px;height:26px" onclick="moveTeam('+i+',-1)" '+(i===0?"disabled":"")+'>'+I.up+'</button><button class="iconbtn flat" style="width:26px;height:26px;transform:rotate(180deg)" onclick="moveTeam('+i+',1)" '+(i===activeTeams().length-1?"disabled":"")+'>'+I.up+'</button></div><button class="btn sm" onclick="teamModal(\''+t.id+'\')">'+I.edit+'Edit</button>':'')+'</div>'; }).join("")+(TEAMS.some(function(t){ return t.archived; })?'<div class="eyebrow" style="margin:14px 0 6px">Archived teams</div>'+TEAMS.filter(function(t){ return t.archived; }).map(function(t){ return '<div class="pref">'+teamIcon(t,true)+'<div class="pl"><b>'+esc(t.name)+' <span class="badge done">archived</span></b><span>'+esc(t.description||"")+'</span></div>'+(ed?'<button class="btn sm" onclick="restoreTeam(\''+t.id+'\')">'+I.sync+'Restore</button>':'')+'</div>'; }).join(""):''),ed?'<button class="btn" onclick="teamModal()">'+I.plus+'New team</button><button class="btn ghost" onclick="go(\'teams\')">Open Teams screen</button>':'',I.team); }
+function setTeamsTab(){ var ed=canI.manageTeams(); return sp("Teams",'<p class="hint" style="margin-bottom:8px">Edit team names, colors, icons, leads, and order. Team colors mark tasks on boards and calendars.</p>'+activeTeams().map(function(t,i){ var w=teamWorkload(t.id); return '<div class="pref">'+teamIcon(t,true)+'<div class="pl"><b>'+esc(t.name)+' <span class="tbadge" style="--tc:'+teamColorCss(t.color)+'"><i></i>'+tr(t.color)+'</span></b><span><span data-no-translate>'+esc(t.description||"")+'</span> · '+uiCount(teamMembers(t.id).length,"member","members")+' · '+w.open+' '+tr("open tasks")+(t.lead?' · '+tr("lead")+' <span data-no-translate>'+esc(first(t.lead))+'</span>':'')+'</span></div>'+(ed?'<div class="ord" style="display:flex;gap:2px"><button class="iconbtn flat" style="width:26px;height:26px" onclick="moveTeam('+i+',-1)" '+(i===0?"disabled":"")+'>'+I.up+'</button><button class="iconbtn flat" style="width:26px;height:26px;transform:rotate(180deg)" onclick="moveTeam('+i+',1)" '+(i===activeTeams().length-1?"disabled":"")+'>'+I.up+'</button></div><button class="btn sm" onclick="teamModal(\''+t.id+'\')">'+I.edit+'Edit</button>':'')+'</div>'; }).join("")+(TEAMS.some(function(t){ return t.archived; })?'<div class="eyebrow" style="margin:14px 0 6px">Archived teams</div>'+TEAMS.filter(function(t){ return t.archived; }).map(function(t){ return '<div class="pref">'+teamIcon(t,true)+'<div class="pl"><b>'+esc(t.name)+' <span class="badge done">archived</span></b><span>'+esc(t.description||"")+'</span></div>'+(ed?'<button class="btn sm" onclick="restoreTeam(\''+t.id+'\')">'+I.sync+'Restore</button>':'')+'</div>'; }).join(""):''),ed?'<button class="btn" onclick="teamModal()">'+I.plus+'New team</button><button class="btn ghost" onclick="go(\'teams\')">Open Teams screen</button>':'',I.team)+(typeof assetLeadSettingsHtml==="function"?assetLeadSettingsHtml():""); }
 function restoreTeam(id){ var t=team(id); t.archived=false; t.sort=activeTeams().length+1; refresh(); toast(t.name+" restored"); persistTeam(t,false); }
 function moveTeam(i,d){ var order=activeTeams(); var j=i+d; if (j<0||j>=order.length) return; var t=order[i]; order[i]=order[j]; order[j]=t; order.forEach(function(x,k){ x.sort=k+1; }); refresh(); persistTeamOrder(); }
 /* notifications & email */
@@ -14118,24 +14230,36 @@ function reportRecommendations(d){
    report records whether the number is exact or attributed.
 
    Priority, highest first:
+     0. meta.assetSplit     (each person's count, typed on the task — Oct 2026; the task's total is their sum)
      1. version.createdBy   (who uploaded the deliverable)
      2. asset.createdBy     (who owns the linked asset record)
      3. producedByUserId    (explicit override on the task)
      4. task ownership      — approximate, and labelled as such
    ============================================================ */
 function assetCreatorOf(v){ return (v&&(v.createdBy||v.producedByUserId||v.by))||null; }
+/* Each person's count typed on the task (Assets & versions), whole numbers above zero; null when there is none.
+   A slim task (closed long ago, sent without its meta) carries it as assetSplit. */
+function taskAssetSplit(t){
+  var s=(t&&t.meta&&t.meta.assetSplit)||(t&&t.assetSplit)||null; if(!s||typeof s!=="object") return null;
+  var out={},n=0; Object.keys(s).forEach(function(id){ var v=Math.max(0,Math.round(+s[id]||0)); if(v){ out[id]=v; n+=v; } });
+  return n?out:null;
+}
 
-/* Returns { by: {userId: count}, exact: bool } for one task. */
+/* Returns { by: {userId: count}, exact: bool, how } for one task. */
 function taskAssetCredit(t){
   var total=+t.assetCount||0;
-  if(!total) return {by:{},exact:true};
+  if(!total) return {by:{},exact:true,how:""};
   var by={},add=function(id,n){ if(!id)return; by[id]=(by[id]||0)+n; };
+
+  /* 0. what each person produced, as typed on the task */
+  var split=taskAssetSplit(t);
+  if(split){ Object.keys(split).forEach(function(id){ add(id,split[id]); }); return {by:by,exact:true,how:"split"}; }
 
   /* 3. an explicit override wins over anything inferred */
   var explicit=t.producedByUserId||t.producedBy;
   if(explicit){
     var ids=Array.isArray(explicit)?explicit.filter(Boolean):[explicit];
-    if(ids.length){ ids.forEach(function(id){ add(id,total/ids.length); }); return {by:by,exact:true}; }
+    if(ids.length){ ids.forEach(function(id){ add(id,total/ids.length); }); return {by:by,exact:true,how:"override"}; }
   }
   /* 1. version creators — the strongest signal we actually store */
   var creators=(t.versions||[]).map(assetCreatorOf).filter(Boolean);
@@ -14149,26 +14273,29 @@ function taskAssetCredit(t){
     var tally={},n=0;
     creators.forEach(function(id){ tally[id]=(tally[id]||0)+1; n++; });
     Object.keys(tally).forEach(function(id){ add(id,total*tally[id]/n); });
-    return {by:by,exact:true};
+    return {by:by,exact:true,how:"uploads"};
   }
   /* 4. nothing to go on — fall back to task ownership and say so */
   var owners=(typeof assigneesOf==="function"?assigneesOf(t):[]).filter(Boolean);
-  if(!owners.length) return {by:{},exact:false};
+  if(!owners.length) return {by:{},exact:false,how:"assignees"};
   owners.forEach(function(id){ add(id,total/owners.length); });
-  return {by:by,exact:false};
+  return {by:by,exact:false,how:"assignees"};
 }
 /* A person's assets across a task list: produced (all of them, as a project's "Assets produced")
    and delivered (on finished tasks), with whether any of it had to be estimated. */
-function personAssets(userId,tasks){ var all=personAssetCredit(userId,tasks), done=personAssetCredit(userId,(tasks||[]).filter(isClosed)); return {produced:all.count,delivered:done.count,attributed:all.attributed||done.attributed}; }
-/* Credit for one person across a task list. */
+function personAssets(userId,tasks){ var all=personAssetCredit(userId,tasks), done=personAssetCredit(userId,(tasks||[]).filter(isClosed)); return {produced:all.count,delivered:done.count,attributed:all.attributed||done.attributed,typed:all.typed,uploads:all.uploads}; }
+/* Credit for one person across a task list, and where it came from: typed per person, or worked out from uploads. */
 function personAssetCredit(userId,tasks){
-  var n=0,approx=false;
+  var n=0,approx=false,typed=false,uploads=false;
   (tasks||[]).forEach(function(t){
     var c=taskAssetCredit(t), got=c.by[userId]||0;
-    if(got){ n+=got; if(!c.exact) approx=true; }
+    if(got){ n+=got; if(!c.exact) approx=true; else if(c.how==="split") typed=true; else uploads=true; }
   });
-  return {count:Math.round(n),attributed:approx};
+  /* raw: before rounding, for a figure that adds several people up (a shared 1.5 + 1.5 is 3, not 2 + 2) */
+  return {count:Math.round(n),raw:n,attributed:approx,typed:typed,uploads:uploads};
 }
+/* the Workload sheet's "Asset credit": how a person's number was arrived at */
+function assetCreditLabel(p){ return tr(p.assetsAttributed?"Estimated from the assignee":p.assetsTyped&&!p.assetsUploads?"Entered per person":p.assetsTyped?"Entered per person and from version uploads":"From version uploads"); }
 
 /* ============================================================
    §P0-5 EXTERNAL AI RECOMMENDATIONS — actually external
@@ -14267,6 +14394,11 @@ function reportData(){ var m=metrics(); var live=reportTasks(); var open=live.fi
     p.assetsProduced=credit.produced;
     p.assetsDelivered=credit.delivered;
     p.assetsAttributed=credit.attributed;
+    p.assetsTyped=credit.typed; p.assetsUploads=credit.uploads;
+    /* a team's lead: what the people of the teams they lead produced, them included (Settings → Teams) — a figure of
+       its own, beside theirs, so adding up the people never counts anything twice */
+    var team=typeof leadTeamCredit==="function"?leadTeamCredit(p.id,live):null;
+    p.teamAssets=team?team.count:null;
     var projIds={}; all.forEach(function(t){ if(t.proj) projIds[t.proj]=1; });
     p.projects=Object.keys(projIds);
     p.projectsInvolved=p.projects.length;
@@ -14530,7 +14662,8 @@ function buildXLSX(){ var d=reportData(), m=d.m;
   var summary=[["Metric","Value"]];
   var stages=[["Stage","Kind","Tasks"]].concat(d.stages.map(function(s){ return [s.name,s.kind,s.n]; }));
   var projects=[["Project","Owner","Status","Progress (%)","Start","Deadline","Open tasks","Overdue","Total tasks","Assets produced","Assets delivered","Asset links","Team"]].concat(d.projects.map(function(p){ var pt=exportTasks().filter(function(t){ return inProject(t,p.id); }); return [p.name,p.owner,tr(p.status==="risk"?"At risk":p.status==="done"?"Done":"Active"),p.progress,p.start,p.due,p.open,p.overdue,p.total,assetsProduced(pt),assetsProduced(pt.filter(isClosed)),assetLinks(pt).length,p.team]; }));
-  var workload=[["Member","Role","Team","Capacity (h)","Assigned (h)","Utilization (%)","Open tasks","In review","Overdue","Assets produced","Assets delivered","Asset credit"]].concat(d.people.map(function(p){ return [p.name,p.role,p.team,p.cap,p.assigned,p.cap?Math.round(p.assigned/p.cap*100):0,p.open,p.review,p.overdue,p.assetsProduced,p.assetsDelivered,tr(p.assetsAttributed?"Estimated from the assignee":"From version uploads")]; }));
+  var leads=d.people.some(function(p){ return p.teamAssets!=null; });
+  var workload=[["Member","Role","Team","Capacity (h)","Assigned (h)","Utilization (%)","Open tasks","In review","Overdue","Assets produced","Assets delivered","Asset credit"].concat(leads?["Team assets (as lead)"]:[])].concat(d.people.map(function(p){ return [p.name,p.role,p.team,p.cap,p.assigned,p.cap?Math.round(p.assigned/p.cap*100):0,p.open,p.review,p.overdue,p.assetsProduced,p.assetsDelivered,assetCreditLabel(p)].concat(leads?[p.teamAssets==null?"":p.teamAssets]:[]); }));
   var weekly=[["Week","Created","Completed","Overdue","Avg completion (d)","Revision rate (%)","Approval time (h)"]].concat(m.weeks.map(function(w,i){ return [w,m.created[i],m.completed[i],m.overdue[i],m.avgDays[i],Math.round(m.revisionRate[i]*100),m.approvalHrs[i]]; }));
   var assets=[["Asset","Type","Folder","Source","Location","Size","Version","Tags","Uploaded by"]].concat(ASSETS.map(function(a){ return [a.name,a.type,(byId(ASSET_FOLDERS,a.folder)||{name:""}).name,(SRC[srcOf(a)]||SRC.local).l,a.url,a.size,a.ver,a.tags.join("; "),person(a.by).name]; }));
   var teams=[["Team","Color","Members","Open tasks","Completed","Capacity (h)","Assigned (h)","Utilization (%)"]].concat(m.byTeam.map(function(t){ return [t.name,t.color,teamMembers(t.id).length,t.open,t.completed,t.capacity,t.assigned,t.utilization]; }));
@@ -14749,6 +14882,7 @@ function exportJSON(){ var ws=clone(WS); delete ws.people; var data={version:3,b
 function importJSON(){ var inp=document.getElementById("fileInput"); inp.accept=".json,application/json"; inp.onchange=function(){ var f=inp.files[0]; inp.value=""; if (!f) return; var rd=new FileReader(); rd.onload=function(){ try { var d=JSON.parse(rd.result); if (!d.ws||!Array.isArray(d.tasks)||!Array.isArray(d.projects)) throw new Error("not a ZenCrevia backup");var shift=offsetFromIso(d.baseDate||(d.exportedAt?d.exportedAt.slice(0,10):iso(0)));d.tasks.forEach(function(t){t.due+=shift;});d.projects.forEach(function(p){p.start+=shift;p.due+=shift;(p.milestones||[]).forEach(function(m){m.due+=shift;});}); if (API.on) throw new Error("snapshot restore is for demo mode — the server database is the source of truth"); for (var k in d.ws) WS[k]=d.ws[k]; if (d.teams) TEAMS=d.teams; if (d.people){ PEOPLE=d.people; WS.people=PEOPLE; } if (d.roles) ROLES=d.roles; if (d.requests) REQUESTS=d.requests; if (d.views) VIEWS=d.views; PROJECTS.length=0; d.projects.forEach(function(x){ PROJECTS.push(x); }); TASKS.length=0; d.tasks.forEach(function(x){ TASKS.push(x); }); ASSET_FOLDERS.length=0; (d.folders||[]).forEach(function(x){ ASSET_FOLDERS.push(x); }); ASSETS.length=0; (d.assets||[]).forEach(function(x){ ASSETS.push(x); }); KNOWLEDGE.length=0; (d.knowledge||[]).forEach(function(x){ KNOWLEDGE.push(x); }); NOTIFS.length=0; (d.notifs||[]).forEach(function(x){ NOTIFS.push(x); }); ACTIVITY.length=0; (d.activity||[]).forEach(function(x){ ACTIVITY.push(x); }); applyTheme(); applyShell(); refresh(); toast("Workspace restored"); } catch(e){ toast("Restore failed: "+e.message,"bad"); } }; rd.readAsText(f); }; inp.click(); }
 /* per-person assets in the workbook and the deck (the report tests load this file without the dictionary) */
 if(typeof UI_ID!=="undefined") Object.assign(UI_ID,{"Asset credit":"Sumber kredit aset","Estimated from the assignee":"Perkiraan dari assignee","From version uploads":"Dari unggahan versi","assets produced":"aset dihasilkan",
+  "Entered per person":"Diisi per orang","Entered per person and from version uploads":"Diisi per orang dan dari unggahan versi","Team assets (as lead)":"Aset tim (sebagai lead)",
   "Contribution across the selected period":"Kontribusi selama periode yang dipilih","n/a":"t/a","Top projects":"Proyek utama","No project activity in this period":"Tidak ada aktivitas proyek di periode ini",
   "Volume depends on task size, role and availability — read alongside project context, not as a ranking.":"Jumlah bergantung pada ukuran task, peran, dan ketersediaan — baca bersama konteks proyek, bukan sebagai peringkat.",
   "* attributed from task ownership because no asset creator was recorded.":"* diperkirakan dari pemilik task karena pembuat asetnya tidak tercatat.",
@@ -15831,7 +15965,11 @@ Object.assign(UI_ID,{
 </script>
 <script>
 /* Layer composition is shared by preview, PNG download and asset export. */
-function aiRefreshProperties(){var old=document.querySelector('.ai-props');if(!old)return;var y=old.scrollTop;old.outerHTML=aiStudioProperties();var el=document.querySelector('.ai-props');el.scrollTop=y;aiBindHistoryInputs();localizeVisibleText(el);}
+/* The panel is drawn again on every pick, and the layer list inside it scrolls on its own: both keep where they were
+   (picking a row low in the list threw it back to its first row). */
+function aiScrollMarks(root){var out=[];if(!root)return out;[root].concat(Array.prototype.slice.call(root.querySelectorAll('[class]'))).forEach(function(el){if(!el.scrollTop)return;var c=el===root?'':el.classList[0];if(el!==root&&!c)return;out.push({c:c,i:c?Array.prototype.indexOf.call(root.querySelectorAll('.'+CSS.escape(c)),el):0,top:el.scrollTop});});return out;}
+function aiScrollRestore(root,marks){if(!root)return;marks.forEach(function(m){var el=m.c?root.querySelectorAll('.'+CSS.escape(m.c))[m.i]:root;if(el)el.scrollTop=m.top;});}
+function aiRefreshProperties(){var old=document.querySelector('.ai-props');if(!old)return;var marks=aiScrollMarks(old);old.outerHTML=aiStudioProperties();var el=document.querySelector('.ai-props');aiScrollRestore(el,marks);aiBindHistoryInputs();localizeVisibleText(el);requestAnimationFrame(function(){var now=document.querySelector('.ai-props');if(now===el)aiScrollRestore(el,marks);});}
 var aiCanvasEditAtBase=aiCanvasEditAt,aiTextDragEndBase=aiTextDragEnd;
 aiCanvasEditAt=function(ev,cv){aiCanvasEditAtBase(ev,cv);aiRefreshProperties();};
 aiTextDragEnd=function(ev){aiTextDragEndBase(ev);aiRefreshProperties();};
@@ -20250,12 +20388,12 @@ function saveRevised(){
   var same=!!raw&&raw===v.driveUrl, url=same?raw:normalizedAttachUrl(raw);
   if(!url) return toast(tr("Paste the link to the revised work, or upload the revised file."),"bad");
   closeModal();
-  pushVersionFrom(tk,same?{url:url,driveId:v.driveId||null,img:v.img||""}:{url:url},note);
+  pushVersionFrom(tk,same?{url:url,driveId:v.driveId||null,img:v.img||""}:{url:url},note,false,true);
 }
 /* The next version, from a link or a stored picture — nothing is uploaded again. It is not in review
    until it is submitted (avDecision), and there is no limit: V2, V3 … as many rounds as it takes. */
 function nextVersionNo(tk){ return tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1; }
-function pushVersionFrom(tk,src,note,quiet){
+function pushVersionFrom(tk,src,note,quiet,fileIt){
   var sent=false, n=nextVersionNo(tk), cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   S.drawerVer=n; S.drawerTab="files";
   return editTaskWith(tk,function(t){
@@ -20264,7 +20402,7 @@ function pushVersionFrom(tk,src,note,quiet){
     if(src.img) x.img=src.img;
     if(src.driveId) x.driveId=src.driveId;
     else if(src.url&&isDriveUrl(src.url)){ var id=(src.url.match(/\/d\/([^/?#]+)/)||src.url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) x.driveId=id; }
-    t.versions.push(x); log(t,"upload",{v:n});
+    t.versions.push(x); if(fileIt&&!src.img) verLinkFile(t,src.url,x.driveId,""); log(t,"upload",{v:n});
     /* Settings → Automation can send it to review at once — when the task has a reviewer to send
        it to (a review stage may require one, and the save would be refused) */
     var rs=reviewFlow().autoSubmit?stageOfKind("review"):null;
@@ -20401,6 +20539,8 @@ function saveLinkVersion(){
   if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var tk=task(S.drawerTask); if(!tk) return;
   var drive=isDriveUrl(url), note=val("lv_note").trim(), host=""; try{ host=new URL(url).hostname.replace(/^www\./,""); }catch(e){}
+  /* the name read from the link while it was pasted (linkNameSoon) names its row under Final files */
+  var noteEl=document.getElementById("lv_note"), named=noteEl&&noteEl.getAttribute("data-auto")||"";
   var n=tk.versions.reduce(function(m,x){ return Math.max(m,+x.n||0); },0)+1;
   var cols=["#7C3AED","#0F766E","#B45309","#1D4ED8","#BE185D"];
   closeModal(); S.drawerVer=n; S.drawerTab="files";
@@ -20409,8 +20549,19 @@ function saveLinkVersion(){
     /* drive_url is the column every version keeps its source address in, Drive or not */
     v.driveUrl=url;
     if(drive){ var id=(url.match(/\/d\/([^/?#]+)/)||url.match(/folders\/([^/?#]+)/)||[])[1]; if(id) v.driveId=id; }
-    t.versions.push(v); log(t,"upload",{v:n});
+    t.versions.push(v); verLinkFile(t,url,v.driveId,named); log(t,"upload",{v:n});
   }).then(function(saved){ if(saved===false) return false; notifyTask("upload",tk); toast(tr("Version")+" "+n+" "+tr("attached")); });
+}
+/* A version attached as a link is delivered work, as an uploaded one is: it is filed under Final files too, where
+   it says which version it is and whether that is final (useAsFinalHtml). A link already there — the same folder
+   kept through Revised, a link handed over in a comment — is not filed again. Without a name read from the link it
+   gets the link's stand-in name, which avHealDriveNames replaces with the real one. */
+function verLinkFile(t,url,driveId,name){
+  if(!/^https:\/\//i.test(url||"")) return null;
+  if((t.files||[]).some(function(f){ return f.url===url||(!!driveId&&f.driveId===driveId); })) return null;
+  var google=typeof isGoogleLink==="function"&&isGoogleLink(url);
+  var f=F(name||(typeof linkLabelNow==="function"&&linkLabelNow(url))||(typeof cmtLinkLabel==="function"?cmtLinkLabel(url):url),"document",google?"gdrive":"link","Link",0,url,driveId?{driveId:driveId}:null);
+  (t.files=t.files||[]).push(f); if(avIsStandIn(f)) delete AV_HEALED[t.id]; return f;
 }
 
 /* ---------- 2. final files ---------- */
@@ -20456,7 +20607,11 @@ function verEditLinkModal(n){ var tk=task(S.drawerTask), v=tk&&tk.versions.filte
   avLinkModal(tr("Edit the link of Version")+" "+n,v.driveUrl,"Version note (optional)",v.note||"",auto,"verSaveLink("+n+")"); }
 function verSaveLink(n){ var url=normalizedAttachUrl(val("el_url")); if(!url) return toast(tr("Use a valid HTTPS link"),"bad");
   var tk=task(S.drawerTask); if(!tk) return closeModal(); var note=val("el_name").trim(); closeModal();
-  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return; x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
+  editTaskWith(tk,function(t){ var x=t.versions.filter(function(y){ return y.n===n; })[0]; if(!x||x.state==="approved") return;
+    /* the row filed for this link under Final files follows it — not one another version still points to */
+    (t.files||[]).forEach(function(f){ var l=fileLinkedVersions(t,f); if(l.length!==1||l[0]!==x) return; var standIn=avIsStandIn(f);
+      f.url=url; f.driveId=avDriveIdOf(url); f.source=isGoogleLink(url)?"gdrive":"link"; if(standIn){ f.name=linkLabelNow(url)||cmtLinkLabel(url); delete AV_HEALED[t.id]; } });
+    x.driveUrl=url; x.driveId=avDriveIdOf(url); x.note=note||(isGoogleLink(url)?tr("Linked from Google Drive"):(typeof linkLabelNow==="function"?linkLabelNow(url):"")); log(t,"edited",{what:"the link of version "+n}); })
     .then(function(saved){ if(saved!==false) toast(tr("Link updated")); }); }
 
 /* ---------- 3. from comments ---------- */
@@ -20520,13 +20675,88 @@ function countKey(e,el){
   if(e.key==="Enter"){ e.preventDefault(); el.blur(); return; }
   if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); el.value=el.getAttribute("data-was"); el.blur(); }
 }
-function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v); editTask(field,String(v)); }
+function countCommit(el,field){ var v=parseInt(el.value,10); if(isNaN(v)) v=parseInt(el.getAttribute("data-was"),10)||0; el.value=v; el.setAttribute("data-was",v);
+  if(/^split:/.test(field)) return assetSplitCommit(field.slice(6),v);
+  editTask(field,String(v)); }
 
-/* ---------- the count used by reports ---------- */
+/* ---------- the count used by reports ----------
+   One person on the task: one number. More than one (Oct 2026): each person's own count — what they produced, not
+   the total shared out — and the task's total is their sum. Until somebody types them, the counts shown are the
+   ones the reports work out (taskAssetCredit: who uploaded the versions, else shared among the assignees), rounded
+   to whole assets, and say so. Someone who is no longer on the task keeps a count they were given. */
+function assetSplitPeople(tk){
+  var ids=assigneesOf(tk).filter(Boolean), s=typeof taskAssetSplit==="function"?taskAssetSplit(tk):null, add=function(id){ if(id&&ids.indexOf(id)<0&&PEOPLE[id]) ids.push(id); };
+  if(s) Object.keys(s).forEach(add);
+  else if(assetCount(tk)&&typeof taskAssetCredit==="function") Object.keys(taskAssetCredit(tk).by).forEach(add);
+  return ids;
+}
+function assetSplitOn(tk){ return !!tk&&!tk._draft&&assetSplitPeople(tk).length>1; }
+/* the counts shown: as typed, or as the reports credit them, whole numbers that add up to the total */
+function assetSplitShown(tk,ids){
+  var raw=(tk.meta&&tk.meta.assetSplit)||null;
+  if(raw&&typeof raw==="object"&&Object.keys(raw).length) return {vals:ids.map(function(id){ return Math.max(0,Math.round(+raw[id]||0)); }),typed:true};
+  var total=assetCount(tk), by=total&&typeof taskAssetCredit==="function"?taskAssetCredit(tk).by:{};
+  var exact=ids.map(function(id){ return by[id]||0; }), vals=exact.map(Math.floor), left=total-vals.reduce(function(a,b){ return a+b; },0);
+  ids.map(function(id,i){ return i; }).sort(function(a,b){ return (exact[b]-vals[b])-(exact[a]-vals[a])||a-b; }).forEach(function(i){ if(left>0){ vals[i]++; left--; } });
+  return {vals:vals,typed:false};
+}
+function assetSplitCommit(id,v){
+  var tk=task(S.drawerTask); if(!tk||!canI.editTask(tk)) return;
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  ids.forEach(function(x,i){ split[x]=x===id?Math.max(0,Math.round(+v||0)):shown.vals[i]; });
+  var was=shown.typed?shown.vals[ids.indexOf(id)]:null; if(was===split[id]) return;
+  editTaskWith(tk,function(t){ t.meta=t.meta||{}; t.meta.assetSplit=split; t.assetCount=Object.keys(split).reduce(function(a,k){ return a+split[k]; },0); log(t,"edited",{what:"assetCount"}); });
+}
 function avCountRow(tk,ed){
   var n=assetCount(tk);
-  return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
+  if(!assetSplitOn(tk)) return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
     + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), open=assetSplitOpen(), val=assetSplitCanValidate(tk)&&(shown.typed||n>0)?assetSplitOkState(tk):null;
+  /* folded, the head says it all in one line: who, how many, the total */
+  var who=ids.map(function(id,i){ return esc(first(id))+' '+shown.vals[i]; }).join(' · ')+(shown.typed?'':' · '+tr("estimate"));
+  var badge=!val?'':val.state==="ok"?'<span class="badge ok av-split-badge">'+I.check+tr("Validated")+'</span>':'<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
+  return '<div class="av-count av-split'+(open?' open':'')+'"><button type="button" class="av-split-head" aria-expanded="'+open+'" onclick="assetSplitToggle()"><span class="av-split-title">'+tr("Assets produced")+'</span>'
+    + '<span class="hint av-split-sum">'+(open?tr("each person's own, used in reports"):who)+'</span>'+badge+'<span class="spacer"></span><span class="av-split-total">'+tr("Total")+' <b>'+n+'</b></span><span class="av-split-caret" aria-hidden="true"></span></button>'
+    + (open?'<div class="av-split-rows">'+ids.map(function(id,i){ var nm=person(id).name;
+      return '<div class="av-split-row">'+av(id)+'<span class="av-split-name">'+esc(nm)+(assigneesOf(tk).indexOf(id)<0?' <span class="hint">· '+tr("not on the task now")+'</span>':'')+'</span>'
+        + (ed?countInputHtml(shown.vals[i],tr("Assets produced by")+" "+nm,"split:"+id,"split"):'<b>'+shown.vals[i]+'</b>')+'</div>'; }).join("")+'</div>'
+    + (shown.typed?'':'<p class="hint av-split-guess">'+tr(n?"An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Type what each person produced; the total adds them up.")+'</p>')
+    + (val?assetSplitOkHtml(val):''):'')+'</div>';
+}
+/* folded or open, as this person last left it — folded at first, so it takes one line */
+function assetSplitOpen(){ try{ return localStorage.getItem("cos.avsplit.open."+ME)==="1"; }catch(e){ return false; } }
+function assetSplitToggle(){ var on=!assetSplitOpen(); try{ localStorage.setItem("cos.avsplit.open."+ME,on?"1":"0"); }catch(e){} renderDrawer(); }
+
+/* ---------- a team's lead validates the counts (Oct 2026) ----------
+   The lead of the task's team, or of a team someone counted on it is in, sees whether the counts are validated and
+   approves them; whoever manages the workspace can too. Members see none of it, and the counts are counted the same
+   before and after. A count changed after it was validated shows as changed since, to be approved again. Approving
+   an estimate keeps it as typed. The server holds the same rule and writes who and when (cleanAssetSplitOk). */
+function assetSplitCanValidate(tk){
+  if(!tk||tk._draft) return false;
+  if(canI.manageWorkspace()) return true;
+  var led=activeTeams().filter(function(t){ return t.lead===ME; }).map(function(t){ return t.id; }); if(!led.length) return false;
+  if(tk.team&&led.indexOf(tk.team)>=0) return true;
+  return assetSplitPeople(tk).some(function(id){ return teamsOf(id).some(function(x){ return led.indexOf(x)>=0; }); });
+}
+function assetSplitKey(s){ s=s||{}; return Object.keys(s).filter(function(k){ return +s[k]>0; }).sort().map(function(k){ return k+":"+Math.round(+s[k]); }).join(","); }
+function assetSplitOkState(tk){
+  var ok=tk.meta&&tk.meta.assetSplitOk; if(!ok||!ok.split) return {state:"none"};
+  return {state:assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit)?"ok":"stale",by:ok.by,at:ok.at};
+}
+function assetSplitOkHtml(val){
+  if(val.state==="ok") return '<div class="av-split-ok done">'+I.check+'<span>'+tr("Validated by")+' <b>'+esc(person(val.by).name)+'</b>'+(val.at?' · '+ago(null,val.at):'')+'</span></div>';
+  return '<div class="av-split-ok'+(val.state==="stale"?' stale':'')+'"><span>'+(val.state==="stale"?tr("Changed since")+' <b>'+esc(person(val.by).name)+'</b> '+tr("validated it")+'.':tr("Validate the counts."))+' '+tr("They count even before they are validated.")+'</span><span class="spacer"></span>'
+    + '<button type="button" class="btn xs primary" onclick="assetSplitApprove()">'+I.check+tr(val.state==="stale"?"Approve again":"Approve counts")+'</button></div>';
+}
+function assetSplitApprove(){
+  var tk=task(S.drawerTask); if(!tk||!assetSplitCanValidate(tk)) return;
+  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  ids.forEach(function(id,i){ split[id]=shown.vals[i]; });
+  editTaskWith(tk,function(t){ t.meta=t.meta||{};
+    if(!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
+    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:t.meta.assetSplit};
+  }).then(function(saved){ if(saved!==false) toast(tr("Asset counts validated")); });
 }
 
 /* notes in the history */
@@ -20711,6 +20941,16 @@ function restoreDo(type,id,actId){
 }
 /* only words not translated already: a common word keeps the translation it has elsewhere */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Go back":"Kembalikan","Go back to this point":"Kembalikan ke titik ini","Go back to this point?":"Kembalikan ke titik ini?","The task is put back to how it was on":"Task dikembalikan seperti keadaannya pada","The project is put back to how it was on":"Project dikembalikan seperti keadaannya pada","Now":"Sekarang","After going back":"Setelah dikembalikan","Nothing would change — it is already like this.":"Tidak ada yang berubah — keadaannya sudah seperti ini.","Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.":"Komentar dan riwayat tetap seperti sekarang. Pengembalian juga tercatat, jadi bisa dibatalkan dengan cara yang sama.","Gone back to the earlier point":"Sudah dikembalikan ke titik sebelumnya","goes back to how it was":"kembali seperti semula","Stage":"Tahap","Assignees":"Assignee","Reviewers":"Reviewer","Due date":"Tenggat","Start date":"Tanggal mulai","Versions":"Versi","Files":"File","Description":"Deskripsi","Creative brief":"Creative brief","Tags":"Tag","Labels":"Label","Name":"Nama","Status":"Status","Teams":"Tim","Title":"Judul","Priority":"Prioritas"});
+/* Assets produced, per person (avCountRow) */
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"each person's own, used in reports":"milik masing-masing, dipakai di laporan","Total":"Total",
+  "not on the task now":"sudah tidak di task ini","Assets produced by":"Aset dihasilkan oleh",
+  "An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Perkiraan sampai jumlah tiap orang diisi — dari siapa yang mengunggah versi, atau dibagi rata.",
+  "Type what each person produced; the total adds them up.":"Isi berapa yang dihasilkan tiap orang; totalnya dijumlahkan otomatis.",
+  "Type each person's count under Assets & versions — the total adds them up.":"Isi jumlah tiap orang di Aset & versi — totalnya dijumlahkan otomatis.",
+  "estimate":"perkiraan","Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validated":"Berubah sejak divalidasi",
+  "Validated by":"Divalidasi oleh","Changed since":"Berubah sejak","validated it":"memvalidasinya","Validate the counts.":"Validasi jumlahnya.",
+  "They count even before they are validated.":"Tetap dihitung walau belum divalidasi.","Approve counts":"Setujui jumlah","Approve again":"Setujui lagi",
+  "Asset counts validated":"Jumlah aset divalidasi"});
 </script>
 <script>
 /* SHARED GOOGLE DRIVE ACCOUNT — Settings → Integrations (admins only).
@@ -22470,6 +22710,45 @@ function pageAiSoon(){ clearTimeout(PAGE_AI_T); PAGE_AI_T=setTimeout(pageAiSave,
     var pre=pageReloaded()&&VIEW_RESTORED===null?pageDb("readonly",function(st){ return st.get(PAGE_TAB); }).then(function(d){ PAGE_AI_DOC=d||null; }):Promise.resolve();
     return pre.then(function(){ return base.apply(self,args); }).then(function(v){ try{ pageAfterRoute(); }catch(e){} return v; }); };
 })();
+</script>
+<script>
+/* ============================================================
+   A NEW VERSION, OFFERED (Oct 2026)
+   A tab keeps the page it loaded. Left open across an update — for days, or as the installed app — it went on
+   running the old page against the new server, and things went wrong for some people without anyone knowing why.
+   Every API reply now says which page the server serves (X-ZC-Build, stamped into the page by build.js); when it is
+   not this tab's, a bar at the top offers to reload. It never reloads by itself: something may be half typed. A tab
+   nobody touches checks when it is looked at again, and every 15 minutes while in view. "Later" puts the bar away
+   until the next update.
+   ============================================================ */
+var ZC_BUILD=(function(){ try{ var m=document.querySelector('meta[name="zc-build"]'); return m?m.getAttribute("content")||"":""; }catch(e){ return ""; } })();
+var ZC_NEWER="", ZC_NEWER_LATER="", ZC_BUILD_CHECKED=0;
+/* apiFetch hands over what each reply says */
+function zcBuildSeen(id){
+  if(!id||!ZC_BUILD||id===ZC_BUILD||id===ZC_NEWER) return;
+  ZC_NEWER=id; zcNewVersionBar();
+}
+function zcNewVersionBar(){
+  var el=document.getElementById("zcNewVersion");
+  if(!ZC_NEWER||ZC_NEWER===ZC_NEWER_LATER){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement("div"); el.id="zcNewVersion"; el.className="zc-new-version"; el.setAttribute("role","status"); document.body.appendChild(el); }
+  el.innerHTML='<span class="zc-nv-ic" aria-hidden="true">'+I.sync+'</span><span class="zc-nv-text">'+tr("A new version of ZenCrevia is ready.")+'</span>'
+    + '<button type="button" class="btn sm primary" onclick="zcReloadNow()">'+tr("Reload")+'</button>'
+    + '<button type="button" class="iconbtn flat sm zc-nv-later" aria-label="'+attr(tr("Later"))+'" title="'+attr(tr("Later"))+'" onclick="zcNewVersionLater()">'+I.x+'</button>';
+}
+/* the page comes back as it was (view-memory.js keeps it on a reload) */
+function zcReloadNow(){ try{ if(typeof pageSave==="function") pageSave(); }catch(e){} location.reload(); }
+function zcNewVersionLater(){ ZC_NEWER_LATER=ZC_NEWER; zcNewVersionBar(); }
+function zcBuildCheck(){
+  if(typeof API==="undefined"||!API.on||document.hidden||Date.now()-ZC_BUILD_CHECKED<60000) return;
+  ZC_BUILD_CHECKED=Date.now();
+  apiFetch("GET","/api/auth/status").catch(function(){});
+}
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) zcBuildCheck(); });
+setInterval(zcBuildCheck,15*60000);
+/* the bar speaks the language chosen after it appeared */
+(function(){ if(typeof renderScreen!=="function") return; var base=renderScreen; renderScreen=function(){ var r=base.apply(this,arguments); if(document.getElementById("zcNewVersion")) zcNewVersionBar(); return r; }; })();
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"A new version of ZenCrevia is ready.":"Versi baru ZenCrevia sudah siap.","Reload":"Muat ulang","Later":"Nanti"});
 </script>
 <script>
 /* ============================================================

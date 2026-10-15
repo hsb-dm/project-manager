@@ -75,24 +75,36 @@ function reportRecommendations(d){
    report records whether the number is exact or attributed.
 
    Priority, highest first:
+     0. meta.assetSplit     (each person's count, typed on the task — Oct 2026; the task's total is their sum)
      1. version.createdBy   (who uploaded the deliverable)
      2. asset.createdBy     (who owns the linked asset record)
      3. producedByUserId    (explicit override on the task)
      4. task ownership      — approximate, and labelled as such
    ============================================================ */
 function assetCreatorOf(v){ return (v&&(v.createdBy||v.producedByUserId||v.by))||null; }
+/* Each person's count typed on the task (Assets & versions), whole numbers above zero; null when there is none.
+   A slim task (closed long ago, sent without its meta) carries it as assetSplit. */
+function taskAssetSplit(t){
+  var s=(t&&t.meta&&t.meta.assetSplit)||(t&&t.assetSplit)||null; if(!s||typeof s!=="object") return null;
+  var out={},n=0; Object.keys(s).forEach(function(id){ var v=Math.max(0,Math.round(+s[id]||0)); if(v){ out[id]=v; n+=v; } });
+  return n?out:null;
+}
 
-/* Returns { by: {userId: count}, exact: bool } for one task. */
+/* Returns { by: {userId: count}, exact: bool, how } for one task. */
 function taskAssetCredit(t){
   var total=+t.assetCount||0;
-  if(!total) return {by:{},exact:true};
+  if(!total) return {by:{},exact:true,how:""};
   var by={},add=function(id,n){ if(!id)return; by[id]=(by[id]||0)+n; };
+
+  /* 0. what each person produced, as typed on the task */
+  var split=taskAssetSplit(t);
+  if(split){ Object.keys(split).forEach(function(id){ add(id,split[id]); }); return {by:by,exact:true,how:"split"}; }
 
   /* 3. an explicit override wins over anything inferred */
   var explicit=t.producedByUserId||t.producedBy;
   if(explicit){
     var ids=Array.isArray(explicit)?explicit.filter(Boolean):[explicit];
-    if(ids.length){ ids.forEach(function(id){ add(id,total/ids.length); }); return {by:by,exact:true}; }
+    if(ids.length){ ids.forEach(function(id){ add(id,total/ids.length); }); return {by:by,exact:true,how:"override"}; }
   }
   /* 1. version creators — the strongest signal we actually store */
   var creators=(t.versions||[]).map(assetCreatorOf).filter(Boolean);
@@ -106,26 +118,29 @@ function taskAssetCredit(t){
     var tally={},n=0;
     creators.forEach(function(id){ tally[id]=(tally[id]||0)+1; n++; });
     Object.keys(tally).forEach(function(id){ add(id,total*tally[id]/n); });
-    return {by:by,exact:true};
+    return {by:by,exact:true,how:"uploads"};
   }
   /* 4. nothing to go on — fall back to task ownership and say so */
   var owners=(typeof assigneesOf==="function"?assigneesOf(t):[]).filter(Boolean);
-  if(!owners.length) return {by:{},exact:false};
+  if(!owners.length) return {by:{},exact:false,how:"assignees"};
   owners.forEach(function(id){ add(id,total/owners.length); });
-  return {by:by,exact:false};
+  return {by:by,exact:false,how:"assignees"};
 }
 /* A person's assets across a task list: produced (all of them, as a project's "Assets produced")
    and delivered (on finished tasks), with whether any of it had to be estimated. */
-function personAssets(userId,tasks){ var all=personAssetCredit(userId,tasks), done=personAssetCredit(userId,(tasks||[]).filter(isClosed)); return {produced:all.count,delivered:done.count,attributed:all.attributed||done.attributed}; }
-/* Credit for one person across a task list. */
+function personAssets(userId,tasks){ var all=personAssetCredit(userId,tasks), done=personAssetCredit(userId,(tasks||[]).filter(isClosed)); return {produced:all.count,delivered:done.count,attributed:all.attributed||done.attributed,typed:all.typed,uploads:all.uploads}; }
+/* Credit for one person across a task list, and where it came from: typed per person, or worked out from uploads. */
 function personAssetCredit(userId,tasks){
-  var n=0,approx=false;
+  var n=0,approx=false,typed=false,uploads=false;
   (tasks||[]).forEach(function(t){
     var c=taskAssetCredit(t), got=c.by[userId]||0;
-    if(got){ n+=got; if(!c.exact) approx=true; }
+    if(got){ n+=got; if(!c.exact) approx=true; else if(c.how==="split") typed=true; else uploads=true; }
   });
-  return {count:Math.round(n),attributed:approx};
+  /* raw: before rounding, for a figure that adds several people up (a shared 1.5 + 1.5 is 3, not 2 + 2) */
+  return {count:Math.round(n),raw:n,attributed:approx,typed:typed,uploads:uploads};
 }
+/* the Workload sheet's "Asset credit": how a person's number was arrived at */
+function assetCreditLabel(p){ return tr(p.assetsAttributed?"Estimated from the assignee":p.assetsTyped&&!p.assetsUploads?"Entered per person":p.assetsTyped?"Entered per person and from version uploads":"From version uploads"); }
 
 /* ============================================================
    §P0-5 EXTERNAL AI RECOMMENDATIONS — actually external
@@ -224,6 +239,11 @@ function reportData(){ var m=metrics(); var live=reportTasks(); var open=live.fi
     p.assetsProduced=credit.produced;
     p.assetsDelivered=credit.delivered;
     p.assetsAttributed=credit.attributed;
+    p.assetsTyped=credit.typed; p.assetsUploads=credit.uploads;
+    /* a team's lead: what the people of the teams they lead produced, them included (Settings → Teams) — a figure of
+       its own, beside theirs, so adding up the people never counts anything twice */
+    var team=typeof leadTeamCredit==="function"?leadTeamCredit(p.id,live):null;
+    p.teamAssets=team?team.count:null;
     var projIds={}; all.forEach(function(t){ if(t.proj) projIds[t.proj]=1; });
     p.projects=Object.keys(projIds);
     p.projectsInvolved=p.projects.length;
@@ -487,7 +507,8 @@ function buildXLSX(){ var d=reportData(), m=d.m;
   var summary=[["Metric","Value"]];
   var stages=[["Stage","Kind","Tasks"]].concat(d.stages.map(function(s){ return [s.name,s.kind,s.n]; }));
   var projects=[["Project","Owner","Status","Progress (%)","Start","Deadline","Open tasks","Overdue","Total tasks","Assets produced","Assets delivered","Asset links","Team"]].concat(d.projects.map(function(p){ var pt=exportTasks().filter(function(t){ return inProject(t,p.id); }); return [p.name,p.owner,tr(p.status==="risk"?"At risk":p.status==="done"?"Done":"Active"),p.progress,p.start,p.due,p.open,p.overdue,p.total,assetsProduced(pt),assetsProduced(pt.filter(isClosed)),assetLinks(pt).length,p.team]; }));
-  var workload=[["Member","Role","Team","Capacity (h)","Assigned (h)","Utilization (%)","Open tasks","In review","Overdue","Assets produced","Assets delivered","Asset credit"]].concat(d.people.map(function(p){ return [p.name,p.role,p.team,p.cap,p.assigned,p.cap?Math.round(p.assigned/p.cap*100):0,p.open,p.review,p.overdue,p.assetsProduced,p.assetsDelivered,tr(p.assetsAttributed?"Estimated from the assignee":"From version uploads")]; }));
+  var leads=d.people.some(function(p){ return p.teamAssets!=null; });
+  var workload=[["Member","Role","Team","Capacity (h)","Assigned (h)","Utilization (%)","Open tasks","In review","Overdue","Assets produced","Assets delivered","Asset credit"].concat(leads?["Team assets (as lead)"]:[])].concat(d.people.map(function(p){ return [p.name,p.role,p.team,p.cap,p.assigned,p.cap?Math.round(p.assigned/p.cap*100):0,p.open,p.review,p.overdue,p.assetsProduced,p.assetsDelivered,assetCreditLabel(p)].concat(leads?[p.teamAssets==null?"":p.teamAssets]:[]); }));
   var weekly=[["Week","Created","Completed","Overdue","Avg completion (d)","Revision rate (%)","Approval time (h)"]].concat(m.weeks.map(function(w,i){ return [w,m.created[i],m.completed[i],m.overdue[i],m.avgDays[i],Math.round(m.revisionRate[i]*100),m.approvalHrs[i]]; }));
   var assets=[["Asset","Type","Folder","Source","Location","Size","Version","Tags","Uploaded by"]].concat(ASSETS.map(function(a){ return [a.name,a.type,(byId(ASSET_FOLDERS,a.folder)||{name:""}).name,(SRC[srcOf(a)]||SRC.local).l,a.url,a.size,a.ver,a.tags.join("; "),person(a.by).name]; }));
   var teams=[["Team","Color","Members","Open tasks","Completed","Capacity (h)","Assigned (h)","Utilization (%)"]].concat(m.byTeam.map(function(t){ return [t.name,t.color,teamMembers(t.id).length,t.open,t.completed,t.capacity,t.assigned,t.utilization]; }));
@@ -706,6 +727,7 @@ function exportJSON(){ var ws=clone(WS); delete ws.people; var data={version:3,b
 function importJSON(){ var inp=document.getElementById("fileInput"); inp.accept=".json,application/json"; inp.onchange=function(){ var f=inp.files[0]; inp.value=""; if (!f) return; var rd=new FileReader(); rd.onload=function(){ try { var d=JSON.parse(rd.result); if (!d.ws||!Array.isArray(d.tasks)||!Array.isArray(d.projects)) throw new Error("not a ZenCrevia backup");var shift=offsetFromIso(d.baseDate||(d.exportedAt?d.exportedAt.slice(0,10):iso(0)));d.tasks.forEach(function(t){t.due+=shift;});d.projects.forEach(function(p){p.start+=shift;p.due+=shift;(p.milestones||[]).forEach(function(m){m.due+=shift;});}); if (API.on) throw new Error("snapshot restore is for demo mode — the server database is the source of truth"); for (var k in d.ws) WS[k]=d.ws[k]; if (d.teams) TEAMS=d.teams; if (d.people){ PEOPLE=d.people; WS.people=PEOPLE; } if (d.roles) ROLES=d.roles; if (d.requests) REQUESTS=d.requests; if (d.views) VIEWS=d.views; PROJECTS.length=0; d.projects.forEach(function(x){ PROJECTS.push(x); }); TASKS.length=0; d.tasks.forEach(function(x){ TASKS.push(x); }); ASSET_FOLDERS.length=0; (d.folders||[]).forEach(function(x){ ASSET_FOLDERS.push(x); }); ASSETS.length=0; (d.assets||[]).forEach(function(x){ ASSETS.push(x); }); KNOWLEDGE.length=0; (d.knowledge||[]).forEach(function(x){ KNOWLEDGE.push(x); }); NOTIFS.length=0; (d.notifs||[]).forEach(function(x){ NOTIFS.push(x); }); ACTIVITY.length=0; (d.activity||[]).forEach(function(x){ ACTIVITY.push(x); }); applyTheme(); applyShell(); refresh(); toast("Workspace restored"); } catch(e){ toast("Restore failed: "+e.message,"bad"); } }; rd.readAsText(f); }; inp.click(); }
 /* per-person assets in the workbook and the deck (the report tests load this file without the dictionary) */
 if(typeof UI_ID!=="undefined") Object.assign(UI_ID,{"Asset credit":"Sumber kredit aset","Estimated from the assignee":"Perkiraan dari assignee","From version uploads":"Dari unggahan versi","assets produced":"aset dihasilkan",
+  "Entered per person":"Diisi per orang","Entered per person and from version uploads":"Diisi per orang dan dari unggahan versi","Team assets (as lead)":"Aset tim (sebagai lead)",
   "Contribution across the selected period":"Kontribusi selama periode yang dipilih","n/a":"t/a","Top projects":"Proyek utama","No project activity in this period":"Tidak ada aktivitas proyek di periode ini",
   "Volume depends on task size, role and availability — read alongside project context, not as a ranking.":"Jumlah bergantung pada ukuran task, peran, dan ketersediaan — baca bersama konteks proyek, bukan sebagai peringkat.",
   "* attributed from task ownership because no asset creator was recorded.":"* diperkirakan dari pemilik task karena pembuat asetnya tidak tercatat.",

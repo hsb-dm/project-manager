@@ -49,6 +49,13 @@ test("AI Hub fits the screen and each panel scrolls on its own", async ({ page }
     await expect(thumb).toBeVisible();
     await thumb.click();
     await page.waitForFunction(() => AIF.headline === "From history");
+    /* a picture the provider no longer keeps: the placeholder, not a broken image */
+    await page.route("https://expired.example/**", r => r.fulfill({ status: 404, body: "" }));
+    await page.evaluate(() => { AI_RUNS.push({ url: "https://expired.example/gone.png", prompt: "p", w: 1080, h: 1440, model: "m", at: new Date().toISOString(), headline: "Gone" }); renderScreen(false); });
+    const gone = page.locator(".ai-history-strip .ai-hs-thumb").nth(1);
+    await expect(gone.locator(".ai-history-placeholder")).toBeVisible();
+    await expect(gone.locator("img")).toBeHidden();
+    expect(await gone.locator(".ai-history-placeholder svg").evaluate(e => [getComputedStyle(e).width, getComputedStyle(e.parentNode).display]), "an image icon, centred").toEqual(["24px", "grid"]);
     /* folded, the strip is one line and the canvas gets the room */
     const before = (await state(page)).viewH;
     await page.locator(".ai-hs-toggle").click();

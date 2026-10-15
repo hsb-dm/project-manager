@@ -51,3 +51,38 @@ test('the Workload sheet and the workload slide show each person\'s assets', () 
   assert.ok(slides.includes('Designer · 7* assets produced'), 'under the name on the workload slide, marked as estimated');
   assert.ok(slides.includes('Illustrator · 2 assets produced'));
 });
+
+/* Each person's count typed on a task (Oct 2026) is what they produced — not the total shared out, and not who
+   uploaded the versions; the Workload sheet says the number was entered per person, and a team's lead has the team's
+   figure in a column of its own. */
+test('counts typed per person are credited as typed, and said so in the Workload sheet', () => {
+  const { ctx, d } = load();
+  const t = { id: 'T3', assetCount: 5, done: true, assignees: ['ana', 'budi'], versions: [{ by: 'ana' }, { by: 'ana' }], meta: { assetSplit: { ana: 1, budi: 4, cici: 0 } } };
+  const c = ctx.taskAssetCredit(t);
+  assert.deepEqual(JSON.parse(JSON.stringify(c.by)), { ana: 1, budi: 4 }, 'as typed, not by uploads');
+  assert.equal(c.exact, true); assert.equal(c.how, 'split');
+  const budi = ctx.personAssetCredit('budi', [t]);
+  assert.equal(budi.count, 4); assert.equal(budi.typed, true); assert.equal(budi.uploads, false);
+  /* a slim task carries them as assetSplit */
+  assert.equal(ctx.personAssetCredit('budi', [{ id: 'T4', assetCount: 4, assignees: ['ana', 'budi'], assetSplit: { budi: 4 } }]).count, 4);
+  /* a shared-out estimate stays unrounded underneath, so people add up */
+  const shared = { id: 'T5', assetCount: 3, assignees: ['ana', 'budi'], versions: [] };
+  assert.equal(ctx.personAssetCredit('ana', [shared]).raw + ctx.personAssetCredit('budi', [shared]).raw, 3);
+  assert.equal(ctx.assetCreditLabel({ assetsTyped: true, assetsUploads: false }), 'Entered per person');
+  assert.equal(ctx.assetCreditLabel({ assetsTyped: true, assetsUploads: true }), 'Entered per person and from version uploads');
+
+  d.people = [
+    { id: 'ana', name: 'Ana Putri', role: 'Lead', team: 'Brand', cap: 40, assigned: 10, open: 1, review: 0, overdue: 0, assetsProduced: 1, assetsDelivered: 1, assetsAttributed: false, assetsTyped: true, assetsUploads: false, teamAssets: 5, assignedTotal: 1, completed: 1, completionRate: 100, projectsInvolved: 1, topProjects: [], approvalRate: null, revisionRate: null },
+    { id: 'budi', name: 'Budi Santoso', role: 'Illustrator', team: 'Brand', cap: 40, assigned: 5, open: 0, review: 0, overdue: 0, assetsProduced: 4, assetsDelivered: 4, assetsAttributed: false, assetsTyped: true, assetsUploads: false, teamAssets: null, assignedTotal: 1, completed: 1, completionRate: 100, projectsInvolved: 1, topProjects: [], approvalRate: null, revisionRate: null },
+  ];
+  const book = unzip(ctx.buildXLSX());
+  const xml = Object.entries(book).find(([n, x]) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n) && x.includes('Asset credit'))[1];
+  assert.ok(xml.includes('>Team assets (as lead)<'), 'a column for the team figure');
+  assert.ok(xml.includes('Entered per person'));
+  const row = name => (xml.match(new RegExp('<row [^>]*>(?:(?!</row>).)*' + name + '(?:(?!</row>).)*</row>')) || [''])[0];
+  assert.match(row('Ana Putri'), /Entered per person.*<v>5<\/v>/, 'the lead: the team figure after the credit');
+  /* nobody leads a team: no such column */
+  d.people.forEach(p => { p.teamAssets = null; });
+  const plain = Object.entries(unzip(ctx.buildXLSX())).find(([n, x]) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n) && x.includes('Asset credit'))[1];
+  assert.ok(!plain.includes('Team assets (as lead)'));
+});

@@ -192,6 +192,12 @@ Nama, deskripsi, warna (swatch atau warna kustom), ikon (set bawaan atau unggah 
 dan **Team lead**. Tim **diarsipkan**, bukan dihapus: task kehilangan timnya, anggota tetap
 di tim lain. Warna tim hanya indikator — mewarnai kartu secara tipis, tidak pernah seluruh UI.
 
+**Aset dihasilkan, per orang** (Oktober 2026) — di bawah daftar tim. *Team lead ikut terhitung dari
+aset timnya* (default) memberi lead angka **Tim** di samping angkanya sendiri dan kolom **Team assets
+(as lead)** di sheet Workload; *Per anggota saja* mematikannya. Team lead juga memvalidasi angka per
+orang di task (**Setujui jumlah**); server yang mencatat siapa dan kapan, dan hanya lead tim terkait
+atau admin yang bisa.
+
 ### Tags vs Labels
 
 |  | Tags | Labels |
@@ -671,6 +677,13 @@ Anggota demo lain belum punya password sampai admin mengaturnya.
 3. Ganti file aplikasi
 4. Start — migrasi menambahkan kolom baru secara otomatis
 5. **Jangan** menjalankan `npm run seed` / `npm run reset` terhadap database yang sudah berisi data
+
+Tab yang sudah terbuka tetap menjalankan halaman lama sampai dimuat ulang. Sejak Oktober 2026 setiap
+balasan API menyebut versi halaman yang dilayani server (`X-ZC-Build`, dicap oleh `node build.js`),
+jadi tab lama memunculkan bar **"Versi baru ZenCrevia sudah siap — Muat ulang"** — tidak pernah
+memuat ulang sendiri. Halaman baru langsung dilayani setelah `git pull`; perubahan kode server tetap
+butuh **restart**. Pengguna yang error setelah update: minta **Ctrl+Shift+R** (Mac: Cmd+Shift+R) atau
+tutup-buka aplikasi terpasang; tidak perlu menghapus akun.
 
 ### HTML standalone
 

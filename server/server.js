@@ -23,7 +23,8 @@ const PUBLIC = path.join(__dirname, "..", "public");
 /* v36: files the server creates (database, logs, backups, outbox) are owner-only. */
 if (process.platform !== "win32") process.umask(0o077);
 let db = open();
-require("./preflight").run({ firstStart: !db.prepare("SELECT 1 FROM workspaces LIMIT 1").get() });
+const FIRST_START = !db.prepare("SELECT 1 FROM workspaces LIMIT 1").get();
+require("./preflight").run({ firstStart: FIRST_START });
 if (!db.prepare("SELECT 1 FROM workspaces LIMIT 1").get()) {
   console.log(seed.SEED_DEMO ? "Empty database — seeding ZenCrevia demo workspace (COS_SEED_DEMO=0 for a clean install)" : "Empty database — creating a clean ZenCrevia workspace (no demo content)"); seed.seedInitial(db);
   if (seed.GENERATED_ADMIN_PASSWORD) console.log("One-time admin login: " + seed.ADMIN_EMAIL + " / " + seed.ADMIN_PASSWORD + "  (save it now; it is not written to a file)");
@@ -97,6 +98,37 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('caps_own_ai_templates', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[roles] own AI templates capability: " + e.message); }
+/* A version attached as a link (Assets & versions → Attach link, or Revised with a new link) is delivered work, filed
+   under Final files as an uploaded version always was (Oct 2026). The links attached before then are filed once: one
+   row for each link the task has no file for yet. A Google link carries Drive's stand-in name, which the task's Assets
+   tab replaces with the file's own name when it is next opened (avHealDriveNames); any other is named after its
+   version. A new database has nothing to file. */
+function versionLinkStandIn(url) {
+  if (/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\//.test(url)) return "Google Drive Folder";
+  if (/drive\.google\.com\/file\/d\//.test(url)) return "Google Drive File";
+  if (/docs\.google\.com\/document\/d\//.test(url)) return "Google Docs";
+  if (/docs\.google\.com\/spreadsheets\/d\//.test(url)) return "Google Sheets";
+  if (/docs\.google\.com\/presentation\/d\//.test(url)) return "Google Slides";
+  return "";
+}
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='version_link_files'").get()) {
+    let filed = 0;
+    if (!FIRST_START) {
+      const has = db.prepare("SELECT 1 FROM files WHERE task_id=? AND (external_url=? OR (drive_id IS NOT NULL AND drive_id=?)) LIMIT 1");
+      const add = db.prepare("INSERT INTO files (id,workspace_id,task_id,filename,file_type,size_label,storage_provider,external_url,preview_data,drive_id,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+      /* newest first, so a link kept through several versions is named after the latest of them */
+      db.prepare("SELECT v.task_id, v.version_number, v.drive_url, v.drive_id, v.uploaded_by, v.created_at, t.workspace_id FROM file_versions v JOIN tasks t ON t.id=v.task_id WHERE v.drive_url LIKE 'https://%' AND (v.preview_data IS NULL OR v.preview_data='') ORDER BY v.task_id, v.version_number DESC").all().forEach(v => {
+        if (has.get(v.task_id, v.drive_url, v.drive_id || null)) return;
+        const google = /^https:\/\/(drive|docs)\.google\.com\//i.test(v.drive_url);
+        add.run(uid("file"), v.workspace_id, v.task_id, versionLinkStandIn(v.drive_url) || "Version " + v.version_number, "document", "Link", google ? "gdrive" : "link", v.drive_url, null, v.drive_id || null, v.uploaded_by || null, v.created_at || now());
+        filed++;
+      });
+    }
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('version_link_files', ?)").run(JSON.stringify({ at: new Date().toISOString(), filed }));
+    if (filed) console.log("[versions] filed " + filed + " version link(s) under Final files");
+  }
+} catch (e) { console.error("[versions] version links as final files: " + e.message); }
 /* permissions given to one person on top of their role (Oct 2026), until a date or until taken back */
 try { db.exec("CREATE TABLE IF NOT EXISTS cap_grants (workspace_id TEXT NOT NULL, user_id TEXT NOT NULL, cap TEXT NOT NULL, expires_at TEXT, granted_by TEXT, granted_at TEXT NOT NULL, PRIMARY KEY (workspace_id, user_id, cap))"); } catch (e) { console.error("[roles] extra permissions table: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
@@ -1440,7 +1472,39 @@ function sanitizeVersions(prevVersions, bodyVersions, u, decided) {
     return Object.assign({}, old, { note: v.note != null && (old.by === u.id) ? v.note : old.note, state: old.state, decidedBy: old.decidedBy, decidedAt: old.decidedAt, by: old.by, annots, driveUrl: relink ? v.driveUrl : old.driveUrl, driveId: relink ? (v.driveId || null) : old.driveId });
   });
 }
+/* each person's count of assets produced, typed under Assets & versions (Oct 2026): whole numbers, and the task's
+   total is their sum — the reports credit each person with their own (taskAssetCredit in src/export.js) */
+function cleanAssetSplit(b) {
+  const m = b.meta; if (!m || typeof m !== "object" || m.assetSplit === undefined) return;
+  const s = m.assetSplit, out = {};
+  if (s && typeof s === "object" && !Array.isArray(s)) Object.keys(s).slice(0, 60).forEach(id => { if (/^[-\w.@]{1,80}$/.test(id)) out[id] = Math.min(99999, Math.max(0, Math.round(+s[id] || 0))); });
+  if (!Object.keys(out).length) { delete m.assetSplit; return; }
+  m.assetSplit = out; b.assetCount = Object.values(out).reduce((a, n) => a + n, 0);
+}
+/* A team's lead validates those counts (Oct 2026): the lead of the task's team or of a team someone counted on it is
+   in, or whoever manages the workspace. Members never see it, and the counts count the same either way. Who validated
+   and when is the server's to write; a change by anyone else leaves the validation as it was. It holds the counts it
+   validated, so a count changed afterwards shows as changed since. */
+function mayValidateAssets(u, b) {
+  if (can.manageWorkspace(u)) return true;
+  const led = u.ledTeams || []; if (!led.length) return false;
+  if (b.team && led.includes(b.team)) return true;
+  const ids = [...new Set([b.assignee, ...(b.assignees || []), ...Object.keys(((b.meta || {}).assetSplit) || {})].filter(Boolean))];
+  const inLed = db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND team_id IN (" + led.map(() => "?").join(",") + ") LIMIT 1");
+  return ids.some(id => !!inLed.get(id, ...led));
+}
+function cleanAssetSplitOk(cur, b, u) {
+  const m = b.meta; if (!m || typeof m !== "object") return;
+  const was = (cur.meta || {}).assetSplitOk || null, sent = m.assetSplitOk || null;
+  if (JSON.stringify(sent) === JSON.stringify(was)) return;
+  if (!mayValidateAssets(u, b)) { if (was) m.assetSplitOk = was; else delete m.assetSplitOk; return; }
+  if (!sent || !m.assetSplit) { delete m.assetSplitOk; return; }
+  const split = {}; Object.keys(m.assetSplit).forEach(id => { if (m.assetSplit[id] > 0) split[id] = m.assetSplit[id]; });
+  m.assetSplitOk = { by: u.id, at: now(), split };
+}
 function sanitizeTaskWrite(cur, b, u, decided) {
+  cleanAssetSplit(b);
+  cleanAssetSplitOk(cur, b, u);
   if (!PRIOS.has(b.prio)) b.prio = PRIOS.has(cur.prio) ? cur.prio : "medium";
   b.requestId = cur.requestId || null;
   b.comments = sanitizeComments(cur.comments, b.comments, u);
@@ -1877,10 +1941,22 @@ function sendStatic(req, res, file) {
   headers["Content-Length"] = body.length;
   res.writeHead(200, headers); res.end(req.method === "HEAD" ? undefined : body);
 }
+/* The version of the page being served, as build.js stamps it (<meta name="zc-build">). Every API reply says it, so a
+   tab left open across an update — which keeps running the page it loaded — offers to reload (src/new-version.js).
+   Read again whenever the file changes, so a `git pull` is enough for the page. */
+let PAGE_BUILD = { key: "", id: "" };
+function pageBuild() {
+  try {
+    const e = staticEntry(path.join(PUBLIC, "index.html"));
+    if (e.key !== PAGE_BUILD.key) { const m = /<meta name="zc-build" content="([\w-]{1,40})">/.exec(e.raw.toString("utf8", 0, 4096)); PAGE_BUILD = { key: e.key, id: m ? m[1] : "" }; }
+    return PAGE_BUILD.id;
+  } catch (e) { return ""; }
+}
 function sendJson(req, res, status, obj) {
   security.applyHeaders(res);
   let body = Buffer.from(JSON.stringify(obj));
   const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Vary": "Accept-Encoding" };
+  const build = pageBuild(); if (build) headers["X-ZC-Build"] = build;
   if (body.length > 2048 && /\bgzip\b/.test(String(req.headers["accept-encoding"] || ""))) { body = zlib.gzipSync(body, { level: 6 }); headers["Content-Encoding"] = "gzip"; }
   headers["Content-Length"] = body.length;
   res.writeHead(status, headers); res.end(body);

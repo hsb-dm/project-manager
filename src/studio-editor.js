@@ -1,6 +1,10 @@
 <script>
 /* Layer composition is shared by preview, PNG download and asset export. */
-function aiRefreshProperties(){var old=document.querySelector('.ai-props');if(!old)return;var y=old.scrollTop;old.outerHTML=aiStudioProperties();var el=document.querySelector('.ai-props');el.scrollTop=y;aiBindHistoryInputs();localizeVisibleText(el);}
+/* The panel is drawn again on every pick, and the layer list inside it scrolls on its own: both keep where they were
+   (picking a row low in the list threw it back to its first row). */
+function aiScrollMarks(root){var out=[];if(!root)return out;[root].concat(Array.prototype.slice.call(root.querySelectorAll('[class]'))).forEach(function(el){if(!el.scrollTop)return;var c=el===root?'':el.classList[0];if(el!==root&&!c)return;out.push({c:c,i:c?Array.prototype.indexOf.call(root.querySelectorAll('.'+CSS.escape(c)),el):0,top:el.scrollTop});});return out;}
+function aiScrollRestore(root,marks){if(!root)return;marks.forEach(function(m){var el=m.c?root.querySelectorAll('.'+CSS.escape(m.c))[m.i]:root;if(el)el.scrollTop=m.top;});}
+function aiRefreshProperties(){var old=document.querySelector('.ai-props');if(!old)return;var marks=aiScrollMarks(old);old.outerHTML=aiStudioProperties();var el=document.querySelector('.ai-props');aiScrollRestore(el,marks);aiBindHistoryInputs();localizeVisibleText(el);requestAnimationFrame(function(){var now=document.querySelector('.ai-props');if(now===el)aiScrollRestore(el,marks);});}
 var aiCanvasEditAtBase=aiCanvasEditAt,aiTextDragEndBase=aiTextDragEnd;
 aiCanvasEditAt=function(ev,cv){aiCanvasEditAtBase(ev,cv);aiRefreshProperties();};
 aiTextDragEnd=function(ev){aiTextDragEndBase(ev);aiRefreshProperties();};

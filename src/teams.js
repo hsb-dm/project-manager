@@ -40,7 +40,7 @@ function renderMember(){ var id=S.memberId; var p=PEOPLE[id]; if (!p){ S.memberI
   /* v19.5 header: avatar with a hover pencil (photo change / remove), name + a settings shortcut for the owner, and only the title line — details live in Settings → My profile */
   var avatarHtml=canEditPhoto(id)?'<span class="mp-avatar" data-menu role="button" tabindex="0" title="'+attr(tr("Change photo"))+'" onclick="avatarEditMenu(this,\''+id+'\')">'+av(id,"xl")+'<span class="mp-avatar-edit" aria-hidden="true">'+I.edit+'</span></span>':(person(id).avatar?'<span class="mp-avatar mp-avatar-view" role="button" tabindex="0" title="'+attr(tr("View photo"))+'" onclick="avatarPreview(\''+id+'\')">'+av(id,"xl")+'</span>':'<span class="mp-avatar">'+av(id,"xl")+'</span>');
   var h='<div><button class="btn ghost sm" onclick="go(\'teams\')">'+I.back+'Teams</button></div><div class="pagehead"><div style="display:flex;gap:14px;align-items:center">'+avatarHtml+'<div><h1 style="display:flex;align-items:center;gap:8px"><span data-no-translate>'+esc(p.name)+'</span>'+(id===ME?'<button class="iconbtn mp-settings" title="'+attr(tr("Edit my profile"))+'" aria-label="'+attr(tr("Edit my profile"))+'" onclick="go(\'settings\',\'profile\')">'+I.settings+'</button>':'')+'</h1><div class="muted" style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+esc(p.role)+' · <span class="badge">'+esc(r?r.name:p.perm)+'</span> · '+(p.teams||[]).map(function(x){ return teamBadge(x[0])+(x[1]?'<span class="hint">'+tr("primary")+'</span>':''); }).join(" ")+'</div></div></div><div class="actions">'+(canI.manageMembers()||id===ME?'<label class="pillsel"><span>Capacity</span><input type="number" min="0" value="'+p.cap+'" style="width:56px;border:0;background:transparent;font-weight:600;outline:none" onchange="PEOPLE[\''+id+'\'].cap=+this.value;renderScreen(false);persistPerson(\''+id+'\')"><span>h / week</span></label>':'')+(canI.manageMembers()?'<button class="btn" onclick="go(\'settings\',\'members\')">'+I.edit+'Edit member</button>':'')+'</div></div>';
-  var ma=memberAssets(id); h+='<div class="kpis team-kpis">'+kpi(pct>100?"danger":pct>=90?"warn":"accent",pct+"%","Utilization",a+"h of "+p.cap+"h","",I.analytics,"blue")+kpi("",open.length,"Open tasks","assigned","",I.tasks,"ink")+kpi("",rev.length,"To review","as reviewer","",I.eye,"lime")+kpi(open.filter(function(t){return t.due<0;}).length?"danger":"good",open.filter(function(t){return t.due<0;}).length,"Overdue","","",I.bell,"")+kpi("accent",ma.total+(ma.attributed?" *":""),"Assets produced",memberAssetsLine(ma),"",I.assets,"blue")+'</div>';
+  var ma=memberAssets(id); h+='<div class="kpis team-kpis">'+kpi(pct>100?"danger":pct>=90?"warn":"accent",pct+"%","Utilization",a+"h of "+p.cap+"h","",I.analytics,"blue")+kpi("",open.length,"Open tasks","assigned","",I.tasks,"ink")+kpi("",rev.length,"To review","as reviewer","",I.eye,"lime")+kpi(open.filter(function(t){return t.due<0;}).length?"danger":"good",open.filter(function(t){return t.due<0;}).length,"Overdue","","",I.bell,"")+kpi("accent",ma.total+(ma.attributed?" *":""),"Assets produced",memberAssetsLine(ma),"",I.assets,"blue")+(function(tm){ return tm?kpi("",tm.total+(tm.attributed?" *":""),"Team assets",tr("lead of")+' '+ledTeams(id).map(function(t){ return t.name; }).join(", "),"",I.team,"lime"):""; })(leadTeamAssets(id))+'</div>';
   h+='<div class="grid g-2-1">'+panel("Assigned tasks",open.length,open.length?open.map(function(t){ return taskRow(t,{showAssignee:false}); }).join(""):emptyBox("Nothing assigned","Free capacity — assign something from the board."),null,null,I.tasks)+panel("Reviewing",rev.length,rev.length?rev.map(function(t){ return taskRow(t,{showStatus:false}); }).join(""):emptyBox("Nothing to review",""),null,null,I.eye)+'</div>';
   h+=panel("Completed",mine.filter(function(t){return isClosed(t);}).length,mine.filter(function(t){return isClosed(t);}).slice(0,12).map(function(t){ return taskRow(t,{showAssignee:false}); }).join("")||emptyBox("No completed tasks yet",""),null,null,I.check);
   document.getElementById("content").innerHTML=h; }
@@ -51,17 +51,75 @@ function avatarEditMenu(a,id){ if(!canEditPhoto(id)) return; if(!person(id).avat
    recorded — then the number is marked with *. The total is every task's "Assets produced" (a
    declined task produced nothing), as in the Excel Workload sheet; delivered counts finished tasks,
    and this month the ones finished this month, the window of the team's own figure. */
+function memberAssetSets(){ var all=TASKS.filter(function(t){ return t.status!=="declined"; }), done=all.filter(isSuccessfulTask); return {all:all,done:done,month:done.filter(teamDoneThisMonth)}; }
 function memberAssets(id){
   if(typeof personAssetCredit!=="function") return {total:0,delivered:0,month:0,attributed:false};
-  var all=TASKS.filter(function(t){ return t.status!=="declined"; }), done=all.filter(isSuccessfulTask), month=done.filter(teamDoneThisMonth);
-  var t=personAssetCredit(id,all), d=personAssetCredit(id,done), m=personAssetCredit(id,month);
+  var s=memberAssetSets(), t=personAssetCredit(id,s.all), d=personAssetCredit(id,s.done), m=personAssetCredit(id,s.month);
   return {total:t.count,delivered:d.count,month:m.count,attributed:t.attributed};
 }
 function memberAssetsLine(a){ return a.delivered+' '+tr("delivered")+' · '+a.month+' '+tr("this month"); }
 function memberAssetsChip(id){
-  var a=memberAssets(id);
-  return '<span class="wl-assets'+(a.total?'':' zero')+'" title="'+attr(tr("Assets produced")+': '+a.total+' · '+memberAssetsLine(a))+'">'+I.assets+a.total+(a.attributed?'*':'')+'</span>';
+  var a=memberAssets(id), tm=leadTeamAssets(id);
+  return '<span class="wl-assets'+(a.total?'':' zero')+'" title="'+attr(tr("Assets produced")+': '+a.total+' · '+memberAssetsLine(a))+'">'+I.assets+a.total+(a.attributed?'*':'')+'</span>'
+    + (tm?'<span class="wl-assets wl-team-assets'+(tm.total?'':' zero')+'" title="'+attr(leadTeamTitle(id)+': '+tm.total+' · '+memberAssetsLine(tm))+'">'+tr("Team")+' '+tm.total+(tm.attributed?'*':'')+'</span>':'');
+}
+
+/* ---------- a team's lead, and the team's assets (Oct 2026) ----------
+   Settings → Teams chooses how assets produced are counted per person:
+   • "team" (the default): everyone has their own number, and a team's lead also has the team's — what the people of
+     the teams they lead produced, the lead included — as a figure of its own, beside theirs. Adding up the people
+     never counts anything twice;
+   • "manual": per member only — everyone has their own number and nothing more.
+   Kept with the workspace's other settings in WS.autoHide (the auto_hide column), under "assets". */
+function assetLeadMode(){ var a=(WS&&WS.autoHide&&WS.autoHide.assets)||{}; return a.lead==="manual"?"manual":"team"; }
+function ledTeams(id){ return activeTeams().filter(function(t){ return t.lead===id; }); }
+/* the people of the teams someone leads, them included; none for someone who leads no team with anyone else in it */
+function leadTeamPeople(id){
+  var seen={}, out=[];
+  ledTeams(id).forEach(function(t){ teamMembers(t.id).forEach(function(m){ if(!seen[m]&&PEOPLE[m]&&!PEOPLE[m].stakeholder){ seen[m]=1; out.push(m); } }); });
+  if(!seen[id]) out.unshift(id);
+  return out.length>1?out:[];
+}
+/* the team's figure over a task list (the report's period); null when it is not counted. The people's shares are
+   added before rounding, so a task shared out stays whole: 1.5 + 1.5 is 3. */
+function leadTeamCredit(id,tasks){
+  if(assetLeadMode()!=="team"||typeof personAssetCredit!=="function") return null;
+  var ppl=leadTeamPeople(id); if(!ppl.length) return null;
+  var n=0, approx=false; ppl.forEach(function(m){ var c=personAssetCredit(m,tasks); n+=c.raw; if(c.attributed) approx=true; });
+  return {count:Math.round(n),attributed:approx};
+}
+/* the same, as the member chip and the person's page count: all, delivered, this month */
+function leadTeamAssets(id){
+  var s=memberAssetSets(), t=leadTeamCredit(id,s.all); if(!t) return null;
+  return {total:t.count,delivered:leadTeamCredit(id,s.done).count,month:leadTeamCredit(id,s.month).count,attributed:t.attributed};
+}
+function leadTeamTitle(id){ var ts=ledTeams(id).map(function(t){ return t.name; }).join(", "); return tr("Team assets")+' ('+tr("lead of")+' '+ts+')'; }
+
+/* Settings → Teams: the choice */
+function assetLeadSettingsHtml(){
+  var ed=canI.manageWorkspace(), mode=assetLeadMode();
+  var opt=function(v,label,help){ return '<label class="asset-lead-opt'+(mode===v?' on':'')+'"><input type="radio" name="asset_lead" value="'+v+'"'+(mode===v?' checked':'')+(ed?' onchange="saveAssetLead(this.value)"':' disabled')+'><span><b>'+tr(label)+'</b><span class="hint">'+tr(help)+'</span></span></label>'; };
+  return sp("Assets produced, per person",
+    '<p class="hint" style="margin-bottom:10px">'+tr("A task with more than one person on it takes each one's count under Assets & versions; the task's total adds them up. Without them, a task's assets go to whoever uploaded its versions.")+'</p>'
+    + '<div class="asset-lead" role="radiogroup" aria-label="'+attr(tr("Assets produced, per person"))+'">'
+    + opt("team","Team leads also count their team's assets","Everyone keeps their own number. A team's lead also gets the team's: what the people of the teams they lead produced, them included — shown beside their own, and in the report.")
+    + opt("manual","Per member only","Everyone counts only their own assets; nobody gets a team figure.")
+    + '</div>'+(ed?'':'<p class="hint" style="margin-top:8px">'+tr("Only people who manage the workspace can change this.")+'</p>'),null,I.assets);
+}
+function saveAssetLead(v){
+  if(!canI.manageWorkspace()) return;
+  var a=Object.assign({},(WS.autoHide&&WS.autoHide.assets)||{},{lead:v==="manual"?"manual":"team"});
+  WS.autoHide=Object.assign({},WS.autoHide||{},{assets:a});
+  saveWS(tr("Saved")); renderScreen(false);
 }
 Object.assign(UI_ID,{"assets produced":"aset dihasilkan","this month":"bulan ini","delivered":"terkirim"});
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Team":"Tim","Team assets":"Aset tim","lead of":"lead dari",
+  "Assets produced, per person":"Aset dihasilkan, per orang",
+  "A task with more than one person on it takes each one's count under Assets & versions; the task's total adds them up. Without them, a task's assets go to whoever uploaded its versions.":"Task dengan lebih dari satu orang diisi jumlah masing-masing di Aset & versi; total task adalah penjumlahannya. Tanpa itu, aset task dihitung untuk yang mengunggah versinya.",
+  "Team leads also count their team's assets":"Team lead ikut terhitung dari aset timnya",
+  "Everyone keeps their own number. A team's lead also gets the team's: what the people of the teams they lead produced, them included — shown beside their own, and in the report.":"Setiap orang tetap punya angkanya sendiri. Lead sebuah tim juga mendapat angka tim: yang dihasilkan anggota tim yang dipimpinnya, termasuk dirinya — tampil di samping angkanya sendiri, dan di laporan.",
+  "Per member only":"Per anggota saja",
+  "Everyone counts only their own assets; nobody gets a team figure.":"Setiap orang hanya menghitung asetnya sendiri; tidak ada angka tim.",
+  "Only people who manage the workspace can change this.":"Hanya yang mengelola workspace yang bisa mengubah ini."});
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"from other teams":"dari tim lain","in this team":"di tim ini","Includes other teams' tasks that this team's people are assigned to — each keeps its own team.":"Termasuk task tim lain yang di-assign ke anggota tim ini — task itu tetap milik timnya sendiri.","Includes other teams' tasks assigned to its people":"Termasuk task tim lain yang di-assign ke anggotanya","No tasks with dates yet.":"Belum ada task bertanggal.","No tasks match the current filters.":"Tidak ada task yang cocok dengan filter."});
 </script>
