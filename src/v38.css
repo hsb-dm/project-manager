@@ -1529,3 +1529,6 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-hs-del:hover{color:var(--color-danger,#DC2626);border-color:currentColor}
 .ai-hs-item:hover .ai-hs-del,.ai-hs-del:focus-visible{opacity:1}
 @media (hover:none){.ai-hs-del{opacity:1}}
+/* the task list's due date on two lines — the date, then how far off — so the column stays narrow */
+.due.due-2{display:inline-flex;flex-direction:column;gap:1px;line-height:1.25;white-space:nowrap}
+.due.due-2 .due-rel{font-size:.92em}

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="4a66e1722dec">
+<meta name="zc-build" content="3381732422ef">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5713,6 +5713,9 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .ai-hs-del:hover{color:var(--color-danger,#DC2626);border-color:currentColor}
 .ai-hs-item:hover .ai-hs-del,.ai-hs-del:focus-visible{opacity:1}
 @media (hover:none){.ai-hs-del{opacity:1}}
+/* the task list's due date on two lines — the date, then how far off — so the column stays narrow */
+.due.due-2{display:inline-flex;flex-direction:column;gap:1px;line-height:1.25;white-space:nowrap}
+.due.due-2 .due-rel{font-size:.92em}
 
 </style>
 </head>
@@ -7781,13 +7784,14 @@ function kDrop(e,status,col,beforeId){ e.preventDefault(); e.stopPropagation(); 
 
 /* ---------- LIST (grouping, drag reorder, drag between groups) ---------- */
 function setSort(k){ if (S.sort===k) S.sortDir=-S.sortDir; else { S.sort=k; S.sortDir=1; } renderScreen(false); }
-/* v38 fixed column widths (px) by column type: the table no longer re-measures itself from its content, so switching Mine/All or filters can't shift columns */
-var LIST_COL_W={check:40,drag:28,title:164,status:116,dependency:80,team:118,assignee:124,proj:114,prio:80,start:58,due:146,effort:48,tags:76};
+/* v38 fixed column widths (px) by column type: the table no longer re-measures itself from its content, so switching Mine/All or filters can't shift columns.
+   Due is two lines (Oct 2026) — the date, then how far off — so its room went to the narrow ones: dependency, team, project. */
+var LIST_COL_W={check:40,drag:28,title:164,status:116,dependency:96,team:132,assignee:124,proj:130,prio:80,start:66,due:92,effort:48,tags:76};
 var GRID_COL_W={drag:32,title:230,status:130,team:150,assignee:160,reviewer:160,proj:170,prio:100,start:130,due:130,effort:90,tags:200};
 function colW(map,k){ return map[k]||(String(k).indexOf("cf:")===0?140:120); }
 function taskTable(list){ var k=S.sort; var th=function(key,label){ return '<th style="width:'+colW(LIST_COL_W,key)+'px" class="'+(k===key?"on":"")+'" onclick="setSort(\''+key+'\')">'+label+(k===key?(S.sortDir>0?" ↑":" ↓"):"")+'</th>'; };
   if (!list.length) return '<div class="panel">'+emptyBox("No tasks match these filters","Clear a filter or switch to All tasks.")+'</div>';
-  var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" onclick="openTask(taskIdFrom(this))" class="'+(taskChecked(x.id)?'checked':'')+'"><td class="tcheck-col" onclick="event.stopPropagation()">'+taskCheckBtn(x.id)+'</td><td class="drag-h">'+I.drag+'</td><td class="t"><div>'+esc(x.title)+'</div><div class="mono tiny muted">'+esc(x.id)+'</div></td><td onclick="event.stopPropagation();statusMenu(this,taskIdFrom(this))">'+statusBadge(x.status)+'</td><td>'+dependencyBadge(x,false)+'</td><td>'+teamBadge(x.team)+'</td><td><span class="cell-flex">'+avStack(assigneesOf(x))+esc(assigneesOf(x).map(first).join(", "))+'</span></td><td>'+esc(projName(x))+'</td><td onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td><td class="mono">'+dueDate(x.due-x.span)+'</td><td><span class="due '+dueCls(x.due,x)+'">'+dueDate(x.due)+' · '+dueTxt(x.due)+'</span></td><td class="mono">'+(x.effort||"—")+'h</td><td>'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td></tr>'; };
+  var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" onclick="openTask(taskIdFrom(this))" class="'+(taskChecked(x.id)?'checked':'')+'"><td class="tcheck-col" onclick="event.stopPropagation()">'+taskCheckBtn(x.id)+'</td><td class="drag-h">'+I.drag+'</td><td class="t"><div>'+esc(x.title)+'</div><div class="mono tiny muted">'+esc(x.id)+'</div></td><td onclick="event.stopPropagation();statusMenu(this,taskIdFrom(this))">'+statusBadge(x.status)+'</td><td>'+dependencyBadge(x,false)+'</td><td>'+teamBadge(x.team)+'</td><td><span class="cell-flex">'+avStack(assigneesOf(x))+esc(assigneesOf(x).map(first).join(", "))+'</span></td><td>'+esc(projName(x))+'</td><td onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td><td class="mono">'+dueDate(x.due-x.span)+'</td><td><span class="due due-2 '+dueCls(x.due,x)+'"><span>'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td><td class="mono">'+(x.effort||"—")+'h</td><td>'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td></tr>'; };
   var body=""; if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="13"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span>'+(S.group==="assignee"&&g.key?'<span class="hint mono">'+assigned(g.key)+'h / '+person(g.key).cap+'h</span>':'')+'</span></td></tr>'+g.tasks.map(row).join(""); }); } else body=sortedTasks(list).map(row).join("");
   return '<div class="panel"><div class="tbl-wrap"><table class="tbl tbl-fixed" style="--tbl-min:'+Object.keys(LIST_COL_W).reduce(function(s,x){return s+LIST_COL_W[x];},0)+'px"><thead><tr><th class="tcheck-col" style="width:'+LIST_COL_W.check+'px"></th><th style="width:'+LIST_COL_W.drag+'px"></th>'+th("title","Task")+th("status","Status")+'<th style="width:'+LIST_COL_W.dependency+'px">Dependency</th>'+th("team","Team")+th("assignee","Assignee")+th("proj","Project")+th("prio","Priority")+'<th style="width:'+LIST_COL_W.start+'px">Start</th>'+th("due","Due")+th("effort","Est.")+'<th style="width:'+LIST_COL_W.tags+'px">Tags</th></tr></thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Drag rows to reorder (Manual sort) or drop them on a group header to change status, team, assignee, project or priority. Click a status or priority to change it.</div></div>'; }
 function lEnd(el){ el.classList.remove("dragging"); document.querySelectorAll(".drop-before,.grp.over").forEach(function(x){ x.classList.remove("drop-before","over"); }); }
@@ -21508,6 +21512,47 @@ function pnDelete(id,v){ var tk=task(id); if(!tk) return;
 })();
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Progress note":"Catatan progres","New version":"Versi baru","Save new version":"Simpan versi baru","new":"baru","Where does this task stand? What is done, what is next, what is blocking it…":"Bagaimana posisi task ini? Apa yang sudah selesai, apa berikutnya, apa yang menghambat…","Saving creates":"Menyimpan akan membuat","The earlier versions stay as they are.":"Versi sebelumnya tetap seperti semula.","Saving changes":"Menyimpan akan mengubah","To keep this version as it is, start a new version instead.":"Untuk mempertahankan versi ini apa adanya, buat versi baru.","Ctrl+Enter saves.":"Ctrl+Enter untuk menyimpan.","No progress note yet":"Belum ada catatan progres","Write where the task stands — what is done, what is next. Each update can be kept as a new version.":"Tulis posisi task ini — apa yang sudah selesai, apa berikutnya. Setiap pembaruan bisa disimpan sebagai versi baru.","Write the first note":"Tulis catatan pertama","edited":"diubah","by":"oleh","Delete this version":"Hapus versi ini","Delete version":"Hapus versi","An earlier version — it stays as it was.":"Versi sebelumnya — tetap seperti semula.","See the latest":"Lihat yang terbaru","Double-click to edit":"Klik dua kali untuk mengedit","Write something first":"Tulis sesuatu dulu","Progress note saved as":"Catatan progres disimpan sebagai","Progress note updated":"Catatan progres diperbarui","Could not save the progress note":"Catatan progres tidak bisa disimpan","Delete progress note":"Hapus catatan progres","This version is removed for everyone. The other versions stay.":"Versi ini dihapus untuk semua orang. Versi lainnya tetap ada.","Version removed":"Versi dihapus","Note version":"Versi catatan","Note updated":"Catatan diperbarui","latest":"terbaru","versions":"versi","All versions":"Semua versi"});
+</script>
+<script>
+/* ============================================================
+   A LINK WRITTEN AS ITS OWN ADDRESS, KEPT ONE LINK (Oct 2026)
+   In the description (and progress notes, the same editor), a link whose words are its own address — a Figma link,
+   whose name is not read — was linked a second time when drawn: the address in its words was taken for a bare one,
+   and the browser split the link-in-a-link into an empty link and a full one. The empty one was saved as
+   "[](address)", which reads as text, so every save (one on each pause in typing) wrapped the address again, and the
+   description filled up with "[]([](https://…".
+   Now: a link inside a link is never made (descMdInline), a link whose words are empty or its own address is saved as
+   the bare address (descHtmlToMd), and a description already filled that way reads — and is saved — as the one
+   address it was (descLinkRepair; server.js cleans what is stored, once).
+   ============================================================ */
+var DESC_URL="https?:\\/\\/[^\\s\\[\\]()<>]+";
+function descLinkRepair(md){
+  var s=String(md==null?"":md), url=new RegExp(DESC_URL,"g");
+  /* a run of "[](" and addresses, nothing else in it, back to its addresses — each once, a space apart */
+  s=s.replace(new RegExp("(?:[\\[\\]()]*"+DESC_URL+"[\\[\\]()]*)+","g"),function(run,off,all){
+    if(off>0&&all.charAt(off-1)==="!") return run;
+    if(run.indexOf("[](")<0&&!/\[(https?:\/\/[^\]\s]+)\]\(\1\)/.test(run)) return run;
+    var urls=run.match(url)||[];
+    return urls.length?urls.filter(function(u,i){ return urls.indexOf(u)===i; }).join(" "):run;
+  });
+  /* what is left: an empty link, or one whose words are its address, as the address (a picture's ![](…) stays) */
+  s=s.replace(/(^|[^!])\[\]\((https?:\/\/[^\s)]+)\)/g,"$1$2").replace(/(^|[^!])\[(https?:\/\/[^\]\s]+)\]\(\2\)/g,"$1$2");
+  return s;
+}
+/* a link inside a link: the inner one's tags go, its words stay in the outer one */
+function descUnnestLinks(html){
+  var depth=0, drop=[];
+  return String(html).replace(/<a\b[^>]*>|<\/a>/gi,function(tag){
+    if(tag.charAt(1)!=="/"){ depth++; if(depth>1){ drop.push(depth); return ""; } return tag; }
+    if(depth>1&&drop.length&&drop[drop.length-1]===depth){ drop.pop(); depth--; return ""; }
+    depth=Math.max(0,depth-1); return tag;
+  });
+}
+(function(){
+  if(typeof descMdInline==="function"){ var inline=descMdInline; descMdInline=function(s){ return descUnnestLinks(inline.apply(this,arguments)); }; }
+  if(typeof descMdHtml==="function"){ var view=descMdHtml; descMdHtml=function(src){ return view.call(this,descLinkRepair(src)); }; }
+  if(typeof descHtmlToMd==="function"){ var save=descHtmlToMd; descHtmlToMd=function(){ return descLinkRepair(save.apply(this,arguments)); }; }
+})();
 </script>
 <script>
 /* ============================================================

@@ -129,6 +129,29 @@ try {
     if (filed) console.log("[versions] filed " + filed + " version link(s) under Final files");
   }
 } catch (e) { console.error("[versions] version links as final files: " + e.message); }
+/* The description editor once saved a link written as its own address (a Figma link) as "[](address)" and wrapped it
+   again on every save, until a description filled up with "[]([](https://…" (src/desc-links.js has the fix and the
+   same repair). What is stored is cleaned once: such a run back to its addresses, each once. */
+function descLinkRepair(md) {
+  const URL_RE = "https?:\\/\\/[^\\s\\[\\]()<>]+";
+  let s = String(md == null ? "" : md);
+  s = s.replace(new RegExp("(?:[\\[\\]()]*" + URL_RE + "[\\[\\]()]*)+", "g"), (run, off, all) => {
+    if (off > 0 && all.charAt(off - 1) === "!") return run;
+    if (run.indexOf("[](") < 0 && !/\[(https?:\/\/[^\]\s]+)\]\(\1\)/.test(run)) return run;
+    const urls = run.match(new RegExp(URL_RE, "g")) || [];
+    return urls.length ? [...new Set(urls)].join(" ") : run;
+  });
+  return s.replace(/(^|[^!])\[\]\((https?:\/\/[^\s)]+)\)/g, "$1$2").replace(/(^|[^!])\[(https?:\/\/[^\]\s]+)\]\(\2\)/g, "$1$2");
+}
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='desc_link_repair'").get()) {
+    let fixed = 0;
+    db.prepare("SELECT id, description FROM tasks WHERE description LIKE '%[](%' OR description LIKE '%](http%'").all().forEach(t => { const d = descLinkRepair(t.description); if (d !== t.description) { db.prepare("UPDATE tasks SET description=? WHERE id=?").run(d, t.id); fixed++; } });
+    db.prepare("SELECT id, body FROM task_progress_notes WHERE body LIKE '%[](%' OR body LIKE '%](http%'").all().forEach(n => { const b = descLinkRepair(n.body); if (b !== n.body) { db.prepare("UPDATE task_progress_notes SET body=? WHERE id=?").run(b, n.id); fixed++; } });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('desc_link_repair', ?)").run(JSON.stringify({ at: new Date().toISOString(), fixed }));
+    if (fixed) console.log("[tasks] cleaned the links in " + fixed + " description(s) and note(s)");
+  }
+} catch (e) { console.error("[tasks] description links: " + e.message); }
 /* permissions given to one person on top of their role (Oct 2026), until a date or until taken back */
 try { db.exec("CREATE TABLE IF NOT EXISTS cap_grants (workspace_id TEXT NOT NULL, user_id TEXT NOT NULL, cap TEXT NOT NULL, expires_at TEXT, granted_by TEXT, granted_at TEXT NOT NULL, PRIMARY KEY (workspace_id, user_id, cap))"); } catch (e) { console.error("[roles] extra permissions table: " + e.message); }
 let WS_ID = db.prepare("SELECT id FROM workspaces LIMIT 1").get().id; // single-workspace MVP; every query is scoped by it (§74)
