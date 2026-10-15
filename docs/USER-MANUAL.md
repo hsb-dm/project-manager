@@ -410,6 +410,7 @@ yang sudah terkirim dan bulan ini di bawahnya). Lead sebuah tim juga punya KPI *
   admin), melihat badge **Belum divalidasi** / **Divalidasi** / **Berubah sejak divalidasi** dan tombol
   **Setujui jumlah**. Member tidak melihatnya. Angka tetap dihitung normal walau belum divalidasi;
   angka yang diubah setelah divalidasi tampil sebagai *berubah sejak divalidasi* untuk disetujui lagi.
+  Berlaku juga untuk task dengan **satu orang**: badge dan tombol ada di baris angkanya.
 - Tanpa angka per orang, laporan memberi kredit ke yang mengunggah versi; kalau tidak ada unggahan,
   dibagi rata ke assignee dan ditandai `*` (perkiraan).
 - **Settings → Teams → Aset dihasilkan, per orang** (yang mengelola workspace):

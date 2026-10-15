@@ -106,8 +106,24 @@ test("each person's count, the total as their sum, and a team lead's team figure
     /* the server keeps the counts whole, and the total their sum, whatever is sent */
     const fixed = await page.evaluate(async o => { const d = await apiFetch("GET", "/api/tasks/" + o.task); d.meta = Object.assign({}, d.meta, { assetSplit: { [o.me]: 2.6, [o.rina]: -4, "bad key!": 9 } }); d.assetCount = 99; await apiFetch("PUT", "/api/tasks/" + o.task, d); const s = await apiFetch("GET", "/api/tasks/" + o.task); return { count: s.assetCount, split: s.meta.assetSplit }; }, o);
     expect(fixed).toEqual({ count: 3, split: { [o.me]: 3, [o.rina]: 0 } });
+
+    /* one person on the task: one number, validated the same way */
+    o.task3 = await page.evaluate(async () => { UI_LANG = "en"; const id = (await apiFetch("POST", "/api/tasks", { title: "One person " + Date.now(), status: WS.workflow[1].id, prio: "medium", assignee: ME, assignees: [ME], assetCount: 4 })).id; await reloadAll(); openTask(id); S.drawerTab = "files"; renderDrawer(); return id; });
+    const row = page.locator("#drawer .av-count");
+    await expect(row.locator(".av-split-badge")).toHaveText("Not validated yet");
+    await row.locator(".av-count-approve").click();
+    await expect.poll(() => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id).then(d => d.meta.assetSplitOk && [d.meta.assetSplitOk.by, d.meta.assetSplitOk.total]), o.task3)).toEqual([o.me, 4]);
+    await expect(row.locator(".av-split-badge")).toHaveText("Validated");
+    await expect(row.locator(".av-count-approve")).toHaveCount(0);
+    expect(await row.locator(".av-split-badge").getAttribute("title")).toContain("Validated by");
+    /* the number changed afterwards: changed since, to approve again */
+    await row.locator("input.count-input").click(); await page.keyboard.type("6"); await page.keyboard.press("Enter");
+    await expect(row.locator(".av-split-badge")).toHaveText("Changed since validated");
+    await expect(row.locator(".av-count-approve")).toHaveText("Approve again");
+    /* a member sees none of it */
+    expect(await page.evaluate(o => { const was = ME; ME = o.rina; renderDrawer(); const r = [document.querySelectorAll("#drawer .av-split-badge").length, document.querySelectorAll("#drawer .av-count-approve").length]; ME = was; renderDrawer(); return r; }, o)).toEqual([0, 0]);
   } finally {
     await page.evaluate(async o => { UI_LANG = "en"; closeDrawer(); WS.autoHide = Object.assign({}, WS.autoHide, { assets: { lead: "team" } }); await persistWS();
-      await apiFetch("DELETE", "/api/tasks/" + o.task).catch(() => {}); if (o.task2) await apiFetch("DELETE", "/api/tasks/" + o.task2).catch(() => {}); await apiFetch("DELETE", "/api/members/" + o.rina).catch(() => {}); await apiFetch("DELETE", "/api/teams/" + o.team).catch(() => {}); }, o);
+      await apiFetch("DELETE", "/api/tasks/" + o.task).catch(() => {}); if (o.task2) await apiFetch("DELETE", "/api/tasks/" + o.task2).catch(() => {}); if (o.task3) await apiFetch("DELETE", "/api/tasks/" + o.task3).catch(() => {}); await apiFetch("DELETE", "/api/members/" + o.rina).catch(() => {}); await apiFetch("DELETE", "/api/teams/" + o.team).catch(() => {}); }, o);
   }
 });

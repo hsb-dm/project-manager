@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="a164ec99a917">
+<meta name="zc-build" content="4a66e1722dec">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5707,6 +5707,12 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .zc-new-version .btn{flex:none}
 .zc-nv-later svg{width:14px;height:14px}
 @media(max-width:600px){.zc-new-version{width:calc(100vw - 32px);border-radius:14px}.zc-nv-text{flex:1}}
+/* a generation taken out of the history: the bin at the bottom right, beside the eye at the top */
+.ai-hs-del{position:absolute;right:4px;bottom:4px;width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-secondary);display:grid;place-items:center;opacity:0;transition:opacity .12s;cursor:pointer}
+.ai-hs-del svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.ai-hs-del:hover{color:var(--color-danger,#DC2626);border-color:currentColor}
+.ai-hs-item:hover .ai-hs-del,.ai-hs-del:focus-visible{opacity:1}
+@media (hover:none){.ai-hs-del{opacity:1}}
 
 </style>
 </head>
@@ -11599,6 +11605,15 @@ function aiConnChip(gs){
   return '<button type="button" class="ai-conn-chip" title="'+attr(why)+'" aria-label="'+attr(why)+'" onclick="S.aiSettingsSection=\''+fix+'\';go(\'settings\',\'ai\')"><i aria-hidden="true"></i>'+tr(gs.kind==="nomodel"?"No image model":"Image generation not connected")+'</button>';
 }
 
+/* a generation taken out of the history (kept in this browser, per workspace), with Undo for a few seconds; the
+   picture stays wherever else it was kept — AI Gallery, Assets */
+function aiDeleteRun(i){
+  var r=AI_RUNS[i]; if(!r) return;
+  AI_RUNS.splice(i,1); aiSaveRuns(); renderScreen(false);
+  var back=function(){ AI_RUNS.splice(Math.min(i,AI_RUNS.length),0,r); aiSaveRuns(); renderScreen(false); };
+  if(typeof undoToast==="function") undoToast("Removed from history",back); else toast("Removed from history");
+}
+
 /* ---------- generation history, a strip under the canvas ---------- */
 function aiHistoryStrip(){
   var open=aiSecIsOpen("history"), runs=AI_RUNS.slice(0,typeof aiHistoryLimit==="function"?aiHistoryLimit():24);
@@ -11607,7 +11622,8 @@ function aiHistoryStrip(){
     /* a click puts the whole design back; the eye shows only its picture. A picture the provider no longer keeps
        shows the placeholder, not a broken image. */
     return '<div class="ai-hs-item"><button type="button" class="ai-hs-thumb" title="'+attr(label)+'" aria-label="'+attr((r.fields?tr("Use settings"):tr("Preview"))+": "+label)+'" onclick="'+(r.fields?'aiLoadRunSettings('+i+')':'aiReuse('+i+')')+'">'+(r.url?'<img src="'+attr(r.url)+'" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="ai-history-placeholder" hidden>'+I.image+'</span>':'<span class="ai-history-placeholder">'+I.image+'</span>')+'</button>'
-      + (r.fields&&r.url?'<button type="button" class="ai-hs-peek" title="'+attr(tr("Preview"))+'" aria-label="'+attr(tr("Preview")+": "+label)+'" onclick="aiReuse('+i+')">'+I.eye+'</button>':'')+'</div>'; }).join("");
+      + (r.fields&&r.url?'<button type="button" class="ai-hs-peek" title="'+attr(tr("Preview"))+'" aria-label="'+attr(tr("Preview")+": "+label)+'" onclick="aiReuse('+i+')">'+I.eye+'</button>':'')
+      + '<button type="button" class="ai-hs-del" title="'+attr(tr("Remove from history"))+'" aria-label="'+attr(tr("Remove from history")+": "+label)+'" onclick="aiDeleteRun('+i+')">'+I.trash+'</button></div>'; }).join("");
   return '<div class="ai-history-strip'+(open?' open':'')+'"><div class="ai-hs-head"><button type="button" class="ai-hs-toggle" aria-expanded="'+(open?"true":"false")+'" onclick="aiSecToggle(\'history\',!aiSecIsOpen(\'history\'));renderScreen(false)">'+I.sync+'<span>'+tr("Generation history")+'</span><span class="cnt">'+(typeof aiHistoryUsageLabel==="function"?aiHistoryUsageLabel():AI_RUNS.length)+'</span>'
     + (typeof aiHistoryLimit==="function"&&AI_RUNS.length>=aiHistoryLimit()?'<span class="badge warn" title="'+attr(tr("Oldest generation is removed automatically."))+'">'+tr("At capacity")+'</span>':'')+(items?'':'<span class="hint ai-hs-empty">'+tr("No visuals generated yet.")+'</span>')+'<span class="ai-hs-caret" aria-hidden="true"></span></button>'
     + (AI_PREVIOUS_SETTINGS?'<button type="button" class="btn xs" onclick="aiRestoreRecentSettings()">'+tr("Restore recent")+'</button>':'')+'</div>'
@@ -11624,6 +11640,7 @@ function aiHistoryStrip(){
   "Generated visual":"Visual hasil generate",
   "No visuals generated yet.":"Belum ada visual yang dibuat.",
   "Restore recent":"Kembalikan pengaturan terbaru",
+  "Remove from history":"Hapus dari riwayat","Removed from history":"Dihapus dari riwayat",
   "At capacity":"Penuh",
   "Use settings":"Gunakan pengaturan",
   "Preview":"Pratinjau"
@@ -20709,12 +20726,15 @@ function assetSplitCommit(id,v){
 }
 function avCountRow(tk,ed){
   var n=assetCount(tk);
-  if(!assetSplitOn(tk)) return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
-    + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
+  /* one person: one number — validated by the team's lead the same way */
+  if(!assetSplitOn(tk)){ var one=assetSplitCanValidate(tk)&&n>0?assetSplitOkState(tk):null;
+    return '<div class="av-count'+(one?' av-count-val':'')+'"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span>'+(one?assetSplitBadge(one):'')+'<span class="spacer"></span>'
+      + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')
+      + (one&&one.state!=="ok"?'<button type="button" class="btn xs primary av-count-approve" title="'+attr(tr("They count even before they are validated."))+'" onclick="assetSplitApprove()">'+I.check+tr(one.state==="stale"?"Approve again":"Approve counts")+'</button>':'')+'</div>'; }
   var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), open=assetSplitOpen(), val=assetSplitCanValidate(tk)&&(shown.typed||n>0)?assetSplitOkState(tk):null;
   /* folded, the head says it all in one line: who, how many, the total */
   var who=ids.map(function(id,i){ return esc(first(id))+' '+shown.vals[i]; }).join(' · ')+(shown.typed?'':' · '+tr("estimate"));
-  var badge=!val?'':val.state==="ok"?'<span class="badge ok av-split-badge">'+I.check+tr("Validated")+'</span>':'<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
+  var badge=val?assetSplitBadge(val):'';
   return '<div class="av-count av-split'+(open?' open':'')+'"><button type="button" class="av-split-head" aria-expanded="'+open+'" onclick="assetSplitToggle()"><span class="av-split-title">'+tr("Assets produced")+'</span>'
     + '<span class="hint av-split-sum">'+(open?tr("each person's own, used in reports"):who)+'</span>'+badge+'<span class="spacer"></span><span class="av-split-total">'+tr("Total")+' <b>'+n+'</b></span><span class="av-split-caret" aria-hidden="true"></span></button>'
     + (open?'<div class="av-split-rows">'+ids.map(function(id,i){ var nm=person(id).name;
@@ -20740,9 +20760,15 @@ function assetSplitCanValidate(tk){
   return assetSplitPeople(tk).some(function(id){ return teamsOf(id).some(function(x){ return led.indexOf(x)>=0; }); });
 }
 function assetSplitKey(s){ s=s||{}; return Object.keys(s).filter(function(k){ return +s[k]>0; }).sort().map(function(k){ return k+":"+Math.round(+s[k]); }).join(","); }
+/* what was validated: each person's count and the total, so one person's number changed shows too */
 function assetSplitOkState(tk){
   var ok=tk.meta&&tk.meta.assetSplitOk; if(!ok||!ok.split) return {state:"none"};
-  return {state:assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit)?"ok":"stale",by:ok.by,at:ok.at};
+  var same=(!assetSplitOn(tk)||assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit))&&(ok.total==null||+ok.total===assetCount(tk));
+  return {state:same?"ok":"stale",by:ok.by,at:ok.at};
+}
+function assetSplitBadge(val){
+  if(val.state==="ok") return '<span class="badge ok av-split-badge" title="'+attr(tr("Validated by")+' '+person(val.by).name+(val.at?' · '+ago(null,val.at).replace(/<[^>]*>/g,''):''))+'">'+I.check+tr("Validated")+'</span>';
+  return '<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
 }
 function assetSplitOkHtml(val){
   if(val.state==="ok") return '<div class="av-split-ok done">'+I.check+'<span>'+tr("Validated by")+' <b>'+esc(person(val.by).name)+'</b>'+(val.at?' · '+ago(null,val.at):'')+'</span></div>';
@@ -20751,11 +20777,11 @@ function assetSplitOkHtml(val){
 }
 function assetSplitApprove(){
   var tk=task(S.drawerTask); if(!tk||!assetSplitCanValidate(tk)) return;
-  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  var many=assetSplitOn(tk), ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
   ids.forEach(function(id,i){ split[id]=shown.vals[i]; });
   editTaskWith(tk,function(t){ t.meta=t.meta||{};
-    if(!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
-    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:t.meta.assetSplit};
+    if(many&&!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
+    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:(many&&t.meta.assetSplit)||{},total:t.assetCount};
   }).then(function(saved){ if(saved!==false) toast(tr("Asset counts validated")); });
 }
 

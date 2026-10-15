@@ -56,6 +56,16 @@ test("AI Hub fits the screen and each panel scrolls on its own", async ({ page }
     await expect(gone.locator(".ai-history-placeholder")).toBeVisible();
     await expect(gone.locator("img")).toBeHidden();
     expect(await gone.locator(".ai-history-placeholder svg").evaluate(e => [getComputedStyle(e).width, getComputedStyle(e.parentNode).display]), "an image icon, centred").toEqual(["24px", "grid"]);
+    /* a generation is taken out of the history with the bin at its bottom right, and Undo puts it back */
+    const item = page.locator(".ai-history-strip .ai-hs-item").nth(1), stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("cos.ai.runs." + (WS.id || "ws")) || "[]").map(r => r.headline));
+    await item.hover();
+    await expect(item.locator(".ai-hs-del")).toBeVisible();
+    await item.locator(".ai-hs-del").click();
+    await expect(page.locator(".ai-history-strip .ai-hs-item")).toHaveCount(1);
+    expect(await stored()).toEqual(["From history"]);
+    await page.locator("#toasts .undo-toast", { hasText: "Removed from history" }).getByRole("button", { name: "Undo" }).click();
+    await expect(page.locator(".ai-history-strip .ai-hs-item")).toHaveCount(2);
+    expect(await stored()).toEqual(["From history", "Gone"]);
     /* folded, the strip is one line and the canvas gets the room */
     const before = (await state(page)).viewH;
     await page.locator(".ai-hs-toggle").click();

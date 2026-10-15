@@ -62,6 +62,16 @@ test('counts are kept whole, the total is their sum, and only a team lead or an 
   assert.equal(d.title, 'Split counts, renamed', 'the edit is saved');
   assert.equal(d.meta.assetSplitOk, undefined, 'the validation is not');
 
+  /* one person on the task: the one number is validated the same way, and kept with its total */
+  const one = (await (await s.req('POST', '/api/tasks', { title: 'One person', status: s.boot.ws.workflow[1].id, prio: 'medium', assignee: M, assignees: [M], assetCount: 3 }, s.admin)).json()).id;
+  const putOne = async (who, fn) => { const x = await (await s.req('GET', '/api/tasks/' + one, undefined, who)).json(); fn(x); const r = await s.req('PUT', '/api/tasks/' + one, x, who); assert.ok(r.ok, await r.text()); return (await s.req('GET', '/api/tasks/' + one, undefined, s.admin)).json(); };
+  d = await putOne(m, x => { x.meta = Object.assign({}, x.meta, { assetSplitOk: { by: M, total: 3 } }); });
+  assert.equal(d.meta.assetSplitOk, undefined, 'not by the member');
+  d = await putOne(l, x => { x.meta = Object.assign({}, x.meta, { assetSplitOk: { total: 99 } }); });
+  assert.deepEqual([d.meta.assetSplitOk.by, d.meta.assetSplitOk.total, d.meta.assetSplitOk.split], [L, 3, {}], 'by the lead, with the task\'s own total');
+  d = await putOne(m, x => { x.assetCount = 5; });
+  assert.deepEqual([d.assetCount, d.meta.assetSplitOk.by, d.meta.assetSplitOk.total], [5, L, 3], 'changed afterwards: the validation keeps what it validated');
+
   /* the lead of the member's team: who and when are the server's */
   d = await put(l, x => { x.meta.assetSplitOk = { by: 'someone', at: '1999-01-01', split: { nope: 1 } }; });
   assert.equal(d.meta.assetSplitOk.by, L);

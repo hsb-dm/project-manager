@@ -1498,9 +1498,10 @@ function cleanAssetSplitOk(cur, b, u) {
   const was = (cur.meta || {}).assetSplitOk || null, sent = m.assetSplitOk || null;
   if (JSON.stringify(sent) === JSON.stringify(was)) return;
   if (!mayValidateAssets(u, b)) { if (was) m.assetSplitOk = was; else delete m.assetSplitOk; return; }
-  if (!sent || !m.assetSplit) { delete m.assetSplitOk; return; }
-  const split = {}; Object.keys(m.assetSplit).forEach(id => { if (m.assetSplit[id] > 0) split[id] = m.assetSplit[id]; });
-  m.assetSplitOk = { by: u.id, at: now(), split };
+  if (!sent) { delete m.assetSplitOk; return; }
+  /* each person's count (none on a task with one person) and the total — what was validated */
+  const split = {}; Object.keys(m.assetSplit || {}).forEach(id => { if (m.assetSplit[id] > 0) split[id] = m.assetSplit[id]; });
+  m.assetSplitOk = { by: u.id, at: now(), split, total: Math.max(0, Math.round(+b.assetCount || 0)) };
 }
 function sanitizeTaskWrite(cur, b, u, decided) {
   cleanAssetSplit(b);

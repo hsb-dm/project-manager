@@ -673,12 +673,15 @@ function assetSplitCommit(id,v){
 }
 function avCountRow(tk,ed){
   var n=assetCount(tk);
-  if(!assetSplitOn(tk)) return '<div class="av-count"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span><span class="spacer"></span>'
-    + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')+'</div>';
+  /* one person: one number — validated by the team's lead the same way */
+  if(!assetSplitOn(tk)){ var one=assetSplitCanValidate(tk)&&n>0?assetSplitOkState(tk):null;
+    return '<div class="av-count'+(one?' av-count-val':'')+'"><span>'+tr("Assets produced")+'</span><span class="hint">'+tr("the number used in reports")+'</span>'+(one?assetSplitBadge(one):'')+'<span class="spacer"></span>'
+      + (ed?countInputHtml(n,"Assets produced","assetCount"):'<b>'+n+'</b>')
+      + (one&&one.state!=="ok"?'<button type="button" class="btn xs primary av-count-approve" title="'+attr(tr("They count even before they are validated."))+'" onclick="assetSplitApprove()">'+I.check+tr(one.state==="stale"?"Approve again":"Approve counts")+'</button>':'')+'</div>'; }
   var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), open=assetSplitOpen(), val=assetSplitCanValidate(tk)&&(shown.typed||n>0)?assetSplitOkState(tk):null;
   /* folded, the head says it all in one line: who, how many, the total */
   var who=ids.map(function(id,i){ return esc(first(id))+' '+shown.vals[i]; }).join(' · ')+(shown.typed?'':' · '+tr("estimate"));
-  var badge=!val?'':val.state==="ok"?'<span class="badge ok av-split-badge">'+I.check+tr("Validated")+'</span>':'<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
+  var badge=val?assetSplitBadge(val):'';
   return '<div class="av-count av-split'+(open?' open':'')+'"><button type="button" class="av-split-head" aria-expanded="'+open+'" onclick="assetSplitToggle()"><span class="av-split-title">'+tr("Assets produced")+'</span>'
     + '<span class="hint av-split-sum">'+(open?tr("each person's own, used in reports"):who)+'</span>'+badge+'<span class="spacer"></span><span class="av-split-total">'+tr("Total")+' <b>'+n+'</b></span><span class="av-split-caret" aria-hidden="true"></span></button>'
     + (open?'<div class="av-split-rows">'+ids.map(function(id,i){ var nm=person(id).name;
@@ -704,9 +707,15 @@ function assetSplitCanValidate(tk){
   return assetSplitPeople(tk).some(function(id){ return teamsOf(id).some(function(x){ return led.indexOf(x)>=0; }); });
 }
 function assetSplitKey(s){ s=s||{}; return Object.keys(s).filter(function(k){ return +s[k]>0; }).sort().map(function(k){ return k+":"+Math.round(+s[k]); }).join(","); }
+/* what was validated: each person's count and the total, so one person's number changed shows too */
 function assetSplitOkState(tk){
   var ok=tk.meta&&tk.meta.assetSplitOk; if(!ok||!ok.split) return {state:"none"};
-  return {state:assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit)?"ok":"stale",by:ok.by,at:ok.at};
+  var same=(!assetSplitOn(tk)||assetSplitKey(ok.split)===assetSplitKey(tk.meta.assetSplit))&&(ok.total==null||+ok.total===assetCount(tk));
+  return {state:same?"ok":"stale",by:ok.by,at:ok.at};
+}
+function assetSplitBadge(val){
+  if(val.state==="ok") return '<span class="badge ok av-split-badge" title="'+attr(tr("Validated by")+' '+person(val.by).name+(val.at?' · '+ago(null,val.at).replace(/<[^>]*>/g,''):''))+'">'+I.check+tr("Validated")+'</span>';
+  return '<span class="badge warn av-split-badge">'+tr(val.state==="stale"?"Changed since validated":"Not validated yet")+'</span>';
 }
 function assetSplitOkHtml(val){
   if(val.state==="ok") return '<div class="av-split-ok done">'+I.check+'<span>'+tr("Validated by")+' <b>'+esc(person(val.by).name)+'</b>'+(val.at?' · '+ago(null,val.at):'')+'</span></div>';
@@ -715,11 +724,11 @@ function assetSplitOkHtml(val){
 }
 function assetSplitApprove(){
   var tk=task(S.drawerTask); if(!tk||!assetSplitCanValidate(tk)) return;
-  var ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
+  var many=assetSplitOn(tk), ids=assetSplitPeople(tk), shown=assetSplitShown(tk,ids), split={};
   ids.forEach(function(id,i){ split[id]=shown.vals[i]; });
   editTaskWith(tk,function(t){ t.meta=t.meta||{};
-    if(!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
-    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:t.meta.assetSplit};
+    if(many&&!shown.typed){ t.meta.assetSplit=split; t.assetCount=ids.reduce(function(a,id){ return a+split[id]; },0); }
+    t.meta.assetSplitOk={by:ME,at:new Date().toISOString(),split:(many&&t.meta.assetSplit)||{},total:t.assetCount};
   }).then(function(saved){ if(saved!==false) toast(tr("Asset counts validated")); });
 }
 
