@@ -26,16 +26,21 @@ test("the stage stays whole and the right-hand side lines up, in a narrow card a
     /* a team with a long name: the meta line is tight, and the stage must still not give way */
     const team = "tm_row_" + tag; await apiFetch("POST", "/api/teams", { id: team, name: "Performance Marketing & Growth Partnerships", color: "#2563EB" });
     const review = WS.workflow.find(s => s.kind === "review").id, work = WS.workflow.find(s => s.kind === "work").id, d = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
-    const mk = (title, st, labels, due, assets) => apiFetch("POST", "/api/tasks", { title: title + " " + tag, status: st, prio: "high", proj: pid, team, assignee: ME, assignees: [ME], reviewer: ME, reviewers: [ME], labels, dueDate: d(due), assetCount: assets });
-    const a = await mk("Copywriting & Visual Design In-Article CTA Banner & Playstore", review, add.map(l => l.id), 1, 3);
+    /* three more people on it: the stack of faces is wider than one face */
+    const crew = []; for (let i = 0; i < 3; i++) { await apiFetch("POST", "/api/members", { name: "Crew " + i + " " + tag, email: "crew" + i + "-" + tag + "@e2e.test", perm: "member", cap: 40 }); }
+    const people = (await apiFetch("GET", "/api/bootstrap")).people; Object.keys(people).forEach(k => { if (/^crew\d-/.test(people[k].email || "") && people[k].email.indexOf(tag) > 0) crew.push(k); });
+    const mk = (title, st, labels, due, assets, who) => apiFetch("POST", "/api/tasks", { title: title + " " + tag, status: st, prio: "high", proj: pid, team, assignee: ME, assignees: who || [ME], reviewer: ME, reviewers: [ME], labels, dueDate: d(due), assetCount: assets });
+    const a = await mk("Copywriting & Visual Design In-Article CTA Banner & Playstore", review, add.map(l => l.id), 1, 3, [ME].concat(crew));
     const b = await mk("SEO - LP Milestone", work, [], 0, 0);
     const c = await mk("Roadshow backdrop", review, [add[0].id], -22, 2);
     await reloadAll(); go("home");
-    return { before, pid, team, tasks: [a.id, b.id, c.id], task: a.id };
+    return { before, pid, team, crew, tasks: [a.id, b.id, c.id], task: a.id };
   }, tag);
   try {
     /* a narrow card: the stage whole; the first label and +2; due dates flush right, one under the other */
     const row = page.locator('#content .task-row[data-id="' + ids.task + '"]').first();
+    /* a card that shows who is on it (Upcoming deadlines, Needs your review) */
+    const withFaces = page.locator('#content .task-row[data-id="' + ids.task + '"]').filter({ has: page.locator(".rcell-who .av") }).first();
     await expect(row).toBeVisible();
     expect(await row.evaluate(r => r.getBoundingClientRect().width)).toBeLessThan(880);
     expect(await stageWhole(row)).toEqual({ inside: true, clipped: false });
@@ -43,6 +48,11 @@ test("the stage stays whole and the right-hand side lines up, in a narrow card a
     await expect(row.locator(".lbls-line")).toBeHidden();
     await expect(row.locator(".lbl-more-narrow")).toHaveText("+2");
     await expect(row.locator(".lbl-more-narrow")).toHaveAttribute("title", "Copywriter, Motion " + tag);
+    /* the due date has its line to itself: no face covers it, nothing cuts it short */
+    await expect(withFaces).toBeVisible();
+    const due = await withFaces.evaluate(r => { const d = r.querySelector(".rcell-due .due"), w = r.querySelector(".rcell-who"), a = d.getBoundingClientRect(), b = w.getBoundingClientRect(); return { faces: w.querySelectorAll(".av").length, overlap: !(a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left), clipped: d.scrollWidth > d.clientWidth + 1 }; });
+    expect(due.faces).toBeGreaterThanOrEqual(3);
+    expect(due).toEqual({ faces: due.faces, overlap: false, clipped: false });
     const dueRight = await edges(row, ".task-row .rcell-due .due", "right");
     expect(dueRight.length).toBeGreaterThanOrEqual(3);
     expect(Math.max(...dueRight) - Math.min(...dueRight)).toBeLessThanOrEqual(1);
@@ -61,6 +71,6 @@ test("the stage stays whole and the right-hand side lines up, in a narrow card a
     expect(dueLeft.length).toBeGreaterThanOrEqual(3);
     expect(Math.max(...dueLeft) - Math.min(...dueLeft)).toBeLessThanOrEqual(1);
   } finally {
-    await page.evaluate(async x => { for (const t of x.tasks) await apiFetch("DELETE", "/api/tasks/" + t).catch(() => {}); await apiFetch("DELETE", "/api/projects/" + x.pid).catch(() => {}); await apiFetch("DELETE", "/api/teams/" + x.team).catch(() => {}); const ws = (await apiFetch("GET", "/api/bootstrap")).ws; await apiFetch("PUT", "/api/workspace", Object.assign({}, ws, { labels: x.before })); }, ids);
+    await page.evaluate(async x => { for (const t of x.tasks) await apiFetch("DELETE", "/api/tasks/" + t).catch(() => {}); await apiFetch("DELETE", "/api/projects/" + x.pid).catch(() => {}); await apiFetch("DELETE", "/api/teams/" + x.team).catch(() => {}); for (const m of x.crew) await apiFetch("DELETE", "/api/members/" + m).catch(() => {}); const ws = (await apiFetch("GET", "/api/bootstrap")).ws; await apiFetch("PUT", "/api/workspace", Object.assign({}, ws, { labels: x.before })); }, ids);
   }
 });

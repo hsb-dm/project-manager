@@ -1318,14 +1318,15 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
   .row.task-row:not(:has(>.meta-grid)) .lbls-stack .lbls-line{display:contents}
 }
 /* A narrow row (a Home card beside others) has no room for four slots and its stage: there the right side is one
-   small column, flush right — the due date and the people on top, the first label (+N) below; the file count waits
+   small column, flush right — the due date on top, the first label (+N) and the people below; the file count waits
    for the task itself. Phones keep their own layout. */
 .row.task-row{container:zrow/inline-size}
 .lbl-more-narrow{display:none}
 @media (min-width:761px){
   @container zrow (max-width:880px){
-    .row .r.r-cells{grid-template-columns:auto var(--rc-who,0px);grid-template-areas:"due who" "labels labels";justify-items:end;row-gap:5px;column-gap:0}
-    .row .r.r-cells .rcell-who{padding-left:8px}
+    /* the due date alone on top (it never shares its line, so nothing covers it); the labels, then the people, below */
+    .row .r.r-cells{grid-template-columns:auto auto;grid-template-areas:"due due" "labels who";justify-items:end;align-items:center;row-gap:5px;column-gap:0}
+    .row .r.r-cells .rcell-who{padding-left:6px}
     .row .r.r-cells .rcell-due{grid-area:due}
     .row .r.r-cells .rcell-who{grid-area:who}
     .row .r.r-cells .rcell-labels{grid-area:labels}
