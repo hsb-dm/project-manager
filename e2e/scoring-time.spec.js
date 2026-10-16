@@ -44,6 +44,8 @@ test("Actual becomes the time logged: logged, changed and deleted by the person 
     /* on */
     await page.evaluate(async () => { const cur = await apiFetch("GET", "/api/scoring/settings"); const r = await apiFetch("PUT", "/api/scoring/settings", { settings: Object.assign({}, cur.settings, { enabled: true }), configVersion: cur.settings.configVersion }); WS.scoring = r.settings; renderDrawer(); });
     await expect(page.locator("#drawer .effort input"), "the Estimate is still typed").toHaveCount(1);
+    await page.locator("#drawer .effort input").fill("5"); await page.locator("#drawer .effort input").dispatchEvent("change");
+    await expect.poll(() => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id).then(d => d.effort), o.task)).toBe(5);
     const actual = page.locator("#drawer .scr-time-actual"), modal = page.locator("#modal"), entries = modal.locator(".scr-time-entry");
     await expect(actual).toContainText("Actual 0 h");
     await actual.getByRole("button", { name: "Log time" }).click();
@@ -104,6 +106,8 @@ test("Actual becomes the time logged: logged, changed and deleted by the person 
     /* the colleague on the task, in their own browser: they see everyone's time and log only their own */
     ctx = await browser.newContext(); const mp = await ctx.newPage();
     await signIn(mp, MEMBER);
+    /* a new member is greeted by the Workspace Quest a moment after signing in; its welcome would take the log's place */
+    await mp.evaluate(() => { if (typeof WorkspaceQuest !== "undefined" && WorkspaceQuest.skipAll) WorkspaceQuest.skipAll(); });
     await openDrawer(mp, o.task);
     await expect(mp.locator("#drawer .scr-time-actual")).toContainText("Actual 2 h");
     await mp.locator("#drawer .scr-time-actual").getByRole("button", { name: "Log time" }).click();
