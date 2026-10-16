@@ -89,6 +89,24 @@ test('counts are kept whole, the total is their sum, and only a team lead or an 
   assert.notEqual(d.meta.assetSplitOk.by, L);
 });
 
+/* A new task is never born validated (Oct 2026): a create — a duplicate is one — took the lead's validation as sent */
+test('a new task arrives with its counts cleaned and without a validation, whoever creates it', { timeout: 60000 }, async t => {
+  const s = await start(place(t));
+  const me = Object.keys(s.boot.people).find(id => s.boot.people[id].role === 'admin');
+  const forged = { by: me, at: '2026-01-01T00:00:00.000Z', split: {}, total: 99 };
+  {
+    const r = await s.req('POST', '/api/tasks', { title: 'Born validated?', status: s.boot.ws.workflow[1].id, prio: 'medium', assignee: me, assignees: [me],
+      meta: { assetSplit: { a: '3.6', b: -2, 'not an id!': 5 }, assetSplitOk: forged, effortManual: true } }, s.admin);
+    assert.equal(r.status, 200, await r.clone().text());
+    const tk = await r.json();
+    assert.equal(tk.meta.assetSplitOk, undefined, 'no validation on a new task, even from someone who may validate');
+    assert.deepEqual(tk.meta.assetSplit, { a: 4, b: 0 }, 'whole numbers, no negative, no odd ids');
+    assert.equal(tk.assetCount, 4, 'the total is their sum');
+    assert.equal(tk.meta.effortManual, true, 'the rest of meta is kept');
+    await s.req('DELETE', '/api/tasks/' + tk.id, undefined, s.admin);
+  }
+});
+
 test('every API reply says which page the server serves', { timeout: 60000 }, async t => {
   const s = await start(place(t));
   const page = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');

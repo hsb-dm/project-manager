@@ -864,14 +864,14 @@ async function aiImageCall(c, provider, body) {
     const size = /^dall-e-3/.test(model) ? (ratio > 1.2 ? "1792x1024" : ratio < 0.83 ? "1024x1792" : "1024x1024") : (ratio > 1.2 ? "1536x1024" : ratio < 0.83 ? "1024x1536" : "1024x1024");
     const req = { model, prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), size, n: 1 };
     if (/^dall-e/.test(model)) req.response_format = "b64_json";
-    /* the canvas's layout map (Oct 2026) goes with them, after the others — DALL·E takes no pictures, so it simply goes without */
-    const pics = (body.refs || []).concat(body.layout && !/^dall-e/.test(model) ? [body.layout] : []);
-    if (pics.length) {
+    /* only a real reference picture goes to the edits endpoint: whatever it is sent, it edits. The canvas's layout went
+       there once as a picture and came back as an edit of that grey map (Oct 2026); it is in the prompt now, in words. */
+    if ((body.refs || []).length) {
       /* reference pictures (brand characters, the member's own image) go to the edits endpoint, which takes them as image[] */
       if (/^dall-e/.test(model)) throw new HttpError(400, "DALL·E cannot follow reference photos. Choose a GPT Image model.");
       const form = new FormData();
-      form.append("model", model); form.append("prompt", (req.prompt + (body.layout ? "\n\n" + AI_LAYOUT_NOTE : "")).slice(0, 32000)); form.append("size", size); form.append("n", "1");
-      pics.forEach((r, i) => form.append("image[]", new Blob([r.data], { type: r.mime }), (r.kind === "layout" ? "layout-map" : "reference-" + (i + 1)) + "." + (r.mime.split("/")[1] || "png")));
+      form.append("model", model); form.append("prompt", req.prompt.slice(0, 32000)); form.append("size", size); form.append("n", "1");
+      body.refs.forEach((r, i) => form.append("image[]", new Blob([r.data], { type: r.mime }), "reference-" + (i + 1) + "." + (r.mime.split("/")[1] || "png")));
       const je = await aiFetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { "Authorization": "Bearer " + c.key }, body: form }, "Image", 120000);
       const ue = aiPickFirstImage(je); if (!ue) throw new HttpError(424, "OpenAI returned no image."); return ue;
     }
@@ -890,8 +890,7 @@ async function aiImageCall(c, provider, body) {
       const p0 = (j.predictions || [])[0]; if (p0 && p0.bytesBase64Encoded) return "data:" + (p0.mimeType || "image/png") + ";base64," + p0.bytesBase64Encoded;
       throw new HttpError(424, "Imagen returned no image (the prompt may have been filtered).");
     }
-    const gpics = (body.refs || []).concat(body.layout ? [body.layout] : []);
-    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt + (body.layout ? "\n\n" + AI_LAYOUT_NOTE : "") }].concat(gpics.map(r => ({ inlineData: { mimeType: r.mime, data: r.data.toString("base64") } }))) }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
+    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }].concat((body.refs || []).map(r => ({ inlineData: { mimeType: r.mime, data: r.data.toString("base64") } }))) }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
     const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
     const img = parts.find(p => p.inlineData || p.inline_data); const d = img && (img.inlineData || img.inline_data);
     if (d && d.data) return "data:" + (d.mimeType || d.mime_type || "image/png") + ";base64," + d.data;
@@ -906,15 +905,12 @@ async function aiImageCall(c, provider, body) {
   if (isMystic && (body.refs || []).some(r => r.kind === "character")) throw new HttpError(400, "Magnific Mystic cannot keep a person's likeness from photos. Brand characters need an image provider that accepts reference images, such as OpenAI (GPT Image) or Gemini (Nano Banana).");
   let reqBody = Object.assign({}, body); delete reqBody.refs;
   if ((body.refs || []).length) reqBody.reference_images = body.refs.map(r => "data:" + r.mime + ";base64," + r.data.toString("base64"));
-  const ownStructure = (body.refs || []).length && body.refMode === "structure";
   if (isMystic) {
     const aspect = ratio > 1.9 ? "widescreen_16_9" : ratio > 1.6 ? "widescreen_16_9" : ratio > 1.4 ? "standard_3_2" : ratio > 1.2 ? "classic_4_3" : ratio < 0.53 ? "social_story_9_16" : ratio < 0.62 ? "social_story_9_16" : ratio < 0.72 ? "portrait_2_3" : ratio < 0.83 ? "traditional_3_4" : "square_1_1";
     const MYSTIC_MODELS = ["realism", "fluid", "zen", "flexible", "super_real", "editorial_portraits"];
     const m = String(body.model || "").toLowerCase();
     reqBody = { prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), aspect_ratio: aspect, resolution: process.env.COS_MYSTIC_RESOLUTION || "2k", model: MYSTIC_MODELS.includes(m) ? m : "realism", filter_nsfw: true };
     /* the member's reference picture: its style (adherence: the higher, the more the prompt leads) or its structure */
-    /* the canvas's layout map: where the text will sit stays dark and calm, the subject goes in the lighter area */
-    if (body.layout && !ownStructure) { reqBody.structure_reference = body.layout.data.toString("base64"); reqBody.structure_strength = AI_LAYOUT_STRENGTH; }
     const ref = (body.refs || [])[0];
     if (ref) { const k = Math.max(0, Math.min(100, Math.round(+body.refStrength >= 0 ? +body.refStrength : 50))); if (body.refMode === "structure") { reqBody.structure_reference = ref.data.toString("base64"); reqBody.structure_strength = k; } else { reqBody.style_reference = ref.data.toString("base64"); reqBody.adherence = 100 - k; } }
   }
@@ -939,17 +935,47 @@ async function aiImageCall(c, provider, body) {
 /* The pictures a generation follows: the photos of the brand characters the member chose (read from the workspace
    by id, so a request can name a character but never a file), then the member's own reference image. Only for a
    model with the "reference" capability; the browser already holds them back from any other. */
-/* The canvas's layout map (Oct 2026): the poster at its proportions, black where the headline, the other text and the
-   logo will sit and lighter where the picture may be busy. Sent with a generation while "Keep AI image outside text
-   areas" is on (src/ai-layout-map.js), so the picture is composed around the text instead of under it. A map that is
-   not a small picture is left out rather than failing the generation. */
-const AI_LAYOUT_NOTE = "The last attached image is a layout map of the finished poster, not content: its black areas are where the headline and the other text will be placed, so keep those areas as plain, calm, dark background, and place the subject and all detail in the lighter area. Do not copy the map's shapes.";
-const AI_LAYOUT_STRENGTH = 35;
-function aiLayoutMapFrom(b) {
-  const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((b && b.layoutMap) || ""));
-  if (!m) return null;
-  const data = Buffer.from(m[2], "base64");
-  return data.length > 0 && data.length <= 2_000_000 ? { mime: m[1], data, kind: "layout" } : null;
+/* The canvas's layout (Oct 2026): where the headline, the other text and the logo will sit, each a box in fractions of
+   the poster, sent with a generation while "Keep AI image outside text areas" is on (src/ai-layout-map.js), so the
+   picture is composed around the text instead of under it. It goes into the prompt in words, as measured bands down
+   the poster and the open area between them, for every provider alike. It first went as a picture — a grey map with
+   black boxes — and a model that edits pictures edited the map itself into grey noise; a picture is never sent for it.
+   Boxes that are not numbers are left out rather than failing the generation. */
+function aiLayoutZonesFrom(b) {
+  const list = Array.isArray(b && b.layoutZones) ? b.layoutZones.slice(0, 24) : [], out = [];
+  for (const r of list) {
+    if (!r || typeof r !== "object") continue;
+    const n = k => Math.max(0, Math.min(1, Number(r[k])));
+    const x = n("x"), y = n("y"), w = Math.min(1 - x, n("w")), h = Math.min(1 - y, n("h"));
+    if (![x, y, w, h].every(Number.isFinite) || w <= 0 || h <= 0) continue;
+    out.push({ x, y, w, h, kind: r.kind === "headline" || r.kind === "logo" ? r.kind : "text" });
+  }
+  return out.length ? out : null;
+}
+function aiLayoutNote(zones) {
+  if (!zones || !zones.length) return "";
+  const pct = v => Math.round(v * 100);
+  /* the boxes as bands down the poster, a little taller than the words; boxes that touch or nearly do are one band */
+  const bands = [];
+  zones.map(z => ({ y0: Math.max(0, z.y - 0.02), y1: Math.min(1, z.y + z.h + 0.02), x0: z.x, x1: z.x + z.w, kinds: [z.kind] }))
+    .sort((a, b) => a.y0 - b.y0)
+    .forEach(z => { const last = bands[bands.length - 1];
+      if (last && z.y0 <= last.y1 + 0.02) { last.y1 = Math.max(last.y1, z.y1); last.x0 = Math.min(last.x0, z.x0); last.x1 = Math.max(last.x1, z.x1); last.kinds = last.kinds.concat(z.kinds); }
+      else bands.push(z); });
+  const named = b => { const k = new Set(b.kinds), n = [];
+    if (k.has("headline")) n.push("the headline"); if (k.has("text")) n.push(k.has("headline") ? "more text" : "text"); if (k.has("logo")) n.push("the logo");
+    return n.length > 1 ? n.slice(0, -1).join(", ") + " and " + n[n.length - 1] : n[0]; };
+  const where = b => (b.y0 <= 0.01 ? "in the top " + pct(b.y1) + "%" : b.y1 >= 0.99 ? "in the bottom " + (100 - pct(b.y0)) + "%" : "from " + pct(b.y0) + "% to " + pct(b.y1) + "% down")
+    + (b.x1 - b.x0 >= 0.65 ? "" : b.x1 <= 0.6 ? ", on the left side" : b.x0 >= 0.4 ? ", on the right side" : "");
+  /* the open area: beside the text when it all keeps to one side, otherwise the tallest gap between the bands */
+  const ux0 = Math.min(...zones.map(z => z.x)), ux1 = Math.max(...zones.map(z => z.x + z.w));
+  let gap = { a: 0, b: bands[0].y0 };
+  bands.forEach((b, i) => { const next = i + 1 < bands.length ? bands[i + 1].y0 : 1; if (next - b.y1 > gap.b - gap.a) gap = { a: b.y1, b: next }; });
+  const open = ux1 <= 0.6 ? "Place the subject and all detail in the right part of the poster, from " + pct(ux1) + "% of the width to the right edge, so all of it stays clear of the text."
+    : ux0 >= 0.4 ? "Place the subject and all detail in the left part of the poster, from the left edge to " + pct(ux0) + "% of the width, so all of it stays clear of the text."
+    : gap.b - gap.a >= 0.15 ? "Place the subject and all detail in the open area from " + pct(gap.a) + "% to " + pct(gap.b) + "% of the height, fully inside it, so all of it stays clear of the text."
+    : "The text covers most of the poster: keep the whole background calm, smooth and low in detail, with the subject small and away from the text.";
+  return "Layout of the finished poster, measured from its top edge: " + bands.map(b => named(b) + " " + where(b)).join("; ") + ". Typography is added there afterwards, so keep those areas as plain, smooth, calm background. " + open;
 }
 function aiReferenceImages(b, chosen, mystic) {
   const ids = Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [];
@@ -999,15 +1025,15 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
   const c = aiConf("image");
   const chosen = aiResolveRegistryModel(b.modelRegistryId);
   const mystic = /^(api\.)?magnific\.(com|ai)$|(^|\.)freepik\.com$/.test((() => { try { return new URL(c.endpoint).hostname; } catch { return ""; } })());
+  const layout = aiLayoutNote(aiLayoutZonesFrom(b));
   const body = {
-    prompt: String(b.prompt || "").slice(0, 4000) + (c.defaultStyle ? "\n\nWorkspace brand requirements (take precedence over conflicting creative preferences):\n" + String(c.defaultStyle).slice(0,4000) : ""),
+    prompt: String(b.prompt || "").slice(0, 4000) + (layout ? "\n\n" + layout : "") + (c.defaultStyle ? "\n\nWorkspace brand requirements (take precedence over conflicting creative preferences):\n" + String(c.defaultStyle).slice(0,4000) : ""),
     negative_prompt: String(b.negativePrompt || "").slice(0, 1000),
     width: Math.max(64, Math.min(4096, +b.width || 1024)),
     height: Math.max(64, Math.min(4096, +b.height || 1024)),
     model: (chosen ? chosen.modelId : (b.model || c.model)) || undefined,
     num_images: 1,
     refs: aiReferenceImages(b, chosen, mystic),
-    layout: aiLayoutMapFrom(b),
     /* how Mystic follows the member's picture: its style or its structure, 0–100 */
     refMode: b.referenceMode === "structure" ? "structure" : "style",
     refStrength: Math.max(0, Math.min(100, Math.round(+b.referenceStrength >= 0 ? +b.referenceStrength : 50)))
@@ -1637,6 +1663,10 @@ function sanitizeNewTask(b, u) {
   checkVersionNumbers(b.versions);
   b.versions = (Array.isArray(b.versions) ? b.versions : []).map(v => Object.assign({}, v, { by: u.id, state: "pending", decidedBy: null, decidedAt: null, color: cleanColor(v.color), annots: sanitizeNotes([], v.annots, u) }));
   b.activity = [];
+  /* each person's asset count is cleaned as on an edit, and a new task is never born validated (Oct 2026): a lead's
+     validation was taken as sent, so a duplicate — or any create — could arrive already "validated by" someone */
+  cleanAssetSplit(b);
+  if (b.meta && typeof b.meta === "object") delete b.meta.assetSplitOk;
   return b;
 }
 route("POST", "/api/tasks", (u, p, q, b) => { const firstStage = db.prepare("SELECT id FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order LIMIT 1").get(WS_ID); const isRequest = can.submitRequest(u) && firstStage && b.status === firstStage.id && !b.assignee; forbid(can.createTask(u, b) || isRequest, "create tasks"); if (isRequest && !can.createTask(u, b)) { b.createdBy = u.id; b.tags = (b.tags || []).concat(["request"]); } if (!b.title || String(b.title).length > 240) throw new HttpError(400, "A title under 240 characters is required"); if (b.id != null && !security.validTaskId(b.id)) throw new HttpError(400, "Task ID contains unsupported characters"); /* v39: the server owns task numbers. Browsers still propose T-<n> (their best guess from what

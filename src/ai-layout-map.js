@@ -2,12 +2,13 @@
 /* ============================================================
    THE CANVAS'S LAYOUT, SENT WITH A GENERATION (Oct 2026)
    The text-safe area used to be described to the AI in words only, and the picture still ran under the headline.
-   While "Keep AI image outside text areas" is on (it is unless turned off), a generation now also sends a layout
-   map drawn from the canvas as it stands: the poster at its proportions, black where the headline, the other text,
-   the button, the badge, the disclaimer and the logo sit — a little wider, softly edged — and lighter where the
-   picture may be busy. Magnific Mystic follows it as the structure of the picture (unless the member's own reference
-   is in Structure mode); GPT Image and Gemini get it as one more picture, told what it is (server.js AI_LAYOUT_NOTE).
-   No text on the canvas, or no canvas yet: no map, as before.
+   While "Keep AI image outside text areas" is on (it is unless turned off), a generation also sends where the
+   headline, the other text, the button, the badge, the disclaimer and the logo sit on the canvas as it stands — each
+   as a box in fractions of the poster — and the server writes it into the prompt as measured bands ("the headline
+   from 6% to 31% of the height… place the subject between 36% and 72%"), server.js aiLayoutNote.
+   It first went as a picture, a grey map with black boxes. A model that edits pictures (GPT Image's edits, the one
+   path for a picture) took the map as the picture to edit and returned grey, crumpled noise; now no picture goes.
+   No text on the canvas, or no canvas yet: nothing is sent, as before.
    ============================================================ */
 var AI_LAYOUT_TEXT_IDS={headline:1,sub:1,cta:1,badge:1,disclaimer:1,logo:1};
 function aiLayoutTextHits(){
@@ -18,20 +19,16 @@ function aiLayoutTextHits(){
     return false;
   });
 }
-function aiLayoutMap(){
-  if(typeof AIF==="undefined"||AIF.protectText===false||typeof document==="undefined") return null;
+/* each text box on the canvas, in fractions of the poster (0–1), the part outside the poster left off */
+function aiLayoutZones(){
+  if(typeof AIF==="undefined"||AIF.protectText===false) return null;
   var hits=aiLayoutTextHits(); if(!hits.length) return null;
   var sz=typeof aiActiveSize==="function"?aiActiveSize():null; if(!sz||!sz.w||!sz.h) return null;
-  var k=Math.min(1,768/Math.max(sz.w,sz.h)), w=Math.max(16,Math.round(sz.w*k)), h=Math.max(16,Math.round(sz.h*k));
-  var cv=document.createElement("canvas"); cv.width=w; cv.height=h; var g=cv.getContext("2d"); if(!g) return null;
-  /* where the picture may be busy: a soft light, brightest where no text is */
-  g.fillStyle="#7a7a7a"; g.fillRect(0,0,w,h);
-  /* where the text sits: black, a little wider than the words, softly edged so no hard shape is copied */
-  var pad=Math.round(Math.min(w,h)*0.035), soft=Math.max(4,Math.round(Math.min(w,h)*0.05));
-  try{ g.filter="blur("+soft+"px)"; }catch(e){}
-  g.fillStyle="#000000";
-  hits.forEach(function(hh){ g.fillRect(Math.round(hh.x*k)-pad,Math.round(hh.y*k)-pad,Math.round(hh.w*k)+pad*2,Math.round(hh.h*k)+pad*2); });
-  try{ g.filter="none"; }catch(e){}
-  try{ return cv.toDataURL("image/png"); }catch(e){ return null; }
+  var f=function(v){ return Math.round(Math.max(0,Math.min(1,v))*1000)/1000; }, out=[];
+  hits.slice(0,24).forEach(function(h){
+    var x0=f(h.x/sz.w), y0=f(h.y/sz.h), x1=f((h.x+h.w)/sz.w), y1=f((h.y+h.h)/sz.h);
+    if(x1>x0&&y1>y0) out.push({x:x0,y:y0,w:f(x1-x0),h:f(y1-y0),kind:h.id==="headline"?"headline":h.id==="logo"?"logo":"text"});
+  });
+  return out.length?out:null;
 }
 </script>

@@ -308,45 +308,64 @@ test('a workspace that already wrote its Brand default prompt keeps it', { timeo
   assert.equal((await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json()).ws.ai.image.defaultStyle, 'Our own words.');
 });
 
-/* The canvas's layout map (Oct 2026): sent with a generation so the picture is composed around the text. Mystic follows
-   it as the structure (the member's own Structure picture comes first); GPT Image and Gemini get it as the last picture
-   with what it is; a provider that takes no pictures simply goes without; a map that is not a small picture is left out. */
-test('the layout map reaches each provider its own way', async t => {
+/* The canvas's layout (Oct 2026): sent with a generation as the text's boxes and written into the prompt in words — the
+   bands the text takes and the open area — for every provider alike. It first went as a picture, a grey map with black
+   boxes, and GPT Image's edits endpoint (the one path for a picture) edited the map itself into grey noise: no picture
+   ever goes for it, and a generation with no reference picture is a plain generation. */
+test('the layout is written into the prompt as measured bands, and never sent as a picture', async t => {
   const { c, calls, cleanup } = providers([]); t.after(cleanup);
-  const PNGS = 'data:image/png;base64,' + Buffer.from('layout').toString('base64');
-  const layout = c.aiLayoutMapFrom({ layoutMap: PNGS });
-  assert.equal(layout.kind, 'layout'); assert.equal(layout.data.toString(), 'layout');
-  assert.equal(c.aiLayoutMapFrom({ layoutMap: 'https://evil.example/x.png' }), null, 'a picture, not a link');
-  assert.equal(c.aiLayoutMapFrom({ layoutMap: 'data:image/png;base64,' + Buffer.alloc(2_000_001).toString('base64') }), null, 'small');
-  assert.equal(c.aiLayoutMapFrom({}), null);
-  const body = extra => Object.assign({ prompt: 'P', negative_prompt: 'N', width: 1080, height: 1920, refs: [], layout }, extra);
-  /* Mystic: the structure to follow, at a moderate strength */
-  const mystic = { key: 'k', endpoint: 'https://api.magnific.ai/v1/mystic' }, own = [{ mime: 'image/png', data: Buffer.from('s'), kind: 'member' }];
-  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism' }));
-  let my = JSON.parse(calls.pop().init.body);
-  assert.equal(my.structure_reference, Buffer.from('layout').toString('base64')); assert.equal(my.structure_strength, 35, "a moderate strength: the layout leads, its shapes are not copied");
-  assert.ok(my.prompt.indexOf('layout map') < 0, 'Mystic sees no attachment: nothing said about one');
-  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'style', refStrength: 50 }));
-  my = JSON.parse(calls.pop().init.body);
-  assert.equal(my.style_reference, Buffer.from('s').toString('base64')); assert.equal(my.structure_reference, Buffer.from('layout').toString('base64'), 'a style picture and the layout together');
-  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'structure', refStrength: 60 }));
-  my = JSON.parse(calls.pop().init.body);
-  assert.equal(my.structure_reference, Buffer.from('s').toString('base64'), 'the member\'s own Structure picture comes first'); assert.equal(my.structure_strength, 60);
-  /* GPT Image: the last picture, said what it is */
+  /* a feed poster: the logo and the headline at the top, a line, the button and the disclaimer at the bottom */
+  const zones = c.aiLayoutZonesFrom({ layoutZones: [
+    { x: 0.07, y: 0.05, w: 0.18, h: 0.04, kind: 'logo' }, { x: 0.08, y: 0.1, w: 0.84, h: 0.2, kind: 'headline' },
+    { x: 0.1, y: 0.82, w: 0.8, h: 0.03, kind: 'text' }, { x: 0.3, y: 0.87, w: 0.4, h: 0.04, kind: 'cta' }, { x: 0.1, y: 0.93, w: 0.8, h: 0.03 },
+    { x: 'a', y: 0.5, w: 0.1, h: 0.1 }, null, { x: 0.5, y: 0.5, w: 0, h: 0.1 }] });
+  assert.equal(zones.length, 5, 'a box that is not numbers, or has no size, is left out');
+  assert.deepEqual([...zones.map(z => z.kind)], ['logo', 'headline', 'text', 'text', 'text']);
+  assert.equal(c.aiLayoutZonesFrom({}), null); assert.equal(c.aiLayoutZonesFrom({ layoutZones: 'x' }), null);
+  assert.ok(c.aiLayoutZonesFrom({ layoutZones: [{ x: 0.9, y: 0.9, w: 5, h: 5 }] })[0].w <= 0.1 + 1e-9, 'kept inside the poster');
+  assert.equal(c.aiLayoutZonesFrom({ layoutZones: Array.from({ length: 40 }, () => ({ x: 0, y: 0, w: 0.1, h: 0.1 })) }).length, 24, 'at most 24 boxes');
+  const note = c.aiLayoutNote(zones);
+  assert.match(note, /the headline and the logo from 3% to 32% down; text from 80% to 98% down\./);
+  assert.match(note, /open area from 32% to 80% of the height, fully inside it/);
+  assert.equal(note.indexOf('image'), -1, 'nothing said about an attached picture');
+  /* text all on one side: the subject goes beside it */
+  const side = c.aiLayoutNote(c.aiLayoutZonesFrom({ layoutZones: [{ x: 0.05, y: 0.2, w: 0.45, h: 0.5, kind: 'headline' }] }));
+  assert.match(side, /the headline from 18% to 72% down, on the left side/); assert.match(side, /right part of the poster, from 50% of the width/);
+  /* text everywhere: no open area is made up */
+  assert.match(c.aiLayoutNote(c.aiLayoutZonesFrom({ layoutZones: [{ x: 0, y: 0, w: 1, h: 0.45 }, { x: 0, y: 0.5, w: 1, h: 0.5 }] })), /covers most of the poster/);
+  assert.equal(c.aiLayoutNote(null), '');
+
+  /* every provider: the words in the prompt, no picture of it */
+  const body = extra => Object.assign({ prompt: 'P\n\n' + note, negative_prompt: 'N', width: 1080, height: 1440, refs: [] }, extra);
+  const own = [{ mime: 'image/png', data: Buffer.from('s'), kind: 'member' }];
   await c.aiImageCall({ key: 'k', endpoint: 'https://api.openai.com/v1/images/generations' }, 'openai', body({ model: 'gpt-image-1' }));
-  let last = calls.pop(); assert.equal(last.url, 'https://api.openai.com/v1/images/edits');
-  const imgs = last.init.body.getAll('image[]'); assert.equal(imgs.length, 1); assert.equal(imgs[0].name, 'layout-map.png');
-  assert.match(last.init.body.get('prompt'), /layout map of the finished poster/);
-  /* DALL·E and Imagen take no pictures: a plain generation, no refusal */
-  await c.aiImageCall({ key: 'k', endpoint: 'https://api.openai.com/v1/images/generations' }, 'openai', body({ model: 'dall-e-3' }));
-  assert.equal(calls.pop().url, 'https://api.openai.com/v1/images/generations');
-  await c.aiImageCall({ key: 'k', endpoint: 'https://generativelanguage.googleapis.com/v1beta' }, 'gemini', body({ model: 'imagen-4.0-generate-001' })).catch(e => assert.notEqual(e.status, 400, 'not refused for the map'));
-  assert.match(calls.pop().url, /:predict$/);
-  /* Gemini: after the text, said what it is */
+  let last = calls.pop();
+  assert.equal(last.url, 'https://api.openai.com/v1/images/generations', 'no reference picture: a plain generation, never an edit');
+  assert.match(JSON.parse(last.init.body).prompt, /open area from 32% to 80%/);
+  await c.aiImageCall({ key: 'k', endpoint: 'https://api.openai.com/v1/images/generations' }, 'openai', body({ model: 'gpt-image-1', refs: own }));
+  last = calls.pop(); assert.equal(last.url, 'https://api.openai.com/v1/images/edits');
+  assert.deepEqual(last.init.body.getAll('image[]').map(f => f.name), ['reference-1.png'], 'only the reference picture is edited from');
   await c.aiImageCall({ key: 'k', endpoint: 'https://generativelanguage.googleapis.com/v1beta' }, 'gemini', body({ model: 'gemini-3-pro-image' }));
   const parts = JSON.parse(calls.pop().init.body).contents[0].parts;
-  assert.equal(parts.length, 2); assert.match(parts[0].text, /layout map/); assert.equal(parts[1].inlineData.data, Buffer.from('layout').toString('base64'));
-  /* a custom endpoint is not sent it */
-  await c.aiImageCall({ key: 'k', endpoint: 'https://images.example.com/v1/generate' }, 'custom', body({ model: 'x' }));
-  const sent = JSON.parse(calls.pop().init.body); assert.equal(JSON.stringify(sent).indexOf(Buffer.from('layout').toString('base64')), -1);
+  assert.equal(parts.length, 1); assert.match(parts[0].text, /Layout of the finished poster/);
+  const mystic = { key: 'k', endpoint: 'https://api.magnific.ai/v1/mystic' };
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism' }));
+  let my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.structure_reference, undefined, 'Mystic follows no map'); assert.match(my.prompt, /open area from 32% to 80%/);
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'style', refStrength: 50 }));
+  my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.style_reference, Buffer.from('s').toString('base64')); assert.equal(my.structure_reference, undefined);
+
+  /* the route: the boxes the page sends become the words, after the brief and before the brand's requirements */
+  const { DatabaseSync } = require('node:sqlite'); c.db = new DatabaseSync(':memory:'); c.uploads.ensureTable(c.db); t.after(() => c.db.close());
+  let handler, sent = null; Object.assign(c, { route(m, u, h) { if (u === '/api/ai/image') handler = h; }, forbid(ok) { if (!ok) throw new c.HttpError(403, 'no'); }, can: { useAIHub: () => true }, security: { log() {} },
+    aiConf: () => ({ key: 'k', endpoint: 'https://images.example.com/v1/generate', provider: 'custom', defaultStyle: 'BRAND' }), aiResolveRegistryModel: () => null, fetch: async () => ({ status: 404, ok: false, headers: { get: () => null }, arrayBuffer: async () => Buffer.alloc(0) }) });
+  c.aiFetch = async (url, init) => { sent = JSON.parse(init.body); return { url: 'https://cdn.example.com/out.png' }; };
+  const s = fs.readFileSync(path.join(root, 'server/server.js'), 'utf8');
+  vm.runInContext(s.slice(s.indexOf('route("POST", "/api/ai/image"'), s.indexOf('route("POST", "/api/ai/chat"')), c);
+  await handler({ id: 'u1', caps: {} }, {}, {}, { prompt: 'BRIEF', width: 1080, height: 1440, layoutZones: [{ x: 0.08, y: 0.1, w: 0.84, h: 0.2, kind: 'headline' }], layoutMap: 'data:image/png;base64,' + Buffer.from('old').toString('base64') });
+  assert.match(sent.prompt, /^BRIEF\n\nLayout of the finished poster[^]*\n\nWorkspace brand requirements[^]*BRAND/);
+  assert.equal(JSON.stringify(sent).indexOf(Buffer.from('old').toString('base64')), -1, 'a map from a page not yet reloaded is not passed on');
+  await handler({ id: 'u1', caps: {} }, {}, {}, { prompt: 'BRIEF', width: 1080, height: 1440 });
+  assert.equal(sent.prompt.indexOf('Layout of'), -1, 'no boxes, no words');
 });

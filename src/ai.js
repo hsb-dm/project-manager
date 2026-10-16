@@ -439,7 +439,7 @@ function aiGenerate(){
                referenceMode:AIF.referenceMode==="structure"?"structure":"style", referenceStrength:AIF.referenceStrength==null?50:+AIF.referenceStrength,
                characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
                referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
-               layoutMap:(API.on&&typeof aiLayoutMap==="function"?aiLayoutMap():null)||undefined,   /* where the text sits, for the AI to compose around (src/ai-layout-map.js) */
+               layoutZones:(API.on&&typeof aiLayoutZones==="function"?aiLayoutZones():null)||undefined,   /* where the text sits, written into the prompt by the server (src/ai-layout-map.js) */
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
   AI_BUSY = true; renderScreen(false);
   var call = API.on

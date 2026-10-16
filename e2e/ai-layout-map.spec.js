@@ -1,11 +1,11 @@
-/* The canvas's layout, sent with a generation (Oct 2026). While "Keep AI image outside text areas" is on, AI Hub
-   sends a layout map with the generation: the poster at its proportions, black where the headline and the other
-   text sit, lighter where the picture may be busy. Off, it is not sent. How each provider uses it:
-   tests/ai-poster-look.test.js. */
+/* The canvas's layout, sent with a generation (Oct 2026). While "Keep AI image outside text areas" is on, AI Hub sends
+   where the headline and the other text sit — boxes in fractions of the poster, never a picture (a grey map once went
+   as a picture and came back edited into grey noise) — and the server writes them into the prompt as measured bands.
+   Off, nothing is sent. The words and how each provider gets them: tests/ai-poster-look.test.js. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 
-test("a generation carries the canvas's layout: dark where the text is, lighter where the picture may be", async ({ page }) => {
+test("a generation carries where the canvas's text sits, as boxes and never as a picture", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto("/");
   await page.locator("#au_email").fill(ADMIN.email);
@@ -20,25 +20,20 @@ test("a generation carries the canvas's layout: dark where the text is, lighter 
     await page.waitForFunction(() => (AI_LAYER_HITS || []).some(h => h.id === "headline"));
     await page.evaluate(() => aiGenerate());
     await expect.poll(() => sent).not.toBeNull();
-    expect(sent.layoutMap).toMatch(/^data:image\/png;base64,/);
-    /* read back: the poster's proportions, black over the headline, lighter in the middle of the free area */
-    const m = await page.evaluate(url => new Promise(res => { const im = new Image(); im.onload = () => {
-      const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0);
-      const sz = aiActiveSize(), k = im.width / sz.w, lum = (x, y) => { const d = g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data; return (d[0] + d[1] + d[2]) / 3; };
-      const hs = AI_LAYER_HITS.filter(h => /^(headline|sub|cta|badge|disclaimer|logo)$/.test(h.id)), head = hs.find(h => h.id === "headline");
-      /* the free point farthest from every text box, down the middle */
-      let best = null; for (let y = 0; y < sz.h; y += sz.h / 40) { const d = Math.min.apply(null, hs.map(h => Math.max(0, Math.abs(y - (h.y + h.h / 2)) - h.h / 2))); if (!best || d > best.d) best = { y, d }; }
-      res({ ratio: +(im.width / im.height).toFixed(2), want: +(sz.w / sz.h).toFixed(2), maxSide: Math.max(im.width, im.height), head: lum(head.x + head.w / 2, head.y + head.h / 2), free: lum(sz.w / 2, best.y) });
-    }; im.src = url; }), sent.layoutMap);
-    expect(m.ratio).toBe(m.want);
-    expect(m.maxSide).toBeLessThanOrEqual(768);
-    expect(m.head, "the headline's place is dark").toBeLessThan(30);
-    expect(m.free, "the free area is lighter").toBeGreaterThan(90);
-    /* turned off: the text areas are not protected, and no map goes */
+    expect(sent.layoutMap, "no picture of the layout").toBeUndefined();
+    expect(JSON.stringify(sent)).not.toMatch(/data:image\/png;base64/);
+    /* each box where its layer is on the canvas, in fractions of the poster */
+    const want = await page.evaluate(() => { const sz = aiActiveSize(), h = AI_LAYER_HITS.find(x => x.id === "headline"); return { x: h.x / sz.w, y: h.y / sz.h, w: h.w / sz.w, h: h.h / sz.h }; });
+    const head = sent.layoutZones.find(z => z.kind === "headline");
+    expect(head, "the headline's box").toBeTruthy();
+    for (const k of ["x", "y", "w", "h"]) expect(Math.abs(head[k] - Math.max(0, Math.min(1, want[k])))).toBeLessThan(0.01);
+    expect(sent.layoutZones.length).toBeGreaterThan(1);
+    for (const z of sent.layoutZones) { for (const k of ["x", "y", "w", "h"]) { expect(z[k]).toBeGreaterThanOrEqual(0); expect(z[k]).toBeLessThanOrEqual(1); } expect(z.x + z.w).toBeLessThanOrEqual(1.001); expect(z.y + z.h).toBeLessThanOrEqual(1.001); }
+    /* turned off: the text areas are not protected, and nothing goes */
     sent = null;
     await page.evaluate(() => { AIF.protectText = false; aiGenerate(); });
     await expect.poll(() => sent).not.toBeNull();
-    expect(sent.layoutMap).toBeUndefined();
+    expect(sent.layoutZones).toBeUndefined();
   } finally {
     await page.unroute("**/api/ai/image");
     await page.evaluate(w => { AIF = Object.assign(AIF, JSON.parse(w)); renderScreen(false); }, was);

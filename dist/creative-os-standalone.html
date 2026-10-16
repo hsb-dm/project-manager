@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="717eccdb7f31">
+<meta name="zc-build" content="0bc1adab76b3">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1909,7 +1909,7 @@ span.emj{width:auto;height:auto;vertical-align:baseline}
 .msgfab{display:none;position:fixed;right:22px;bottom:86px;z-index:44;width:52px;height:52px;border-radius:50%;border:0;cursor:pointer;place-items:center;background:var(--color-ink);color:var(--color-ink-text);box-shadow:var(--shadow-lg);transition:transform .15s}
 .msgfab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round}
 .msgfab .cnt{position:absolute;top:-4px;right:-4px;font-size:10.5px;font-weight:700;background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;border:2px solid var(--color-surface)}
-.msgfab.active{background:var(--color-primary);color:#fff}
+.msgfab.active{background:var(--color-primary);color:var(--color-primary-ink)}
 .msgfab:hover{transform:scale(1.06)}
 body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
 @media (max-width:980px){.msgfab{display:grid;bottom:134px;right:14px;width:46px;height:46px}.msgfab svg{width:20px;height:20px}}
@@ -4242,7 +4242,7 @@ body.bulk-on .bulk-selectable {
 [data-theme="dark"] .st-edit input,[data-theme="dark"] .st-emoji{background:var(--color-surface-sunken);color:var(--color-text-primary);border-color:var(--color-border-strong)}
 [data-theme="dark"] .st-suggest button,[data-theme="dark"] .st-until-quick button{background:var(--color-surface);color:var(--color-text-secondary);border-color:var(--color-border-strong)}
 [data-theme="dark"] .st-suggest button.on,[data-theme="dark"] .st-until-quick button.on{background:var(--color-primary-soft);color:var(--color-text-primary)}
-.ai-head-actions{display:flex;align-items:center;gap:6px;min-width:min(100%,430px)}.ai-head-primary-actions,.ai-head-secondary-actions{display:flex;align-items:center;gap:6px}.ai-head-secondary-actions{margin-left:auto}.ai-head-action{width:40px;height:40px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-primary)}.ai-head-action.labeled{width:auto;min-height:40px;padding:0 10px;gap:6px;font-weight:700}.ai-head-action:hover{border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}.ai-head-action.primary{background:var(--color-primary);border-color:var(--color-primary);color:#fff}.ai-head-action.primary:hover{color:#fff;background:var(--color-primary-hover)}.ai-head-action svg{width:18px;height:18px}.ai-head-action.is-generating{cursor:progress;opacity:.88}.ai-button-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.42);border-top-color:#fff;border-radius:50%;animation:cos-spin .75s linear infinite}.task-round-action{position:relative;width:36px;height:36px;min-width:36px;border-radius:50%}.task-round-action.active{color:var(--color-primary);border-color:var(--color-primary);background:var(--color-primary-soft)}.task-round-count{position:absolute;right:-4px;top:-4px;min-width:15px;height:15px;border-radius:50%;padding:0 3px;background:var(--color-primary);color:#fff;font-size:9px;line-height:15px;text-align:center}.ai-logo-settings{display:grid;grid-template-columns:72px minmax(160px,1fr) auto;align-items:center;gap:14px}.ai-logo-settings-preview,.ai-logo-source-preview{display:grid;place-items:center;overflow:hidden;background-color:var(--ai-logo-bg,transparent)}.ai-logo-settings-preview.is-transparent,.ai-logo-source-preview.is-transparent{background-image:linear-gradient(45deg,#d9dce3 25%,transparent 25%),linear-gradient(-45deg,#d9dce3 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9dce3 75%),linear-gradient(-45deg,transparent 75%,#d9dce3 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0}.ai-logo-settings-preview{width:72px;height:72px;border:1px solid var(--color-border);border-radius:14px}.ai-logo-settings-preview img,.ai-logo-source-preview img{max-width:82%;max-height:82%;object-fit:contain}.ai-logo-settings-actions{display:flex;gap:8px;flex-wrap:wrap}.ai-logo-bg-controls{margin-top:14px}.ai-logo-source-preview{height:92px;border:1px solid var(--color-border);border-radius:10px;margin-bottom:8px}@media(max-width:700px){.ai-logo-settings{grid-template-columns:64px 1fr}.ai-logo-settings-preview{width:64px;height:64px}.ai-logo-settings-actions{grid-column:1/-1}.ai-studio-head{align-items:flex-start}.ai-head-actions{width:100%;min-width:0;gap:6px;flex-wrap:wrap}.ai-head-primary-actions,.ai-head-secondary-actions{gap:6px}.ai-head-action.labeled{padding:0 9px}.ai-head-secondary-actions{margin-left:0}/* One height for the whole header row. Two classes deep on purpose: .pagehead .iconbtn in
+.ai-head-actions{display:flex;align-items:center;gap:6px;min-width:min(100%,430px)}.ai-head-primary-actions,.ai-head-secondary-actions{display:flex;align-items:center;gap:6px}.ai-head-secondary-actions{margin-left:auto}.ai-head-action{width:40px;height:40px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-primary)}.ai-head-action.labeled{width:auto;min-height:40px;padding:0 10px;gap:6px;font-weight:700}.ai-head-action:hover{border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-soft)}.ai-head-action.primary{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-primary-ink)}.ai-head-action.primary:hover{color:var(--color-primary-ink);background:var(--color-primary-hover)}.ai-head-action svg{width:18px;height:18px}.ai-head-action.is-generating{cursor:progress;opacity:.88}.ai-button-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.42);border-color:color-mix(in srgb,currentColor 40%,transparent);border-top-color:currentColor;border-radius:50%;animation:cos-spin .75s linear infinite}.task-round-action{position:relative;width:36px;height:36px;min-width:36px;border-radius:50%}.task-round-action.active{color:var(--color-primary);border-color:var(--color-primary);background:var(--color-primary-soft)}.task-round-count{position:absolute;right:-4px;top:-4px;min-width:15px;height:15px;border-radius:50%;padding:0 3px;background:var(--color-primary);color:var(--color-primary-ink);font-size:9px;line-height:15px;text-align:center}.ai-logo-settings{display:grid;grid-template-columns:72px minmax(160px,1fr) auto;align-items:center;gap:14px}.ai-logo-settings-preview,.ai-logo-source-preview{display:grid;place-items:center;overflow:hidden;background-color:var(--ai-logo-bg,transparent)}.ai-logo-settings-preview.is-transparent,.ai-logo-source-preview.is-transparent{background-image:linear-gradient(45deg,#d9dce3 25%,transparent 25%),linear-gradient(-45deg,#d9dce3 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d9dce3 75%),linear-gradient(-45deg,transparent 75%,#d9dce3 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0}.ai-logo-settings-preview{width:72px;height:72px;border:1px solid var(--color-border);border-radius:14px}.ai-logo-settings-preview img,.ai-logo-source-preview img{max-width:82%;max-height:82%;object-fit:contain}.ai-logo-settings-actions{display:flex;gap:8px;flex-wrap:wrap}.ai-logo-bg-controls{margin-top:14px}.ai-logo-source-preview{height:92px;border:1px solid var(--color-border);border-radius:10px;margin-bottom:8px}@media(max-width:700px){.ai-logo-settings{grid-template-columns:64px 1fr}.ai-logo-settings-preview{width:64px;height:64px}.ai-logo-settings-actions{grid-column:1/-1}.ai-studio-head{align-items:flex-start}.ai-head-actions{width:100%;min-width:0;gap:6px;flex-wrap:wrap}.ai-head-primary-actions,.ai-head-secondary-actions{gap:6px}.ai-head-action.labeled{padding:0 9px}.ai-head-secondary-actions{margin-left:0}/* One height for the whole header row. Two classes deep on purpose: .pagehead .iconbtn in
    responsive.css would otherwise win and shrink only the round icons. */.ai-head-actions .ai-head-action{width:36px;height:36px}.ai-head-actions .ai-head-action.labeled{width:auto;min-height:36px;height:36px}}
 .task-toolbar-primary,.task-toolbar-sort,.task-toolbar-tail{display:flex;align-items:center;gap:8px}.task-toolbar-sort{flex-wrap:wrap}.task-sort-direction{width:30px;height:30px}@media(max-width:980px){.task-filter-toolbar{gap:6px}.task-filter-toolbar .task-toolbar-sort{order:1;flex:none}.task-filter-toolbar .task-toolbar-primary{order:2;flex:none}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none}.task-filter-toolbar .task-toolbar-spacer{display:none}.task-filter-toolbar .fchips{order:4;flex:0 0 100%}.task-filter-toolbar .pillsel{min-height:36px}.task-filter-toolbar .task-sort-direction{width:36px;height:36px}}/* Board and List share one toolbar builder; List's extra Group pill used to push the last
    action onto a row of its own while Board stayed on one. Everything now rides a single
@@ -4311,7 +4311,7 @@ body.bulk-on .bulk-selectable {
 .desc-img-x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4}
 /* The corner handle that sets how wide a picture in the writing is. It lives outside the editable
    text, like the remove button, so nothing can type over it. */
-.desc-img-size{position:fixed;z-index:150;display:none;place-items:center;width:24px;height:24px;padding:0;border:2px solid #fff;border-radius:6px;background:var(--color-primary);color:#fff;cursor:nwse-resize;box-shadow:var(--shadow-md);touch-action:none}
+.desc-img-size{position:fixed;z-index:150;display:none;place-items:center;width:24px;height:24px;padding:0;border:2px solid #fff;border-radius:6px;background:var(--color-primary);color:var(--color-primary-ink);cursor:nwse-resize;box-shadow:var(--shadow-md);touch-action:none}
 .desc-img-size.on{display:grid}
 .desc-img-size svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 body.paste-resizing{user-select:none;-webkit-user-select:none;cursor:nwse-resize}
@@ -8267,7 +8267,7 @@ function taskGearSetPosition(pos){
   if(typeof WorkspaceQuest!=="undefined"&&WorkspaceQuest.emit) WorkspaceQuest.emit("task-panel-position");
 }
 function taskMenu(a){ var id=S.drawerTask; ctxMenu(a,(canI.createTask()?'<button onclick="closePops();duplicateTask(\''+id+'\')">'+I.plus+tr("Duplicate task")+'</button>':'')+'<button onclick="closePops();exportTaskCSV(\''+id+'\')">'+I.download+tr("Export task (.csv)")+'</button>'+(canI.editTask(task(id))?'<button onclick="closePops();toggleHidden(\''+id+'\')">'+I.eye+tr(task(id).hidden?"Unhide task":"Hide task")+'</button>':'')+(canI.deleteTask()?'<button class="danger" onclick="closePops();deleteTask(\''+id+'\')">'+I.trash+tr("Delete task")+'</button>':'')); }
-function duplicateTask(id){ var src=task(id); var nid=nextId("T-",TASKS); var c=clone(src); c.id=nid; c.title=src.title+" (copy)"; c.status=WS.workflow[0].id; c.versions=[]; c.comments=[]; c.activity=[]; c.files=[]; c.ago=0; c.createdAt=null; c.completedAt=null; c.sort=(src.sort||0)+1; log(c,"created"); createTask(c).then(function(saved){ if(saved===false)return false; toast("Duplicated as "+c.id); openTask(c.id); }).catch(function(){}); }
+function duplicateTask(id){ var src=task(id); var nid=nextId("T-",TASKS); var c=clone(src); c.id=nid; c.title=src.title+" (copy)"; c.status=WS.workflow[0].id; c.versions=[]; c.comments=[]; c.activity=[]; c.files=[]; c.ago=0; c.createdAt=null; c.completedAt=null; /* the work is to be done again: no hours spent on it, no lead validation yet */ if(c.meta){ delete c.meta.actualEffort; delete c.meta.assetSplitOk; } c.sort=(src.sort||0)+1; log(c,"created"); createTask(c).then(function(saved){ if(saved===false)return false; toast("Duplicated as "+c.id); openTask(c.id); }).catch(function(){}); }
 function descView(tk){ if(typeof descEditorHtml==="function") return descEditorHtml(tk); var ed=canI.editTask(tk); return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">Description</div>'+(ed?'<textarea class="desc" placeholder="'+attr(tr("Add context not covered by the brief…"))+'" onchange="editTask(\'description\',this.value)">'+esc(tk.description||"")+'</textarea><div class="hint" style="margin-top:5px">'+tr("Use this for additional context, constraints, or notes.")+'</div>':'<div style="white-space:pre-line">'+(tk.description?esc(tk.description):'<span class="hint">No description.</span>')+'</div>')+'</div>'; }
 
 /* ---- brief ---- */
@@ -9389,7 +9389,7 @@ function aiGenerate(){
                referenceMode:AIF.referenceMode==="structure"?"structure":"style", referenceStrength:AIF.referenceStrength==null?50:+AIF.referenceStrength,
                characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
                referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
-               layoutMap:(API.on&&typeof aiLayoutMap==="function"?aiLayoutMap():null)||undefined,   /* where the text sits, for the AI to compose around (src/ai-layout-map.js) */
+               layoutZones:(API.on&&typeof aiLayoutZones==="function"?aiLayoutZones():null)||undefined,   /* where the text sits, written into the prompt by the server (src/ai-layout-map.js) */
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
   AI_BUSY = true; renderScreen(false);
   var call = API.on
@@ -16449,12 +16449,13 @@ function fontEnsure(font,weight){
 /* ============================================================
    THE CANVAS'S LAYOUT, SENT WITH A GENERATION (Oct 2026)
    The text-safe area used to be described to the AI in words only, and the picture still ran under the headline.
-   While "Keep AI image outside text areas" is on (it is unless turned off), a generation now also sends a layout
-   map drawn from the canvas as it stands: the poster at its proportions, black where the headline, the other text,
-   the button, the badge, the disclaimer and the logo sit — a little wider, softly edged — and lighter where the
-   picture may be busy. Magnific Mystic follows it as the structure of the picture (unless the member's own reference
-   is in Structure mode); GPT Image and Gemini get it as one more picture, told what it is (server.js AI_LAYOUT_NOTE).
-   No text on the canvas, or no canvas yet: no map, as before.
+   While "Keep AI image outside text areas" is on (it is unless turned off), a generation also sends where the
+   headline, the other text, the button, the badge, the disclaimer and the logo sit on the canvas as it stands — each
+   as a box in fractions of the poster — and the server writes it into the prompt as measured bands ("the headline
+   from 6% to 31% of the height… place the subject between 36% and 72%"), server.js aiLayoutNote.
+   It first went as a picture, a grey map with black boxes. A model that edits pictures (GPT Image's edits, the one
+   path for a picture) took the map as the picture to edit and returned grey, crumpled noise; now no picture goes.
+   No text on the canvas, or no canvas yet: nothing is sent, as before.
    ============================================================ */
 var AI_LAYOUT_TEXT_IDS={headline:1,sub:1,cta:1,badge:1,disclaimer:1,logo:1};
 function aiLayoutTextHits(){
@@ -16465,21 +16466,17 @@ function aiLayoutTextHits(){
     return false;
   });
 }
-function aiLayoutMap(){
-  if(typeof AIF==="undefined"||AIF.protectText===false||typeof document==="undefined") return null;
+/* each text box on the canvas, in fractions of the poster (0–1), the part outside the poster left off */
+function aiLayoutZones(){
+  if(typeof AIF==="undefined"||AIF.protectText===false) return null;
   var hits=aiLayoutTextHits(); if(!hits.length) return null;
   var sz=typeof aiActiveSize==="function"?aiActiveSize():null; if(!sz||!sz.w||!sz.h) return null;
-  var k=Math.min(1,768/Math.max(sz.w,sz.h)), w=Math.max(16,Math.round(sz.w*k)), h=Math.max(16,Math.round(sz.h*k));
-  var cv=document.createElement("canvas"); cv.width=w; cv.height=h; var g=cv.getContext("2d"); if(!g) return null;
-  /* where the picture may be busy: a soft light, brightest where no text is */
-  g.fillStyle="#7a7a7a"; g.fillRect(0,0,w,h);
-  /* where the text sits: black, a little wider than the words, softly edged so no hard shape is copied */
-  var pad=Math.round(Math.min(w,h)*0.035), soft=Math.max(4,Math.round(Math.min(w,h)*0.05));
-  try{ g.filter="blur("+soft+"px)"; }catch(e){}
-  g.fillStyle="#000000";
-  hits.forEach(function(hh){ g.fillRect(Math.round(hh.x*k)-pad,Math.round(hh.y*k)-pad,Math.round(hh.w*k)+pad*2,Math.round(hh.h*k)+pad*2); });
-  try{ g.filter="none"; }catch(e){}
-  try{ return cv.toDataURL("image/png"); }catch(e){ return null; }
+  var f=function(v){ return Math.round(Math.max(0,Math.min(1,v))*1000)/1000; }, out=[];
+  hits.slice(0,24).forEach(function(h){
+    var x0=f(h.x/sz.w), y0=f(h.y/sz.h), x1=f((h.x+h.w)/sz.w), y1=f((h.y+h.h)/sz.h);
+    if(x1>x0&&y1>y0) out.push({x:x0,y:y0,w:f(x1-x0),h:f(y1-y0),kind:h.id==="headline"?"headline":h.id==="logo"?"logo":"text"});
+  });
+  return out.length?out:null;
 }
 </script>
 <script>
