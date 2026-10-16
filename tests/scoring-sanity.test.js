@@ -289,3 +289,56 @@ test('the Scope suggested from the assets produced, and the hours previewed from
   assert.equal(prev('Something new', 3), null, 'a kind the title does not name: no hours made up');
   assert.ok(prev('Three reels', 3) >= 10 && prev('Three reels', 3) <= 18, 'three reels');
 });
+
+/* the analytics (server/scoring-analytics.js): no division by zero, every share between 0 and 100 %, accuracy only over
+   tasks with both numbers, nothing measured is "no data" (null) and never 0 %, and better estimates never look worse */
+test('the analytics figures make sense: no division by zero, shares within 0–100 %, accuracy only where both numbers are, an empty period is no data', () => {
+  const A = require('../server/scoring-analytics.js').pure;
+  assert.equal(A.median([]), null); assert.equal(A.median([3, 1, 2]), 2); assert.equal(A.median([4, 1, 3, 2]), 2.5); assert.equal(A.median([NaN, 5]), 5);
+  assert.equal(A.share(0, 0), null, 'nothing to divide by: no data'); assert.equal(A.share(3, 0), null);
+  assert.equal(A.share(5, 4), 1, 'never above 100 %'); assert.equal(A.share(-1, 4), 0, 'never below 0 %'); assert.equal(A.share(1, 3), 0.3333);
+  /* an estimate of 0, or none, is "not estimated" — left out, never a division by zero */
+  for (const [row, mins] of [[null, 0], [null, -60], [{ status: 'draft', final: 0 }, 0], [{ status: 'approved', locked: 0, final: 0 }, 0], [{ status: 'draft', final: null }, 0]]) assert.equal(A.estimateOf(row, mins), null, JSON.stringify(row));
+  assert.deepEqual(A.estimateOf({ status: 'approved', locked: 6, final: 6 }, 360), { value: 6, basis: 'locked', approved: true, why: null });
+  assert.deepEqual(A.estimateOf({ status: 'locked', locked: 6, final: 6 }, 360), { value: 6, basis: 'locked', approved: false, why: null }, 'frozen when work started: a lock, not approved');
+  assert.equal(A.estimateOf({ status: 'rebaseline_needed', locked: 6, final: 6 }, 360).why, 'scope_changed', 'the scope changed since the lock: counted apart');
+  assert.equal(A.estimateOf({ status: 'unverified', source: 'legacy', final: 3 }, 180).why, 'estimate_from_before');
+  assert.equal(A.estimateOf({ status: 'draft', source: 'manual', final: 3 }, 180).basis, 'not_locked');
+  assert.deepEqual(A.estimateOf(null, 90), { value: 1.5, basis: 'unverified', approved: false, why: 'estimate_from_before' });
+  /* the Actual: the time log's (to the quarter hour, as the task shows it), blocked time never in it */
+  assert.equal(A.actualOf(null, 0), null); assert.equal(A.actualOf({ manual: 0, legacy: 0, blocked: 600 }, 0), null, 'only waiting: no time worked');
+  assert.deepEqual(A.actualOf({ manual: 100, legacy: 0 }, 0), { value: 1.75, basis: 'logged', why: null });
+  assert.equal(A.actualOf({ manual: 60, legacy: 120 }, 0).why, 'time_from_before'); assert.equal(A.actualOf(null, 4).why, 'actual_typed');
+  /* accuracy: only pairs with both numbers; within + longer + less = tasks; the ±20 % edge counts as within */
+  const none = A.accuracy([]);
+  assert.deepEqual(none, { tasks: 0, medianError: null, within: 0, over: 0, under: 0, withinShare: null }, 'nothing measured: no percentage');
+  assert.deepEqual(A.accuracy([{ estimate: 0, actual: 3 }, { estimate: null, actual: 2 }, { estimate: 4, actual: null }, { estimate: 5, actual: NaN }]), none, 'a 0 or missing number is left out');
+  assert.deepEqual(A.accuracy([{ estimate: 5, actual: 6 }, { estimate: 5, actual: 4 }]), { tasks: 2, medianError: 0.2, within: 2, over: 0, under: 0, withinShare: 1 }, '20 % either way is within');
+  assert.deepEqual(A.accuracy([{ estimate: 8, actual: 8 }]), { tasks: 1, medianError: 0, within: 1, over: 0, under: 0, withinShare: 1 });
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 400; i++) {
+    const pairs = Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => ({ estimate: Math.round(rnd() * 40) / 2, actual: Math.round(rnd() * 60) / 4 }));
+    const a = A.accuracy(pairs), valid = pairs.filter(p => p.estimate > 0);
+    assert.equal(a.tasks, valid.length); assert.equal(a.within + a.over + a.under, a.tasks);
+    if (!a.tasks) { assert.equal(a.withinShare, null); assert.equal(a.medianError, null); continue; }
+    assert.ok(a.withinShare >= 0 && a.withinShare <= 1, 'a share between 0 and 100 %: ' + a.withinShare);
+    assert.ok(a.medianError >= 0, 'a miss is never negative');
+    /* one task estimated exactly instead: never fewer within, never a bigger typical miss */
+    const k = pairs.findIndex(p => p.estimate > 0), better = pairs.map((p, j) => j === k ? { estimate: p.estimate, actual: p.estimate } : p), b = A.accuracy(better);
+    assert.ok(b.within >= a.within && b.withinShare >= a.withinShare && b.medianError <= a.medianError + 1e-9, 'a better estimate never looks worse');
+  }
+  /* the bonus distribution: by the award's rate, never negative, nothing without a base */
+  assert.equal(A.bonusBucket(0, 1), null); assert.equal(A.bonusBucket(8, 0), 0); assert.equal(A.bonusBucket(8, -1), 0);
+  assert.equal(A.bonusBucket(8, 0.4), 1, '5 %'); assert.equal(A.bonusBucket(8, 1.1), 3, 'the spec\'s example, 13.75 %'); assert.equal(A.bonusBucket(8, 1.6), 4, 'the 20 % cap'); assert.equal(A.bonusBucket(8, 4), 5);
+  assert.equal(A.BONUS_BUCKETS.length, 6);
+  /* review: first pass only over reviewed tasks; rounds start at 1; a cycle is never negative */
+  assert.deepEqual(A.reviewSum([]), { reviewed: 0, firstPass: 0, firstPassShare: null, approved: 0, rounds: null, medianCycleHours: null });
+  assert.deepEqual(A.reviewSum([{ approvals: 0, revisions: 0 }, { approvals: 0, revisions: 0 }]).firstPassShare, null, 'tasks never reviewed: no data, not 0 %');
+  const rv = A.reviewSum([{ approvals: 1, revisions: 0, cycleHours: 24 }, { approvals: 1, revisions: 2, cycleHours: 60 }, { approvals: 0, revisions: 1, cycleHours: null }, { approvals: 1, revisions: 0, cycleHours: -3 }]);
+  assert.deepEqual(rv, { reviewed: 4, firstPass: 2, firstPassShare: 0.5, approved: 3, rounds: 1.67, medianCycleHours: 42 }, 'a cycle that ends before it starts is bad data, left out');
+  /* the period: from a Monday, inclusive, at most two years, an end before the start refused */
+  assert.deepEqual(A.periodOf({ weeks: 1 }, '2026-10-16'), { from: '2026-10-12', to: '2026-10-16', weeks: ['2026-10-12'] });
+  assert.equal(A.periodOf({ weeks: 8 }, '2026-10-16').weeks.length, 8);
+  assert.ok(A.periodOf({ from: '2026-10-20', to: '2026-10-16' }, '2026-10-16').error); assert.ok(A.periodOf({ from: '2020-01-01' }, '2026-10-16').error); assert.ok(A.periodOf({ to: '2026-02-30' }, '2026-10-16').error);
+  assert.equal(A.weekOf('2026-10-18T23:59:00Z'), '2026-10-12', 'Sunday is the end of the week'); assert.equal(A.weekOf('2026-10-19'), '2026-10-19'); assert.equal(A.weekOf('nonsense'), null);
+});
