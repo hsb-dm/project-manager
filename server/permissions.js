@@ -131,6 +131,12 @@ const can = {
   scoringApproveCompletion: (u, t, credited) => !u.stakeholder && !u.impersonatedBy && has(u, "scoring_approve_completion") && !isAssignee(u, t) && (credited || []).indexOf(u.id) < 0,
   scoringManageOutcomes: (u) => has(u, "scoring_manage_outcomes"),
   scoringViewAnalytics: (u) => has(u, "scoring_view_analytics"),
+  /* a task's scores and their history: everyone on the team who sees the task (all members see every task); a
+     stakeholder's view of the task leaves them out */
+  scoringView: (u, t) => !u.stakeholder,
+  /* a bonus and the points earned: whoever is credited on the task (their own award), whoever approves finished work,
+     whoever sees the team's scoring analytics — never the shared task list */
+  scoringSeesEfficiency: (u, t, credited) => !u.stakeholder && ((credited || []).indexOf(u.id) >= 0 || has(u, "scoring_approve_completion") || has(u, "scoring_view_analytics")),
   /* time is logged by the people assigned to the task, on that task, for themselves — no permission needed */
   logTime: (u, t) => !u.stakeholder && isAssignee(u, t),
 };

@@ -257,11 +257,21 @@ function taskRelations(db, sub, params) {
     files: group(db.prepare("SELECT * FROM files WHERE task_id IN (" + sub + ") ORDER BY created_at").all(...params), "task_id"),
     comments: group(db.prepare("SELECT * FROM comments WHERE task_id IN (" + sub + ") ORDER BY created_at").all(...params), "task_id"),
     activity: group(db.prepare("SELECT * FROM activity_logs WHERE entity_type='task' AND entity_id IN (" + sub + ") ORDER BY created_at").all(...params), "entity_id"),
-    progress: group(db.prepare("SELECT * FROM task_progress_notes WHERE task_id IN (" + sub + ") ORDER BY version_number").all(...params), "task_id")
+    progress: group(db.prepare("SELECT * FROM task_progress_notes WHERE task_id IN (" + sub + ") ORDER BY version_number").all(...params), "task_id"),
+    scoring: group(db.prepare(SCORING_SUMMARY_SQL + " WHERE sc.task_id IN (" + sub + ")").all(...params), "task_id")
   };
 }
 /* a progress note version as the client sees it */
 const pnOut = p => ({ v: p.version_number, text: p.body || "", by: p.created_by, at: p.created_at, editedBy: p.edited_by || null, editedAt: p.edited_at || null });
+/* Smart Scoring on the task (Oct 2026, docs/SMART-SCORING.md): each module's final value, unit, status, where it came
+   from, its lock, its revision and whether a change is proposed — the same for everyone, so never anything about a
+   bonus or points earned (the bootstrap task list is shared by all users; GET /api/tasks/:id/scoring is per person). */
+const SCORING_SUMMARY_SQL = "SELECT sc.task_id, sc.module, sc.final_value, sc.unit, sc.source, sc.status, sc.locked_value, sc.locked_at, sc.rev, sc.proposal IS NOT NULL AND sc.proposal <> '' AS proposed FROM task_scoring sc";
+function scoringOut(rows) {
+  const o = { hours: null, story: null, weighted: null };
+  (rows || []).forEach(r => { if (r.module in o) o[r.module] = { value: r.final_value, unit: r.unit || null, status: r.status, source: r.source || null, lockedValue: r.locked_value, lockedAt: r.locked_at || null, rev: r.rev, proposed: !!r.proposed }; });
+  return o;
+}
 function buildTask(t, R) {
   const id = t.id, brief = R.briefs.get(id), custom = {};
   (R.custom.get(id) || []).forEach(r => { custom[r.field_id] = J(r.value, null); });
@@ -276,6 +286,7 @@ function buildTask(t, R) {
     comments: (R.comments.get(id) || []).map(c => ({ id: c.id, by: c.author_id, createdAt: c.created_at, vis: c.visibility, text: c.body, parent: c.parent_id, attachments: J(c.attachments, []), editedAt: c.edited_at || null })),
     activity: (R.activity.get(id) || []).map(a => ({ id: a.id, who: a.actor_id, k: a.action, createdAt: a.created_at, a: J(a.payload, {}) })),
     progress: ((R.progress && R.progress.get(id)) || []).map(pnOut),
+    scoring: scoringOut(R.scoring && R.scoring.get(id)),
   };
 }
 function readTask(db, id) {
@@ -409,8 +420,10 @@ function readTaskSlimRows(db, wsId, where, params) {
   const tags = {}; db.prepare("SELECT tt.task_id, g.name FROM task_tags tt JOIN tags g ON g.id=tt.tag_id JOIN tasks t ON t.id=tt.task_id WHERE t.workspace_id=? AND " + where).all(wsId, ...(params || [])).forEach(r => { (tags[r.task_id] = tags[r.task_id] || []).push(r.name); });
   /* the latest progress note travels with a slim task too: it goes into the Excel export */
   const prog = {}; db.prepare("SELECT p.* FROM task_progress_notes p JOIN tasks t ON t.id=p.task_id WHERE t.workspace_id=? AND " + where + " ORDER BY p.version_number").all(wsId, ...(params || [])).forEach(r => { prog[r.task_id] = r; });
+  /* Smart Scoring's summary travels with a slim task too (one query), as with a full one */
+  const scores = {}; db.prepare(SCORING_SUMMARY_SQL + " JOIN tasks t ON t.id=sc.task_id WHERE t.workspace_id=? AND " + where).all(wsId, ...(params || [])).forEach(r => { (scores[r.task_id] = scores[r.task_id] || []).push(r); });
   return rows.map(t => { const a = J(t.assignees, []), r = J(t.reviewers, []); if (t.assignee_id && a.indexOf(t.assignee_id) < 0) a.unshift(t.assignee_id); if (t.reviewer_id && r.indexOf(t.reviewer_id) < 0) r.unshift(t.reviewer_id);
-    return { _slim: true, progress: prog[t.id] ? [pnOut(prog[t.id])] : [], id: t.id, title: t.title, description: "", proj: t.project_id, alsoIn: J(t.extra_projects, []), team: t.team_id, status: t.status_id, prio: t.priority, assignee: t.assignee_id, reviewer: t.reviewer_id, assignees: a, reviewers: r, hidden: !!t.is_hidden, startDate: t.start_date, dueDate: t.due_date, effort: (t.estimated_minutes || 0) / 60, assetCount: t.asset_count || 0, labels: J(t.labels, []), sort: t.sort_order, parent: t.parent_task_id, requestId: t.request_id, completedAt: t.completed_at, createdAt: t.created_at, createdBy: t.created_by, updatedAt: t.updated_at, tags: tags[t.id] || [], dependencies: [], brief: null, assetSplit: (J(t.meta, {}) || {}).assetSplit || null, custom: {}, meta: J(t.meta, {}), versions: [], files: [], comments: [], activity: [] }; });
+    return { _slim: true, progress: prog[t.id] ? [pnOut(prog[t.id])] : [], id: t.id, title: t.title, description: "", proj: t.project_id, alsoIn: J(t.extra_projects, []), team: t.team_id, status: t.status_id, prio: t.priority, assignee: t.assignee_id, reviewer: t.reviewer_id, assignees: a, reviewers: r, hidden: !!t.is_hidden, startDate: t.start_date, dueDate: t.due_date, effort: (t.estimated_minutes || 0) / 60, assetCount: t.asset_count || 0, labels: J(t.labels, []), sort: t.sort_order, parent: t.parent_task_id, requestId: t.request_id, completedAt: t.completed_at, createdAt: t.created_at, createdBy: t.created_by, updatedAt: t.updated_at, tags: tags[t.id] || [], dependencies: [], brief: null, assetSplit: (J(t.meta, {}) || {}).assetSplit || null, custom: {}, meta: J(t.meta, {}), versions: [], files: [], comments: [], activity: [], scoring: scoringOut(scores[t.id]) }; });
 }
 /* Merge a slim client copy over the stored task: scalar fields win, collections stay. */
 function mergeSlimTask(stored, incoming) { const out = Object.assign({}, stored); SLIM_FIELDS.forEach(k => { if (incoming[k] !== undefined) out[k] = incoming[k]; }); out.id = stored.id; return out; }

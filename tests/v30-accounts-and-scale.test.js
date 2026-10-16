@@ -173,10 +173,20 @@ test('batched task reads return exactly what single reads return', () => {
   const { open } = require('../server/db'); const seed = require('../server/seed'); const sz = require('../server/serialize');
   const db = open(); seed.run(db);
   const ws = db.prepare('SELECT id FROM workspaces').get().id;
+  /* Smart Scoring's summaries travel with the task in both reads, and with a slim copy too (one extra query each) */
+  const some = db.prepare('SELECT id FROM tasks ORDER BY sort_order LIMIT 3').all().map(r => r.id);
+  const put = db.prepare("INSERT INTO task_scoring (task_id,module,workspace_id,final_value,unit,source,status,locked_value,locked_at,proposal,rev) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+  put.run(some[0], 'hours', ws, 6, 'h', 'math', 'approved', 6, '2026-10-01T00:00:00.000Z', null, 3);
+  put.run(some[0], 'story', ws, 5, 'story_points', 'manual', 'proposed', null, null, '{"value":8}', 2);
+  put.run(some[1], 'weighted', ws, 4.6, 'weighted_points', 'math', 'draft', null, null, null, 1);
   const batch = sz.readTasksBatch(db, ws, '1=1', []);
   const ids = db.prepare('SELECT id FROM tasks ORDER BY sort_order').all().map(r => r.id);
   assert.equal(batch.length, ids.length);
   ids.forEach((id, i) => assert.deepEqual(batch[i], sz.readTask(db, id), id));
+  assert.deepEqual(sz.readTask(db, some[0]).scoring, { hours: { value: 6, unit: 'h', status: 'approved', source: 'math', lockedValue: 6, lockedAt: '2026-10-01T00:00:00.000Z', rev: 3, proposed: false }, story: { value: 5, unit: 'story_points', status: 'proposed', source: 'manual', lockedValue: null, lockedAt: null, rev: 2, proposed: true }, weighted: null });
+  assert.deepEqual(sz.readTask(db, some[2]).scoring, { hours: null, story: null, weighted: null });
+  const slim = sz.readTaskSlimRows(db, ws, '1=1', []);
+  slim.forEach(t => assert.deepEqual(t.scoring, sz.readTask(db, t.id).scoring, t.id + ' slim'));
   db.close(); fs.rmSync(temp, { recursive: true, force: true });
 });
 

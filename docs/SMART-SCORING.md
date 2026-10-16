@@ -1,8 +1,10 @@
 # Smart Scoring & Intelligence — the build contract
 
-Status: **Phase 0 + Phase 1 B done** (Oct 2026): schema, permissions, settings model, settings routes, the
-Settings → Smart Scoring tab, the roles UI, and empty browser modules for the later phases. Everything is **off**
-until an admin turns it on; with it off the app behaves exactly as before (spec §12.2).
+Status: **Phase 0 + Phase 1 B + Phase 1 A done** (Oct 2026): schema, permissions, settings model, settings routes, the
+Settings → Smart Scoring tab, the roles UI, empty browser modules for the later phases, and the server side of a task's
+scores (§5.2: the task scoring routes, the guards on the task's own writes, the re-evaluation after every task write and
+its sweep, the projection on task documents, the backfill). Everything is **off** until an admin turns it on; with it off
+the app behaves exactly as before (spec §12.2).
 
 This file is the contract later phases build against. Where it and the code differ, fix one of them in the same
 change. Sources: the product spec (`ZenCrevia_Smart_Scoring_Intelligence_Full_Spec.md`) and the implementation plan
@@ -32,6 +34,9 @@ validateAi, inputHash); this file only records how the settings feed it.
 | 14 | Hours formula `perUnit × count × …` | Templates keep `nextUnitFactor`, each kind's own share for every next deliverable (resize 0.25; copy, deck, logo 0.4; poster, reels, video 0.6; the rest 0.5 — the same as today's estimator, src/effort-estimate.js, since 2026-10-16), at most 1; 1 gives the spec's linear formula | One set of numbers for the estimator, the engine and the settings; twelve resizes are not ten hours. |
 | 15 | Extra columns beyond plan §3.3 | `task_scoring.approved_at`; `scoring_audit.meta` (JSON, e.g. a settings diff); `task_time_entries.verified_at`, `deleted_by`; `task_efficiency_awards.review_note`; `workspace_id` on `outcome_values`; `rev`/`sort_order`/`created_*`/`updated_*` on the outcome tables | Needed for "lock approved after `bonus.enabledAt`", for the audit diff, and for tenant scoping. |
 | 16 | `minutes CHECK (1..1440)` | `CHECK (minutes >= 1 AND (minutes <= 1440 OR source = 'legacy'))` | A legacy "Actual" of 40 h becomes one legacy entry. |
+| 17 | "Manual overrides require reason; optionally admin approval" | A `scoring_edit_task` holder's change of a locked score keeps it locked but clears its approval (status `locked`, approve again); with `overrides.requireApproval` the change of someone who cannot approve becomes a proposal | An approval is of a value: a different value is not approved until someone approves it. |
+| 18 | `estimated_hours = baseline × count × …` | The task's Estimate taken from the math is that value to the half hour (as today's estimator); `math_value` keeps the engine's 2 decimals | One way of rounding the workload number, as before. |
+| 19 | "`locked_estimated_hours` frozen when work begins" | Work begins = the task leaves a `queue` stage for `work`/`review`/`revision` (or is created there), or its first own time entry; only while Smart Scoring and Effort Hours are on, and never for tasks already under way when it was turned on | No retroactive locks (decision 17); a move is the only event that says work started. |
 
 ## 2. Owner decisions (final)
 
@@ -241,8 +246,22 @@ CREATE TABLE outcome_values (
 ```
 
 `server/seed.js` `reset()` clears all nine tables first. Task deletion cascades `task_scoring`,
-`task_time_entries`, `task_efficiency_awards`, `task_outcome_links` (the plan's `clearTaskRows` hook should still
-write a "removed with task" audit row first — Phase 1 A).
+`task_time_entries`, `task_efficiency_awards`, `task_outcome_links`; `clearTaskRows` (server.js) also deletes them
+explicitly through `scoring.removeTaskRows(taskId, user)`, which first writes one `removed_with_task` audit row per score
+(`old_value` = its snapshot) and one each for time entries (`module 'time'`, `meta {entries, minutes}`), awards
+(`'efficiency'`, `{awards}`) and outcome links (`'outcomes'`, `{links}`) — inside the delete's transaction.
+
+**Statuses of `task_scoring`** as Phase 1 A uses them: `draft` (editable final), `proposed` (a change waits in
+`proposal`; the final is unchanged), `unverified` (the backfill's: an estimate from before Smart Scoring, editable,
+never replaced by Calculate), `approved` (locked by an approver: `approved_by/at` and `locked_by/at` set), `locked`
+(locked but **not approved**: frozen when work started — `locked_by` NULL — or changed after its lock by a
+`scoring_edit_task` holder — `locked_by` = them; it earns no bonus until someone approves it), `rebaseline_needed` (was
+approved or locked; the scope changed since). "Locked" in this document = `approved`, `locked` or `rebaseline_needed`.
+`locked_value` is the lock (E of the bonus); for a locked row `final_value` = `locked_value`. `scope_fingerprint` is
+JSON `{assets, deps, text}` (§5.2.6). `math_inputs` is JSON `{inputs, steps, low, high, index, split, reason, missing,
+suggestions, at, by, engine}`. `proposal` is JSON `{value, ratings, use, by, at, reason}`. `unit`: `h`,
+`story_points`, `weighted_points`. `rev` goes up by one on every write to the row (also the server's own: a sync, a
+freeze, a scope flag).
 
 ---
 
@@ -285,19 +304,186 @@ Bootstrap: `features.scoring` = `process.env.COS_SCORING !== "0"` (next to `feat
 is documented in `.env.example`, which `tests/server-security-integration.test.js` requires of every `COS_*` the
 server reads).
 
-### 5.2 Planned (plan §3.5; Phase 1 A unless noted). Permission → body → answer.
+### 5.2 A task's scores — built (Phase 1 A, server/scoring.js)
 
-- `GET /api/tasks/:id/scoring` — anyone who can see the task (not stakeholders' hidden data) → `{ rows, audit (last 50),
-  efficiency (only credited contributors, approvers, scoring_view_analytics holders), outcomes, can: {…} }`.
-- `POST /api/tasks/:id/scoring/calculate` — `scoringPropose` or `scoringEditTask` → `{ module, inputs | ratings }` →
-  stores `math_value`, `math_inputs`, `factors`; sets `final_value` only on a draft row the caller may edit/propose.
+> **Differences from the shapes the wave-2 brief fixed — read these first (panel agent):**
+> 1. Every **write answers with the whole view** (the same object as `GET`) **plus `task`** — the task document as
+>    the caller sees it (`forViewer`), so the page replaces its copy. `calculate` adds `result`, `PUT` adds `applied`.
+> 2. `GET` also has `taskId`, `on` and `context` (below). There is **no `outcomes` key** yet: the outcomes module adds
+>    it through `scoring.extendView(fn)`. `efficiency` is present only for those allowed, as `{ awards: [...] }`.
+> 3. `PUT` takes `rev` **always** (0 when the module has no row yet; else the row's `rev` from `GET`, from the task's
+>    `scoring.<module>.rev`, or from the last write's answer); also `{use:"math"}` = "take the calculated value".
+> 4. `approve` takes an optional `{rev, reason, useProposal}`; `rebaseline` `{reason (required), value | ratings |
+>    use:"math" | useProposal, rev}`. `rev`, when sent, is checked (send it).
+> 5. Hours set from the math are **rounded to the half hour** on the task (as today's estimator); `mathValue` keeps the
+>    engine's two decimals.
+> 6. Stakeholders get **403** on `GET` and no `scoring` key on task documents.
+> 7. While **Smart Scoring or Effort Hours is off**, locks do not bind the task's own save (it is exactly as before) and
+>    nothing is re-evaluated; the rows and history stay and are read.
+
+Order of checks on every route: `COS_SCORING=0` → **409** "Smart Scoring is turned off on this server"; unknown task
+(or another workspace's) → **404**; unknown module → **400** "Unknown score: …"; permission → **403**; for writes the
+master switch → **409** "Smart Scoring is turned off in this workspace, so scores cannot be changed now. Their history
+can still be read." and the module → **409** "<Effort Hours|Story Points|Weighted Points> is turned off in Smart
+Scoring, so its scores cannot be changed now."; the body → **400** (a `reason` over 1000 characters is **413**, checked
+by `TEXT_LIMITS` before the route runs); a stale
+`rev` → **409** "Someone else changed this score in the meantime. Reload it and try again." Every write is audited
+(§5.2.5), touches `tasks.updated_at`, bumps `DATA_VERSION` and announces `task_changed` (the `announceTaskChange`
+regex covers `/scoring…`, `/time…`, `/efficiency…`, `/outcomes…` under `/api/tasks/:id`).
+
+#### 5.2.1 `GET /api/tasks/:id/scoring` — `can.scoringView` (everyone but stakeholders)
+
+Catches up first (the same re-evaluation as after a write, §5.2.6; `bumpData()` when it changed something), then:
+
+```
+{ taskId,
+  rows: { hours: Row|null, story: Row|null, weighted: Row|null },
+  audit: [Audit],                 // this task's last 50, newest first; module 'efficiency' rows only for viewEfficiency
+  on: { feature, enabled, hours, story, weighted, kpi, okr },          // master switch && module
+  context: { kind,                // ScoringEngine.kindOf(title) (local copy of EST_KINDS' patterns until it exists) or null
+             assetCount, deliverables /* max(1, assetCount) */, openDeps /* dependencies on unfinished tasks */,
+             dependencies /* all */, scope: {value, source:"assets", assetCount, assumed /* no count */},
+             stage, stageKind, lockPolicy, requireReason, requireApproval, configVersion },
+  can: { view, calculate /* propose||edit */, propose /* scoringPropose */, edit /* scoringEditTask */,
+         approve /* scoringApproveEstimate(u,t,overrides) */, rebaseline /* = approve */, requestAi, logTime,
+         approveCompletion /* scoringApproveCompletion(u,t,credited) */, viewEfficiency, viewAnalytics,
+         assignee, impersonating, approveBlocked: null|"stakeholder"|"impersonating"|"permission"|"assignee" },
+  efficiency?: { awards: [Award] } }   // only can.scoringSeesEfficiency: credited (own award only), approvers of
+                                       // finished work and scoring_view_analytics holders (all awards)
+
+Row = { module, unit, value /* final */, source: "math"|"ai"|"manual"|"legacy"|null, status, locked /* bool */,
+        mathValue, math: {inputs, steps, low, high, index, split, reason, missing, suggestions, at, by, engine},
+        aiValue, aiRunId, factors: {complexity?, scope?, uncertainty?, dependencies?}, mappingVersion, configVersion,
+        lockedValue, lockedAt, lockedBy, approvedBy, approvedAt,
+        approvedAtLock /* approved in the act of locking: approvedAt===lockedAt && approvedBy===lockedBy */,
+        proposal: {value, ratings, use, by, at, reason}|null, scope: {assets, deps, text}|null, updatedBy, updatedAt, rev }
+Audit = { id, module, action, by /* null = the server */, impersonatedBy, at, reason, from: Snap|null, to: Snap|null, meta }
+Snap  = { value, source, status, mathValue, aiValue, factors, lockedValue, lockedAt, lockedBy, approvedBy, approvedAt,
+          proposal, scope, rev }
+Award = { id, userId, share, estimate, actual, basePoints, bonusPoints, awardedPoints, status, reasons, needsReview,
+          reviewerId, reviewedAt, reviewNote, qualityScore, policyVersion, recalculatedAt, createdAt }
+```
+
+#### 5.2.2 `POST /api/tasks/:id/scoring/calculate` — `scoringPropose || scoringEditTask`
+
+Body `{ module: "hours", inputs?: { kind?, units?, complexity? } }` or `{ module: "story"|"weighted", ratings?:
+{complexity, scope, uncertainty, dependencies} }` (each rating 1–5; 400 otherwise; unknown `kind` → 400).
+- **Hours**: kind from the title (`kindSource "title"`) unless `inputs.kind` (`"given"`); deliverables = the task's
+  `assetCount` (at least 1, `unitsSource "assets"`) unless `inputs.units` (1–999); complexity = `inputs.complexity`,
+  else the one stored on the hours row (`"stored"`), else on the story/weighted row (`"story"`/`"weighted"`), else
+  unrated (the engine takes 3); open dependencies = the task's dependencies on unfinished tasks (always the server's).
+  `ScoringEngine.hours(settings.hours, …)`. "Feed post Ramadan", 5 assets, nothing rated → **6 h**.
+- **Story / Weighted**: each rating given, else stored on this row (`"stored"`), else on the other points row; Scope,
+  when nobody rated it, the suggestion from the asset count (1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13+ → 5; `"assets"`).
+  `ScoringEngine.storyPoints(settings.story, …)` / `weightedPoints(settings.weighted, …)`; a factor still missing →
+  `value null`, `missing` names it.
+- Stores `math_value`, `math_inputs`, `factors`, `config_version` (and `mapping_version` for weighted). The math becomes
+  the **final** value (`source "math"`) only when the row is new or a `draft` whose final is empty or itself from the
+  math or `legacy` — a manual or AI estimate, an `unverified` one, a proposal or a lock stays. For hours the final (and
+  the task's Estimate, `meta.effortAuto = {src:"kind", kind, items, low, high}`) is the math **to the half hour**.
+- Answer: the view + `task` + `result: { module, value, final, finalSet, unit, low, high, index, split, reason
+  /* "no_template" | "missing_ratings" | null */, missing, mappingVersion, inputs, steps, explanation, suggestions:
+  {scope} }` — `inputs` for hours `{kind, kindSource, units, unitsSource, assetCount, complexity, complexitySource,
+  openDeps}`, for points `{ratings, weights, sources, assetCount}`.
+
+#### 5.2.3 `PUT /api/tasks/:id/scoring/:module` — `scoringEditTask` sets it, `scoringPropose` proposes
+
+Body `{ value | ratings | use: "math", reason, rev }`. Hours: `value` within `settings.hours.bounds` (2 decimals);
+story: one of 1, 2, 3, 5, 8, 13 or `ratings` (all four, mapped by the engine); weighted: 1–`scaleMax` (2 decimals) or
+`ratings`; `use:"math"` takes the row's `mathValue` (400 when there is none; hours to the half hour). `reason` required
+while `overrides.requireReason` (default) → 400 "Say why the score changes: a reason is required."
+- **Set** (`scoring_edit_task`, and — when `overrides.requireApproval` — also allowed to approve): final = the value,
+  `source "manual"` (`"math"` with `use:"math"`), any proposal dropped. Not locked → `draft`. **Locked → it stays
+  locked, no longer approved**: `status "locked"`, `locked_value` = the value, `locked_by/at` = them/now,
+  `approved_by/at` cleared, scope taken again; audit `locked_changed` (`meta.approvalCleared`). Hours also write the
+  task's Estimate (`meta.effortManual`, or `effortAuto` for the math).
+- **Propose** (anyone else who works on the task): `proposal = {value, ratings, use, by, at, reason}`; `status
+  "proposed"` unless the row is locked (then the status stays and the proposal waits beside it); final unchanged.
+- Answer: the view + `task` + `applied` (true = set, false = proposed).
+
+#### 5.2.4 `POST /api/tasks/:id/scoring/:module/approve` and `…/rebaseline` — `scoringApproveEstimate(u, t, overrides)`
+
+Never while acting as someone else → 403 "Estimates are never approved or re-baselined while acting as someone else.";
+an assignee holding the permission → 403 "You are assigned to this task, so you cannot approve or re-baseline its
+estimate." (admins too) unless `overrides.allowSelfApproveEstimate` (then audited `meta.selfApproved`).
+- **approve** `{ rev?, reason?, useProposal? }`: approves the current final (or, `useProposal`, the proposal's value,
+  `source "manual"`) → `status "approved"`, `approved_by/at`, `locked_value`; `locked_by/at` = the approver/now —
+  except a baseline already `locked` at that value (frozen at work start, or changed after a lock), which keeps when
+  and by whom it was locked (`approvedAtLock` false). Hours write `tasks.estimated_minutes` from the locked value.
+  409 when already `approved` ("…Re-baseline it to change it.") or `rebaseline_needed` ("…re-baseline it instead.");
+  400 when there is no value ("There is no estimate to approve yet: calculate or enter one first."). Audit `approved`,
+  `meta {selfApproved, acceptedProposal, declinedProposal, frozenAt, workStarted}`; `security.log("scoring_estimate_approved")`.
+- **rebaseline** `{ reason (required → 400), value | ratings | use:"math" | useProposal, rev? }` on a **locked** row
+  only (else 409 "Only a locked estimate is re-baselined; approve this one instead."): a new approved lock now — the
+  given value (or the current one), by the caller, with the current scope; the old lock is in the audit (`from`, and
+  `meta.previousLock {value, at, by, approvedBy, status}`, `meta.workStarted`); `security.log("scoring_estimate_rebaselined")`.
+- Answer: the view + `task`.
+
+#### 5.2.5 Audit actions (module `hours` | `story` | `weighted` unless noted)
+
+`calculated` (`meta {value, setFinal, reason}`), `changed`, `proposed`, `approved`, `rebaselined`, `locked_changed`
+(`meta {via: "scoring"|"task"|"restore"|"sync"|…, approvalCleared, unlocked}`), `estimate_set` / `estimate_changed`
+(the hours row following the task's Estimate, `meta.via`), `frozen_at_work_start` (`meta {trigger: "stage"|"time",
+stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `scope_restored`, `scope_recorded`,
+`removed_with_task` (§4), `backfilled` (task NULL, `meta {counts}`), and module `efficiency` `reopened` (`meta
+{awards, stage}`). `by` NULL = done by the server (a sweep, a catch-up).
+
+#### 5.2.6 The task's own writes (server.js hook points) and the re-evaluation
+
+- **The hours row follows the task's Estimate** (`tasks.estimated_minutes`). Before the lock, anyone who may edit the
+  task changes it as today; the row's final follows, `source` from the task's marks: `meta.effortAuto.src` `"ai"` →
+  `ai`, `"history"`/`"kind"` → `math`, `meta.effortManual` → `manual`; with no mark `manual` for a person's edit and
+  `legacy` on creation or for a change found later (sweep, catch-up). Compared in whole minutes.
+- **`guardTaskWrite(u, cur, b)`** in `PUT /api/tasks/:id` after the `_changed` merge (and the slim-copy merge), before
+  `sanitizeTaskWrite`: while Smart Scoring and Effort Hours are on, a **locked** hours estimate with a different
+  `effort` → **403** "This task's estimate is locked. Only someone allowed to change locked estimates can change it;
+  propose a change in the task's Scoring & Intelligence instead." unless `scoringEditTask` (then the row becomes
+  `locked`, not approved — `locked_changed`, `meta.via "task"`). The drawer, the grid (`persistTask` → the merge), and
+  a slim copy (`SLIM_FIELDS` has `effort`) all come through here.
+- **`guardRestore(u, cur, next)`** in `POST /api/restore/task/:id`: a locked estimate stays (for everyone).
+- **Time-log mode** = `scoring.timeLogMode()` = feature && master switch && Effort Hours on. Then `meta.actualEffort`
+  is the time log's: `guardTaskWrite` and `guardRestore` keep the stored one, **`guardNewTask(u, b)`** (end of
+  `sanitizeNewTask`) drops a sent one. Off: exactly as today.
+- **`afterTaskWrite(taskId, user, info)`** — after `POST /api/tasks` (`info {created:true, prevStatus:null, via:"create"}`),
+  `PUT /api/tasks/:id` (`{prevStatus, via:"task"}`), `POST /api/tasks/:id/move` (every op, `{prevStatus, via:"move"}`),
+  `POST /api/restore/task/:id` (`{prevStatus, via:"restore"}`) and the scoring routes (`{via:"scoring"}`), outside the
+  task's transaction, before the answer is read. It runs this module's re-evaluation (its own transaction, writes only
+  what changed, errors logged, never thrown), then **every `onTaskWritten(fn)`** — `fn(taskId, user, info)`, each in its
+  own try/catch (a throwing hook is logged as "[scoring] a task-write hook failed for <id>: …"). Hooks run whenever the
+  server has the feature (`COS_SCORING` not 0), Smart Scoring on or off: they check their own switches.
+- **The re-evaluation** (only while Smart Scoring is on): (1) the hours row follows the Estimate (above);
+  (2) **work starting first** — with `hours.lockPolicy "approve_or_work_start"` and an unlocked hours value above 0,
+  the task going from a `queue` stage (or being created) into a `work`, `review` or `revision` stage, or a time entry
+  of its own (`task_time_entries`, not deleted, `source 'manual'`) → `status "locked"`, `locked_by` NULL, nobody's
+  approval: an unapproved baseline that earns no bonus (`frozen_at_work_start`); (3) **scope** — every locked row of a
+  module that is on remembers `{assets: max(1, assetCount), deps: number of dependencies, text:
+  ScoringEngine.inputHash({description, brief})}` from its lock; a difference → `rebaseline_needed`
+  (`scope_changed`), the same again → back to `approved` (approved_by set) or `locked` (`scope_restored`); (4) **reopen**
+  — a task not in a completed stage (`bonus.completionStages`, else closed but not Declined) has its awards
+  `approved|pending_review|ineligible` set back to `provisional` (`efficiency` `reopened`).
+- **The sweep**: 3 s after start and every 10 minutes, while Smart Scoring is on, the tasks with `updated_at` (or a
+  time entry created/edited/deleted) after `app_meta 'scoring_sweep_at'` are re-evaluated; the mark moves on only
+  while it is on (turning it on catches up). Changes → `bumpData()`, a `task_changed` per task (up to 50), a log line.
+- **Projection**: `serialize.buildTask` (one more query in `taskRelations`) and `readTaskSlimRows` (one more query) add
+  `scoring: { hours, story, weighted }` to every task document — each `null` or `{ value, unit, status, source,
+  lockedValue, lockedAt, rev, proposed }`. Nothing about bonuses or earned points (the bootstrap list is shared).
+  `forViewer` drops it for stakeholders (also on `POST /api/tasks/:id/hidden`, which now goes through `forViewer`).
+  `src/scoring-core.js`'s `dTask` never sends it back; the server ignores it anyway.
+- **Backfill** (once, `app_meta 'scoring_backfill_v1'` = `{at, counts}`, at start, one transaction, `INSERT OR IGNORE`):
+  every task of this workspace with `estimated_minutes > 0` → an hours row, `final_value` = its hours, `source` as above
+  (`legacy` with no mark), `status "unverified"`, nothing locked; `tasks.estimated_minutes` never rewritten; one
+  `backfilled` audit row and a console line with the counts `{ai, math, manual, legacy, kept}`.
+- **Other hooks for later modules**: `scoring.extendView(fn(u, task, out))` adds to the `GET`/write answers;
+  `scoring.liveCollection(kind, fn(u))` serves `GET /api/live/:kind` for a kind server.js does not know (`LIVE_KINDS`
+  maps `/api/outcomes…` to `"outcomes"`); `scoring.removeTaskRows`, `scoring.sweep()`, `scoring.backfill()`,
+  `scoring.kindOf(title)`, `scoring.scopeFromAssets(n)`; pure: `require("./scoring").calculate(settings, task, body,
+  ctx)` (what Calculate works out; `tests/scoring-sanity.test.js`).
+- `TEXT_LIMITS`: `reason` ≤ 1000 on `/api/tasks/:id/(scoring|time|efficiency)…` (413).
+
+### 5.3 Planned (plan §3.5). Permission → body → answer.
+
 - `POST /api/tasks/:id/scoring/ai` (Phase 2 A) — `scoringRequestAi`, or `trigger:"create"` when `ai.onCreate` → math
   fallback with a reason when AI is off / out of quota / invalid. Never sets final on approved/locked/manual rows.
-- `PUT /api/tasks/:id/scoring/:module` — `{ value | ratings, reason, rev }`; with `scoring_edit_task` final
-  (`source:"manual"`), else a proposal; reason required when `overrides.requireReason`; stale `rev` → 409.
-- `POST /api/tasks/:id/scoring/:module/approve` — `scoringApproveEstimate(u, t, settings.overrides)`; refused while
-  impersonating; writes `tasks.estimated_minutes` from the locked hours.
-- `POST /api/tasks/:id/scoring/:module/rebaseline` — same permission, reason required.
 - `GET|POST /api/tasks/:id/time`, `PUT|DELETE /api/tasks/:id/time/:entryId` (Phase 3a D) — `logTime` for one's own
   entries; others' only with `scoring_edit_task` and a reason; audited.
 - `POST /api/tasks/:id/efficiency/recalculate|approve|reject` (Phase 3 A) — approve/reject:
@@ -343,7 +529,11 @@ scoringApproveCompletion(u, t, credited) !u.stakeholder && !u.impersonatedBy && 
 scoringManageOutcomes(u)               has(scoring_manage_outcomes)
 scoringViewAnalytics(u)                has(scoring_view_analytics)
 logTime(u, t)                          !u.stakeholder && isAssignee(u,t)                            // no capability needed
+scoringView(u, t)                      !u.stakeholder                                               // Phase 1 A: a task's scores and history
+scoringSeesEfficiency(u, t, credited)  !u.stakeholder && (credited.includes(u.id)                   // Phase 1 A: awards, bonus, earned
+                                         || has(scoring_approve_completion) || has(scoring_view_analytics))
 ```
+(No browser mirror of the last two yet: the panel reads `can.view` / `can.viewEfficiency` from `GET /api/tasks/:id/scoring`.)
 
 ### 6.3 Browser mirror (src/scoring-core.js) — hides buttons only; the server decides
 
@@ -371,25 +561,35 @@ logTime(u, t)                          !u.stakeholder && isAssignee(u,t)        
   connection test" `POST /api/ai/test`). Later modules go next to it — **not** between `route("POST", "/api/ai/chat"`
   and `route("PUT", "/api/workspace"`: `tests/studio-editor.test.js` runs that stretch of server.js alone in a sandbox
   without `require`.
-- `server/scoring.js` gets `{ route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn }` and
-  returns:
+- `server/scoring.js` gets `{ route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn, sz,
+  forViewer, bumpData, announce }` (`forViewer` as a thunk — it is declared further down server.js; `bumpData: () => {
+  DATA_VERSION++; }`; `announce(taskId)` sends `task_changed`) and returns:
   - `settings()` → the current normalized settings object (reads the column each call; no arguments).
   - `audit({ taskId?, module, action, actor, impersonatedBy?, oldValue?, newValue?, reason?, meta?, at? })` → id.
     Writes one `scoring_audit` row (values JSON-encoded, reason cut to 1000). Call it inside your transaction.
   - `featureOn()` → `process.env.COS_SCORING !== "0"`.
   - `isOn()` → feature on and `settings().enabled`. `moduleOn(id)` → that and the module on.
   - `LEAD_CAPS` — the three delegated capabilities.
-- Pass `bumpData: () => { DATA_VERSION++; }` to modules that change tasks outside a request (the sweep), and never call
-  it while the module loads.
-- Hook points for Phase 1 A (plan §3.4, re-grep by name): `PUT /api/tasks/:id` (`guardTaskWrite` after the `_changed`
-  merge, before `sanitizeTaskWrite`; `afterTaskWrite` after the transaction), `POST /api/tasks`/`sanitizeNewTask` (strip
-  server-owned meta — the main session is fixing `assetSplitOk` there and in `duplicateTask`), `moveTask`
-  `MOVE_TASK_STATUS`, restore (`POST /api/restore/:type/:id`), `clearTaskRows`, `forViewer`, the `announceTaskChange`
-  regex, `LIVE_KINDS` (`/api/outcomes` → "outcomes" plus a `/api/live/:kind` case), `TEXT_LIMITS` (reasons 1000),
-  `serialize.buildTask`/`readTaskSlimRows` projection `scoring:{hours,story,weighted}` (one batched query; the parity
-  test `tests/v30-accounts-and-scale.test.js` must stay green; **no bonus/earned data in task documents** — the
-  bootstrap task cache is shared by everyone).
-- Once-only migrations use `app_meta` keys (`scoring_backfill_v1`, `scoring_time_backfill_v1`).
+  - Phase 1 A (§5.2.6): `timeLogMode()`, `guardTaskWrite(u, cur, b)`, `guardNewTask(u, b)`, `guardRestore(u, cur, next)`,
+    `removeTaskRows(taskId, user)`, `afterTaskWrite(taskId, user, info?)` → whether its own re-evaluation changed
+    something; **`onTaskWritten(fn)`** — `fn(taskId, user|null, info)`; `extendView(fn)`; `liveCollection(kind, fn)` /
+    `liveRead(kind, u)`; `sweep()`, `backfill()`, `kindOf(title)`, `scopeFromAssets(n)`.
+- Never call `bumpData` while a module loads. `afterTaskWrite` must be called **outside** a transaction (`tx` does not
+  nest: called inside one, the re-evaluation fails, is logged, and the hooks still run).
+- **Later modules** register with `if (deps.scoring && deps.scoring.onTaskWritten) deps.scoring.onTaskWritten(fn)`. A
+  module that changes a task's time entries outside the task routes (the time log) should call
+  `deps.scoring.afterTaskWrite(taskId, user)` after its own transaction — the first time entry is "work started" and
+  may freeze the estimate; without it the sweep catches it within ten minutes (it watches `task_time_entries` too).
+- Hook points in server.js, all built (§5.2.6): `PUT /api/tasks/:id` (`guardTaskWrite` before `sanitizeTaskWrite`;
+  `afterTaskWrite` after the save), `POST /api/tasks` (`guardNewTask` at the end of `sanitizeNewTask`; `afterTaskWrite`),
+  `POST /api/tasks/:id/move` (`afterTaskWrite` with the status before), `POST /api/restore/:type/:id` (`guardRestore`;
+  `afterTaskWrite`), `clearTaskRows(id, u)` (`removeTaskRows`), `forViewer` (drops `scoring` for stakeholders),
+  `POST /api/tasks/:id/hidden` (now answers through `forViewer`), the `announceTaskChange` regex, `LIVE_KINDS`
+  (`/api/outcomes…` → `"outcomes"`) and the `/api/live/:kind` default (`scoring.liveRead`), `TEXT_LIMITS` (reason 1000),
+  `serialize.buildTask` / `readTaskSlimRows` (the projection; `tests/v30-accounts-and-scale.test.js` holds the parity
+  with scoring rows present).
+- Once-only migrations use `app_meta` keys (`scoring_backfill_v1` — built; `scoring_time_backfill_v1`); the sweep's mark
+  is `scoring_sweep_at`.
 
 ---
 
@@ -446,6 +646,20 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   permission, a role with `scoring_edit_task` only, an extra grant, the analytics permission), 409 on a stale version,
   normalizing and server-owned fields, the audit row (DB) and security log, `PUT /api/workspace` not clobbering,
   `COS_SCORING=0`, the lead delegation.
+- `tests/scoring-routes.test.js` (Phase 1 A) — spawned server: the permission matrix of a task's scores (assignee,
+  member not on the task, stakeholder, team lead without and with a role grant, creative lead with one, a member with an
+  extra grant of `scoring_edit_task` or `scoring_approve_estimate`, admin), an assignee — an admin too — never approving
+  their own estimate unless the policy allows it, no approval while acting as someone else, `requireApproval`; Calculate
+  with the engine's numbers ("Feed post Ramadan" × 5 = 6 h; an open dependency; corrections; no kind → no number), the
+  Scope suggestion and where each rating came from; set by value, ratings, `use:"math"`; a manual estimate kept; a
+  locked estimate through the drawer's save, the grid's merge, a slim copy and a restore; time-log mode; off as before;
+  the work-start freeze (move, one save, creation, policy `approve`), scope changes and restores, the re-baseline;
+  a reopened task's awards back to provisional and who sees awards (own / analytics / none);
+  module off / master off / `COS_SCORING=0`; the backfill (once, the demo seed, another workspace untouched, estimates
+  never rewritten); `onTaskWritten` hooks after create/update/move/restore/scoring with one throwing; "removed with
+  task"; the sweep at start (a scope changed in the database, a time entry).
+- `tests/scoring-sanity.test.js` — also what Calculate gives for real titles (EN and ID), monotonic in deliverables,
+  dependencies and complexity, to the half hour, and the Scope bands.
 - `e2e/scoring-settings.spec.js` — admin toggles the master switch, a module and OKR and they persist; weights not
   totalling 100% cannot be saved; member has no tab; a role with `scoring_manage_workspace` has it; analytics-only is
   read-only; the role-modal warning; the one-click delegation. Everything put back.

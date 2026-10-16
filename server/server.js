@@ -307,6 +307,8 @@ const TEXT_LIMITS = [
   [/^\/api\/members(\/|$)/, { name: 120, role: 120, email: 254 }],
   [/^\/api\/views(\/|$)/, { name: 120 }],
   [/^\/api\/assets(\/|$)/, { name: 240, notes: 5000 }],
+  /* Smart Scoring: why a score, an estimate or logged time changed (docs/SMART-SCORING.md) */
+  [/^\/api\/tasks\/[^\/]+\/(scoring|time|efficiency)(\/|$)/, { reason: 1000 }],
 ];
 function tooLong(label, v, max) { if (typeof v === "string" && v.length > max) throw new HttpError(413, "Text is too long: " + label + " (max " + max.toLocaleString("en-US") + " characters)"); }
 function checkTextLimits(pathname, b) {
@@ -318,7 +320,8 @@ function checkTextLimits(pathname, b) {
    people work at once. Bulk bootstrap is not re-sent. */
 function announceTaskChange(method, pathname, out, user) {
   try {
-    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments|progress(?:\/\d+)?))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
+    /* Smart Scoring's routes on a task change it too: its scores, its time log, its efficiency award, its outcome links */
+    const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments|progress(?:\/\d+)?|scoring(?:\/[^\/]+){0,2}|time(?:\/[^\/]+)?|efficiency(?:\/[^\/]+)?|outcomes(?:\/[^\/]+){0,2}))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
     const id = m[1] || (out && out.id); if (!id || id === "bulk") return;
     /* only DELETE /api/tasks/:id deletes the task; removing something in it (a progress note version) does not —
        that used to tell every open copy, the remover's too, that the task itself was gone */
@@ -330,7 +333,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"], [/^\/api\/scoring\/settings$/, "workspace"], [/^\/api\/scoring\/delegate-leads$/, "roles"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"], [/^\/api\/scoring\/settings$/, "workspace"], [/^\/api\/scoring\/delegate-leads$/, "roles"], [/^\/api\/outcomes(\/|$)/, "outcomes"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -757,7 +760,8 @@ route("GET", "/api/live/:kind", (u, p) => {
     case "emoji": return { customEmoji: readEmoji() };
     /* someone's own bell, after they changed what they want to see in it */
     case "notifs": return { notifs: readNotifsFor(u.id) };
-    default: throw new HttpError(404, "Unknown collection");
+    /* a Smart Scoring module's own collection (KPIs and OKRs: "outcomes"), when it registered one with scoring.liveCollection */
+    default: { const extra = scoring.liveRead(p.kind, u); if (extra) return extra; throw new HttpError(404, "Unknown collection"); }
   }
 });
 route("GET", "/api/auth/me", (u) => u);
@@ -1329,7 +1333,10 @@ route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace
    Its settings and routes. Registered here, after the AI helpers: aiConf and aiFetch are const declarations above, and a
    module handed them before that line would throw. The scoring modules of the later phases are wired in next to it.
    (Not between the /api/ai/chat route and the workspace save: tests/studio-editor.test.js runs that stretch alone.) */
-const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn: () => SCORING_FEATURE });
+const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn: () => SCORING_FEATURE, sz,
+  /* forViewer is declared further down: called, not captured */ forViewer: (u, t) => forViewer(u, t),
+  /* the sweep changes tasks outside a request: the shared task list is read again, open copies refetch the task */
+  bumpData: () => { DATA_VERSION++; }, announce: id => announceTaskChange("PUT", "/api/tasks/" + id, null, { id: null }) });
 require("./scoring-assets")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* points for assets produced: GET /api/scoring/assets */
 const outcomes = require("./outcomes")(db, WS_ID, { route, HttpError, forbid, can, uid, now, tx, act, scoring, readTask: id => sz.readTask(db, id), bumpData: () => { DATA_VERSION++; } });   /* KPIs and OKRs (server/outcomes.js) */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
@@ -1512,7 +1519,8 @@ function checkVersionNumbers(list) { const seen = new Set(); (Array.isArray(list
 /* A stakeholder sees the comments meant for them, and nothing marked team or internal — the page
    hid the others, but they were in what the server sent. */
 /* what a person may see of a task: a stakeholder only client-visible comments; progress notes only with the capability */
-const forViewer = (u, t) => { if (!t || !u) return t; const noNotes = !can.progressView(u); if (!u.stakeholder && !noNotes) return t; return Object.assign({}, t, u.stakeholder ? { comments: Array.isArray(t.comments) ? t.comments.filter(c => c && c.vis === "client") : t.comments } : {}, noNotes ? { progress: [] } : {}); };
+/* and a task's Smart Scoring summary is the team's: a stakeholder's copy goes without it */
+const forViewer = (u, t) => { if (!t || !u) return t; const noNotes = !can.progressView(u); if (!u.stakeholder && !noNotes) return t; const out = Object.assign({}, t, u.stakeholder ? { comments: Array.isArray(t.comments) ? t.comments.filter(c => c && c.vis === "client") : t.comments } : {}, noNotes ? { progress: [] } : {}); if (u.stakeholder) delete out.scoring; return out; };
 route("POST", "/api/projects", (u, p, q, b) => { forbid(can.createProject(u), "create projects"); b.id = b.id || uid("p"); rejectExistingId("projects", b.id); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1 s FROM projects WHERE workspace_id=?").get(WS_ID).s; withSnapshot(u, "project", b.id, () => { tx(db, () => sz.writeProject(db, WS_ID, b)); act(u, "project_created", "project", b.id, { project: b.id, what: b.name }); }); return sz.readProjects(db, WS_ID); });
 route("PUT", "/api/projects/:id", (u, p, q, b) => { const cur = sz.readProjects(db, WS_ID).find(x => x.id === p.id); if (!cur) throw new HttpError(404, "Project not found"); forbid(can.editProject(u, cur), "edit this project"); b.id = p.id;
   const changed = ["name", "description", "brief", "owner", "status", "startDate", "dueDate", "tags", "teams"].some(k => b[k] !== undefined && JSON.stringify(b[k]) !== JSON.stringify(cur[k]));
@@ -1660,7 +1668,9 @@ function nextTaskNumber() { const top = sql => (db.prepare(sql).get() || {}).n |
 /* What hangs off a task by its id. The schema deletes it with the task, but a database created
    before those constraints keeps it — so it is cleared explicitly on delete, and before a new task
    is written under an id, which must start empty. */
-function clearTaskRows(id) {
+function clearTaskRows(id, u) {
+  /* Smart Scoring's rows of the task: each leaves a "removed with task" line in its audit first (server/scoring.js) */
+  try { scoring.removeTaskRows(id, u); } catch (e) { console.error("[scoring] removing the scores of " + id + ": " + e.message); }
   ["approvals", "revision_requests", "file_versions", "briefs", "comments", "files", "task_tags", "custom_field_values", "task_progress_notes"].forEach(t => { try { db.prepare("DELETE FROM " + t + " WHERE task_id=?").run(id); } catch (e) { /* a table this database does not have */ } });
   try { db.prepare("DELETE FROM task_dependencies WHERE task_id=? OR depends_on_task_id=?").run(id, id); } catch (e) {}
   try { snapTable(); db.prepare("DELETE FROM entity_snapshots WHERE entity_type='task' AND entity_id=?").run(id); } catch (e) {}
@@ -1676,6 +1686,8 @@ function sanitizeNewTask(b, u) {
      validation was taken as sent, so a duplicate — or any create — could arrive already "validated by" someone */
   cleanAssetSplit(b);
   if (b.meta && typeof b.meta === "object") delete b.meta.assetSplitOk;
+  /* while Smart Scoring logs time, a new task — a duplicate too — starts with none logged (server/scoring.js) */
+  scoring.guardNewTask(u, b);
   return b;
 }
 route("POST", "/api/tasks", (u, p, q, b) => { const firstStage = db.prepare("SELECT id FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order LIMIT 1").get(WS_ID); const isRequest = can.submitRequest(u) && firstStage && b.status === firstStage.id && !b.assignee; forbid(can.createTask(u, b) || isRequest, "create tasks"); if (isRequest && !can.createTask(u, b)) { b.createdBy = u.id; b.tags = (b.tags || []).concat(["request"]); } if (!b.title || String(b.title).length > 240) throw new HttpError(400, "A title under 240 characters is required"); if (b.id != null && !security.validTaskId(b.id)) throw new HttpError(400, "Task ID contains unsupported characters"); /* v39: the server owns task numbers. Browsers still propose T-<n> (their best guess from what
@@ -1685,7 +1697,10 @@ route("POST", "/api/tasks", (u, p, q, b) => { const firstStage = db.prepare("SEL
   if (db.prepare("SELECT 1 FROM tasks WHERE id=?").get(b.id)) throw new HttpError(409, "A task with this ID already exists"); b.sort = b.sort || db.prepare("SELECT coalesce(max(sort_order),0)+1000 s FROM tasks WHERE workspace_id=?").get(WS_ID).s;
   /* v32: creation never carries server-owned history or decisions from the client. */
   gateStatusChange(u, null, Object.assign({}, b, { assignee: b.assignee, assignees: b.assignees }), b.status);
-  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); withSnapshot(u, "task", b.id, () => tx(db, () => { clearTaskRows(b.id); sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, null, b); })); return forViewer(u, sz.readTask(db, b.id)); });
+  b = sanitizeNewTask(b, u); validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []); withSnapshot(u, "task", b.id, () => tx(db, () => { clearTaskRows(b.id, u); sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, null, b); }));
+  /* after the save, outside it: Smart Scoring's re-evaluation and the modules hooked to it (never stops the save) */
+  scoring.afterTaskWrite(b.id, u, { created: true, prevStatus: null, via: "create" });
+  return forViewer(u, sz.readTask(db, b.id)); });
 route("PUT", "/api/tasks/:id", (u, p, q, b) => {
   const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found");
   if (b && b._slim) b = sz.mergeSlimTask(cur, b); /* never wipe history from a slim copy */
@@ -1717,9 +1732,14 @@ route("PUT", "/api/tasks/:id", (u, p, q, b) => {
      Take them from the stored task; only genuinely new comments by this user are added,
      and a version's decision fields are only what the authz checks above allowed. */
   gateStatusChange(u, cur, b, b.status);
+  /* Smart Scoring (server/scoring.js): a locked estimate changes only for whoever may change locked scores — whether
+     the save is the drawer's, the grid's (the merge above) or an old slim copy's — and while it logs time the Actual
+     stays the time log's */
+  scoring.guardTaskWrite(u, cur, b);
   b = sanitizeTaskWrite(cur, b, u, decided);
   b.id = p.id; validateStoredFiles(b, u.id); validateDependencies(b.id, b.dependencies || []);
   withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, b, u.id); recordTaskChanges(u, cur, b); decided.forEach(v => { const row = db.prepare("SELECT id FROM file_versions WHERE task_id=? AND version_number=?").get(p.id, v.n); if (v.state === "approved") db.prepare("INSERT INTO approvals (id,task_id,version_id,decided_by,decision) VALUES (?,?,?,?,?)").run(uid("ap"), p.id, row.id, u.id, "approved"); else db.prepare("INSERT INTO revision_requests (id,task_id,version_id,requested_by,reason,feedback,priority) VALUES (?,?,?,?,?,?,?)").run(uid("rr"), p.id, row.id, u.id, v.reason || "Revision requested", v.feedback || "", b.prio || null); }); }));
+  scoring.afterTaskWrite(p.id, u, { prevStatus: cur.status, via: "task" });
   { const out = forViewer(u, sz.readTask(db, p.id)); if (merged) out._merged = merged; return out; }
 });
 /* ---------- Progress notes: where a task stands, kept as versions (V1, V2…). Saving changes the latest
@@ -1807,7 +1827,10 @@ route("POST", "/api/restore/:type/:id", (u, p, q, b) => {
     if (next.proj && !db.prepare("SELECT 1 FROM projects WHERE id=? AND workspace_id=?").get(next.proj, WS_ID)) next.proj = cur.proj;
     if (next.team && !db.prepare("SELECT 1 FROM teams WHERE id=? AND workspace_id=?").get(next.team, WS_ID)) next.team = cur.team;
     next.dependencies = (next.dependencies || []).filter(d => d && d.taskId !== p.id && db.prepare("SELECT 1 FROM tasks WHERE id=?").get(d.taskId));
+    /* a locked estimate and the time log's Actual stay as they are now (server/scoring.js) */
+    scoring.guardRestore(u, cur, next);
     withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); act(u, "restored", "task", p.id, { task: p.id, at }); }));
+    scoring.afterTaskWrite(p.id, u, { prevStatus: cur.status, via: "restore" });
     return forViewer(u, sz.readTask(db, p.id));
   }
   if (p.type === "project") {
@@ -1818,9 +1841,15 @@ route("POST", "/api/restore/:type/:id", (u, p, q, b) => {
   }
   throw new HttpError(400, "Unknown kind");
 });
-route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u, sz.readTask(db, p.id)), "delete tasks"); tx(db, () => { if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) return; clearTaskRows(p.id); db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
-route("POST", "/api/tasks/:id/move", (u, p, q, b) => forViewer(u, withSnapshot(u, "task", p.id, () => moveTask(u, p.id, b))));
-route("POST", "/api/tasks/:id/hidden", (u, p, q, b) => { const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found"); forbid(can.editTask(u, cur), "hide this task"); db.prepare("UPDATE tasks SET is_hidden=?, updated_at=? WHERE id=?").run(b.hidden ? 1 : 0, now(), p.id); act(u, b.hidden ? "hidden" : "unhidden", "task", p.id, { task: p.id }); return sz.readTask(db, p.id); });
+route("DELETE", "/api/tasks/:id", (u, p) => { forbid(can.deleteTask(u, sz.readTask(db, p.id)), "delete tasks"); tx(db, () => { if (!db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) return; clearTaskRows(p.id, u); db.prepare("DELETE FROM tasks WHERE id=? AND workspace_id=?").run(p.id, WS_ID); }); act(u, "deleted", "task", p.id, { what: "task " + p.id }); return { ok: true }; });
+route("POST", "/api/tasks/:id/move", (u, p, q, b) => {
+  const before = db.prepare("SELECT status_id FROM tasks WHERE id=?").get(p.id);
+  withSnapshot(u, "task", p.id, () => moveTask(u, p.id, b));
+  /* a move out of a queue stage is where work starts: Smart Scoring may freeze the estimate (server/scoring.js) */
+  scoring.afterTaskWrite(p.id, u, { prevStatus: before ? before.status_id : undefined, via: "move" });
+  return forViewer(u, sz.readTask(db, p.id));
+});
+route("POST", "/api/tasks/:id/hidden", (u, p, q, b) => { const cur = sz.readTask(db, p.id); if (!cur) throw new HttpError(404, "Task not found"); forbid(can.editTask(u, cur), "hide this task"); db.prepare("UPDATE tasks SET is_hidden=?, updated_at=? WHERE id=?").run(b.hidden ? 1 : 0, now(), p.id); act(u, b.hidden ? "hidden" : "unhidden", "task", p.id, { task: p.id }); return forViewer(u, sz.readTask(db, p.id)); });
 /* requests */
 route("POST", "/api/requests", (u, p, q, b) => { forbid(can.submitRequest(u), "submit requests"); b.id = b.id || uid("R"); rejectExistingId("creative_requests", b.id); b.by = u.id; b.status = "submitted"; tx(db, () => sz.writeRequest(db, WS_ID, b)); act(u, "request", "request", b.id, { request: b.id, what: b.title }); return sz.readRequests(db, WS_ID); });
 route("PUT", "/api/requests/:id", (u, p, q, b) => { const cur = sz.readRequests(db, WS_ID).find(r => r.id === p.id); if (!cur) throw new HttpError(404, "Request not found"); if (b.status !== cur.status || b.converted !== cur.converted) forbid(can.decideRequest(u), "decide on requests"); else forbid(can.decideRequest(u) || cur.by === u.id, "edit this request"); b.id = p.id; b.by = cur.by; b.createdAt = cur.createdAt; tx(db, () => sz.writeRequest(db, WS_ID, b)); if (b.status !== cur.status) act(u, "request_" + b.status, "request", p.id, { request: p.id, what: b.title }); return sz.readRequests(db, WS_ID); });

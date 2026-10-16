@@ -183,3 +183,53 @@ test('a task adds only what is verified, and an objective is never more than its
   }
   assert.equal(obj([]), null, 'no key results: no progress');
 });
+
+/* What the server's Calculate gives (server/scoring.js): the kind of work from the title, the asset count as the
+   deliverables, the task's open dependencies, and the Scope rating suggested from the asset count — the numbers a
+   creative team would expect for tasks as they are really written, English or Indonesian. */
+test('Calculate, as the server works it out, gives sensible hours for real tasks and a Scope that grows with the asset count', () => {
+  const calc = require('../server/scoring.js').calculate;
+  const set = require('../shared/scoring-settings.js').normalizeSettings({});
+  const hoursFor = (title, assetCount, openDeps, inputs) => calc(set, { title, assetCount }, { module: 'hours', inputs: inputs || {} }, { openDeps: openDeps || 0 });
+  const within = (title, n, lo, hi) => { const r = hoursFor(title, n); assert.ok(r.value >= lo && r.value <= hi, title + ' × ' + n + ': ' + r.value + ' h is outside ' + lo + '–' + hi); return r; };
+  assert.equal(within('Feed post Ramadan', 5, 6, 6).final, 6, 'five feed posts: 6 h');
+  assert.equal(within('Konten feed Ramadan', 5, 6, 6).inputs.kind, 'feed', 'Indonesian too');
+  within('Instagram carousel', 1, 3, 6);
+  assert.equal(within('Resize banner ke 12 ukuran', 12, 3, 7).inputs.kind, 'resize', 'a resize is not a banner');
+  within('Reels promo Ramadan', 3, 10, 18);
+  within('Logo refresh', 1, 6, 16);
+  within('Caption Ramadan', 1, 0.5, 3);
+  within('Landing page webinar', 1, 6, 20);
+  within('Newsletter Oktober', 1, 2, 5);
+  within('Story set', 8, 4, 9);
+  const none = hoursFor('Quarterly sync', 1);
+  assert.equal(none.value, null, 'a title that names no kind: no number made up'); assert.equal(none.final, null); assert.equal(none.reason, 'no_template');
+  for (const title of ['Feed post Ramadan', 'Resize banner', 'Reels promo', 'Poster A3', 'Logo refresh', 'Deck update']) {
+    let last = 0;
+    for (let n = 0; n <= 30; n++) {
+      const r = hoursFor(title, n);
+      assert.ok(r.value >= last, title + ': ' + n + ' deliverables recommend fewer hours than ' + (n - 1));
+      assert.ok(r.value >= set.hours.bounds.min && r.value <= set.hours.bounds.max, title + ' × ' + n + ' outside the bounds');
+      assert.ok(r.final >= 0.5 && r.final * 2 === Math.round(r.final * 2) && Math.abs(r.final - r.value) <= 0.25 + 1e-9, title + ' × ' + n + ': the task gets ' + r.final + ' h for ' + r.value);
+      if (n >= 2) assert.ok(r.value - hoursFor(title, n - 1).value <= hoursFor(title, 1).value + 1e-9, title + ': an added piece costs more than the first');
+      last = r.value;
+    }
+    let dep = 0;
+    for (let d = 0; d <= 5; d++) { const h = hoursFor(title, 3, d).value; assert.ok(h >= dep, title + ': more open dependencies, fewer hours'); dep = h; }
+    let cx = 0;
+    for (let c = 1; c <= 5; c++) { const h = hoursFor(title, 3, 0, { complexity: c }).value; assert.ok(h >= cx, title + ': more complex, fewer hours'); cx = h; }
+  }
+  /* the Scope suggestion: the agreed bands, never down as the count grows, always a rating */
+  const scopeAt = n => calc(set, { title: 'Feed post', assetCount: n }, { module: 'story', ratings: { complexity: 3, uncertainty: 3, dependencies: 3 } }).inputs.ratings.scope;
+  assert.deepEqual([1, 2, 3, 4, 6, 7, 12, 13, 40].map(scopeAt), [1, 2, 2, 3, 3, 4, 4, 5, 5]);
+  let last = 0, sp = 0, wp = 0;
+  for (let n = 0; n <= 40; n++) {
+    const sc = scopeAt(n); assert.ok(sc >= last && sc >= 1 && sc <= 5, n + ' assets: Scope ' + sc); last = sc;
+    const story = calc(set, { title: 'Feed post', assetCount: n }, { module: 'story', ratings: { complexity: 3, uncertainty: 2, dependencies: 1 } });
+    const weighted = calc(set, { title: 'Feed post', assetCount: n }, { module: 'weighted', ratings: { complexity: 3, uncertainty: 2, dependencies: 1 } });
+    assert.equal(story.inputs.sources.scope, 'assets', 'and it says where it came from');
+    assert.ok(story.value >= sp && weighted.value >= wp, n + ' assets: more deliverables, fewer points'); sp = story.value; wp = weighted.value;
+    assert.ok(S.STORY_SCALE.includes(story.value)); assert.ok(weighted.value >= 1 && weighted.value <= set.weighted.scaleMax);
+  }
+  assert.ok(sp <= 5, 'a big set of simple, certain, independent work is not a 13-point task: ' + sp);
+});
