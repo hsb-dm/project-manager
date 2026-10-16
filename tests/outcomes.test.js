@@ -245,3 +245,19 @@ test('who reads, who writes, who links and who confirms; the server switch', { t
   const off = await start(at, { COS_SCORING: '0' });
   await err(await off.req('GET', '/api/outcomes', undefined, off.admin), 409, /turned off on this server/);
 });
+
+/* a task's Smart Scoring view carries its KPI and key-result links while either switch is on (server.js extendView) */
+test('a task\'s scoring view shows its outcome links while KPI or OKR is on, and nothing about them while both are off', { timeout: 120000 }, async t => {
+  const s = await start(place(t));
+  await switches(s, { kpi: true, okr: false });
+  const id = await task(s, { title: 'Outcome view ' + Date.now() });
+  const k = await create(s, { kind: 'kpi', title: 'Linked in the view', unit: 'tasks', baseline: 0, target: 4, rule: { type: 'tasks_completed', scope: 'linked' } });
+  await ok(s.req('POST', '/api/tasks/' + id + '/outcomes', { metricId: k.id }, s.admin));
+  let v = await ok(s.req('GET', '/api/tasks/' + id + '/scoring', undefined, s.admin));
+  assert.ok(v.outcomes, 'the block is there');
+  assert.deepEqual(v.outcomes.items.map(it => it.metric.id), [k.id], 'with the linked KPI');
+  assert.equal(v.outcomes.on.kpi, true);
+  await switches(s, { kpi: false, okr: false });
+  v = await ok(s.req('GET', '/api/tasks/' + id + '/scoring', undefined, s.admin));
+  assert.equal(v.outcomes, undefined, 'both off: no block');
+});

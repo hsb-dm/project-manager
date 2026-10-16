@@ -1339,6 +1339,9 @@ const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can,
   bumpData: () => { DATA_VERSION++; }, announce: id => announceTaskChange("PUT", "/api/tasks/" + id, null, { id: null }) });
 require("./scoring-assets")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* points for assets produced: GET /api/scoring/assets */
 const outcomes = require("./outcomes")(db, WS_ID, { route, HttpError, forbid, can, uid, now, tx, act, scoring, readTask: id => sz.readTask(db, id), bumpData: () => { DATA_VERSION++; } });   /* KPIs and OKRs (server/outcomes.js) */
+/* a task's KPI and key-result links in its Smart Scoring view, and outcome changes reaching open tabs (Oct 2026) */
+scoring.extendView((u, t, out) => { if (out.on && (out.on.kpi || out.on.okr)) out.outcomes = outcomes.forTask(u, t.id); });
+scoring.liveCollection("outcomes", u => outcomes.state(u));
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */

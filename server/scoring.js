@@ -69,29 +69,9 @@ const WORK_KINDS = new Set(["work", "review", "revision"]);
 const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = (v, dflt) => { if (v == null || v === "") return dflt; try { return JSON.parse(v); } catch (e) { return dflt; } };
 
-/* The kind of work a task's title names: src/effort-estimate.js EST_KINDS' patterns, in its order (the more specific
-   first), English or Indonesian. Replaced by ScoringEngine.kindOf as soon as the engine carries the patterns — one
-   source of them; this copy is used only while it does not. */
-const KIND_PATTERNS = [
-  ["carousel", /carousel|karosel/],
-  ["story", /\bstor(y|ies)\b|insta ?story|ig ?story/],
-  ["reels", /\breels?\b|tiktok|\bshorts\b|short video|video pendek/],
-  ["video", /video|motion|animation|animasi/],
-  ["kv", /\bkv\b|key ?visual/],
-  ["resize", /resize|adaptasi|adaptation|turunan/],
-  ["feed", /\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/],
-  ["poster", /poster|flyer|leaflet|brosur|brochure|pamflet/],
-  ["banner", /banner|\bads?\b|iklan|billboard|baliho|spanduk/],
-  ["copy", /copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/],
-  ["deck", /\bdeck\b|presentation|presentasi|\bppt\b|pitch/],
-  ["logo", /\blogo\b|branding|brand identity|identitas brand/],
-  ["web", /landing ?page|website|web ?page|halaman web/],
-  ["email", /\bemail\b|newsletter|\bedm\b/]
-];
-function kindOf(title) {
-  if (typeof engine.kindOf === "function") { const k = engine.kindOf(title); return typeof k === "string" ? k : (k && (k.id || k[0])) || null; }
-  const s = String(title || "").toLowerCase(); const hit = KIND_PATTERNS.find(k => k[1].test(s)); return hit ? hit[0] : null;
-}
+/* The kind of work a task's title names, from the one list of kinds the engine carries (ScoringEngine.kindOf — the
+   same patterns src/effort-estimate.js reads), the more specific first, English or Indonesian. */
+function kindOf(title) { const k = engine.kindOf(title); return typeof k === "string" ? k : null; }
 /* the Scope rating the asset count suggests: 1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13 or more → 5 (no count: one deliverable) */
 function scopeFromAssets(count) {
   const n = Math.max(0, Math.round(+count || 0));
