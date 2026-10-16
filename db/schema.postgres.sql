@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, logo TEXT, logo_img TEXT, favicon TEXT, tagline TEXT,
   time_zone TEXT DEFAULT 'Asia/Jakarta', working_days TEXT DEFAULT '[1,2,3,4,5]', work_start TEXT DEFAULT '09:00', work_end TEXT DEFAULT '18:00',
-  theme JSONB DEFAULT '{}'::jsonb, brand JSONB DEFAULT '{}'::jsonb, brief_fields JSONB DEFAULT '[]'::jsonb, notif_prefs JSONB DEFAULT '{}'::jsonb, legal JSONB DEFAULT '{}'::jsonb,
+  theme JSONB DEFAULT '{}'::jsonb, brand JSONB DEFAULT '{}'::jsonb, brief_fields JSONB DEFAULT '[]'::jsonb, notif_prefs JSONB DEFAULT '{}'::jsonb, legal JSONB DEFAULT '{}'::jsonb, scoring_settings JSONB DEFAULT '{}'::jsonb,
   allow_registration BOOLEAN DEFAULT true, require_approval INTEGER DEFAULT 1, default_role_id TEXT DEFAULT 'member', invite_code TEXT,
   created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -228,3 +228,87 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   user_agent TEXT, created_at TIMESTAMPTZ NOT NULL, last_used_at TIMESTAMPTZ, fail_count INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+
+-- Smart Scoring & Intelligence (Oct 2026, docs/SMART-SCORING.md); the settings are workspaces.scoring_settings.
+CREATE TABLE IF NOT EXISTS task_scoring (
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  module TEXT NOT NULL CHECK (module IN ('hours','story','weighted')),
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  math_value DOUBLE PRECISION, math_inputs JSONB DEFAULT '{}'::jsonb, ai_value DOUBLE PRECISION, ai_run_id TEXT, final_value DOUBLE PRECISION, unit TEXT,
+  source TEXT CHECK (source IN ('legacy','math','ai','manual')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','proposed','approved','locked','unverified','rebaseline_needed')),
+  factors JSONB DEFAULT '{}'::jsonb, mapping_version INTEGER, config_version INTEGER,
+  locked_value DOUBLE PRECISION, locked_at TIMESTAMPTZ, locked_by TEXT, approved_by TEXT, approved_at TIMESTAMPTZ, scope_fingerprint TEXT, proposal JSONB,
+  updated_by TEXT, updated_at TIMESTAMPTZ, rev INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (task_id, module)
+);
+CREATE INDEX IF NOT EXISTS idx_task_scoring_ws ON task_scoring(workspace_id, module, status);
+CREATE TABLE IF NOT EXISTS scoring_audit (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT, module TEXT, action TEXT NOT NULL,
+  actor_id TEXT, impersonated_by TEXT, old_value JSONB, new_value JSONB, reason TEXT, meta JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_audit_task ON scoring_audit(task_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_scoring_audit_ws ON scoring_audit(workspace_id, created_at);
+CREATE TABLE IF NOT EXISTS task_time_entries (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL, work_date TEXT NOT NULL,
+  minutes INTEGER NOT NULL CHECK (minutes >= 1 AND (minutes <= 1440 OR source = 'legacy')),
+  kind TEXT NOT NULL DEFAULT 'work' CHECK (kind IN ('work','blocked','revision')), started_at TIMESTAMPTZ, ended_at TIMESTAMPTZ, note TEXT,
+  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','legacy')),
+  verified BOOLEAN NOT NULL DEFAULT false, verified_by TEXT, verified_at TIMESTAMPTZ,
+  created_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), edited_by TEXT, edited_at TIMESTAMPTZ, deleted_at TIMESTAMPTZ, deleted_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_time_entries_task ON task_time_entries(task_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_time_entries_user ON task_time_entries(workspace_id, user_id, work_date);
+CREATE TABLE IF NOT EXISTS task_efficiency_awards (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL, share DOUBLE PRECISION NOT NULL DEFAULT 1, estimate_snapshot DOUBLE PRECISION, actual_snapshot DOUBLE PRECISION,
+  base_points DOUBLE PRECISION, bonus_points DOUBLE PRECISION, awarded_points DOUBLE PRECISION,
+  status TEXT NOT NULL DEFAULT 'provisional' CHECK (status IN ('provisional','pending_review','approved','rejected','revoked','ineligible')),
+  reasons JSONB DEFAULT '[]'::jsonb, needs_review BOOLEAN NOT NULL DEFAULT false, reviewer_id TEXT, reviewed_at TIMESTAMPTZ, review_note TEXT, quality_score DOUBLE PRECISION,
+  policy_version INTEGER, calc_key TEXT, recalculated_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (task_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_awards_ws ON task_efficiency_awards(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_awards_user ON task_efficiency_awards(workspace_id, user_id, status);
+CREATE TABLE IF NOT EXISTS scoring_ai_runs (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT, user_id TEXT, trigger TEXT, input_hash TEXT, config_version INTEGER, prompt_version INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('ok','invalid','error','timeout','quota','cached')), recommendation JSONB, confidence DOUBLE PRECISION,
+  tokens_in INTEGER, tokens_out INTEGER, provider TEXT, model TEXT, ms INTEGER, error TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_cache ON scoring_ai_runs(task_id, input_hash, config_version);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_user ON scoring_ai_runs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_ws ON scoring_ai_runs(workspace_id, created_at);
+CREATE TABLE IF NOT EXISTS outcome_objectives (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, description TEXT DEFAULT '',
+  period_start TEXT, period_end TEXT, owner_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','closed','archived')),
+  sort_order INTEGER DEFAULT 0, rev INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, updated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_objectives_ws ON outcome_objectives(workspace_id, status);
+CREATE TABLE IF NOT EXISTS outcome_metrics (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), kind TEXT NOT NULL CHECK (kind IN ('kpi','kr')),
+  objective_id TEXT REFERENCES outcome_objectives(id) ON DELETE SET NULL, title TEXT NOT NULL, description TEXT DEFAULT '', unit TEXT DEFAULT '',
+  direction TEXT NOT NULL DEFAULT 'up' CHECK (direction IN ('up','down')), baseline DOUBLE PRECISION, target DOUBLE PRECISION, weight DOUBLE PRECISION NOT NULL DEFAULT 1,
+  period_start TEXT, period_end TEXT, evidence_rule JSONB DEFAULT '{}'::jsonb, owner_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','closed','archived')),
+  sort_order INTEGER DEFAULT 0, rev INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_by TEXT, updated_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_metrics_ws ON outcome_metrics(workspace_id, kind, status);
+CREATE INDEX IF NOT EXISTS idx_outcome_metrics_objective ON outcome_metrics(objective_id);
+CREATE TABLE IF NOT EXISTS task_outcome_links (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  metric_id TEXT NOT NULL REFERENCES outcome_metrics(id) ON DELETE CASCADE, linked_by TEXT,
+  origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual','ai_accepted')),
+  evidence_type TEXT, evidence_id TEXT, contribution DOUBLE PRECISION,
+  status TEXT NOT NULL DEFAULT 'linked' CHECK (status IN ('linked','counted','revoked')),
+  counted_at TIMESTAMPTZ, revoked_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (metric_id, evidence_type, evidence_id)
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_links_task ON task_outcome_links(task_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_links_metric ON task_outcome_links(metric_id, status);
+CREATE TABLE IF NOT EXISTS outcome_values (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), metric_id TEXT NOT NULL REFERENCES outcome_metrics(id) ON DELETE CASCADE,
+  value DOUBLE PRECISION NOT NULL, source TEXT NOT NULL CHECK (source IN ('evidence','manual')), reason TEXT, actor_id TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_values_metric ON outcome_values(metric_id, created_at);

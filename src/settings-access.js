@@ -17,7 +17,7 @@ canI.manageNotificationSettings=function(){ return has("manage_notification_sett
 /* the workspace's notification switches are saved on their own (they have a capability of their own) */
 function saveNotifDefaults(){ if(!API.on) return; apiFetch("PUT","/api/workspace/notif-prefs",{notifPrefs:WS.notifPrefs}).then(function(d){ if(d&&d.notifPrefs) WS.notifPrefs=d.notifPrefs; toast(tr("Saved")); }).catch(function(e){ toast(e.message,"bad"); }); }
 var SETTINGS_ACCESS={profile:null,layout:null,theme:null,notifications:null,
-  workspace:["manage_workspace"],workflow:["manage_workspace"],automation:["manage_workspace"],briefs:["manage_workspace"],fields:["manage_workspace"],labels:["manage_workspace"],tags:["manage_workspace"],ai:["manage_workspace"],
+  workspace:["manage_workspace"],workflow:["manage_workspace"],automation:["manage_workspace"],scoring:["scoring_manage_workspace","scoring_view_analytics"],briefs:["manage_workspace"],fields:["manage_workspace"],labels:["manage_workspace"],tags:["manage_workspace"],ai:["manage_workspace"],
   members:["manage_members","approve_members"],roles:["manage_roles"],teams:["manage_teams"],integrations:["manage_cloud_storage"],backup:["manage_backups"]};
 function settingsTabAllowed(id){ if(!API.on) return true; var need=SETTINGS_ACCESS[id]; if(need===undefined) return canI.manageWorkspace(); return !need||need.some(function(c){ return has(c); }); }
 
@@ -31,8 +31,10 @@ var CAP_GROUPS=[
   ["Progress notes",["view_progress_notes","write_progress_notes"]],
   ["Assets & knowledge",["manage_assets","manage_knowledge"]],
   ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates","save_own_ai_templates"]],
-  ["Insights",["view_analytics"]]];
-var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Other":"more"};
+  ["Insights",["view_analytics"]],
+  /* Smart Scoring (src/scoring-core.js, docs/SMART-SCORING.md): no role but Admin has these until given */
+  ["Smart Scoring",["scoring_manage_workspace","scoring_manage_project","scoring_approve_estimate","scoring_edit_task","scoring_request_ai","scoring_approve_completion","scoring_manage_outcomes","scoring_view_analytics"]]];
+var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Smart Scoring":"gauge","Other":"more"};
 /* the capabilities of a role, in their groups; any the list does not name yet go under Other */
 function capGroupsHtml(r,all){ var seen={}, has_=function(id){ return all||(r.permissions||[]).indexOf(id)>=0; };
   var groups=CAP_GROUPS.map(function(g){ return [g[0],g[1].map(function(id){ seen[id]=1; return CAPS.filter(function(c){ return c[0]===id; })[0]; }).filter(Boolean)]; });

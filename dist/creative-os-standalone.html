@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="9bedab13f70a">
+<meta name="zc-build" content="9ab7eaa63448">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5472,6 +5472,35 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .cap-group-head{padding:8px 12px;background:var(--color-surface-sunken)}
 .cap-group .cap-row{padding:7px 12px}
 @media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
+/* Settings → Smart Scoring (src/scoring-settings.js), and its warning in Roles & permissions */
+.scr-meta{margin-top:8px}
+.scr-ro,.scr-later{margin-top:10px}
+.scr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px;margin:6px 0 12px}
+.scr-grid .field{margin:0}
+.scr-unit{display:flex;align-items:center;gap:6px}
+.scr-unit input{flex:1;min-width:0}
+.scr-unit span{flex:none;font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.scr-total{font-size:var(--fs-sm);font-weight:650;margin:-4px 0 12px}
+.scr-total.ok{color:var(--color-success)}
+.scr-total.bad{color:var(--color-danger)}
+.scr-module{flex-wrap:wrap}
+.scr-module .pl{flex:1 1 220px}
+.scr-module .scr-mode{flex:0 0 170px;margin:0}
+.scr-sub{display:flex;flex-direction:column;gap:2px;margin:14px 0 2px;padding-top:10px;border-top:1px solid var(--color-border)}
+.scr-sub b{font-size:var(--fs-sm);font-weight:700}
+.scr-sub span{font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.scr-primary{margin-top:12px;align-items:center}
+.scr-tpl{margin-bottom:4px}
+.scr-tpl .tbl th{cursor:default}
+.scr-tpl input.scr-cell{width:84px;border:1px solid var(--color-border);border-radius:10px;padding:6px 8px;background:var(--color-surface);outline:none;font-size:var(--fs-base)}
+.scr-tpl input.scr-cell:focus{border-color:var(--color-primary)}
+.scr-tpl input.scr-cell:disabled{opacity:.7}
+.scr-bands{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.scr-holder-who{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.scr-changes{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.scr-change b{font-weight:600;color:var(--color-text-primary)}
+.cap-group .scr-duty-warn{margin:8px 12px}
+.panel-foot .scr-leads{white-space:normal;max-width:100%;text-align:left}
 /* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the
    meta line the project's name is what shortens, with an ellipsis, while the id, team and stage keep their width */
 .row .r .lbls-stack{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
@@ -6058,6 +6087,189 @@ const roleLimit=(user,table)=>{const roles=[user.role||'member'].concat(user.ext
 const usage=(used,lim)=>({used,limit:lim.unlimited?null:lim.limit,unlimited:lim.unlimited,remaining:lim.unlimited?null:Math.max(0,lim.limit-used),percentage:lim.unlimited?0:lim.limit===0?100:Math.round(used/lim.limit*100),over:!lim.unlimited&&used>lim.limit});
 const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,usage,DEFAULT_ROLE_QUOTA};if(typeof module!=='undefined'&&module.exports)module.exports=model;else root.GalleryModel=model;
 })(typeof window!=='undefined'?window:this);
+</script><script>/* SMART SCORING SETTINGS (Oct 2026) — one shape for the server, the browser and the tests (docs/SMART-SCORING.md).
+
+   The workspace's Smart Scoring settings are one JSON object, kept in workspaces.scoring_settings and written only by
+   PUT /api/scoring/settings. Whatever arrives — from the database, from the Settings tab, from an older version or a
+   hand-made request — goes through normalizeSettings first: every key the shape does not know is dropped, a missing
+   one takes its default, every number is held to its range, the factor weights are made to add up to exactly 1, the
+   Story Points thresholds are sorted, the Fibonacci scale is always 1, 2, 3, 5, 8, 13, and a mode or a capacity
+   metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
+
+   Off by default: the master switch is off, and inside it only Effort Hours is on. The hours templates are the kinds
+   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids; a kind made in sets counts
+   each next deliverable at 60% of the first, the others count once (nextUnitFactor 0), as today.
+
+   diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
+
+   The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
+   (settings.hours, settings.story, settings.weighted, settings.bonus, settings.ai) and never reads this module.
+   Used by server/serialize.js, server/scoring.js and, inlined by build.js, the page (window.ScoringSettings). */
+(function(root){
+"use strict";
+const MODES = ["math_only", "ai_assisted", "hybrid"];
+const PRIMARY_CAPACITY = ["hours", "story_points", "weighted_points"];
+const FACTORS = ["complexity", "scope", "uncertainty", "dependencies"];
+const SCALE = [1, 2, 3, 5, 8, 13];
+const LOCK_POLICIES = ["approve", "approve_or_work_start"];
+const COMPARABLES = ["team", "none"];
+const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
+/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, made in sets] */
+const KINDS = [
+  ["carousel", 4, 3, 6, false], ["story", 1.5, 1, 3, true], ["reels", 6, 4, 10, false], ["video", 8, 4, 16, false],
+  ["kv", 6, 4, 10, false], ["resize", 1.5, 0.5, 3, true], ["feed", 2, 1, 3, true], ["poster", 3, 2, 5, true],
+  ["banner", 3, 2, 5, true], ["copy", 1.5, 0.5, 3, false], ["deck", 6, 3, 10, false], ["logo", 10, 6, 16, false],
+  ["web", 10, 6, 20, false], ["email", 3, 2, 5, false]];
+const KIND_IDS = KINDS.map(k => k[0]);
+/* written by the server, never by the person saving: left out of what diffSettings reports */
+const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy"]);
+
+function defaults() {
+  const templates = {};
+  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] ? 0.6 : 0 }; });
+  return {
+    enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
+    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false } },
+    primaryCapacity: "hours",
+    hours: {
+      templates,
+      complexity: { 1: 0.8, 2: 0.9, 3: 1, 4: 1.25, 5: 1.5 },
+      dependency: { 0: 1, 1: 1.1, 2: 1.2, 3: 1.3 },
+      bounds: { min: 0.25, max: 80 },
+      lockPolicy: "approve_or_work_start"
+    },
+    story: { scale: SCALE.slice(), thresholds: [1.5, 2.5, 3.5, 4.25, 4.75], weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 } },
+    weighted: { weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 }, scaleMax: 10, mappingVersion: 1 },
+    ai: { minConfidence: 0.6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200, comparables: "team" },
+    overrides: { requireReason: true, requireApproval: false, allowSelfApproveEstimate: false },
+    bonus: {
+      on: false, enabledAt: null, grace: 0.1, rewardFactor: 0.5, maxRate: 0.2, minE: 1, minA: 0.25, reviewBelowRatio: 0.4,
+      materialChangeHours: 0.25, baseSource: "weighted_else_mapping",
+      hourMapping: { type: "bands", bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
+      completionStages: null, requireApprovedVersion: true, minQuality: null,
+      independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
+    }
+  };
+}
+function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
+const DEFAULTS = freeze(defaults());
+
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const round4 = x => Math.round(x * 1e4) / 1e4;
+/* a number (or a numeric string) held to [lo, hi]; anything else is the default */
+function num(v, lo, hi, d) { const x = typeof v === "string" && v.trim() !== "" ? +v : v; if (typeof x !== "number" || !isFinite(x)) return d; return round4(Math.min(hi, Math.max(lo, x))); }
+function int(v, lo, hi, d) { const x = num(v, lo, hi, null); return x === null ? d : Math.round(x); }
+const bool = (v, d) => typeof v === "boolean" ? v : d;
+const pick = (v, list, d) => list.indexOf(v) >= 0 ? v : d;
+const ID = /^[-\w]{1,40}$/;
+const idOrNull = v => typeof v === "string" && ID.test(v) ? v : null;
+const isoOrNull = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/.test(v) ? v : null;
+const ids = (v, max) => Array.isArray(v) ? [...new Set(v.filter(x => typeof x === "string" && ID.test(x)))].slice(0, max) : [];
+
+/* the factor weights, made to add up to exactly 1 (in steps of 0.0001, any remainder on the largest); all zero or
+   not a set of weights: the defaults. Weights given as percentages (40, 30, 20, 10) come out the same. */
+function weights(v, d) {
+  if (!isObj(v)) return Object.assign({}, d);
+  const w = {}; let sum = 0;
+  FACTORS.forEach(f => { w[f] = num(v[f], 0, 1e6, 0); sum += w[f]; });
+  if (!(sum > 0)) return Object.assign({}, d);
+  const units = {}; let total = 0, big = FACTORS[0];
+  FACTORS.forEach(f => { units[f] = Math.round(w[f] / sum * 1e4); total += units[f]; if (units[f] > units[big]) big = f; });
+  units[big] += 1e4 - total;
+  const out = {}; FACTORS.forEach(f => { out[f] = units[f] / 1e4; }); return out;
+}
+/* the five cut points on the 1–5 index, lowest first: an index at most thresholds[i] (and above the one before) is
+   SCALE[i]; above the last it is 13 — as shared/scoring-engine.js storyPoints reads them */
+function thresholds(v, d) {
+  if (!Array.isArray(v) || v.length !== d.length || v.some(x => num(x, -1e9, 1e9, null) === null)) return d.slice();
+  return v.map(x => num(x, 1, 5, 1)).sort((a, b) => a - b);
+}
+/* hours → base points: [up to this many hours, points] pairs, fewest hours first, each number of hours once */
+function bands(v, d) {
+  if (!Array.isArray(v) || !v.length || v.length > 12) return d.map(b => b.slice());
+  const out = [], seen = new Set();
+  for (const b of v) {
+    if (!Array.isArray(b) || b.length !== 2) return d.map(x => x.slice());
+    const h = num(b[0], 0.05, 10000, null), p = num(b[1], 0.01, 1000, null);
+    if (h === null || p === null) return d.map(x => x.slice());
+    if (!seen.has(h)) { seen.add(h); out.push([h, p]); }
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+function mod(v, d, withMode) { const m = isObj(v) ? v : {}; const o = { on: bool(m.on, d.on) }; if (withMode) o.mode = pick(m.mode, MODES, d.mode); return o; }
+
+function normalizeSettings(raw) {
+  let r = raw;
+  if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = null; } }
+  if (!isObj(r)) r = {};
+  const d = defaults(), o = {};
+  o.enabled = bool(r.enabled, d.enabled);
+  o.configVersion = int(r.configVersion, 1, 1e9, d.configVersion);
+  o.updatedAt = isoOrNull(r.updatedAt); o.updatedBy = idOrNull(r.updatedBy);
+  const m = isObj(r.modules) ? r.modules : {};
+  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr) };
+  o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
+
+  const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
+  o.hours = { templates: {} };
+  KIND_IDS.forEach(id => {
+    const t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
+    const perUnit = num(t.perUnit, 0.05, 200, dt.perUnit);
+    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 2, dt.nextUnitFactor) };
+  });
+  const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
+  o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });
+  o.hours.dependency = {}; [0, 1, 2, 3].forEach(k => { o.hours.dependency[k] = num(dp[k], 0.5, 10, dh.dependency[k]); });
+  const min = num(bd.min, 0.05, 40, dh.bounds.min);
+  o.hours.bounds = { min, max: Math.max(min, num(bd.max, 0.5, 400, dh.bounds.max)) };
+  o.hours.lockPolicy = pick(h.lockPolicy, LOCK_POLICIES, dh.lockPolicy);
+
+  const s = isObj(r.story) ? r.story : {};
+  o.story = { scale: SCALE.slice(), thresholds: thresholds(s.thresholds, d.story.thresholds), weights: weights(s.weights, d.story.weights) };
+  const w = isObj(r.weighted) ? r.weighted : {};
+  o.weighted = { weights: weights(w.weights, d.weighted.weights), scaleMax: int(w.scaleMax, 2, 100, d.weighted.scaleMax), mappingVersion: int(w.mappingVersion, 1, 1e6, d.weighted.mappingVersion) };
+
+  const a = isObj(r.ai) ? r.ai : {}, da = d.ai;
+  o.ai = { minConfidence: num(a.minConfidence, 0, 1, da.minConfidence), onCreate: bool(a.onCreate, da.onCreate), onBriefRevision: bool(a.onBriefRevision, da.onBriefRevision),
+    perUserDaily: int(a.perUserDaily, 0, 1000, da.perUserDaily), workspaceDaily: int(a.workspaceDaily, 0, 100000, da.workspaceDaily), comparables: pick(a.comparables, COMPARABLES, da.comparables) };
+  const v = isObj(r.overrides) ? r.overrides : {}, dv = d.overrides;
+  o.overrides = { requireReason: bool(v.requireReason, dv.requireReason), requireApproval: bool(v.requireApproval, dv.requireApproval), allowSelfApproveEstimate: bool(v.allowSelfApproveEstimate, dv.allowSelfApproveEstimate) };
+
+  const b = isObj(r.bonus) ? r.bonus : {}, db = d.bonus, hm = isObj(b.hourMapping) ? b.hourMapping : {};
+  const stages = ids(b.completionStages, 30);
+  o.bonus = {
+    on: bool(b.on, db.on), enabledAt: isoOrNull(b.enabledAt),
+    grace: num(b.grace, 0, 0.9, db.grace), rewardFactor: num(b.rewardFactor, 0, 5, db.rewardFactor), maxRate: num(b.maxRate, 0, 1, db.maxRate),
+    minE: num(b.minE, 0, 1000, db.minE), minA: num(b.minA, 0, 1000, db.minA), reviewBelowRatio: num(b.reviewBelowRatio, 0, 1, db.reviewBelowRatio),
+    materialChangeHours: num(b.materialChangeHours, 0, 100, db.materialChangeHours), baseSource: pick(b.baseSource, BASE_SOURCES, db.baseSource),
+    hourMapping: { type: "bands", bands: bands(hm.bands, db.hourMapping.bands) },
+    completionStages: Array.isArray(b.completionStages) && stages.length ? stages : null,
+    requireApprovedVersion: bool(b.requireApprovedVersion, db.requireApprovedVersion),
+    minQuality: b.minQuality === null || b.minQuality === undefined ? null : num(b.minQuality, 1, 5, null),
+    /* owner decisions: an independent reviewer always, admins included; no per-period cap in v1; never negative;
+       never retroactive — held here so no request can change them */
+    independentApproval: true, allowSelfApproval: false, perPeriodCap: null,
+    pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
+  };
+  return o;
+}
+
+/* what changed from a to b, leaf by leaf (lists compared whole), the server's own bookkeeping left out */
+function diffSettings(a, b) {
+  const out = [];
+  const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
+  (function walk(x, y, p) {
+    if (isObj(x) && isObj(y)) { [...new Set(Object.keys(x).concat(Object.keys(y)))].sort().forEach(k => walk(x[k], y[k], p ? p + "." + k : k)); return; }
+    if (!same(x, y)) out.push({ path: p, from: x === undefined ? null : x, to: y === undefined ? null : y });
+  })(isObj(a) ? a : {}, isObj(b) ? b : {}, "");
+  return out.filter(c => !VOLATILE.has(c.path));
+}
+/* a module counts only with the master switch on */
+const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
+
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES };
+if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
+})(typeof window !== "undefined" ? window : this);
 </script><script>/* ============================================================
    SMART SCORING ENGINE (Oct 2026) — the arithmetic of Smart Scoring, worked out the same way everywhere.
    One file, used three ways: the server and the tests require() it, and build.js inlines it into the page, where it
@@ -6761,7 +6973,7 @@ var TODAY=new Date(); TODAY.setHours(0,0,0,0);
 var ME="zein";
 var WS={}, TEAMS=[], PEOPLE={}, PROJECTS=[], TASKS=[], REQUESTS=[], ASSET_FOLDERS=[], ASSETS=[], KNOWLEDGE=[], KNOWLEDGE_FOLDERS=[], NOTIFS=[], ACTIVITY=[], VIEWS=[], ROLES=[], AN=null;
 var API={ on:false, base:"", features:{}, serving:false, demo:false }; var CAPS=[];
-var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workflow, brand"],["view_progress_notes","See tasks' progress notes"],["write_progress_notes","Write progress notes on any task they can see"],["manage_members","Add/remove members, change roles, reset passwords"],["approve_members","Approve or turn away people who sign up"],["manage_teams","Create teams, colors, icons, membership"],["manage_roles","Create and edit roles"],["create_project","Create projects"],["edit_any_project","Edit any project"],["delete_project","Delete projects"],["create_task","Create tasks for anyone"],["create_own_task","Create tasks assigned to themselves"],["edit_any_task","Edit any task"],["edit_team_tasks","Edit/assign/review tasks of teams they lead or belong to"],["edit_own_task","Edit tasks where they are assignee or reviewer"],["assign_task","Assign tasks to anyone"],["review_any","Approve / send back any task"],["delete_task","Delete tasks"],["upload_file","Upload files and versions"],["decide_request","Triage, accept, reject and convert creative requests"],["manage_assets","Add/edit assets and folders"],["manage_knowledge","Write knowledge pages"],["view_analytics","See analytics"],["view_all","See all projects and tasks"],["submit_request","Submit a request: an unassigned task in the first stage for the creative team to triage"],["use_ai_hub","Open AI Hub and generate visuals"],["view_ai_gallery","Browse the shared AI Gallery"],["publish_ai_gallery","Publish their own designs to the AI Gallery"],["duplicate_ai_gallery","Duplicate someone else's gallery design"],["manage_own_ai_gallery","Rename, archive and delete their own designs"],["manage_all_ai_gallery","Manage any member's gallery design"],["save_ai_templates","Save AI Hub canvases as templates for everyone"],["save_own_ai_templates","Save AI Hub canvases as templates for themselves"],["view_messages","Open Messages and read conversations they belong to"],["send_message","Send messages"],["create_group_chat","Create small group conversations"],["manage_group_chat","Rename any group and manage its members"],["create_team_channel","Create extra channels for their team"],["manage_team_channel","Edit or archive team channels"],["mention_everyone","Use @everyone in team channels"],["pin_message","Pin messages and resources in team channels"],["manage_any_message","Edit or delete any member's message"]];
+var DEMO_CAP_LIST=[["manage_workspace","Manage workspace settings, theme, workflow, brand"],["view_progress_notes","See tasks' progress notes"],["write_progress_notes","Write progress notes on any task they can see"],["manage_members","Add/remove members, change roles, reset passwords"],["approve_members","Approve or turn away people who sign up"],["manage_teams","Create teams, colors, icons, membership"],["manage_roles","Create and edit roles"],["create_project","Create projects"],["edit_any_project","Edit any project"],["delete_project","Delete projects"],["create_task","Create tasks for anyone"],["create_own_task","Create tasks assigned to themselves"],["edit_any_task","Edit any task"],["edit_team_tasks","Edit/assign/review tasks of teams they lead or belong to"],["edit_own_task","Edit tasks where they are assignee or reviewer"],["assign_task","Assign tasks to anyone"],["review_any","Approve / send back any task"],["delete_task","Delete tasks"],["upload_file","Upload files and versions"],["decide_request","Triage, accept, reject and convert creative requests"],["manage_assets","Add/edit assets and folders"],["manage_knowledge","Write knowledge pages"],["view_analytics","See analytics"],["view_all","See all projects and tasks"],["submit_request","Submit a request: an unassigned task in the first stage for the creative team to triage"],["use_ai_hub","Open AI Hub and generate visuals"],["view_ai_gallery","Browse the shared AI Gallery"],["publish_ai_gallery","Publish their own designs to the AI Gallery"],["duplicate_ai_gallery","Duplicate someone else's gallery design"],["manage_own_ai_gallery","Rename, archive and delete their own designs"],["manage_all_ai_gallery","Manage any member's gallery design"],["save_ai_templates","Save AI Hub canvases as templates for everyone"],["save_own_ai_templates","Save AI Hub canvases as templates for themselves"],["view_messages","Open Messages and read conversations they belong to"],["send_message","Send messages"],["create_group_chat","Create small group conversations"],["manage_group_chat","Rename any group and manage its members"],["create_team_channel","Create extra channels for their team"],["manage_team_channel","Edit or archive team channels"],["mention_everyone","Use @everyone in team channels"],["pin_message","Pin messages and resources in team channels"],["manage_any_message","Edit or delete any member's message"],["scoring_manage_workspace","Set up Smart Scoring: modules, weights, scales and policies"],["scoring_manage_project","Change a project's Smart Scoring settings, where the workspace allows it"],["scoring_approve_estimate","Approve and lock task estimates (never on a task they are assigned to)"],["scoring_edit_task","Change any task's scores, a locked estimate included"],["scoring_request_ai","Ask the AI to suggest a task's scores"],["scoring_approve_completion","Approve finished work and efficiency bonuses (never their own)"],["scoring_manage_outcomes","Set up KPIs and OKRs and correct their progress"],["scoring_view_analytics","See the whole team's scoring analytics"]];   /* Smart Scoring (Oct 2026): the demo admin only, as on the server */
 var DEMO_CAPS={admin:DEMO_CAP_LIST.map(function(c){ return c[0]; }),creative_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","manage_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","manage_any_message","create_project","edit_any_project","delete_project","create_task","create_own_task","edit_any_task","assign_task","review_any","delete_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],team_lead:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","create_team_channel","manage_team_channel","mention_everyone","pin_message","submit_request","create_task","create_own_task","edit_team_tasks","edit_own_task","upload_file","decide_request","manage_assets","manage_knowledge","view_analytics","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],member:["view_progress_notes","write_progress_notes","view_messages","send_message","create_group_chat","pin_message","submit_request","create_own_task","edit_own_task","upload_file","manage_assets","manage_knowledge","view_all","use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery"],viewer:["view_progress_notes","view_messages","send_message","view_all","submit_request","view_ai_gallery"]};
 var S={ screen:"home", sub:null, railFilter:null, taskView:"kanban", taskScope:"mine", sort:"manual", sortDir:1, group:"", filters:{status:"",kind:"",assignee:"",reviewer:"",proj:"",prio:"",team:"",tag:"",dependency:"",due:"",archived:"",hidden:""}, activeView:null, actScope:"mine", gridFields:["status","team","assignee","prio","start","due","effort","tags"],
   calMode:"month", calMonth:TODAY.getMonth(), calYear:TODAY.getFullYear(), calDay:0, calScope:"all", calLabelsOpen:false, drawerTask:null, drawerTab:"brief", drawerVer:null, commentVis:"internal", replyTo:null, revOpen:false, briefEdit:false,
@@ -13266,13 +13478,13 @@ function renderSettings(){ var tabs=[
   ["profile","My profile"],["layout","Menu & home layout"],
   ["workspace","Workspace"],["theme","Theme & appearance"],
   /* one word keeps the sidebar item on a single line */
-  ["workflow","Workflow stages"],["automation","Automation"],["briefs","Brief templates"],
+  ["workflow","Workflow stages"],["automation","Automation"],["scoring","Smart Scoring"],["briefs","Brief templates"],
   ["fields","Custom fields"],["labels","Labels"],["tags","Tags"],
   ["members","Members"],["roles","Roles & permissions"],["teams","Teams"],
   ["ai","AI & integrations"],["notifications","Notifications & email"],["integrations","Cloud storage"],["backup","Backup & data"]];
   /* each tab only for whoever may do what it is for (src/settings-access.js) */
   if(typeof settingsTabAllowed==="function"){ tabs=tabs.filter(function(t){ return settingsTabAllowed(t[0]); }); if(!tabs.some(function(t){ return t[0]===S.settingsTab; })) S.settingsTab=tabs[0][0]; }
-  var h='<div class="pagehead"><div><h1>'+tr("Settings")+'</h1></div></div><div class="settings"><select class="settings-mobile-select mobile-only" aria-label="'+attr(tr("Settings"))+'" onchange="S.settingsTab=this.value;renderScreen(false)">'+tabs.map(function(t){ return '<option value="'+t[0]+'"'+(S.settingsTab===t[0]?" selected":"")+'>'+esc(tr(t[1]))+'</option>'; }).join("")+'</select><div class="snav">'+tabs.map(function(t){ return '<button class="'+(S.settingsTab===t[0]?"on":"")+'" onclick="S.settingsTab=\''+t[0]+'\';renderScreen(false)">'+tr(t[1])+'</button>'; }).join("")+'</div><div style="display:flex;flex-direction:column;gap:var(--sp-4)">'+({profile:setProfile,workspace:setWorkspace,theme:setThemeTab,workflow:setWorkflow,briefs:setBriefs,fields:setFields,labels:setLabels,tags:setTags,ai:setAI,automation:setAutomation,layout:setLayout,members:setMembers,roles:setRoles,teams:setTeamsTab,notifications:setNotifications,integrations:setIntegrations,backup:setBackup})[S.settingsTab]()+'</div></div>';
+  var h='<div class="pagehead"><div><h1>'+tr("Settings")+'</h1></div></div><div class="settings"><select class="settings-mobile-select mobile-only" aria-label="'+attr(tr("Settings"))+'" onchange="S.settingsTab=this.value;renderScreen(false)">'+tabs.map(function(t){ return '<option value="'+t[0]+'"'+(S.settingsTab===t[0]?" selected":"")+'>'+esc(tr(t[1]))+'</option>'; }).join("")+'</select><div class="snav">'+tabs.map(function(t){ return '<button class="'+(S.settingsTab===t[0]?"on":"")+'" onclick="S.settingsTab=\''+t[0]+'\';renderScreen(false)">'+tr(t[1])+'</button>'; }).join("")+'</div><div style="display:flex;flex-direction:column;gap:var(--sp-4)">'+({profile:setProfile,workspace:setWorkspace,theme:setThemeTab,workflow:setWorkflow,briefs:setBriefs,fields:setFields,labels:setLabels,tags:setTags,ai:setAI,automation:setAutomation,scoring:setScoring,layout:setLayout,members:setMembers,roles:setRoles,teams:setTeamsTab,notifications:setNotifications,integrations:setIntegrations,backup:setBackup})[S.settingsTab]()+'</div></div>';
   document.getElementById("content").innerHTML=h; setTimeout(function(){enableHorizontalDrag(document.querySelector(".settings .snav"));},0); }
 function sp(title,body,foot,icon,cls){ return '<section class="panel'+(cls?' '+cls:'')+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+tr(title)+'</h2></div><div class="panel-body pad">'+body+'</div>'+(foot?'<div class="panel-foot">'+foot+'</div>':'')+'</section>'; }
 function saveWS(msg){ persistWS().then(function(saved){ if(saved===false)return false; toast(msg||"Saved"); }); }
@@ -24006,7 +24218,7 @@ canI.manageNotificationSettings=function(){ return has("manage_notification_sett
 /* the workspace's notification switches are saved on their own (they have a capability of their own) */
 function saveNotifDefaults(){ if(!API.on) return; apiFetch("PUT","/api/workspace/notif-prefs",{notifPrefs:WS.notifPrefs}).then(function(d){ if(d&&d.notifPrefs) WS.notifPrefs=d.notifPrefs; toast(tr("Saved")); }).catch(function(e){ toast(e.message,"bad"); }); }
 var SETTINGS_ACCESS={profile:null,layout:null,theme:null,notifications:null,
-  workspace:["manage_workspace"],workflow:["manage_workspace"],automation:["manage_workspace"],briefs:["manage_workspace"],fields:["manage_workspace"],labels:["manage_workspace"],tags:["manage_workspace"],ai:["manage_workspace"],
+  workspace:["manage_workspace"],workflow:["manage_workspace"],automation:["manage_workspace"],scoring:["scoring_manage_workspace","scoring_view_analytics"],briefs:["manage_workspace"],fields:["manage_workspace"],labels:["manage_workspace"],tags:["manage_workspace"],ai:["manage_workspace"],
   members:["manage_members","approve_members"],roles:["manage_roles"],teams:["manage_teams"],integrations:["manage_cloud_storage"],backup:["manage_backups"]};
 function settingsTabAllowed(id){ if(!API.on) return true; var need=SETTINGS_ACCESS[id]; if(need===undefined) return canI.manageWorkspace(); return !need||need.some(function(c){ return has(c); }); }
 
@@ -24020,8 +24232,10 @@ var CAP_GROUPS=[
   ["Progress notes",["view_progress_notes","write_progress_notes"]],
   ["Assets & knowledge",["manage_assets","manage_knowledge"]],
   ["AI Hub & gallery",["use_ai_hub","view_ai_gallery","publish_ai_gallery","duplicate_ai_gallery","manage_own_ai_gallery","manage_all_ai_gallery","save_ai_templates","save_own_ai_templates"]],
-  ["Insights",["view_analytics"]]];
-var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Other":"more"};
+  ["Insights",["view_analytics"]],
+  /* Smart Scoring (src/scoring-core.js, docs/SMART-SCORING.md): no role but Admin has these until given */
+  ["Smart Scoring",["scoring_manage_workspace","scoring_manage_project","scoring_approve_estimate","scoring_edit_task","scoring_request_ai","scoring_approve_completion","scoring_manage_outcomes","scoring_view_analytics"]]];
+var CAP_GROUP_ICON={"Workspace & settings":"settings","People & teams":"team","Notifications":"bell","Projects":"projects","Tasks":"tasks","Reviews & requests":"check","Progress notes":"edit","Assets & knowledge":"assets","AI Hub & gallery":"sparkle","Insights":"analytics","Smart Scoring":"gauge","Other":"more"};
 /* the capabilities of a role, in their groups; any the list does not name yet go under Other */
 function capGroupsHtml(r,all){ var seen={}, has_=function(id){ return all||(r.permissions||[]).indexOf(id)>=0; };
   var groups=CAP_GROUPS.map(function(g){ return [g[0],g[1].map(function(id){ seen[id]=1; return CAPS.filter(function(c){ return c[0]===id; })[0]; }).filter(Boolean)]; });
@@ -24127,6 +24341,435 @@ function capGrantsSection(){
   "Nobody has extra permissions.":"Belum ada yang punya izin tambahan.",
   "Other":"Lainnya"
 });
+</script>
+<script>
+/* ============================================================
+   SMART SCORING IN THE PAGE: WHETHER IT IS ON, AND WHO MAY DO WHAT (Oct 2026)
+   Smart Scoring (docs/SMART-SCORING.md) scores tasks in Effort Hours, Story Points or Weighted Points and links them
+   to KPIs and OKRs. It is off until an admin turns it on in Settings → Smart Scoring, and while it is off nothing in
+   the app looks or works differently. Every other scoring file of the page asks here first:
+   - scoringOn(): the server has the feature (features.scoring; COS_SCORING=0 turns it off there) and the workspace's
+     master switch is on. scoringModuleOn("hours"|"story"|"weighted"|"kpi"|"okr"): that, and the module is on.
+   - scoringSettings(): the workspace's settings, always in their full shape (shared/scoring-settings.js, which
+     build.js inlines as window.ScoringSettings). Read-only: clone before changing anything.
+   - canI.scoring…: the browser's mirror of the server's checks (server/permissions.js), for showing the right
+     buttons only — the server decides. Admin holds every permission, so the separation of duties is written out and
+     binds admins too: nobody approves an estimate on a task they are assigned to (unless the workspace allows it),
+     nobody approves the finished work of a task they are assigned to or credited on, nothing is approved while
+     acting as someone else, and time is logged by the people assigned, on their task.
+   - scoringLoad / scoringSave / scoringDelegateLeads: the settings routes, with the same behaviour kept in the
+     browser in the offline demo, so the standalone file works too.
+   A task sent to the server never carries its scoring summary back (dTask): only the scoring routes write scores.
+   ============================================================ */
+I.gauge=I.gauge||'<svg class="i" viewBox="0 0 24 24"><path d="M4.5 17a8 8 0 1 1 15 0"/><path d="M12 15l4-5"/><circle cx="12" cy="15.5" r="1.4"/></svg>';
+var SCORING_NORM={src:null,val:null}, SCORING_DEMO_AUDIT=[];
+var SCORING_LEAD_CAPS=["scoring_approve_estimate","scoring_approve_completion","scoring_view_analytics"], SCORING_LEAD_ROLES=["team_lead","creative_lead"];
+var SCORING_CAPS=["scoring_manage_workspace","scoring_manage_project","scoring_approve_estimate","scoring_edit_task","scoring_request_ai","scoring_approve_completion","scoring_manage_outcomes","scoring_view_analytics"];
+function scoringModel(){ return typeof ScoringSettings!=="undefined"?ScoringSettings:null; }
+/* the server's switch for the whole feature; the offline demo has no server, so it is always there */
+function scoringFeature(){ return API.on?!!(API.features&&API.features.scoring):true; }
+function scoringSettings(){ var m=scoringModel(); if(!m) return null; var src=(typeof WS!=="undefined"&&WS&&WS.scoring)||null;
+  if(SCORING_NORM.val&&SCORING_NORM.src===src) return SCORING_NORM.val;
+  SCORING_NORM={src:src,val:m.normalizeSettings(src||{})}; return SCORING_NORM.val; }
+function scoringOn(){ if(!scoringFeature()) return false; var s=scoringSettings(); return !!(s&&s.enabled); }
+function scoringModuleOn(id){ var s=scoringSettings(); return scoringOn()&&!!(s.modules[id]&&s.modules[id].on); }
+function scoringMode(id){ var s=scoringSettings(), m=s&&s.modules[id]; return m&&m.mode||null; }
+function scoringPrimary(){ var s=scoringSettings(); return s?s.primaryCapacity:"hours"; }
+function scoringStakeholder(){ return !!(typeof PEOPLE!=="undefined"&&PEOPLE[ME]&&PEOPLE[ME].stakeholder); }
+/* signed in as one person, acting as another (an admin trying someone's view): no approvals */
+function scoringActingAs(){ return !!(API.on&&SESSION.user&&ME!==SESSION.user.id); }
+
+canI.scoringConfigure=function(){ return has("scoring_manage_workspace"); };
+canI.scoringManageProject=function(p){ return has("scoring_manage_project"); };
+canI.scoringEditTask=function(t){ return !scoringStakeholder()&&has("scoring_edit_task"); };
+canI.scoringPropose=function(t){ return !!t&&!scoringStakeholder()&&(isAssignee(t,ME)||canI.editTask(t)); };
+canI.scoringApproveEstimate=function(t){ var s=scoringSettings(); return !!t&&!scoringStakeholder()&&!scoringActingAs()&&has("scoring_approve_estimate")&&(!isAssignee(t,ME)||!!(s&&s.overrides.allowSelfApproveEstimate)); };
+canI.scoringRequestAi=function(t){ return !scoringStakeholder()&&has("scoring_request_ai"); };
+/* credited: the people the task's efficiency award credits (assignees count as credited either way) */
+canI.scoringApproveCompletion=function(t,credited){ return !!t&&!scoringStakeholder()&&!scoringActingAs()&&has("scoring_approve_completion")&&!isAssignee(t,ME)&&(credited||[]).indexOf(ME)<0; };
+canI.scoringManageOutcomes=function(){ return has("scoring_manage_outcomes"); };
+canI.scoringViewAnalytics=function(){ return has("scoring_view_analytics"); };
+canI.logTime=function(t){ return !!t&&!scoringStakeholder()&&isAssignee(t,ME); };
+
+/* the Settings tab is there only while the server has the feature (who sees it: SETTINGS_ACCESS.scoring) */
+(function(){ if(typeof settingsTabAllowed!=="function") return; var base=settingsTabAllowed; settingsTabAllowed=function(id){ if(id==="scoring"&&!scoringFeature()) return false; return base.apply(this,arguments); }; })();
+/* only the scoring routes write scores: a task saved through PUT /api/tasks never sends its summary back */
+(function(){ if(typeof dTask!=="function") return; var base=dTask; dTask=function(t){ var d=base.apply(this,arguments); if(d&&typeof d==="object") delete d.scoring; return d; }; })();
+
+/* ---------- the settings routes (and the same, kept in the browser, in the offline demo) ---------- */
+function scoringLoad(){
+  if(!API.on) return Promise.resolve({settings:scoringSettings(),audit:SCORING_DEMO_AUDIT.slice(0,20)});
+  return apiFetch("GET","/api/scoring/settings").then(function(r){ if(r&&r.settings) WS.scoring=r.settings; return r; });
+}
+/* next: the settings as edited; version: the configVersion they were edited from (a stale one is refused) */
+function scoringSave(next,version){
+  if(API.on) return apiFetch("PUT","/api/scoring/settings",{settings:next,configVersion:version}).then(function(r){ if(r&&r.settings) WS.scoring=r.settings; return r; });
+  var m=scoringModel(), cur=scoringSettings(); if(!m||!cur) return Promise.reject(new Error(tr("Smart Scoring is not available")));
+  if(version!==cur.configVersion) return Promise.reject(new Error(tr("Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again.")));
+  var n=m.normalizeSettings(next); n.configVersion=cur.configVersion; n.updatedAt=cur.updatedAt; n.updatedBy=cur.updatedBy; n.bonus.on=false; n.bonus.enabledAt=null; n.weighted.mappingVersion=cur.weighted.mappingVersion;
+  if(JSON.stringify([cur.weighted.weights,cur.weighted.scaleMax])!==JSON.stringify([n.weighted.weights,n.weighted.scaleMax])) n.weighted.mappingVersion++;
+  var diff=m.diffSettings(cur,n); if(!diff.length) return Promise.resolve({settings:cur,unchanged:true,audit:SCORING_DEMO_AUDIT.slice(0,20)});
+  n.configVersion=cur.configVersion+1; n.updatedAt=new Date().toISOString(); n.updatedBy=ME; WS.scoring=n;
+  SCORING_DEMO_AUDIT.unshift({id:uid("sa"),action:"settings_changed",by:ME,at:n.updatedAt,reason:"",diff:diff,configVersion:n.configVersion});
+  return Promise.resolve({settings:n,audit:SCORING_DEMO_AUDIT.slice(0,20)});
+}
+/* the Team Lead and Creative Lead roles get the permissions to approve estimates and finished work and to see the team's scoring analytics */
+function scoringDelegateLeads(){
+  if(API.on) return apiFetch("POST","/api/scoring/delegate-leads",{}).then(function(r){ if(r&&r.roles) ROLES=r.roles; return r; });
+  var added={}; SCORING_LEAD_ROLES.forEach(function(id){ var r=byId(ROLES,id); if(!r) return; r.permissions=r.permissions||[]; var add=SCORING_LEAD_CAPS.filter(function(c){ return r.permissions.indexOf(c)<0; }); if(!add.length) return; r.permissions=r.permissions.concat(add); added[id]=add; });
+  if(Object.keys(added).length) SCORING_DEMO_AUDIT.unshift({id:uid("sa"),action:"leads_delegated",by:ME,at:new Date().toISOString(),reason:"",diff:[],added:added});
+  return Promise.resolve({roles:ROLES,added:added,audit:SCORING_DEMO_AUDIT.slice(0,20)});
+}
+/* whether the lead roles still lack any of those permissions */
+function scoringLeadsMissing(){ return SCORING_LEAD_ROLES.some(function(id){ var r=byId(ROLES,id); return !!r&&SCORING_LEAD_CAPS.some(function(c){ return (r.permissions||[]).indexOf(c)<0; }); }); }
+
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Smart Scoring":"Smart Scoring",
+  "Set up Smart Scoring: modules, weights, scales and policies":"Mengatur Smart Scoring: modul, bobot, skala, dan kebijakan",
+  "Change a project's Smart Scoring settings, where the workspace allows it":"Mengubah pengaturan Smart Scoring sebuah project, sejauh diizinkan workspace",
+  "Approve and lock task estimates (never on a task they are assigned to)":"Menyetujui dan mengunci estimasi task (tidak pernah pada task yang ditugaskan kepadanya)",
+  "Change any task's scores, a locked estimate included":"Mengubah skor task mana pun, termasuk estimasi yang sudah dikunci",
+  "Ask the AI to suggest a task's scores":"Meminta AI menyarankan skor task",
+  "Approve finished work and efficiency bonuses (never their own)":"Menyetujui pekerjaan selesai dan bonus efisiensi (tidak pernah miliknya sendiri)",
+  "Set up KPIs and OKRs and correct their progress":"Mengatur KPI dan OKR serta mengoreksi progresnya",
+  "See the whole team's scoring analytics":"Melihat analitik skor seluruh tim",
+  "Smart Scoring is not available":"Smart Scoring tidak tersedia",
+  "Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again.":"Orang lain sudah mengubah pengaturan Smart Scoring. Muat ulang lalu ulangi perubahanmu."
+});
+</script>
+<script>
+/* ============================================================
+   SETTINGS → SMART SCORING (Oct 2026)
+   Where an admin — or whoever is given scoring_manage_workspace — sets up Smart Scoring (docs/SMART-SCORING.md),
+   right after Automation: the master switch; each module on or off with how it works (math only, AI-assisted, or
+   both side by side), KPI and OKR as two separate switches under Outcomes; which metric capacity and velocity are
+   counted in; the Effort Hours templates (the kinds of work the estimator already knows), multipliers and bounds; the
+   Story Points thresholds; the weights of the factors, which must add up to 100% before anything is saved; what the
+   AI may do and how often; how manual changes are approved. The efficiency bonus is shown as it will start, switched
+   off: it comes in a later phase. Whoever manages roles also sees who holds each Smart Scoring permission (roles and
+   extra permissions), and can give Team Lead and Creative Lead the approval and analytics permissions in one click.
+   The last twenty changes are listed with who made them and what changed.
+   Someone with scoring_view_analytics only sees the settings, without changing them.
+   The tab draws at once from the settings the page already has, and refreshes its history in place. Edits are kept
+   while the page redraws; Save sends them with the version they were made on, and if someone else saved in between
+   the newer settings are loaded and the person is told to make their change again.
+   In Roles & permissions, a role that can both change scores and approve them is warned: the duties are best kept
+   apart (nobody approves their own task either way).
+   ============================================================ */
+var SC={draft:null,base:0,dirty:false,audit:null,loading:false,loadedAt:0,saving:false,owner:null};
+var SC_FACTORS=["complexity","scope","uncertainty","dependencies"];
+var SC_FACTOR_LABEL={complexity:"Complexity",scope:"Scope",uncertainty:"Uncertainty",dependencies:"Dependencies"};
+var SC_MODULE_LABEL={hours:"Effort Hours",story:"Story Points",weighted:"Weighted Points",kpi:"KPI",okr:"OKR"};
+var SC_MODE_LABEL={math_only:"Math only",ai_assisted:"AI-assisted",hybrid:"Hybrid"};
+var SC_PRIMARY_LABEL={hours:"Hours",story_points:"Story Points",weighted_points:"Weighted Points"};
+
+/* ---------- the edits, kept apart from the saved settings until Save ---------- */
+function scDraft(){ var cur=scoringSettings(); if(!cur) return null;
+  /* someone else signed in on this page: they start from the saved settings, not from another person's edits */
+  if(SC.owner!==ME){ SC.draft=null; SC.audit=null; SC.loadedAt=0; SC.owner=ME; }
+  if(!SC.draft||(!SC.dirty&&SC.base!==cur.configVersion)){ SC.draft=clone(cur); SC.base=cur.configVersion; SC.dirty=false; }
+  return SC.draft; }
+function scGet(path){ return String(path).split(".").reduce(function(o,k){ return o==null?undefined:o[k]; },SC.draft); }
+function scPut(path,v){ var ks=String(path).split("."), o=SC.draft; for(var i=0;i<ks.length-1;i++){ if(o[ks[i]]==null||typeof o[ks[i]]!=="object") o[ks[i]]={}; o=o[ks[i]]; } o[ks[ks.length-1]]=v; SC.dirty=true; }
+function scPct(x){ return Math.round((+x||0)*10000)/100; }
+function scTotal(w){ return Math.round(SC_FACTORS.reduce(function(s,f){ return s+(+(w||{})[f]||0); },0)*10000)/100; }
+function scInput(el){ if(!SC.draft) return; var k=el.getAttribute("data-k"), p=el.getAttribute("data-sc"), v=el.value;
+  if(k==="num"||k==="pct"){ var n=parseFloat(String(v).replace(",",".")); if(!isFinite(n)) return; scPut(p,k==="pct"?n/100:n); }
+  else if(k==="bool") scPut(p,v==="1"); else scPut(p,v);
+  scTotalsPaint(); }
+function scSwitch(b){ if(!SC.draft||b.disabled) return; var on=!b.classList.contains("on"); b.classList.toggle("on",on); b.setAttribute("aria-checked",String(on)); scPut(b.getAttribute("data-sc"),on); }
+
+/* ---------- small pieces ---------- */
+function scSwitchHtml(path,label,ro){ var on=!!scGet(path); return '<button type="button" class="switch'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" aria-label="'+attr(tr(label))+'" data-sc="'+attr(path)+'"'+(ro?" disabled":' onclick="scSwitch(this)"')+'></button>'; }
+function scNumHtml(id,path,label,o){ o=o||{}; var v=scGet(path), shown=o.pct?scPct(v):(v==null?"":v);
+  return '<div class="field"><label for="'+id+'">'+tr(label)+'</label><div class="scr-unit"><input type="number" id="'+id+'" data-sc="'+attr(path)+'" data-k="'+(o.pct?"pct":"num")+'" value="'+attr(shown)+'"'+(o.min!=null?' min="'+o.min+'"':'')+(o.max!=null?' max="'+o.max+'"':'')+' step="'+(o.step||"any")+'"'+(o.ro?" disabled":' oninput="scInput(this)"')+'>'+(o.unit?'<span>'+esc(tr(o.unit))+'</span>':'')+'</div></div>'; }
+function scSelectHtml(id,path,opts,ro,extraCls,label){ return selectHtml(id,opts.map(function(o){ return [o[0],tr(o[1])]; }),scGet(path),'data-sc="'+attr(path)+'" data-k="str"'+(extraCls?' class="'+extraCls+'"':'')+(label?' aria-label="'+attr(label)+'"':'')+(ro?" disabled":' onchange="scInput(this)"')); }
+function scWeightsHtml(key,ro){ var w=scGet(key+".weights")||{};
+  return '<div class="scr-grid">'+SC_FACTORS.map(function(f){ return scNumHtml("sc_"+key+"_w_"+f,key+".weights."+f,SC_FACTOR_LABEL[f],{pct:true,min:0,max:100,step:1,unit:"%",ro:ro}); }).join("")+'</div>'
+    + '<div class="scr-total" id="sc_total_'+key+'" aria-live="polite"></div>'; }
+function scTotalsPaint(){ ["weighted","story"].forEach(function(k){ var el=document.getElementById("sc_total_"+k); if(!el||!SC.draft) return; var t=scTotal((SC.draft[k]||{}).weights), ok=Math.abs(t-100)<0.05;
+  el.className="scr-total "+(ok?"ok":"bad"); el.textContent=tr("Total")+": "+t+"%"+(ok?"":" · "+tr("must be 100% to save")); }); }
+function scSaveFoot(ed){ return ed?'<span class="spacer"></span><button class="btn primary" onclick="scSaveClick()">'+tr("Save")+'</button>':''; }
+
+/* ---------- the tab ---------- */
+function setScoring(){
+  var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
+  scDraft(); var ed=canI.scoringConfigure(), ro=!ed;
+  setTimeout(scLoadOnce,0); setTimeout(scTotalsPaint,0);
+  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)+scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
+    +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
+function scMainPanel(cur,ed,ro){
+  var by=cur.updatedBy?person(cur.updatedBy).name:"";
+  return sp("Smart Scoring",
+    '<p class="hint" style="margin-bottom:10px">'+tr("Score tasks in effort hours, story points or weighted points, and link them to KPIs and OKRs. Each module gives a calculated value, an optional AI suggestion, and a final value that only permitted people change, every change kept with who made it and why. While Smart Scoring is off ZenCrevia works exactly as it does now; turning it off later hides it again without erasing anything.")+'</p>'
+    + '<div class="pref"><div class="pl"><b>'+tr("Smart Scoring for this workspace")+'</b><span>'+tr("Off: nothing changes for anyone. On: the modules switched on below appear for the people allowed to use them.")+'</span></div>'+scSwitchHtml("enabled","Smart Scoring for this workspace",ro)+'</div>'
+    + '<div class="hint scr-meta">'+tr("Settings version")+' '+cur.configVersion+(by?' · '+tr("last saved by")+' <span data-no-translate>'+esc(by)+'</span> · '+esc(ago(minAgo(cur.updatedAt),cur.updatedAt)):'')+'</div>'
+    + (ro?'<div class="banner scr-ro">'+I.eye+'<span>'+tr("You can see these settings. Changing them takes the permission to set up Smart Scoring.")+'</span></div>':''),
+    scSaveFoot(ed),I.gauge); }
+function scModulesPanel(ro,ed){
+  var modes=[["math_only","Math only"],["ai_assisted","AI-assisted"],["hybrid","Hybrid"]];
+  var row=function(id,desc,withMode){ return '<div class="pref scr-module" data-module="'+id+'"><div class="pl"><b>'+tr(SC_MODULE_LABEL[id])+'</b><span>'+tr(desc)+'</span></div>'
+    + (withMode?'<div class="field scr-mode">'+scSelectHtml("sc_mode_"+id,"modules."+id+".mode",modes,ro,"",tr(SC_MODULE_LABEL[id])+" · "+tr("How it works"))+'</div>':'')
+    + scSwitchHtml("modules."+id+".on",SC_MODULE_LABEL[id],ro)+'</div>'; };
+  return sp("Modules",
+    '<p class="hint" style="margin-bottom:6px">'+tr("Each module is switched on and off on its own. Math only: the calculated value. AI-assisted: the AI suggests, the calculated value is always there to fall back on. Hybrid: both side by side.")+'</p>'
+    + row("hours","Estimated and actual hours, from the kind of work, the number of deliverables, complexity and dependencies.",true)
+    + row("story","A point on 1, 2, 3, 5, 8, 13 from a few 1–5 ratings. 13 suggests splitting the task.",true)
+    + row("weighted","Points from weighted factor ratings, on the workspace's own scale.",true)
+    + '<div class="scr-sub"><b>'+tr("Outcomes")+'</b><span>'+tr("KPI and OKR are switched on and off separately. Progress comes only from evidence — validated assets, successful completions — or from a value entered with a reason; points never count as progress.")+'</span></div>'
+    + row("kpi","Indicators a task can contribute to.",false)
+    + row("okr","Objectives and their key results; key results add up to their objective's progress.",false)
+    + '<div class="field-row scr-primary">'+fieldHtml("sc_primary","Primary capacity metric",scSelectHtml("sc_primary","primaryCapacity",[["hours","Hours"],["story_points","Story Points"],["weighted_points","Weighted Points"]],ro))+'<div class="hint scr-field-hint">'+tr("The one metric velocity is counted in, so nothing is counted twice. Workload and capacity stay in hours.")+'</div></div>',
+    scSaveFoot(ed),I.sync); }
+function scHoursPanel(ro,ed){
+  var kinds=(typeof ScoringSettings!=="undefined"&&ScoringSettings.KINDS)||Object.keys(scGet("hours.templates")||{});
+  var name=function(id){ return typeof estKindName==="function"?estKindName(id):id; };
+  var cell=function(id,f,step){ return '<td><input type="number" class="scr-cell" aria-label="'+attr(name(id)+" · "+tr({perUnit:"First deliverable (h)",low:"Low (h)",high:"High (h)",nextUnitFactor:"Each next deliverable (× the first)"}[f]))+'" data-sc="hours.templates.'+id+'.'+f+'" data-k="num" min="0" step="'+step+'" value="'+attr(scGet("hours.templates."+id+"."+f))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
+  var cx=[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]], dp=[[0,"No open dependencies"],[1,"1 open dependency"],[2,"2 open dependencies"],[3,"3 or more"]];
+  return sp("Effort Hours",
+    '<p class="hint" style="margin-bottom:10px">'+tr("Estimated hours = the hours of the first deliverable, plus each next one at its share, × the complexity multiplier × the dependency multiplier, kept within the bounds. An estimate a task already has is kept as it is: nothing is recalculated unless someone asks.")+'</p>'
+    + '<div class="tbl-wrap scr-tpl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("First (h)")+'</th><th>'+tr("Low (h)")+'</th><th>'+tr("High (h)")+'</th><th>'+tr("Each next (× first)")+'</th></tr></thead><tbody>'
+    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t">'+esc(name(id))+'</td>'+cell(id,"perUnit","0.25")+cell(id,"low","0.25")+cell(id,"high","0.25")+cell(id,"nextUnitFactor","0.05")+'</tr>'; }).join("")
+    + '</tbody></table></div>'
+    + '<p class="hint" style="margin:6px 0 12px">'+tr("Each next: 0 counts the work once however many deliverables it has (a carousel); 0.6 adds 60% of the first for each next one; 1 counts every deliverable in full.")+'</p>'
+    + '<div class="eyebrow">'+tr("Complexity multiplier")+'</div><div class="scr-grid">'+cx.map(function(c){ return scNumHtml("sc_cx_"+c[0],"hours.complexity."+c[0],c[1],{min:0.1,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
+    + '<div class="eyebrow">'+tr("Dependency multiplier")+'</div><div class="scr-grid">'+dp.map(function(c){ return scNumHtml("sc_dp_"+c[0],"hours.dependency."+c[0],c[1],{min:0.5,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
+    + '<div class="scr-grid">'+scNumHtml("sc_bmin","hours.bounds.min","Fewest hours",{min:0.05,max:40,step:0.25,unit:"h",ro:ro})+scNumHtml("sc_bmax","hours.bounds.max","Most hours",{min:0.5,max:400,step:1,unit:"h",ro:ro})+'</div>'
+    + fieldHtml("sc_lock","An estimate is locked",scSelectHtml("sc_lock","hours.lockPolicy",[["approve","When it is approved"],["approve_or_work_start","When it is approved — or, if work starts first, it is frozen then (unapproved: it never earns a bonus)"]],ro)),
+    scSaveFoot(ed),I.clock||I.sync); }
+function scStoryPanel(ro,ed){
+  var pts=[1,2,3,5,8];
+  return sp("Story Points",
+    '<p class="hint" style="margin-bottom:10px">'+tr("A task is rated 1–5 on each factor; the weighted index picks its point on 1, 2, 3, 5, 8, 13. Story points are never turned into hours or pay.")+'</p>'
+    + '<div class="eyebrow">'+tr("Weight of each factor")+'</div>'+scWeightsHtml("story",ro)
+    + '<div class="eyebrow">'+tr("The highest index each point is given for")+'</div><div class="scr-grid">'+pts.map(function(p,i){ return scNumHtml("sc_th_"+i,"story.thresholds."+i,tr(p===1?"1 point up to":"{n} points up to").replace("{n}",p),{min:1,max:5,step:0.05,ro:ro}); }).join("")+'</div>'
+    + '<div class="hint">'+tr("Above the last: 13 points, which suggests splitting the task. The thresholds are kept in order when saved.")+'</div>',
+    scSaveFoot(ed),I.list); }
+function scWeightedPanel(ro,ed){
+  return sp("Weighted Points",
+    '<p class="hint" style="margin-bottom:10px">'+tr("Weighted index = the sum of each factor's weight × its rating (1–5), placed on a scale from 1 to the top set here. Changing the weights or the scale starts a new mapping version; scores already given keep the one they were made with.")+'</p>'
+    + '<div class="eyebrow">'+tr("Weight of each factor")+'</div>'+scWeightsHtml("weighted",ro)
+    + '<div class="scr-grid">'+scNumHtml("sc_wmax","weighted.scaleMax","Top of the scale",{min:2,max:100,step:1,unit:"pts",ro:ro})+'</div>'
+    + '<div class="hint">'+tr("Mapping version")+' '+esc(scGet("weighted.mappingVersion"))+'</div>',
+    scSaveFoot(ed),I.analytics); }
+function scAiPanel(ro,ed){
+  var sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b><span>'+tr(desc)+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
+  return sp("AI suggestions",
+    '<p class="hint" style="margin-bottom:6px">'+tr("The AI only suggests: it never sets a locked or manually approved value, grants a bonus or records progress. It receives the title, the brief, the number of deliverables, the labels, the team and up to 800 characters of the description without links or e-mail addresses; similar finished tasks only when the workspace shares its data with the AI (Settings → AI & integrations).")+'</p>'
+    + sw("ai.onCreate","Suggest when a task is created","Only once Smart Scoring is on. While it is off, the estimate filled in on Create works as it always has.")
+    + sw("ai.onBriefRevision","Suggest again when the brief changes a lot","Never on every keystroke or when a task is opened.")
+    + '<div class="scr-grid">'+scNumHtml("sc_ai_conf","ai.minConfidence","Warn below confidence",{pct:true,min:0,max:100,step:5,unit:"%",ro:ro})
+    + scNumHtml("sc_ai_user","ai.perUserDaily","Suggestions per person a day",{min:0,max:1000,step:1,ro:ro})
+    + scNumHtml("sc_ai_ws","ai.workspaceDaily","Suggestions for the workspace a day",{min:0,max:100000,step:1,ro:ro})+'</div>'
+    + fieldHtml("sc_ai_cmp","Similar finished tasks as examples",scSelectHtml("sc_ai_cmp","ai.comparables",[["team","Of the same team"],["none","None"]],ro)),
+    scSaveFoot(ed),I.sparkle); }
+function scOverridesPanel(ro,ed){
+  var sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b><span>'+tr(desc)+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
+  return sp("Manual changes",
+    sw("overrides.requireReason","A reason for every manual change","Kept in the task's scoring history with who made the change.")
+    + sw("overrides.requireApproval","Manual changes wait for approval","Someone with the permission to approve estimates confirms them first.")
+    + sw("overrides.allowSelfApproveEstimate","Someone assigned to a task may approve its estimate","Not recommended. Recorded in the history, and an estimate approved this way never earns a bonus."),
+    scSaveFoot(ed),I.edit); }
+function scBonusPanel(){
+  var b=scGet("bonus")||{}, f=function(id,label,v,unit){ return '<div class="field"><label for="'+id+'">'+tr(label)+'</label><div class="scr-unit"><input type="number" id="'+id+'" value="'+attr(v)+'" disabled>'+(unit?'<span>'+esc(tr(unit))+'</span>':'')+'</div></div>'; };
+  var bands=((b.hourMapping||{}).bands||[]).map(function(x,i,all){ return '<span class="badge">'+(i===all.length-1&&all.length>1?tr("more")+" → ":"≤ "+x[0]+" h → ")+x[1]+" "+tr("pts")+'</span>'; }).join(" ");
+  return sp("Efficiency bonus",
+    '<div class="banner scr-later">'+(I.clock||"")+'<span>'+tr("Available in a later phase. The bonus stays off until then; these are the values it will start from.")+'</span></div>'
+    + '<p class="hint" style="margin:10px 0">'+tr("Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.")+'</p>'
+    + '<div class="pref"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr("Off")+'</span></div><button type="button" class="switch" role="switch" aria-checked="false" aria-label="'+attr(tr("Efficiency bonus"))+'" disabled></button></div>'
+    + '<div class="scr-grid">'+f("sc_b_grace","Savings that do not count",scPct(b.grace),"%")+f("sc_b_reward","Reward factor",b.rewardFactor,"")+f("sc_b_max","Most bonus",scPct(b.maxRate),"%")
+    + f("sc_b_mine","Shortest estimate",b.minE,"h")+f("sc_b_mina","Least time logged",b.minA,"h")+f("sc_b_review","Review when time is below",scPct(b.reviewBelowRatio),"%")+'</div>'
+    + '<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands">'+bands+'</div>'
+    + '<div class="hint">'+tr("Completed means every closed stage except Declined. Weighted Points are the base when that module is on.")+'</div>',
+    null,I.star); }
+function scHoldersPanel(){
+  var caps=(typeof CAPS!=="undefined"&&CAPS||[]).filter(function(c){ return SCORING_CAPS.indexOf(c[0])>=0; });
+  var grants=(typeof CAP_GRANTS!=="undefined"?CAP_GRANTS:[]).filter(function(g){ return typeof capGrantLive!=="function"||capGrantLive(g); });
+  var rows=caps.map(function(c){
+    var roles=ROLES.filter(function(r){ return r.id==="admin"||(r.permissions||[]).indexOf(c[0])>=0; }).map(function(r){ return '<span class="badge" data-no-translate>'+esc(r.name)+'</span>'; }).join(" ");
+    var people=grants.filter(function(g){ return g.cap===c[0]&&PEOPLE[g.userId]; }).map(function(g){ return '<span class="badge scr-grant" data-no-translate>'+esc(PEOPLE[g.userId].name)+(g.expiresAt&&typeof capGrantDate==="function"?' · '+esc(tr("until"))+' '+esc(capGrantDate(g.expiresAt)):'')+'</span>'; }).join(" ");
+    return '<div class="pref scr-holder" data-cap="'+attr(c[0])+'"><div class="pl"><b>'+esc(tr(c[1]))+'</b><span class="scr-holder-who">'+roles+(people?' <span class="hint">'+tr("and, on top of their role:")+'</span> '+people:'')+'</span></div></div>'; }).join("");
+  var missing=scoringLeadsMissing();
+  return sp("Who holds the Smart Scoring permissions",
+    '<p class="hint" style="margin-bottom:6px">'+tr("Admin always holds all of them. Give one to a role in Roles & permissions, or to one person from their row in Members. Being assigned to a task never gives any of them.")+'</p>'+rows,
+    '<span class="hint scr-leads-hint">'+tr(missing?"Team Lead and Creative Lead can be given the permissions to approve estimates and finished work and to see the team's scoring analytics.":"Team Lead and Creative Lead have the approval and analytics permissions.")+'</span><span class="spacer"></span>'
+    + '<button class="btn scr-leads" id="scLeadsBtn" onclick="scLeadsClick()"'+(missing?'':' disabled')+'>'+I.team+tr("Give Team Lead and Creative Lead these permissions")+'</button>',I.lock); }
+function scAuditPanel(){ return sp("Recent changes",'<div id="scAudit">'+scAuditHtml()+'</div>',null,I.list); }
+
+/* ---------- the history of the settings ---------- */
+function scVal(path,v){ if(v===null||v===undefined) return "—"; if(typeof v==="boolean") return tr(v?"on":"off");
+  if(/\.mode$/.test(path)) return tr(SC_MODE_LABEL[v]||v); if(path==="primaryCapacity") return tr(SC_PRIMARY_LABEL[v]||v);
+  if(Array.isArray(v)) return v.map(function(x){ return Array.isArray(x)?x.join("→"):x; }).join(", ");
+  if(/\.weights\./.test(path)||/minConfidence|grace|maxRate|reviewBelowRatio/.test(path)) return scPct(v)+"%";
+  return String(v); }
+function scPathLabel(p){ var s=p.split("."), mod=function(id){ return tr(SC_MODULE_LABEL[id]||id); };
+  if(p==="enabled") return tr("Smart Scoring");
+  if(s[0]==="modules") return mod(s[1])+(s[2]==="mode"?" · "+tr("How it works"):"");
+  if(p==="primaryCapacity") return tr("Primary capacity metric");
+  if(s[0]==="hours"&&s[1]==="templates") return tr("Effort Hours")+" · "+(typeof estKindName==="function"?estKindName(s[2]):s[2])+" · "+tr({perUnit:"First (h)",low:"Low (h)",high:"High (h)",nextUnitFactor:"Each next (× first)"}[s[3]]||s[3]);
+  if(s[0]==="hours"&&s[1]==="complexity") return tr("Complexity multiplier")+" "+s[2];
+  if(s[0]==="hours"&&s[1]==="dependency") return tr("Dependency multiplier")+" "+s[2];
+  if(p==="hours.bounds.min") return tr("Fewest hours"); if(p==="hours.bounds.max") return tr("Most hours"); if(p==="hours.lockPolicy") return tr("An estimate is locked");
+  if(s[1]==="weights") return mod(s[0])+" · "+tr(SC_FACTOR_LABEL[s[2]]||s[2]);
+  if(p==="story.thresholds") return tr("Story Points")+" · "+tr("thresholds");
+  if(p==="weighted.scaleMax") return tr("Weighted Points")+" · "+tr("Top of the scale"); if(p==="weighted.mappingVersion") return tr("Weighted Points")+" · "+tr("Mapping version");
+  var named={"ai.onCreate":"Suggest when a task is created","ai.onBriefRevision":"Suggest again when the brief changes a lot","ai.minConfidence":"Warn below confidence","ai.perUserDaily":"Suggestions per person a day","ai.workspaceDaily":"Suggestions for the workspace a day","ai.comparables":"Similar finished tasks as examples",
+    "overrides.requireReason":"A reason for every manual change","overrides.requireApproval":"Manual changes wait for approval","overrides.allowSelfApproveEstimate":"Someone assigned to a task may approve its estimate"};
+  if(named[p]) return tr(named[p]);
+  if(s[0]==="bonus") return tr("Efficiency bonus")+" · "+s.slice(1).join(".");
+  return p; }
+function scAuditHtml(){
+  if(SC.audit===null) return '<div class="hint">'+tr("Loading…")+'</div>';
+  if(!SC.audit.length) return '<div class="hint">'+tr("No changes yet.")+'</div>';
+  return SC.audit.map(function(a){ var who=a.by?person(a.by).name:"ZenCrevia", what;
+    if(a.action==="leads_delegated") what=tr("Gave the approval and analytics permissions to")+" "+Object.keys(a.added||{}).map(function(id){ var r=byId(ROLES,id); return r?r.name:id; }).join(", ");
+    else { var d=a.diff||[]; what=d.slice(0,6).map(function(c){ return '<span class="scr-change"><b>'+esc(scPathLabel(c.path))+'</b> '+esc(scVal(c.path,c.from))+' → '+esc(scVal(c.path,c.to))+'</span>'; }).join("")+(d.length>6?'<span class="scr-change">+'+(d.length-6)+' '+tr("more")+'</span>':''); }
+    return '<div class="pref scr-audit-row"><div class="pl"><b><span data-no-translate>'+esc(who)+'</span>'+(a.impersonatedBy?' <span class="badge">'+tr("acting as")+'</span>':'')+(a.configVersion?' <span class="badge">v'+esc(a.configVersion)+'</span>':'')+'</b><span>'+esc(ago(minAgo(a.at),a.at))+'</span>'
+      + '<span class="scr-changes">'+(a.action==="leads_delegated"?esc(what):what)+'</span>'+(a.reason?'<span>'+esc(a.reason)+'</span>':'')+'</div></div>'; }).join(""); }
+function scAuditPaint(){ var el=document.getElementById("scAudit"); if(el) el.innerHTML=scAuditHtml(); }
+/* fresh settings and history from the server, at most every 15 s; what is on screen stays until they arrive */
+function scLoadOnce(){ if(SC.loading||(SC.loadedAt&&Date.now()-SC.loadedAt<15000)) return; SC.loading=true;
+  scoringLoad().then(function(r){ SC.loading=false; SC.loadedAt=Date.now(); SC.audit=(r&&r.audit)||[]; var cur=scoringSettings();
+    if(!SC.dirty&&cur&&cur.configVersion!==SC.base&&S.screen==="settings"&&S.settingsTab==="scoring"){ SC.draft=null; bgRedraw(function(){ renderScreen(false); }); } else scAuditPaint(); })
+  .catch(function(){ SC.loading=false; if(SC.audit===null) SC.audit=[]; scAuditPaint(); }); }
+
+/* ---------- saving ---------- */
+function scSaveClick(){
+  if(!canI.scoringConfigure()||!SC.draft||SC.saving) return;
+  var bad=["weighted","story"].filter(function(k){ return Math.abs(scTotal((SC.draft[k]||{}).weights)-100)>=0.05; });
+  if(bad.length){ var k=bad[0], el=document.getElementById("sc_total_"+k); scTotalsPaint(); if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
+    return toast(tr("The weights must add up to 100% before saving")+" ("+tr(SC_MODULE_LABEL[k])+": "+scTotal(SC.draft[k].weights)+"%)","bad"); }
+  SC.saving=true;
+  scoringSave(clone(SC.draft),SC.base).then(function(r){ SC.saving=false; SC.draft=clone(r.settings); SC.base=r.settings.configVersion; SC.dirty=false; if(r.audit) SC.audit=r.audit; SC.loadedAt=Date.now();
+    toast(tr(r.unchanged?"Nothing to save: no changes":"Smart Scoring saved")); refresh(); })
+  .catch(function(e){ SC.saving=false;
+    scoringLoad().then(function(d){ var cur=scoringSettings();
+      if(cur&&cur.configVersion!==SC.base){ SC.draft=clone(cur); SC.base=cur.configVersion; SC.dirty=false; if(d&&d.audit) SC.audit=d.audit; refresh(); toast(tr("Someone else saved the Smart Scoring settings in the meantime. Their version is loaded now; make your change again."),"bad"); }
+      else toast(e.message,"bad"); }).catch(function(){ toast(e.message,"bad"); }); }); }
+function scLeadsClick(){ if(!canI.manageRoles()) return;
+  confirmModal(tr("Give Team Lead and Creative Lead these permissions?"),esc(tr("They will be able to approve estimates and finished work (never on their own tasks) and to see the team's scoring analytics. Nothing else about the roles changes, and each permission can be taken back in Roles & permissions.")),function(){
+    scoringDelegateLeads().then(function(r){ var n=Object.keys((r&&r.added)||{}).length; if(r&&r.audit) SC.audit=r.audit; toast(tr(n?"Team Lead and Creative Lead have the approval and analytics permissions now":"They already had them")); refresh(); }).catch(function(e){ toast(e.message,"bad"); }); }); }
+
+/* ---------- Roles & permissions: a role that both changes scores and approves them ---------- */
+function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) return; var edit=m.querySelector('[data-cap="scoring_edit_task"]'); if(!edit) return;
+  var on=function(c){ var b=m.querySelector('[data-cap="'+c+'"]'); return !!(b&&b.classList.contains("on")); };
+  var both=!edit.disabled&&on("scoring_edit_task")&&(on("scoring_approve_estimate")||on("scoring_approve_completion")), w=m.querySelector(".scr-duty-warn"), g=edit.closest(".cap-group");
+  if(both&&!w&&g){ var head=g.querySelector(".cap-group-head"); if(head) head.insertAdjacentHTML("afterend",'<div class="banner warn scr-duty-warn" role="status"><span>'+esc(tr("This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way."))+'</span></div>'); }
+  else if(!both&&w) w.remove(); }
+(function(){ if(typeof roleModal!=="function") return; var base=roleModal; roleModal=function(){ var out=base.apply(this,arguments); try{ scoringDutyWarn(); }catch(e){ console.error(e); } return out; }; })();
+(function(){ if(typeof capGroupSync!=="function") return; var base=capGroupSync; capGroupSync=function(){ var out=base.apply(this,arguments); try{ scoringDutyWarn(); }catch(e){ console.error(e); } return out; }; })();
+
+/* Indonesian, for the words this tab adds (a word the page already translates keeps its translation) */
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Effort Hours":"Jam Kerja","Story Points":"Story Points","Weighted Points":"Poin Berbobot","KPI":"KPI","OKR":"OKR","Hours":"Jam",
+  "Math only":"Hanya hitungan","AI-assisted":"Dibantu AI","Hybrid":"Hibrida","How it works":"Cara kerja",
+  "Complexity":"Kompleksitas","Scope":"Cakupan","Uncertainty":"Ketidakpastian","Dependencies":"Ketergantungan",
+  "Total":"Total","must be 100% to save":"harus 100% agar bisa disimpan",
+  "Score tasks in effort hours, story points or weighted points, and link them to KPIs and OKRs. Each module gives a calculated value, an optional AI suggestion, and a final value that only permitted people change, every change kept with who made it and why. While Smart Scoring is off ZenCrevia works exactly as it does now; turning it off later hides it again without erasing anything.":"Beri skor task dalam jam kerja, story points, atau poin berbobot, lalu kaitkan dengan KPI dan OKR. Setiap modul memberi nilai hitungan, saran AI (opsional), dan nilai akhir yang hanya bisa diubah orang yang berwenang; setiap perubahan dicatat beserta siapa dan alasannya. Selama Smart Scoring mati, ZenCrevia bekerja persis seperti sekarang; mematikannya nanti menyembunyikannya lagi tanpa menghapus apa pun.",
+  "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini",
+  "Off: nothing changes for anyone. On: the modules switched on below appear for the people allowed to use them.":"Mati: tidak ada yang berubah bagi siapa pun. Nyala: modul yang dinyalakan di bawah muncul bagi orang yang boleh memakainya.",
+  "Settings version":"Versi pengaturan","last saved by":"terakhir disimpan oleh",
+  "You can see these settings. Changing them takes the permission to set up Smart Scoring.":"Kamu bisa melihat pengaturan ini. Untuk mengubahnya perlu izin mengatur Smart Scoring.",
+  "Modules":"Modul",
+  "Each module is switched on and off on its own. Math only: the calculated value. AI-assisted: the AI suggests, the calculated value is always there to fall back on. Hybrid: both side by side.":"Setiap modul dinyalakan dan dimatikan sendiri-sendiri. Hanya hitungan: nilai hasil hitungan. Dibantu AI: AI memberi saran, nilai hitungan selalu ada sebagai cadangan. Hibrida: keduanya berdampingan.",
+  "Estimated and actual hours, from the kind of work, the number of deliverables, complexity and dependencies.":"Jam estimasi dan aktual, dari jenis pekerjaan, jumlah deliverable, kompleksitas, dan ketergantungan.",
+  "A point on 1, 2, 3, 5, 8, 13 from a few 1–5 ratings. 13 suggests splitting the task.":"Satu poin pada 1, 2, 3, 5, 8, 13 dari beberapa penilaian 1–5. 13 menyarankan task dipecah.",
+  "Points from weighted factor ratings, on the workspace's own scale.":"Poin dari penilaian faktor berbobot, pada skala milik workspace.",
+  "Outcomes":"Hasil (Outcomes)",
+  "KPI and OKR are switched on and off separately. Progress comes only from evidence — validated assets, successful completions — or from a value entered with a reason; points never count as progress.":"KPI dan OKR dinyalakan dan dimatikan terpisah. Progres hanya berasal dari bukti — aset yang divalidasi, penyelesaian yang berhasil — atau nilai yang diisi beserta alasan; poin tidak pernah dihitung sebagai progres.",
+  "Indicators a task can contribute to.":"Indikator yang bisa didukung oleh sebuah task.",
+  "Objectives and their key results; key results add up to their objective's progress.":"Objective dan key result-nya; key result menjumlah menjadi progres objective-nya.",
+  "Primary capacity metric":"Metrik kapasitas utama",
+  "The one metric velocity is counted in, so nothing is counted twice. Workload and capacity stay in hours.":"Satu-satunya metrik untuk menghitung velocity, agar tidak ada yang terhitung dua kali. Beban kerja dan kapasitas tetap dalam jam.",
+  "Estimated hours = the hours of the first deliverable, plus each next one at its share, × the complexity multiplier × the dependency multiplier, kept within the bounds. An estimate a task already has is kept as it is: nothing is recalculated unless someone asks.":"Jam estimasi = jam deliverable pertama, ditambah tiap deliverable berikutnya sesuai porsinya, × pengali kompleksitas × pengali ketergantungan, dijaga dalam batas. Estimasi yang sudah ada pada task tetap seperti adanya: tidak ada yang dihitung ulang kecuali diminta.",
+  "Kind of work":"Jenis pekerjaan","First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
+  "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
+  "Each next: 0 counts the work once however many deliverables it has (a carousel); 0.6 adds 60% of the first for each next one; 1 counts every deliverable in full.":"Tiap berikutnya: 0 menghitung pekerjaan sekali berapa pun deliverable-nya (karosel); 0,6 menambah 60% dari yang pertama untuk tiap berikutnya; 1 menghitung setiap deliverable penuh.",
+  "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali ketergantungan",
+  "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
+  "No open dependencies":"Tanpa ketergantungan terbuka","1 open dependency":"1 ketergantungan terbuka","2 open dependencies":"2 ketergantungan terbuka","3 or more":"3 atau lebih",
+  "Fewest hours":"Jam paling sedikit","Most hours":"Jam paling banyak","An estimate is locked":"Estimasi dikunci",
+  "When it is approved":"Saat disetujui",
+  "When it is approved — or, if work starts first, it is frozen then (unapproved: it never earns a bonus)":"Saat disetujui — atau, bila pekerjaan dimulai lebih dulu, dibekukan saat itu (belum disetujui: tidak pernah mendapat bonus)",
+  "A task is rated 1–5 on each factor; the weighted index picks its point on 1, 2, 3, 5, 8, 13. Story points are never turned into hours or pay.":"Task dinilai 1–5 pada tiap faktor; indeks berbobot memilih poinnya pada 1, 2, 3, 5, 8, 13. Story points tidak pernah diubah menjadi jam atau bayaran.",
+  "Weight of each factor":"Bobot tiap faktor","The highest index each point is given for":"Indeks tertinggi untuk tiap poin","1 point up to":"1 poin hingga","{n} points up to":"{n} poin hingga",
+  "Above the last: 13 points, which suggests splitting the task. The thresholds are kept in order when saved.":"Di atas yang terakhir: 13 poin, yang menyarankan task dipecah. Ambang diurutkan saat disimpan.",
+  "Weighted index = the sum of each factor's weight × its rating (1–5), placed on a scale from 1 to the top set here. Changing the weights or the scale starts a new mapping version; scores already given keep the one they were made with.":"Indeks berbobot = jumlah bobot tiap faktor × nilainya (1–5), ditempatkan pada skala dari 1 sampai batas atas yang diatur di sini. Mengubah bobot atau skala memulai versi pemetaan baru; skor yang sudah diberikan tetap memakai versinya sendiri.",
+  "Top of the scale":"Batas atas skala","pts":"poin","Mapping version":"Versi pemetaan",
+  "AI suggestions":"Saran AI",
+  "The AI only suggests: it never sets a locked or manually approved value, grants a bonus or records progress. It receives the title, the brief, the number of deliverables, the labels, the team and up to 800 characters of the description without links or e-mail addresses; similar finished tasks only when the workspace shares its data with the AI (Settings → AI & integrations).":"AI hanya memberi saran: AI tidak pernah menetapkan nilai yang terkunci atau disetujui manual, memberi bonus, atau mencatat progres. AI menerima judul, brief, jumlah deliverable, label, tim, dan hingga 800 karakter deskripsi tanpa link atau alamat email; task serupa yang sudah selesai hanya bila workspace berbagi datanya dengan AI (Pengaturan → AI & integrasi).",
+  "Suggest when a task is created":"Beri saran saat task dibuat",
+  "Only once Smart Scoring is on. While it is off, the estimate filled in on Create works as it always has.":"Hanya setelah Smart Scoring dinyalakan. Selama mati, estimasi yang terisi saat Create bekerja seperti biasa.",
+  "Suggest again when the brief changes a lot":"Beri saran lagi bila brief banyak berubah",
+  "Never on every keystroke or when a task is opened.":"Tidak pernah di setiap ketikan atau saat task dibuka.",
+  "Warn below confidence":"Peringatkan di bawah tingkat keyakinan","Suggestions per person a day":"Saran per orang per hari","Suggestions for the workspace a day":"Saran untuk workspace per hari",
+  "Similar finished tasks as examples":"Task serupa yang selesai sebagai contoh","Of the same team":"Dari tim yang sama","None":"Tidak ada",
+  "Manual changes":"Perubahan manual",
+  "A reason for every manual change":"Alasan untuk setiap perubahan manual","Kept in the task's scoring history with who made the change.":"Disimpan di riwayat skor task beserta siapa yang mengubahnya.",
+  "Manual changes wait for approval":"Perubahan manual menunggu persetujuan","Someone with the permission to approve estimates confirms them first.":"Orang yang berizin menyetujui estimasi mengonfirmasinya terlebih dulu.",
+  "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
+  "Not recommended. Recorded in the history, and an estimate approved this way never earns a bonus.":"Tidak disarankan. Dicatat di riwayat, dan estimasi yang disetujui dengan cara ini tidak pernah mendapat bonus.",
+  "Efficiency bonus":"Bonus efisiensi",
+  "Available in a later phase. The bonus stays off until then; these are the values it will start from.":"Tersedia di tahap berikutnya. Bonus tetap mati sampai saat itu; inilah nilai awalnya nanti.",
+  "Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.":"Selesai lebih cepat dari estimasi yang disetujui dan dikunci bisa mendapat poin bonus — tidak pernah jam tambahan — setelah pekerjaan lolos review dan disetujui oleh orang selain yang dikreditkan, termasuk admin.",
+  "Off":"Mati","Savings that do not count":"Penghematan yang tidak dihitung","Reward factor":"Faktor imbalan","Most bonus":"Bonus maksimal","Shortest estimate":"Estimasi terpendek","Least time logged":"Waktu tercatat paling sedikit","Review when time is below":"Review bila waktu di bawah",
+  "Base points from hours":"Poin dasar dari jam","more":"lebih",
+  "Completed means every closed stage except Declined. Weighted Points are the base when that module is on.":"Selesai berarti setiap tahap tertutup kecuali Declined. Poin Berbobot menjadi dasar bila modul itu nyala.",
+  "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring",
+  "Admin always holds all of them. Give one to a role in Roles & permissions, or to one person from their row in Members. Being assigned to a task never gives any of them.":"Admin selalu memegang semuanya. Beri ke sebuah role di Role & izin, atau ke satu orang dari barisnya di Members. Ditugaskan pada task tidak pernah memberi izin ini.",
+  "and, on top of their role:":"dan, di luar role-nya:",
+  "Team Lead and Creative Lead can be given the permissions to approve estimates and finished work and to see the team's scoring analytics.":"Team Lead dan Creative Lead bisa diberi izin menyetujui estimasi dan pekerjaan selesai serta melihat analitik skor tim.",
+  "Team Lead and Creative Lead have the approval and analytics permissions.":"Team Lead dan Creative Lead sudah punya izin persetujuan dan analitik.",
+  "Give Team Lead and Creative Lead these permissions":"Beri izin ini ke Team Lead dan Creative Lead",
+  "Give Team Lead and Creative Lead these permissions?":"Beri izin ini ke Team Lead dan Creative Lead?",
+  "They will be able to approve estimates and finished work (never on their own tasks) and to see the team's scoring analytics. Nothing else about the roles changes, and each permission can be taken back in Roles & permissions.":"Mereka akan bisa menyetujui estimasi dan pekerjaan selesai (tidak pernah pada task sendiri) serta melihat analitik skor tim. Hal lain dari role tidak berubah, dan setiap izin bisa dicabut di Role & izin.",
+  "Team Lead and Creative Lead have the approval and analytics permissions now":"Team Lead dan Creative Lead kini punya izin persetujuan dan analitik","They already had them":"Mereka sudah memilikinya",
+  "Recent changes":"Perubahan terakhir","Loading…":"Memuat…","No changes yet.":"Belum ada perubahan.","acting as":"bertindak sebagai","on":"nyala","off":"mati","thresholds":"ambang",
+  "Gave the approval and analytics permissions to":"Memberi izin persetujuan dan analitik kepada",
+  "The weights must add up to 100% before saving":"Bobot harus berjumlah 100% sebelum disimpan",
+  "Nothing to save: no changes":"Tidak ada yang disimpan: tidak ada perubahan","Smart Scoring saved":"Smart Scoring tersimpan",
+  "Someone else saved the Smart Scoring settings in the meantime. Their version is loaded now; make your change again.":"Orang lain sudah menyimpan pengaturan Smart Scoring. Versi mereka kini dimuat; ulangi perubahanmu.",
+  "This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way.":"Role ini bisa mengubah skor sekaligus menyetujuinya. Disarankan: berikan ke orang yang berbeda. Bagaimanapun, tidak ada yang menyetujui estimasi atau bonus pada task-nya sendiri."
+});
+</script>
+<script>
+/* ============================================================
+   THE TASK'S "SCORING & INTELLIGENCE" PANEL (Oct 2026) — reserved, empty for now
+   Smart Scoring's place in a task (docs/SMART-SCORING.md, Phase 1 C): on the Brief tab, where the Effort block is, a
+   collapsible panel with a row for each module the workspace has on and the person may see — the calculated value,
+   the AI's suggestion, the final or locked value, actual and earned, where each came from, who changed it last and
+   its history — with Calculate, Ask AI, Accept, Propose a change, Approve and lock. While Smart Scoring is off
+   (scoringOn() in src/scoring-core.js) the Effort block stays exactly as it is.
+   ============================================================ */
+</script>
+<script>
+/* ============================================================
+   TIME WORKED ON A TASK, DAY BY DAY (Oct 2026) — reserved, empty for now
+   Smart Scoring's time log (docs/SMART-SCORING.md, Phase 2–3a D): the people assigned to a task log the time they
+   worked on it — work, blocked (waiting, kept apart) or revision — as dated entries, and the task's Actual becomes
+   their sum, worked out by the server. The single Actual number of before stays as a legacy, unverified entry. While
+   Smart Scoring is off (scoringOn() in src/scoring-core.js) the Actual field stays exactly as it is.
+   ============================================================ */
+</script>
+<script>
+/* ============================================================
+   SMART SCORING IN ANALYTICS (Oct 2026) — reserved, empty for now
+   Smart Scoring's analytics (docs/SMART-SCORING.md, Phase 1 D and Phase 3 D): estimate against actual, the
+   calculated value against the final and the AI's, how often scores were changed by hand, velocity in the primary
+   capacity metric, and later base points and bonus kept apart — for the team to those with scoring_view_analytics,
+   and each person's own figures on their member page. Never a ranking of people. Nothing shows while Smart Scoring
+   is off (scoringOn() in src/scoring-core.js).
+   ============================================================ */
+</script>
+<script>
+/* ============================================================
+   KPIs AND OKRs (Oct 2026) — reserved, empty for now
+   Smart Scoring's outcomes (docs/SMART-SCORING.md, Phase 4 B): KPI indicators, and Objectives with their Key Results,
+   one metric model for both; a task linked to them; progress only from evidence (lead-validated assets, successful
+   completions) or a value entered with a reason — points never count as progress. KPI and OKR are switched on
+   separately in Settings → Smart Scoring; nothing shows while they are off (scoringModuleOn("kpi"|"okr") in
+   src/scoring-core.js).
+   ============================================================ */
 </script>
 <script>
 /* ============================================================

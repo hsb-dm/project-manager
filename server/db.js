@@ -52,6 +52,8 @@ function open() {
     /* sign-ups wait for approval (Oct 2026): a member who registered and is not let in yet; whether a workspace asks */
     "ALTER TABLE workspace_members ADD COLUMN pending INTEGER DEFAULT 0",
     "ALTER TABLE workspaces ADD COLUMN require_approval INTEGER DEFAULT 1",
+    /* Smart Scoring's settings (Oct 2026): one JSON object, written only by PUT /api/scoring/settings (server/scoring.js) */
+    "ALTER TABLE workspaces ADD COLUMN scoring_settings TEXT DEFAULT '{}'",
   ].forEach((sql) => { try { db.exec(sql); } catch { /* already there */ } });
   return db;
 }

@@ -40,7 +40,7 @@ test("settings, screens and the export dialog fit a phone", async ({ page }) => 
   try {
     await page.reload(); await page.waitForFunction(() => window.ZC_READY === true && API.on);
     const found = {};
-    for (const t of ["profile", "layout", "workspace", "theme", "workflow", "automation", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "notifications", "integrations", "backup"]) {
+    for (const t of ["profile", "layout", "workspace", "theme", "workflow", "automation", "scoring", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "notifications", "integrations", "backup"]) {
       await page.evaluate(t => { S.settingsTab = t; go("settings"); renderScreen(); }, t); found["settings:" + t] = await scan(page);
     }
     for (const sec of ["overview", "models", "limits", "prompts", "providers", "permissions", "privacy"]) {

@@ -1,6 +1,7 @@
 // Row ↔ document mapping. The API speaks in documents (what the UI renders); the database stays normalized.
 const { uid, now, J, S } = require("./db");
 const secrets = require("./secrets");
+const scoringSettings = require("../shared/scoring-settings");
 
 /* A version's notes are matched by id when a task is saved (sanitizeNotes in server.js). The pins
    stored before notes had ids get one here, made from the version's id and their place, so the same
@@ -142,6 +143,9 @@ function readWorkspace(db, wsId) {
     workingDays: J(w.working_days, [1,2,3,4,5]), workStart: w.work_start, workEnd: w.work_end, theme: J(w.theme, {}), brand: J(w.brand, {}),
     briefFields: J(w.brief_fields, []), notifPrefs: J(w.notif_prefs, {}), autoHide: Object.assign({ tasks: "month", taskDays: 30, projects: "month", projectDays: 30 }, J(w.auto_hide, {}) || {}),
     ai: maskAI(J(w.ai_settings, {}) || {}),
+    /* Smart Scoring (docs/SMART-SCORING.md), always the full normalized shape. Read-only here: writeWorkspace never
+       writes it, so a workspace sent back by PUT /api/workspace cannot change it — only PUT /api/scoring/settings does. */
+    scoring: scoringSettings.normalizeSettings(w.scoring_settings),
     labels: J(w.labels, []), taskFields: J(w.task_fields, []), allowRegistration: !!w.allow_registration, requireApproval: w.require_approval !== 0, defaultRole: w.default_role_id || "member", joinCode: w.invite_code || "",
     workflow: stageRules(db.prepare("SELECT * FROM task_statuses WHERE workspace_id=? AND is_archived=0 ORDER BY sort_order").all(wsId)).map(s => ({ id: s.id, name: s.name, nameId: s.name_id || "", kind: s.kind, color: s.color, reviewerOnly: s.reviewerOnly, requireReviewer: s.requireReviewer })),
     briefTemplates: db.prepare("SELECT * FROM brief_templates WHERE workspace_id=? ORDER BY sort_order").all(wsId).map(t => ({ id: t.id, name: t.name, description: t.description, fields: J(t.fields, []), required: J(t.required_fields, []) })),

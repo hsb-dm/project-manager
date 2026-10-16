@@ -50,6 +50,16 @@ const CAPS = [
   /* Oct 2026: a canvas saved as an AI Hub template for everyone; its maker changes or removes it, an admin any */
   ["save_ai_templates", "Save AI Hub canvases as templates for everyone"],
   ["save_own_ai_templates", "Save AI Hub canvases as templates for themselves"],
+  /* Smart Scoring (Oct 2026, docs/SMART-SCORING.md): no role but Admin has these until an admin gives them, one by one,
+     to a role or to a person. Being assigned to a task never gives any of them. */
+  ["scoring_manage_workspace", "Set up Smart Scoring: modules, weights, scales and policies"],
+  ["scoring_manage_project", "Change a project's Smart Scoring settings, where the workspace allows it"],
+  ["scoring_approve_estimate", "Approve and lock task estimates (never on a task they are assigned to)"],
+  ["scoring_edit_task", "Change any task's scores, a locked estimate included"],
+  ["scoring_request_ai", "Ask the AI to suggest a task's scores"],
+  ["scoring_approve_completion", "Approve finished work and efficiency bonuses (never their own)"],
+  ["scoring_manage_outcomes", "Set up KPIs and OKRs and correct their progress"],
+  ["scoring_view_analytics", "See the whole team's scoring analytics"],
 ];
 const ALL = CAPS.map(c => c[0]);
 const DEFAULT_ROLES = [
@@ -107,5 +117,21 @@ const can = {
   /* progress notes: seen with the capability (writing one implies seeing them); written on any task with it */
   progressView:    (u) => !u.stakeholder && (has(u, "view_progress_notes") || has(u, "write_progress_notes")),
   progressWrite:   (u, t) => !u.stakeholder && has(u, "write_progress_notes"),
+  /* Smart Scoring (Oct 2026, docs/SMART-SCORING.md). Admin holds every capability through has(), so the separation of
+     duties is written out here and binds admins too: an estimate is never approved by someone assigned to the task
+     (unless the workspace's override policy allows it — policy is settings.overrides — and then it is audited); finished
+     work and its bonus are never approved by someone assigned to or credited on the task (credited: the user ids of the
+     task's award rows); and nothing is approved while acting as someone else. Stakeholders do none of it. */
+  scoringConfigure: (u) => has(u, "scoring_manage_workspace"),
+  scoringManageProject: (u, p) => has(u, "scoring_manage_project"),
+  scoringEditTask: (u, t) => !u.stakeholder && has(u, "scoring_edit_task"),
+  scoringPropose: (u, t) => !u.stakeholder && (isAssignee(u, t) || can.editTask(u, t)),
+  scoringApproveEstimate: (u, t, policy) => !u.stakeholder && !u.impersonatedBy && has(u, "scoring_approve_estimate") && (!isAssignee(u, t) || !!(policy && policy.allowSelfApproveEstimate)),
+  scoringRequestAi: (u, t) => !u.stakeholder && has(u, "scoring_request_ai"),
+  scoringApproveCompletion: (u, t, credited) => !u.stakeholder && !u.impersonatedBy && has(u, "scoring_approve_completion") && !isAssignee(u, t) && (credited || []).indexOf(u.id) < 0,
+  scoringManageOutcomes: (u) => has(u, "scoring_manage_outcomes"),
+  scoringViewAnalytics: (u) => has(u, "scoring_view_analytics"),
+  /* time is logged by the people assigned to the task, on that task, for themselves — no permission needed */
+  logTime: (u, t) => !u.stakeholder && isAssignee(u, t),
 };
 module.exports = { can, has, CAPS, DEFAULT_ROLES };

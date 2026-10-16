@@ -5,7 +5,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, logo TEXT, logo_img TEXT, favicon TEXT, tagline TEXT,
   time_zone TEXT DEFAULT 'Asia/Jakarta', working_days TEXT DEFAULT '[1,2,3,4,5]', work_start TEXT DEFAULT '09:00', work_end TEXT DEFAULT '18:00',
-  theme TEXT DEFAULT '{}', brand TEXT DEFAULT '{}', brief_fields TEXT DEFAULT '[]', notif_prefs TEXT DEFAULT '{}', auto_hide TEXT DEFAULT '{}', smtp_settings TEXT DEFAULT '{}', backup_settings TEXT DEFAULT '{}', ai_settings TEXT DEFAULT '{}', labels TEXT DEFAULT '[]', task_fields TEXT DEFAULT '[]', legal TEXT DEFAULT '{}',
+  theme TEXT DEFAULT '{}', brand TEXT DEFAULT '{}', brief_fields TEXT DEFAULT '[]', notif_prefs TEXT DEFAULT '{}', auto_hide TEXT DEFAULT '{}', smtp_settings TEXT DEFAULT '{}', backup_settings TEXT DEFAULT '{}', ai_settings TEXT DEFAULT '{}', labels TEXT DEFAULT '[]', task_fields TEXT DEFAULT '[]', legal TEXT DEFAULT '{}', scoring_settings TEXT DEFAULT '{}',
   allow_registration INTEGER DEFAULT 1, require_approval INTEGER DEFAULT 1, default_role_id TEXT DEFAULT 'member', invite_code TEXT,
   created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -228,3 +228,101 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   user_agent TEXT, created_at TEXT NOT NULL, last_used_at TEXT, fail_count INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+
+-- Smart Scoring & Intelligence (Oct 2026, docs/SMART-SCORING.md). Every table of the feature is here, so no later phase
+-- changes the schema. The settings are one JSON object in workspaces.scoring_settings (shared/scoring-settings.js).
+-- A task's score per module: the math, the AI's suggestion and the final value, where it came from, and its lock.
+-- factors / math_inputs / proposal are JSON; rev is the optimistic-concurrency counter (a stale rev answers 409).
+CREATE TABLE IF NOT EXISTS task_scoring (
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  module TEXT NOT NULL CHECK (module IN ('hours','story','weighted')),
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  math_value REAL, math_inputs TEXT DEFAULT '{}', ai_value REAL, ai_run_id TEXT, final_value REAL, unit TEXT,
+  source TEXT CHECK (source IN ('legacy','math','ai','manual')),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','proposed','approved','locked','unverified','rebaseline_needed')),
+  factors TEXT DEFAULT '{}', mapping_version INTEGER, config_version INTEGER,
+  locked_value REAL, locked_at TEXT, locked_by TEXT, approved_by TEXT, approved_at TEXT, scope_fingerprint TEXT, proposal TEXT,
+  updated_by TEXT, updated_at TEXT, rev INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (task_id, module)
+);
+CREATE INDEX IF NOT EXISTS idx_task_scoring_ws ON task_scoring(workspace_id, module, status);
+-- Every scoring change, with its old and new value and the reason. No foreign keys: it outlives the task, as activity_logs do.
+-- module: hours | story | weighted | time | efficiency | outcomes | settings. meta: JSON (a settings change keeps its diff there).
+CREATE TABLE IF NOT EXISTS scoring_audit (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT, module TEXT, action TEXT NOT NULL,
+  actor_id TEXT, impersonated_by TEXT, old_value TEXT, new_value TEXT, reason TEXT, meta TEXT DEFAULT '{}', created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_audit_task ON scoring_audit(task_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_scoring_audit_ws ON scoring_audit(workspace_id, created_at);
+-- Time worked on a task, by the person who did it: work, blocked (waiting, kept apart) or revision. Edits and deletes are
+-- soft and audited. A legacy entry (the single "Actual" number from before) may be longer than a day.
+CREATE TABLE IF NOT EXISTS task_time_entries (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL, work_date TEXT NOT NULL,
+  minutes INTEGER NOT NULL CHECK (minutes >= 1 AND (minutes <= 1440 OR source = 'legacy')),
+  kind TEXT NOT NULL DEFAULT 'work' CHECK (kind IN ('work','blocked','revision')), started_at TEXT, ended_at TEXT, note TEXT,
+  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','legacy')),
+  verified INTEGER NOT NULL DEFAULT 0, verified_by TEXT, verified_at TEXT,
+  created_by TEXT, created_at TEXT NOT NULL, edited_by TEXT, edited_at TEXT, deleted_at TEXT, deleted_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_time_entries_task ON task_time_entries(task_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_time_entries_user ON task_time_entries(workspace_id, user_id, work_date);
+-- One efficiency award per person per task (the unique key prevents duplicates). reasons: JSON list.
+CREATE TABLE IF NOT EXISTS task_efficiency_awards (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL, share REAL NOT NULL DEFAULT 1, estimate_snapshot REAL, actual_snapshot REAL,
+  base_points REAL, bonus_points REAL, awarded_points REAL,
+  status TEXT NOT NULL DEFAULT 'provisional' CHECK (status IN ('provisional','pending_review','approved','rejected','revoked','ineligible')),
+  reasons TEXT DEFAULT '[]', needs_review INTEGER NOT NULL DEFAULT 0, reviewer_id TEXT, reviewed_at TEXT, review_note TEXT, quality_score REAL,
+  policy_version INTEGER, calc_key TEXT, recalculated_at TEXT, created_at TEXT NOT NULL,
+  UNIQUE (task_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_awards_ws ON task_efficiency_awards(workspace_id, status);
+CREATE INDEX IF NOT EXISTS idx_awards_user ON task_efficiency_awards(workspace_id, user_id, status);
+-- Every AI scoring call: the cost log, the cache (task + input hash + settings version) and the quota counter.
+-- No foreign key on the task: the count stays when a task is deleted.
+CREATE TABLE IF NOT EXISTS scoring_ai_runs (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT, user_id TEXT, trigger TEXT, input_hash TEXT, config_version INTEGER, prompt_version INTEGER,
+  status TEXT NOT NULL CHECK (status IN ('ok','invalid','error','timeout','quota','cached')), recommendation TEXT, confidence REAL,
+  tokens_in INTEGER, tokens_out INTEGER, provider TEXT, model TEXT, ms INTEGER, error TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_cache ON scoring_ai_runs(task_id, input_hash, config_version);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_user ON scoring_ai_runs(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_ws ON scoring_ai_runs(workspace_id, created_at);
+-- KPI and OKR: Objectives, and one metric model for KPI indicators and Key Results (kind). Progress comes only from
+-- evidence (evidence_rule: JSON {type:'approved_assets'|'tasks_completed'|'manual', filter:{team,project,label}}) or a
+-- manual value with a reason (outcome_values).
+CREATE TABLE IF NOT EXISTS outcome_objectives (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, description TEXT DEFAULT '',
+  period_start TEXT, period_end TEXT, owner_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','closed','archived')),
+  sort_order INTEGER DEFAULT 0, rev INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TEXT NOT NULL, updated_by TEXT, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_objectives_ws ON outcome_objectives(workspace_id, status);
+CREATE TABLE IF NOT EXISTS outcome_metrics (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), kind TEXT NOT NULL CHECK (kind IN ('kpi','kr')),
+  objective_id TEXT REFERENCES outcome_objectives(id) ON DELETE SET NULL, title TEXT NOT NULL, description TEXT DEFAULT '', unit TEXT DEFAULT '',
+  direction TEXT NOT NULL DEFAULT 'up' CHECK (direction IN ('up','down')), baseline REAL, target REAL, weight REAL NOT NULL DEFAULT 1,
+  period_start TEXT, period_end TEXT, evidence_rule TEXT DEFAULT '{}', owner_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','closed','archived')),
+  sort_order INTEGER DEFAULT 0, rev INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TEXT NOT NULL, updated_by TEXT, updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_metrics_ws ON outcome_metrics(workspace_id, kind, status);
+CREATE INDEX IF NOT EXISTS idx_outcome_metrics_objective ON outcome_metrics(objective_id);
+-- A task linked to a metric, and the evidence it counted (once: the unique key prevents a double count).
+CREATE TABLE IF NOT EXISTS task_outcome_links (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  metric_id TEXT NOT NULL REFERENCES outcome_metrics(id) ON DELETE CASCADE, linked_by TEXT,
+  origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual','ai_accepted')),
+  evidence_type TEXT, evidence_id TEXT, contribution REAL,
+  status TEXT NOT NULL DEFAULT 'linked' CHECK (status IN ('linked','counted','revoked')),
+  counted_at TEXT, revoked_at TEXT, created_at TEXT NOT NULL,
+  UNIQUE (metric_id, evidence_type, evidence_id)
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_links_task ON task_outcome_links(task_id);
+CREATE INDEX IF NOT EXISTS idx_outcome_links_metric ON task_outcome_links(metric_id, status);
+CREATE TABLE IF NOT EXISTS outcome_values (
+  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), metric_id TEXT NOT NULL REFERENCES outcome_metrics(id) ON DELETE CASCADE,
+  value REAL NOT NULL, source TEXT NOT NULL CHECK (source IN ('evidence','manual')), reason TEXT, actor_id TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_outcome_values_metric ON outcome_values(metric_id, created_at);

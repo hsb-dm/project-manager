@@ -19,6 +19,8 @@ const aiChatFormat = require("./ai-chat-format");
 const PORT = +(process.env.PORT || 3000);
 const DEV_HEADER_AUTH = !security.IS_PRODUCTION && (process.env.COS_DEV_HEADER_AUTH === "1" || process.env.COS_ALLOW_HEADER_AUTH === "1");
 const ALLOW_IMPERSONATION = !security.IS_PRODUCTION || process.env.COS_ALLOW_IMPERSONATION === "1";
+/* Smart Scoring's kill switch (docs/SMART-SCORING.md): COS_SCORING=0 hides the feature and its routes answer 409; nothing is erased */
+const SCORING_FEATURE = process.env.COS_SCORING !== "0";
 const PUBLIC = path.join(__dirname, "..", "public");
 /* v36: files the server creates (database, logs, backups, outbox) are owner-only. */
 if (process.platform !== "win32") process.umask(0o077);
@@ -328,7 +330,7 @@ function announceTaskChange(method, pathname, out, user) {
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
-const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"]];
+const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"], [/^\/api\/scoring\/settings$/, "workspace"], [/^\/api\/scoring\/delegate-leads$/, "roles"]];
 function announceWorkspaceChange(pathname, user) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
@@ -785,7 +787,7 @@ route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
   ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
-  savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, capGrants: can.manageRoles(u) ? capGrantsAll() : [], pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION },
+  savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, capGrants: can.manageRoles(u) ? capGrantsAll() : [], pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION, scoring: SCORING_FEATURE },
 }));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */
@@ -1323,6 +1325,11 @@ route("DELETE", "/api/ai/templates/:id", (u, p) => {
   act(u, "deleted", "workspace", WS_ID, { what: "AI Hub template" }); return tplWrite(u, list);
 });
 route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u), "change workspace settings"); if (b && b.ai) { if (b.ai.promptTemplatesReset === true) b.ai.promptTemplates = null; else delete b.ai.promptTemplates; delete b.ai.promptTemplatesReset; } if (b && b.ai && b.ai.characters !== undefined) b.ai.characters = aiCleanCharacters(b.ai.characters, u.id); if (b && b.ai && b.ai.fonts !== undefined) b.ai.fonts = aiCleanFonts(b.ai.fonts, u.id); if (b && b.defaultRole != null && (b.defaultRole === "admin" || roleRank(b.defaultRole) > (u.role === "admin" ? 1e6 : (u.rank || 0)))) throw new HttpError(400, "New members cannot join as that role"); const previous = sz.readAIRaw(db, WS_ID) || {}, before = previous.processing || {}; b.ai = b.ai || {}; b.ai.processing = Object.assign({ externalEnabled: true, workspaceContextEnabled: true }, before, b.ai.processing || {}); if ((!before.externalEnabled && b.ai.processing.externalEnabled) || (!before.workspaceContextEnabled && b.ai.processing.workspaceContextEnabled)) { b.ai.processing.acceptedAt = now(); b.ai.processing.acceptedBy = u.id; } else { b.ai.processing.acceptedAt = before.acceptedAt || null; b.ai.processing.acceptedBy = before.acceptedBy || null; } (b.cloud || []).forEach(c => { if (c.id === "gdrive") { c.config = c.config || {}; c.config.publicLinks = c.config.publicLinks === true; } }); if (!can.manageNotificationSettings(u)) b.notifPrefs = (sz.readWorkspace(db, WS_ID) || {}).notifPrefs || {}; /* the workspace's notifications have a capability of their own */ tx(db, () => sz.writeWorkspace(db, WS_ID, b)); act(u, "edited", "workspace", WS_ID, { what: "workspace settings" }); security.log("workspace_security_settings_changed", { userId: u.id, ip: ctx.ip, aiExternal: !!b.ai.processing.externalEnabled, aiWorkspaceContext: !!b.ai.processing.workspaceContextEnabled, drivePublicLinks: !!(((b.cloud || []).find(c => c.id === "gdrive") || {}).config || {}).publicLinks }); return workspaceFor(u); });   /* as everyone gets it: someone's own templates stay theirs */
+/* ---------- Smart Scoring (Oct 2026, server/scoring.js, docs/SMART-SCORING.md) ----------
+   Its settings and routes. Registered here, after the AI helpers: aiConf and aiFetch are const declarations above, and a
+   module handed them before that line would throw. The scoring modules of the later phases are wired in next to it.
+   (Not between the /api/ai/chat route and the workspace save: tests/studio-editor.test.js runs that stretch alone.) */
+const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn: () => SCORING_FEATURE });
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */

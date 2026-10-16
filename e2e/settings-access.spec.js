@@ -25,12 +25,12 @@ test("a member sees their own settings only; each system area comes with its cap
   try {
     /* the admin: every tab */
     await admin.evaluate(() => go("settings", "profile"));
-    expect(await tabs(admin)).toEqual(["profile", "layout", "workspace", "theme", "workflow", "automation", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "ai", "notifications", "integrations", "backup"]);
+    expect(await tabs(admin)).toEqual(["profile", "layout", "workspace", "theme", "workflow", "automation", "scoring", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "ai", "notifications", "integrations", "backup"]);
     /* Roles & permissions: in groups, each with its mark and count; choosing one's own notifications is there */
     await admin.evaluate(() => { go("settings", "roles"); roleModal("member"); });
     const modal = admin.locator("#modal");
-    await expect(modal.locator(".cap-group-head b")).toHaveText(["Workspace & settings", "People & teams", "Notifications", "Projects", "Tasks", "Reviews & requests", "Progress notes", "Assets & knowledge", "AI Hub & gallery", "Insights"]);
-    await expect(modal.locator(".cap-group-head .cap-group-ico svg")).toHaveCount(10);
+    await expect(modal.locator(".cap-group-head b")).toHaveText(["Workspace & settings", "People & teams", "Notifications", "Projects", "Tasks", "Reviews & requests", "Progress notes", "Assets & knowledge", "AI Hub & gallery", "Insights", "Smart Scoring"]);
+    await expect(modal.locator(".cap-group-head .cap-group-ico svg")).toHaveCount(11);
     const notif = modal.locator(".cap-group").filter({ has: admin.locator(".cap-group-head b", { hasText: /^Notifications$/ }) });
     await expect(notif.locator(".cap-row .pl b")).toHaveText(["Choose which notifications they receive, and how", "Set which events the workspace sends, in the app and by e-mail", "Send announcement emails to every member"]);
     await expect(notif.locator('[data-cap="choose_notifications"]')).toHaveClass(/\bon\b/);

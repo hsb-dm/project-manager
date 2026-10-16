@@ -1288,6 +1288,35 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .cap-group-head{padding:8px 12px;background:var(--color-surface-sunken)}
 .cap-group .cap-row{padding:7px 12px}
 @media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
+/* Settings → Smart Scoring (src/scoring-settings.js), and its warning in Roles & permissions */
+.scr-meta{margin-top:8px}
+.scr-ro,.scr-later{margin-top:10px}
+.scr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px;margin:6px 0 12px}
+.scr-grid .field{margin:0}
+.scr-unit{display:flex;align-items:center;gap:6px}
+.scr-unit input{flex:1;min-width:0}
+.scr-unit span{flex:none;font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.scr-total{font-size:var(--fs-sm);font-weight:650;margin:-4px 0 12px}
+.scr-total.ok{color:var(--color-success)}
+.scr-total.bad{color:var(--color-danger)}
+.scr-module{flex-wrap:wrap}
+.scr-module .pl{flex:1 1 220px}
+.scr-module .scr-mode{flex:0 0 170px;margin:0}
+.scr-sub{display:flex;flex-direction:column;gap:2px;margin:14px 0 2px;padding-top:10px;border-top:1px solid var(--color-border)}
+.scr-sub b{font-size:var(--fs-sm);font-weight:700}
+.scr-sub span{font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.scr-primary{margin-top:12px;align-items:center}
+.scr-tpl{margin-bottom:4px}
+.scr-tpl .tbl th{cursor:default}
+.scr-tpl input.scr-cell{width:84px;border:1px solid var(--color-border);border-radius:10px;padding:6px 8px;background:var(--color-surface);outline:none;font-size:var(--fs-base)}
+.scr-tpl input.scr-cell:focus{border-color:var(--color-primary)}
+.scr-tpl input.scr-cell:disabled{opacity:.7}
+.scr-bands{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.scr-holder-who{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.scr-changes{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.scr-change b{font-weight:600;color:var(--color-text-primary)}
+.cap-group .scr-duty-warn{margin:8px 12px}
+.panel-foot .scr-leads{white-space:normal;max-width:100%;text-align:left}
 /* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the
    meta line the project's name is what shortens, with an ellipsis, while the id, team and stage keep their width */
 .row .r .lbls-stack{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
