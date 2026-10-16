@@ -80,16 +80,16 @@ test("the estimate fills in from finished work like it, then from the AI; a type
     await draft("social media post feed");
     await expect(effort).toHaveValue("2");
     await expect(badge).toHaveAttribute("title", "Typical for a feed post (1–3 h). Type a number to set your own.");
-    /* five of them: the first in full, each next one quicker */
+    /* five of them: the first in full, each next one at half (a feed post's share): 2 × (1 + 4 × 0.5) */
     await page.locator('#drawer [data-meta="assetCount"] input').fill("5");
     await page.locator('#drawer [data-meta="assetCount"] input').dispatchEvent("change");
-    await expect(effort).toHaveValue("7");
-    await expect(badge).toHaveAttribute("title", "Typical for a feed post, 5 deliverables (3.5–10 h). Type a number to set your own.");
+    await expect(effort).toHaveValue("6");
+    await expect(badge).toHaveAttribute("title", "Typical for a feed post, 5 deliverables (3–9 h). Type a number to set your own.");
     id = await create(); made.push(id);
     await page.waitForTimeout(400);
     expect(aiAsked.length, "the kind of work says enough: no AI").toBe(0);
     s = await saved(id);
-    expect(s.effort).toBe(7);
+    expect(s.effort).toBe(6);
     expect(s.meta.effortAuto).toMatchObject({ src: "kind", kind: "feed", items: 5 });
     /* one finished like it, weighed with what a story usually takes (the kind counts as two): (4 + 2 × 1.5) / 3 */
     await draft("Story set Lebaran");
@@ -104,7 +104,8 @@ test("the estimate fills in from finished work like it, then from the AI; a type
     const prompt = aiAsked[0].messages[0].content;
     expect(prompt).toContain("Task title: Quarterly vendor audit report Q4");
     expect(prompt, "the workspace shares its data: the example goes along").toContain('"Quarterly vendor audit report": 12 h');
-    expect(prompt, "the usual hours as a yardstick").toContain("feed post 1–3 h each");
+    expect(prompt, "the usual hours as a yardstick").toContain("feed post 1–3 h (each next at 50%)");
+    expect(prompt, "and how quick a next one is, per kind").toContain("resize or adaptation 0.5–3 h (each next at 25%)");
     expect(prompt, "hands-on hours, not calendar time").toContain("not calendar time and not time waiting for feedback or approval");
     await expect.poll(async () => (await saved(id)).effort).toBe(7.5);
     s = await saved(id);

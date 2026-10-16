@@ -22,7 +22,7 @@
      → {value, unit:"h", low, high, bounded, reason, inputs, factors, explanation, steps}
      value = perUnit × (1 + nextUnitFactor × (units − 1)) × complexity[c] × dependency[d], kept within
      bounds.min–bounds.max, 2 decimals. perUnit and nextUnitFactor come from templates[kind] unless given. The first
-     deliverable counts in full and each next one at nextUnitFactor: 0.6 is today's estimate (src/effort-estimate.js),
+     deliverable counts in full and each next one at nextUnitFactor — the kind's own share, as src/effort-estimate.js has it,
      1 is the spec's straight perUnit × units, 0 is work made as one piece whatever the count. c is the 1–5
      complexity rating (3 when not rated; `complexity` is accepted for complexity1to5); d is the number of open
      dependencies, read at the highest key of the dependency table not above it. low and high are the template's
@@ -105,7 +105,8 @@
 
    ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the five sub-objects:
    hours (the 14 kinds of src/effort-estimate.js EST_KINDS as templates, same ids and hours — the kinds made per
-   deliverable at nextUnitFactor 0.6, the others at 0 — the complexity and dependency tables, bounds 0.25–80 h),
+   deliverable at its own share: resize 0.25, copy, deck and logo 0.4, poster, reels and video 0.6, the rest 0.5 —
+   the complexity and dependency tables, bounds 0.25–80 h),
    story, weighted, ai and bonus. shared/scoring-settings.js owns normalizing and the rest of the settings, and can
    take these numbers from here.
    ============================================================ */
@@ -124,12 +125,12 @@
   function deepFreeze(o) { Object.keys(o).forEach(k => { if (o[k] && typeof o[k] === 'object') deepFreeze(o[k]); }); return Object.freeze(o); }
   const ENGINE_DEFAULTS = deepFreeze({
     hours: {
-      /* src/effort-estimate.js EST_KINDS: [id, …, typical, low, high, per deliverable] → {perUnit, low, high, nextUnitFactor} */
+      /* src/effort-estimate.js EST_KINDS: [id, …, typical, low, high, each next deliverable at] → {perUnit, low, high, nextUnitFactor} */
       templates: {
-        carousel: tpl(4, 3, 6, 0), story: tpl(1.5, 1, 3, 0.6), reels: tpl(6, 4, 10, 0), video: tpl(8, 4, 16, 0),
-        kv: tpl(6, 4, 10, 0), resize: tpl(1.5, 0.5, 3, 0.6), feed: tpl(2, 1, 3, 0.6), poster: tpl(3, 2, 5, 0.6),
-        banner: tpl(3, 2, 5, 0.6), copy: tpl(1.5, 0.5, 3, 0), deck: tpl(6, 3, 10, 0), logo: tpl(10, 6, 16, 0),
-        web: tpl(10, 6, 20, 0), email: tpl(3, 2, 5, 0)
+        carousel: tpl(4, 3, 6, 0.5), story: tpl(1.5, 1, 3, 0.5), reels: tpl(6, 4, 10, 0.6), video: tpl(8, 4, 16, 0.6),
+        kv: tpl(6, 4, 10, 0.5), resize: tpl(1.5, 0.5, 3, 0.25), feed: tpl(2, 1, 3, 0.5), poster: tpl(3, 2, 5, 0.6),
+        banner: tpl(3, 2, 5, 0.5), copy: tpl(1.5, 0.5, 3, 0.4), deck: tpl(6, 3, 10, 0.4), logo: tpl(10, 6, 16, 0.4),
+        web: tpl(10, 6, 20, 0.5), email: tpl(3, 2, 5, 0.5)
       },
       complexity: { 1: 0.8, 2: 0.9, 3: 1, 4: 1.25, 5: 1.5 },
       dependency: { 0: 1, 1: 1.1, 2: 1.2, 3: 1.3 },

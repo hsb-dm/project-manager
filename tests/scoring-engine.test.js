@@ -148,20 +148,22 @@ test('round2 has no binary floating-point noise', () => {
 });
 
 /* ---------- Effort Hours ---------- */
-test('hours follow the templates of today\'s estimate: the first deliverable in full, each next one at 60%', () => {
+test('hours follow the templates of today\'s estimate: the first deliverable in full, each next one at the kind\'s share', () => {
   const h = (kind, units, more) => S.hours(D.hours, Object.assign({ kind, units }, more));
   assert.equal(h('feed', 1).value, 2);
-  assert.equal(h('feed', 3).value, 4.4);
-  assert.equal(h('feed', 3).low, 2.2);
-  assert.equal(h('feed', 3).high, 6.6);
-  assert.equal(h('story', 5).value, 5.1);
-  const car = h('carousel', 3);
-  assert.equal(car.value, 4, 'a carousel is one piece of work, whatever the count');
+  assert.equal(h('feed', 3).value, 4, 'a post, then two more at half each');
+  assert.equal(h('feed', 3).low, 2);
+  assert.equal(h('feed', 3).high, 6);
+  assert.equal(h('story', 5).value, 4.5);
+  assert.equal(h('resize', 12, { complexity1to5: 2 }).value, 5.06, 'twelve resizes are an afternoon, not ten hours');
+  assert.equal(h('reels', 3).value, 13.2, 'three reels are more than one');
+  const car = S.hours({ templates: { piece: { perUnit: 4, low: 3, high: 6, nextUnitFactor: 0 } } }, { kind: 'piece', units: 3 });
+  assert.equal(car.value, 4, 'a template at 0 is one piece of work, whatever the count');
   assert.ok(car.explanation.includes('3 deliverables made as one piece of work: ×1.'));
   assert.equal(h('feed', 3, { nextUnitFactor: 1 }).value, 6, '1.0 is the spec\'s straight perUnit × units');
   assert.equal(S.hours({ templates: { x: { perUnit: 2, low: 1, high: 3, nextUnitFactor: 1 } } }, { kind: 'x', units: 4 }).value, 8);
   assert.equal(h('feed', 0).inputs.units, 1, 'at least one deliverable');
-  assert.deepEqual(S.hours({ hours: D.hours }, { kind: 'feed', units: 3 }).value, 4.4, 'the whole settings object works too');
+  assert.deepEqual(S.hours({ hours: D.hours }, { kind: 'feed', units: 3 }).value, 4, 'the whole settings object works too');
 });
 
 test('complexity and open dependencies multiply the hours, kept within the bounds', () => {
@@ -199,9 +201,9 @@ test('the hour templates are the kinds of src/effort-estimate.js, and give its n
   assert.ok(kinds.length >= 10);
   assert.deepEqual(Object.keys(D.hours.templates), kinds.map(k => k[0]), 'same ids, same order');
   for (const k of kinds) {
-    assert.deepEqual(Object.assign({}, D.hours.templates[k[0]]), { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] ? 0.6 : 0 }, k[0]);
+    assert.deepEqual(Object.assign({}, D.hours.templates[k[0]]), { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] }, k[0]);
     for (let items = 1; items <= 4; items++) {
-      const f = k[7] && items > 1 ? 1 + 0.6 * (items - 1) : 1; /* estKindHours */
+      const f = items > 1 ? 1 + k[7] * (items - 1) : 1; /* estKindHours */
       assert.equal(S.hours(D.hours, { kind: k[0], units: items }).value, S.round2(k[4] * f), k[0] + ' × ' + items);
     }
   }

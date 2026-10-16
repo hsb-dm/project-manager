@@ -226,6 +226,12 @@ yang dibuat workspace.
 
 Field mana yang tampil diatur admin di **Settings → Custom fields**.
 
+**Estimate otomatis** (bertanda *auto*) diambil dari task serupa yang sudah selesai. Kalau belum ada, dari jam
+yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama
+dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, story, banner, carousel, KV, web,
+dan email 50%; poster, reels, dan video 60%; copy, deck, dan konsep logo 40%. Contoh: 12 resize ≈ 5 jam, 3 reels
+≈ 13 jam. Ketik angka sendiri kapan saja; angka yang kamu ketik tidak ditimpa.
+
 ### Empat tab
 
 **Brief** — kolom **Description** bebas, bagian **Dependencies**, lalu **Creative brief**.
