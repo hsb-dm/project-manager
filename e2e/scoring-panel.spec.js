@@ -432,7 +432,7 @@ test.describe.serial("the Scoring & Intelligence panel", () => {
       await openBrief(two, taskId);
       await expect(panel(two)).toHaveClass(/\bopen\b/);
       await two.evaluate(() => { window.__scrMut = 0; window.__scrObs = new MutationObserver(ms => ms.forEach(m => { if (!(m.target.closest && m.target.closest(".scr-panel")) && [...m.removedNodes].some(n => n.nodeType === 1 && !n.classList.contains("scr-panel"))) window.__scrMut++; })); window.__scrObs.observe(document.getElementById("drawer"), { childList: true, subtree: true });
-        const t = document.querySelectorAll("#drBody .enh-blocks .effort input")[1]; t.focus(); t.select(); window.__scrFocus = t; });
+        /* the last box of the Effort line that takes typing (the Actual is the time log's total while time is logged per entry) */ const ins = [...document.querySelectorAll("#drBody .enh-blocks .effort input")].filter(i => !i.disabled && !i.readOnly), t = ins[ins.length - 1]; t.focus(); t.select(); window.__scrFocus = t; });
       await expect(row(two, "story").locator('[data-scr-v="math"] b')).toHaveText("—");
       release();
       await expect(row(two, "story").locator('[data-scr-v="math"] b')).toHaveText("5 SP");

@@ -139,8 +139,10 @@ test("Actual becomes the time logged: logged, changed and deleted by the person 
     await expect(actual).toContainText("Actual 2.75 h");
     expect(await saved(page, o.task)).toBe(2.75);
     await page.evaluate(() => closeModal());
-    /* the line Smart Scoring's task panel shows: the totals and the button, from what was loaded */
-    await page.evaluate(id => document.querySelector("#drawer .effort").insertAdjacentHTML("afterend", scoringTimeRowHtml(task(id))), o.task);
+    /* the line Smart Scoring's task panel shows under its hours row: the totals and the button, from what was loaded
+       (opened if it is folded; drawn here only where there is no panel) */
+    await page.evaluate(id => { const head = document.querySelector("#drawer .scr-panel .scr-head"); if (head && head.getAttribute("aria-expanded") !== "true") head.click();
+      if (!document.querySelector("#drawer .scr-time-row")) document.querySelector("#drawer .effort").insertAdjacentHTML("afterend", scoringTimeRowHtml(task(id))); }, o.task);
     const line = page.locator("#drawer .scr-time-row");
     await expect(line).toContainText("Logged 2.75 h");
     await expect(line).toContainText("Blocked 45 min (not in Actual)");

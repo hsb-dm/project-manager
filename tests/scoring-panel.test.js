@@ -16,8 +16,16 @@ function load(over) {
   vm.createContext(c); vm.runInContext(JS, c); return c;
 }
 
+/* the Indonesian the other scoring modules add to the page: the asset points' sentences are the engine's too and the
+   panel shows them (src/scoring-assets.js) */
+function moduleIndonesian(file) {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8'), head = '(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({';
+  const at = src.indexOf(head); if (at < 0) throw new Error(file + ': its Indonesian block');
+  return src.slice(at, src.indexOf('});', at + head.length) + 3);
+}
 test('every sentence of the engine\'s explanations has an Indonesian translation with the same placeholders', () => {
   const c = load();
+  vm.runInContext(moduleIndonesian('scoring-assets.js'), c);
   const marks = s => (String(s).match(/\{\w+\}/g) || []).sort().join(' ');
   for (const [k, en] of Object.entries(Engine.SENTENCES)) {
     assert.ok(c.UI_ID[en], k + ' has no Indonesian: ' + en);
