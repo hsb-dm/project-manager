@@ -6,8 +6,8 @@
    both side by side), KPI and OKR as two separate switches under Outcomes; which metric capacity and velocity are
    counted in; the Effort Hours templates (the kinds of work the estimator already knows), multipliers and bounds; the
    Story Points thresholds; the weights of the factors, which must add up to 100% before anything is saved; what the
-   AI may do and how often; how manual changes are approved. The efficiency bonus is shown as it will start, switched
-   off: it comes in a later phase. Whoever manages roles also sees who holds each Smart Scoring permission (roles and
+   AI may do and how often; how manual changes are approved. The efficiency bonus has its own section, its policy
+   (src/scoring-awards.js). Whoever manages roles also sees who holds each Smart Scoring permission (roles and
    extra permissions), and can give Team Lead and Creative Lead the approval and analytics permissions in one click.
    The last twenty changes are listed with who made them and what changed.
    Someone with scoring_view_analytics only sees the settings, without changing them.
@@ -59,7 +59,8 @@ function setScoring(){
   setTimeout(scLoadOnce,0); setTimeout(scTotalsPaint,0);
   return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
     +(typeof scoringAssetsSettingsHtml==="function"?scoringAssetsSettingsHtml(ro,ed):"")   /* src/scoring-assets.js */
-    +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
+    +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)
+    +(typeof scoringBonusSettingsHtml==="function"?scoringBonusSettingsHtml(ro,ed):"")   /* the efficiency bonus policy (src/scoring-awards.js) */
     +(typeof scoringOutcomesSettingsHtml==="function"?scoringOutcomesSettingsHtml():"")   /* KPIs and OKRs (src/scoring-outcomes.js) */
     +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
 function scMainPanel(cur,ed,ro){
@@ -134,18 +135,6 @@ function scOverridesPanel(ro,ed){
     + sw("overrides.requireApproval","Manual changes wait for approval","Someone with the permission to approve estimates confirms them first.")
     + sw("overrides.allowSelfApproveEstimate","Someone assigned to a task may approve its estimate","Not recommended. Recorded in the history, and an estimate approved this way never earns a bonus."),
     scSaveFoot(ed),I.edit); }
-function scBonusPanel(){
-  var b=scGet("bonus")||{}, f=function(id,label,v,unit){ return '<div class="field"><label for="'+id+'">'+tr(label)+'</label><div class="scr-unit"><input type="number" id="'+id+'" value="'+attr(v)+'" disabled>'+(unit?'<span>'+esc(tr(unit))+'</span>':'')+'</div></div>'; };
-  var bands=((b.hourMapping||{}).bands||[]).map(function(x,i,all){ return '<span class="badge">'+(i===all.length-1&&all.length>1?tr("more")+" → ":"≤ "+x[0]+" h → ")+x[1]+" "+tr("pts")+'</span>'; }).join(" ");
-  return sp("Efficiency bonus",
-    '<div class="banner scr-later">'+(I.clock||"")+'<span>'+tr("Available in a later phase. The bonus stays off until then; these are the values it will start from.")+'</span></div>'
-    + '<p class="hint" style="margin:10px 0">'+tr("Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.")+'</p>'
-    + '<div class="pref"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr("Off")+'</span></div><button type="button" class="switch" role="switch" aria-checked="false" aria-label="'+attr(tr("Efficiency bonus"))+'" disabled></button></div>'
-    + '<div class="scr-grid">'+f("sc_b_grace","Savings that do not count",scPct(b.grace),"%")+f("sc_b_reward","Reward factor",b.rewardFactor,"")+f("sc_b_max","Most bonus",scPct(b.maxRate),"%")
-    + f("sc_b_mine","Shortest estimate",b.minE,"h")+f("sc_b_mina","Least time logged",b.minA,"h")+f("sc_b_review","Review when time is below",scPct(b.reviewBelowRatio),"%")+'</div>'
-    + '<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands">'+bands+'</div>'
-    + '<div class="hint">'+tr("Completed means every closed stage except Declined. Weighted Points are the base when that module is on.")+'</div>',
-    null,I.star); }
 function scHoldersPanel(){
   var caps=(typeof CAPS!=="undefined"&&CAPS||[]).filter(function(c){ return SCORING_CAPS.indexOf(c[0])>=0; });
   var grants=(typeof CAP_GRANTS!=="undefined"?CAP_GRANTS:[]).filter(function(g){ return typeof capGrantLive!=="function"||capGrantLive(g); });
@@ -274,11 +263,9 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
   "Not recommended. Recorded in the history, and an estimate approved this way never earns a bonus.":"Tidak disarankan. Dicatat di riwayat, dan estimasi yang disetujui dengan cara ini tidak pernah mendapat bonus.",
   "Efficiency bonus":"Bonus efisiensi",
-  "Available in a later phase. The bonus stays off until then; these are the values it will start from.":"Tersedia di tahap berikutnya. Bonus tetap mati sampai saat itu; inilah nilai awalnya nanti.",
   "Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.":"Selesai lebih cepat dari estimasi yang disetujui dan dikunci bisa mendapat poin bonus — tidak pernah jam tambahan — setelah pekerjaan lolos review dan disetujui oleh orang selain yang dikreditkan, termasuk admin.",
   "Off":"Mati","Savings that do not count":"Penghematan yang tidak dihitung","Reward factor":"Faktor imbalan","Most bonus":"Bonus maksimal","Shortest estimate":"Estimasi terpendek","Least time logged":"Waktu tercatat paling sedikit","Review when time is below":"Review bila waktu di bawah",
   "Base points from hours":"Poin dasar dari jam","more":"lebih",
-  "Completed means every closed stage except Declined. Weighted Points are the base when that module is on.":"Selesai berarti setiap tahap tertutup kecuali Declined. Poin Berbobot menjadi dasar bila modul itu nyala.",
   "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring",
   "Admin always holds all of them. Give one to a role in Roles & permissions, or to one person from their row in Members. Being assigned to a task never gives any of them.":"Admin selalu memegang semuanya. Beri ke sebuah role di Role & izin, atau ke satu orang dari barisnya di Members. Ditugaskan pada task tidak pernah memberi izin ini.",
   "and, on top of their role:":"dan, di luar role-nya:",

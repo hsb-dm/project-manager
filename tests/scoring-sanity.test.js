@@ -342,3 +342,59 @@ test('the analytics figures make sense: no division by zero, shares within 0–1
   assert.ok(A.periodOf({ from: '2026-10-20', to: '2026-10-16' }, '2026-10-16').error); assert.ok(A.periodOf({ from: '2020-01-01' }, '2026-10-16').error); assert.ok(A.periodOf({ to: '2026-02-30' }, '2026-10-16').error);
   assert.equal(A.weekOf('2026-10-18T23:59:00Z'), '2026-10-12', 'Sunday is the end of the week'); assert.equal(A.weekOf('2026-10-19'), '2026-10-19'); assert.equal(A.weekOf('nonsense'), null);
 });
+
+/* the efficiency awards (server/scoring-awards.js), as the server works them out for a task */
+test('an efficiency award makes sense: 8 h, 5 h, 8 points give 1.10 and 9.10; the bonus is small, capped, never negative and never more for more time; legacy time never earns; a shared task adds up cent for cent', () => {
+  const A = require('../server/scoring-awards.js').pure, Settings = require('../shared/scoring-settings.js');
+  const s = Settings.normalizeSettings({ enabled: true, modules: { hours: { on: true }, weighted: { on: true } }, bonus: { on: true, enabledAt: '2026-10-01T00:00:00.000Z' } });
+  const bands = Settings.normalizeSettings({ enabled: true, bonus: { on: true, enabledAt: '2026-10-01T00:00:00.000Z' } });
+  const entry = (userId, minutes, kind, source) => ({ userId, minutes, kind: kind || 'work', source: source || 'manual', deletedAt: null });
+  const facts = o => Object.assign({ team: 'design', assignees: ['sarah'], completed: true,
+    hoursRow: { status: 'approved', lockedValue: 8, approvedBy: 'laura', approvedAt: '2026-10-02T09:00:00.000Z' },
+    approvals: [{ action: 'approved', by: 'laura', at: '2026-10-02T09:00:00.000Z', workStarted: false, value: 8 }], raises: [],
+    weightedOn: true, weightedRow: { value: 8, status: 'approved' }, entries: [entry('sarah', 300)],
+    version: { n: 1, state: 'approved', decidedBy: 'laura', decidedAt: '2026-10-05T09:00:00.000Z' }, lateEntries: 0 }, o || {});
+  /* the spec's acceptance numbers */
+  let r = A.evaluateFacts(s, facts());
+  assert.equal(r.status, 'pending_review'); assert.equal(r.eligible, true); assert.deepEqual(r.reasons, []);
+  assert.equal(r.E, 8); assert.equal(r.A, 5); assert.equal(r.B, 8); assert.equal(r.bonus, 1.1); assert.equal(r.earned, 9.1);
+  assert.deepEqual(r.alloc.sarah, { share: 1, base: 8, bonus: 1.1, awarded: 9.1 }); assert.equal(r.lock.valid, true);
+  assert.equal(A.evaluateFacts(s, facts({ entries: [entry('sarah', 450)] })).bonus, 0, '7.5 h of 8: within the grace, no bonus');
+  /* small, capped, never negative, never more for more time — over estimates of 1–40 h and 15 min–60 h of work */
+  for (let E = 1; E <= 40; E += 1) {
+    let last = Infinity;
+    for (let m = 15; m <= 3600; m += 45) {
+      const x = A.evaluateFacts(bands, facts({ weightedOn: false, hoursRow: { status: 'approved', lockedValue: E, approvedBy: 'laura', approvedAt: '2026-10-02T09:00:00.000Z' }, entries: [entry('sarah', m)] }));
+      assert.ok(x.bonus >= 0, 'never negative'); assert.ok(x.bonus <= Math.round(x.B * bands.bonus.maxRate * 100) / 100 + 1e-9, E + ' h, ' + m + ' min: ' + x.bonus + ' is above ' + bands.bonus.maxRate * 100 + '% of ' + x.B);
+      assert.ok(x.earned >= x.B, 'earned is never below the base'); assert.ok(x.bonus <= last + 1e-9, 'more time never earns more (' + E + ' h, ' + m + ' min)'); last = x.bonus;
+      if (x.A > 0 && x.A / E < bands.bonus.reviewBelowRatio) assert.ok(x.flags.some(f => f.code === 'review_fast'), 'done very fast: always flagged for the reviewer');
+    }
+  }
+  /* time kept from before the time log never earns; blocked time never counts */
+  r = A.evaluateFacts(s, facts({ entries: [entry('sarah', 300, 'work', 'legacy')] }));
+  assert.equal(r.eligible, false); assert.equal(r.stored, 0); assert.deepEqual(r.reasons.map(x => x.code), ['legacy_time_only']); assert.deepEqual(r.alloc, {});
+  r = A.evaluateFacts(s, facts({ entries: [entry('sarah', 120), entry('sarah', 600, 'work', 'legacy'), entry('sarah', 600, 'blocked')] }));
+  assert.equal(r.A, 2, 'only the 2 h of the time log count'); assert.equal(r.manualMinutes, 120);
+  /* a few minutes on a long estimate: nothing below a quarter hour counts */
+  assert.ok(A.evaluateFacts(s, facts({ entries: [entry('sarah', 5)] })).reasons.some(x => x.code === 'no_actual_time'));
+  /* the estimate's approval: never by someone who worked on it, never before the bonus, never after the work started */
+  const lockBy = (by, at, workStarted) => ({ hoursRow: { status: 'approved', lockedValue: 8, approvedBy: by, approvedAt: at }, approvals: [{ action: 'approved', by, at, workStarted, value: 8 }] });
+  for (const [o, code] of [[lockBy('sarah', '2026-10-02T09:00:00.000Z', false), 'lock_self_approved'], [lockBy('laura', '2026-09-30T09:00:00.000Z', false), 'lock_before_bonus'], [lockBy('laura', '2026-10-02T09:00:00.000Z', true), 'lock_after_work_started'],
+    [{ hoursRow: { status: 'locked', lockedValue: 8, approvedBy: null, approvedAt: null }, approvals: [] }, 'lock_not_approved'], [{ hoursRow: { status: 'rebaseline_needed', lockedValue: 8, approvedBy: 'laura', approvedAt: '2026-10-02T09:00:00.000Z' } }, 'scope_changed'],
+    [{ completed: false }, 'not_completed'], [{ version: { n: 2, state: 'approved', decidedBy: 'sarah' } }, 'quality_not_approved']]) {
+    const x = A.evaluateFacts(s, facts(o));
+    assert.equal(x.eligible, false, code); assert.ok(x.reasons.some(y => y.code === code), code + ' among ' + x.reasons.map(y => y.code)); assert.equal(x.bonus, 0);
+    if (/^lock_/.test(code)) assert.equal(x.lock.valid, false, code + ': not a valid baseline');
+  }
+  const pilot = teams => Settings.normalizeSettings(Object.assign({}, s, { bonus: Object.assign({}, s.bonus, { pilotTeams: teams }) }));
+  assert.deepEqual(A.evaluateFacts(pilot(['motion']), facts()).reasons.map(x => x.code), ['not_in_pilot'], 'outside the pilot teams');
+  assert.equal(A.evaluateFacts(pilot(['design', 'motion']), facts()).eligible, true, 'a team in the pilot');
+  /* a shared task: each person's part by the time they logged, adding up to the task's base and bonus, cent for cent */
+  for (const split of [[1, 1], [2, 1], [1, 1, 1], [5, 3, 2, 1], [7, 7, 7, 7, 7, 7, 1], [100, 1, 1]]) {
+    const ids = split.map((_, i) => 'p' + i), x = A.evaluateFacts(s, facts({ assignees: ids, entries: split.map((n, i) => entry(ids[i], n * 40)) }));
+    const cents = k => Math.round(ids.reduce((t, id) => t + x.alloc[id][k] * 100, 0));
+    assert.equal(cents('base'), Math.round(x.B * 100)); assert.equal(cents('bonus'), Math.round(x.stored * 100)); assert.equal(cents('awarded'), Math.round((x.B + x.stored) * 100));
+    assert.equal(Math.round(ids.reduce((t, id) => t + x.alloc[id].share, 0) * 10000), 10000, 'the shares are 100%');
+    ids.forEach((id, i) => { if (i && split[i] < split[0]) assert.ok(x.alloc[id].awarded <= x.alloc.p0.awarded, 'less time, never more points'); });
+  }
+});

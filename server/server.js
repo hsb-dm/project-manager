@@ -567,7 +567,7 @@ const PUSH_TEXT_ID = { completed: "{who} menyelesaikan “{t}”.", blocker: "�
    not have choose_notifications receives everything the workspace sends; what they chose before is kept, not used.
    The workspace's own switches (Notifications & email, admin) come first: what the workspace does not send, nobody gets.
    Announcement e-mails are not notifications and always go. */
-const NOTIF_CATEGORY = { completed: "task_completed", blocker: "blocker", assigned: "task_assigned", reviewer: "task_assigned", review: "approval", approved: "approval", revision: "approval", mention: "comment_mention", comment: "comment_reply", deadline: "task_due", missed: "task_due", status: "project_updates", upload: "project_updates", file: "project_updates", progress: "project_updates", watch: "project_updates", transition: "project_updates", request: "requests", request_status: "requests", signup: "signup", chat_dm: "chat_dm", chat_mention: "chat_mention", chat_reply: "chat_reply", chat_group: "chat_group", chat_team_general: "chat_team_general" };
+const NOTIF_CATEGORY = { completed: "task_completed", blocker: "blocker", assigned: "task_assigned", reviewer: "task_assigned", review: "approval", approved: "approval", revision: "approval", efficiency_review: "approval", mention: "comment_mention", comment: "comment_reply", deadline: "task_due", missed: "task_due", status: "project_updates", upload: "project_updates", file: "project_updates", progress: "project_updates", watch: "project_updates", transition: "project_updates", request: "requests", request_status: "requests", signup: "signup", chat_dm: "chat_dm", chat_mention: "chat_mention", chat_reply: "chat_reply", chat_group: "chat_group", chat_team_general: "chat_team_general" };
 function notifWanted(userId, type, way) {
   const cat = NOTIF_CATEGORY[type]; if (!cat) return true;
   const c = userContext(userId); if (!c || !can.chooseNotifications(c)) return true;
@@ -1344,6 +1344,7 @@ const outcomes = require("./outcomes")(db, WS_ID, { route, HttpError, forbid, ca
 scoring.extendView((u, t, out) => { if (out.on && (out.on.kpi || out.on.okr)) out.outcomes = outcomes.forTask(u, t.id); });
 scoring.liveCollection("outcomes", u => outcomes.state(u));
 require("./scoring-analytics")(db, WS_ID, { route, HttpError, forbid, can, scoring, outcomes });   /* Smart Scoring's figures over a period: GET /api/scoring/analytics (server/scoring-analytics.js) */
+require("./scoring-awards")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, userContext, forViewer: (u, t) => forViewer(u, t), bumpData: () => { DATA_VERSION++; }, notify: (list, o) => deliverNotifs(list, o), texts: { mail: MAIL_TEXT, pushId: PUSH_TEXT_ID } });   /* the efficiency bonus: awards, their review and safeguards (server/scoring-awards.js) */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */

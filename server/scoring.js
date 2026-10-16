@@ -147,7 +147,7 @@ module.exports = function scoring(db, WS_ID, d) {
   const forViewer = d.forViewer || ((u, t) => t);
   const bumpData = d.bumpData || (() => {});
   const announce = d.announce || (() => {});
-  const BONUS_READY = false;   /* Phase 3 (the efficiency awards) turns this on; until then a save keeps the bonus off */
+  const BONUS_READY = true;   /* Phase 3: the efficiency awards are built (server/scoring-awards.js), so the bonus can be turned on */
   const LEAD_ROLES = ["team_lead", "creative_lead"];
   const LEAD_CAPS = ["scoring_approve_estimate", "scoring_approve_completion", "scoring_view_analytics"];
   const SHOWN = 20;   /* the settings changes the Settings tab lists */

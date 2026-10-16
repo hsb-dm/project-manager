@@ -3,8 +3,9 @@
 Status: **Phase 0 + Phase 1 B + Phase 1 A done** (Oct 2026): schema, permissions, settings model, settings routes, the
 Settings → Smart Scoring tab, the roles UI, empty browser modules for the later phases, and the server side of a task's
 scores (§5.2: the task scoring routes, the guards on the task's own writes, the re-evaluation after every task write and
-its sweep, the projection on task documents, the backfill). Everything is **off** until an admin turns it on; with it off
-the app behaves exactly as before (spec §12.2).
+its sweep, the projection on task documents, the backfill). **Phase 3 A done** (Oct 2026): the efficiency bonus — its
+awards, their review and safeguards, the bonus policy in Settings and the line in the task panel (§13). Everything is
+**off** until an admin turns it on; with it off the app behaves exactly as before (spec §12.2).
 
 This file is the contract later phases build against. Where it and the code differ, fix one of them in the same
 change. Sources: the product spec (`ZenCrevia_Smart_Scoring_Intelligence_Full_Spec.md`) and the implementation plan
@@ -107,7 +108,7 @@ validateAi, inputHash); this file only records how the settings feed it.
   ai: { minConfidence: .6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200,
         comparables: "team" },                                        // "team" | "none"
   overrides: { requireReason: true, requireApproval: false, allowSelfApproveEstimate: false },
-  bonus: { on: false,                  // forced false by the server until Phase 3 (server/scoring.js BONUS_READY)
+  bonus: { on: false,                  // can be saved on since Phase 3 (server/scoring.js BONUS_READY = true); §13
            enabledAt: null,            // server-owned: stamped when bonus.on goes false→true, null when off
            grace: .10, rewardFactor: .5, maxRate: .20, minE: 1, minA: .25, reviewBelowRatio: .4,
            materialChangeHours: .25,
@@ -286,7 +287,9 @@ Body `{ settings: <object>, configVersion: <the version it was edited from>, rea
 - **409** "Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again."
   when `configVersion` ≠ stored.
 - The settings are normalized; the server sets `configVersion`, `updatedAt`, `updatedBy`, `bonus.enabledAt`,
-  `weighted.mappingVersion`, and keeps `bonus.on` false while `BONUS_READY` is false.
+  `weighted.mappingVersion`, and keeps `bonus.on` false while `BONUS_READY` is false (it is true since Phase 3:
+  `bonus.enabledAt` is stamped now whenever the bonus goes from off to on — turning it off and on again starts again
+  from then, so estimates approved before that never earn an award).
 - No change → `{ settings, unchanged: true, audit }`, nothing written.
 - A change → version +1, column written, one `scoring_audit` row (`module 'settings'`, `action 'settings_changed'`,
   `old_value`/`new_value` = the whole settings, `meta {diff, configVersion}`, `impersonated_by` when acting as someone),
@@ -348,7 +351,8 @@ Catches up first (the same re-evaluation as after a write, §5.2.6; `bumpData()`
          approve /* scoringApproveEstimate(u,t,overrides) */, rebaseline /* = approve */, requestAi, logTime,
          approveCompletion /* scoringApproveCompletion(u,t,credited) */, viewEfficiency, viewAnalytics,
          assignee, impersonating, approveBlocked: null|"stakeholder"|"impersonating"|"permission"|"assignee" },
-  efficiency?: { awards: [Award] } }   // only can.scoringSeesEfficiency: credited (own award only), approvers of
+  efficiency?: { awards: [Award], … } } // the whole block: §13.6 (server/scoring-awards.js fills it in through
+                                       // extendView); only can.scoringSeesEfficiency: credited (own award only), approvers of
                                        // finished work and scoring_view_analytics holders (all awards)
 
 Row = { module, unit, value /* final */, source: "math"|"ai"|"manual"|"legacy"|null, status, locked /* bool */,
@@ -486,8 +490,7 @@ stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `
   fallback with a reason when AI is off / out of quota / invalid. Never sets final on approved/locked/manual rows.
 - `GET|POST /api/tasks/:id/time`, `PUT|DELETE /api/tasks/:id/time/:entryId` (Phase 3a D) — `logTime` for one's own
   entries; others' only with `scoring_edit_task` and a reason; audited.
-- `POST /api/tasks/:id/efficiency/recalculate|approve|reject` (Phase 3 A) — approve/reject:
-  `scoringApproveCompletion(u, t, creditedIds)`, body `{ qualityScore?, shares?, reason? }`.
+- `POST /api/tasks/:id/efficiency/recalculate|approve|reject` (Phase 3 A) — **built, see §13.5**.
 - `GET /api/scoring/analytics?from&to&weeks&team&project&person&status&history` — **built** (wave 3,
   server/scoring-analytics.js, src/scoring-analytics.js). Checks in order: `COS_SCORING=0` → 409; signed out → 401;
   stakeholder → 403; a bad date, `weeks` outside 1–104, a period over two years, an end before the start, an odd id
@@ -629,6 +632,7 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 | `src/scoring-settings.js` | Phase 1 B | `setScoring()` — the Settings tab (dispatch in `renderSettings`), draft state `SC`, save with 409 reload, the role-modal warning `scoringDutyWarn()`. Phase 3 B adds the live bonus policy here. Phase 4 B adds outcome definitions here. |
 | `src/scoring-assets.js` | wave 2 (asset points) | points for assets produced: the panel row, the Settings section, the period figures and their view (§11). |
 | `src/scoring-panel.js` | Phase 1 C | The task's Scoring & Intelligence panel under the Effort line on the Brief tab (wraps `effortHtml`, which takes an optional third argument `{lock, lockIcon, actualRo}`; without it, and whenever `scoringOn()` is false, the line is byte-for-byte as before; `.enh-blocks` stays Brief-tab only). Folded by default, `myPrefs().scoringPanelOpen` per person. Rows per module on: math, AI (Phase 2), final/locked with provenance and status, last change; buttons from the `can` of `GET /api/tasks/:id/scoring` (the `canI` mirror until it answers); drawn from `tk.scoring` + `SCR.cache` first, fetched on open or when the summaries/estimate/assets change, redrawn in place (`scrPaint`). `scoringEstimateLock(tk)` → `{by, at, value, approved, title}` or null — src/drawer.js, src/tasks.js and the Effort line grey out the Estimate with it. Hooks, each called only if defined: `scoringTimeRowHtml(tk)` (under the hours row; Actual becomes read-only while it returns HTML), `scoringAssetsRowHtml(tk)`, `scoringOutcomesRowHtml(tk)`, Phase 3 `scoringEfficiencyLineHtml(tk, efficiency)`. The offline demo answers the routes in the page (`scrDemo`). Tests: `tests/scoring-panel.test.js`, `e2e/scoring-panel.spec.js`. |
+| `src/scoring-awards.js` | Phase 3 A | the efficiency bonus in the page (§13.7): `scoringEfficiencyLineHtml(tk, efficiency)` (the panel's line, the breakdown, the reasons, the flags, Approve/Reject), `scoringBonusSettingsHtml(ro, ed)` (the Settings section, called by `setScoring`), `scoringBonusExample(bonusPolicy)`, the `efficiency_review` notification's words. Prefix `sce`/`SCE` (`sca` is the asset points'). |
 | `src/scoring-time.js` | Phase 3a D | empty — the time log. |
 | `src/scoring-analytics.js` | Phase 1 D / 3 D | empty — analytics sections (wrap `renderAnalytics`, `renderMember`; no ranking). |
 | `src/scoring-outcomes.js` | Phase 4 B | empty — KPI/OKR UI. |
@@ -655,7 +659,7 @@ in place; CSS in `src/v38.css` (prefix `scr-` for Smart Scoring — `sc-` is tak
 | 1 C | task panel | `src/scoring-panel.js`, drawer/enhance/tasks/effort-estimate |
 | 1 D / 3a / 3 D | time + analytics | `src/scoring-time.js`, `src/scoring-analytics.js`, `server/scoring-time.js`, `server/scoring-analytics.js` (wired by A) |
 | 2 A | server | `server/scoring-ai.js`, `chatUsage` in `server/ai-chat-format.js` |
-| 3 A | server | `server/scoring-awards.js` (+ flip `BONUS_READY` in `server/scoring.js`) |
+| 3 A | bonus (built) | `server/scoring-awards.js`, `src/scoring-awards.js`, the bonus section of the Settings tab, `BONUS_READY` in `server/scoring.js` (§13) |
 | 4 B | outcomes | `server/outcomes.js`, `src/scoring-outcomes.js` |
 
 The schema and `build.js` belong to Phase 0: later phases do not change them (ask first if a column is missing).
@@ -685,7 +689,12 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   never rewritten); `onTaskWritten` hooks after create/update/move/restore/scoring with one throwing; "removed with
   task"; the sweep at start (a scope changed in the database, a time entry).
 - `tests/scoring-sanity.test.js` — also what Calculate gives for real titles (EN and ID), monotonic in deliverables,
-  dependencies and complexity, to the half hour, and the Scope bands.
+  dependencies and complexity, to the half hour, and the Scope bands; and the efficiency awards (§13): 8 h / 5 h / 8 pts
+  → 1.10 / 9.10, small, capped, never negative, never more for more time, legacy time never earning, shares adding up.
+- `tests/scoring-awards.test.js` (Phase 3 A) — spawned server: the acceptance case §14.6 end to end, self-approval and
+  impersonation refused, reopen, scope pause and re-baseline, late time, recalculation twice, shares, legacy time, a lock
+  after work started or before the bonus, pilot teams, a duplicate, the approvers' notification, off / COS_SCORING=0; and
+  the page's line and its Indonesian. `e2e/scoring-awards.spec.js` — the line and the review in the browser.
 - `e2e/scoring-settings.spec.js` — admin toggles the master switch, a module and OKR and they persist; weights not
   totalling 100% cannot be saved; member has no tab; a role with `scoring_manage_workspace` has it; analytics-only is
   read-only; the role-modal warning; the one-click delegation. Everything put back.
@@ -839,3 +848,188 @@ only when the markup changed) and `scoringOutcomesRowHtml(tk)` (the task panel's
 cache `SCO.tasks[id]`; "" while Smart Scoring, both switches, or the viewer is a stakeholder). The row's picker is the
 shared `entityPicker` with `kind:"metric"` (an `epRow` override). `settingsTabAllowed("scoring")` is also true for
 `scoring_manage_outcomes` holders. The offline demo shows a note: no server, no evidence.
+
+## 13. The efficiency bonus (Phase 3 A — built: `server/scoring-awards.js`, `src/scoring-awards.js`)
+
+Spec §7, §13, §14.6. A task finished in less time than its approved, locked estimate may earn bonus **points** (never
+hours) once someone who did not work on it approves it. Operational metric, not compensation, not a ranking.
+
+### 13.1 When it is worked out
+
+Only while the server has the feature, Smart Scoring, **Effort Hours** and `bonus.on` are all on (`activeIn`). Otherwise
+the award rows stay exactly as they are — read by those allowed, never changed (`server/scoring.js`'s reopen rule,
+§5.2.6 (4), still sends awards back to provisional whenever Smart Scoring is on). Worked out: after every task write
+(`scoring.onTaskWritten`), when the task's scores are read (`GET /api/tasks/:id/scoring` and every scoring write's
+answer, through `scoring.extendView`), by `POST …/efficiency/recalculate`, before an approval or a rejection, and by a
+sweep (3 s after start, every 10 min: tasks changed since `app_meta 'scoring_awards_sweep_v1'` `{at, configVersion}`,
+tasks whose time entries changed, and — when the settings' `configVersion` changed — every task with awards or with a
+locked hours row and logged time). Idempotent: each row's `calc_key` (a hash of its content) — nothing is written and
+nothing audited when nothing changed; `bumpData()` after a change.
+
+### 13.2 The conditions — each unmet one a named reason
+
+The engine's (`ScoringEngine.efficiency` reasons: `not_completed`, `quality_not_approved`, `scope_changed`,
+`no_locked_estimate`, `estimate_below_minimum`, `no_actual_time`, `actual_below_minimum`, `no_base_points`) plus this
+module's (`server/scoring-awards.js` `SENTENCES`, the page has the same in `SCE_SENTENCES`):
+
+| code | when |
+|---|---|
+| `not_in_pilot` | `bonus.pilotTeams` is set and the task's team is not in it |
+| `lock_not_approved` | the hours row is `locked` with nobody's approval (frozen at work start, or changed after its lock) |
+| `lock_self_approved` | the approver of the lock is assigned to the task or has logged time on it (possible only with `overrides.allowSelfApproveEstimate`) |
+| `lock_before_bonus` | the lock was approved at or before `bonus.enabledAt` — never retroactive |
+| `lock_after_work_started` | the latest `approved`/`rebaselined` audit of the hours row has `meta.workStarted` not `false`, and no earlier approval was a fair one (before the work, after `enabledAt`, by someone not on the task, not impersonated) |
+| `legacy_time_only` | only `source 'legacy'` time is logged (then the engine's `no_actual_time` is left out) |
+
+- **E** = the hours row's `locked_value` while it is locked (`approved`, `locked`, `rebaseline_needed`); `rebaseline_needed`
+  → `scope_changed`. A **re-baseline after the work started** keeps eligibility when the first baseline was a fair
+  approval (flag `review_rebaselined`).
+- **A** = the work + revision minutes of `source 'manual'` entries (not deleted) ÷ 60, **to the nearest quarter hour**
+  (`Math.round(min/15)/4`, as the task's Actual is shown; under 8 minutes is 0). Legacy and blocked time never count.
+- **B** = `ScoringEngine.basePoints(settings.bonus, {weightedFinal, lockedHours: E})`: the Weighted Points final value
+  while that module is on (flag `review_base_not_locked` when that row is not locked), else the bands on the locked hours.
+- **Completed** = `bonus.completionStages` when set, else every closed stage but Declined (as everywhere).
+- **Quality gate** (`bonus.requireApprovedVersion`, default on): the latest version (highest `version_number`) is
+  `approved` and its `decided_by` is neither assigned nor credited — else `quality_not_approved`
+  (`quality.why`: `no_version` | `not_approved` | `approved_by_contributor`). Off: the award's reviewer is the gate.
+- `validLogs` is always true (the time log refuses invalid entries itself); the time is verified by the approval.
+
+### 13.3 The awards (`task_efficiency_awards`)
+
+One row per person with work/revision time of their own (UNIQUE task, person). Rows are made once the task is in the
+pilot, its hours row is locked and someone logged time; from then on every credited person has one. Columns:
+`share` (0–1, 4 decimals, the shares add up to 1), `estimate_snapshot` = E, `actual_snapshot` = A (the task's, the
+formula's inputs), `base_points` / `bonus_points` / `awarded_points` (this person's part: `ScoringEngine.allocate` of B
+and of the bonus by the weights — logged minutes, or the approver's percentages — so the parts add up to the task's
+base and bonus cent for cent), `status`, `reasons` (JSON codes: the unmet conditions, then the flags `review_*`),
+`needs_review` (1 when there is a flag), `reviewer_id`, `reviewed_at`, `review_note`, `quality_score`,
+`policy_version` (the settings' `configVersion` it was worked out under), `calc_key`, `recalculated_at`.
+
+| status | means | `bonus_points` |
+|---|---|---|
+| `provisional` | not completed (or opened again) | what it would be when only completion and the quality review are still ahead; else 0 |
+| `pending_review` | completed and eligible; the approvers are told | the bonus |
+| `ineligible` | completed, a condition not met (the reasons say which) | 0 (awarded = base) |
+| `approved` | approved by an independent reviewer | the bonus |
+| `rejected` | rejected, with a reason | 0 (awarded = base) |
+| `revoked` | the person has no work/revision time on the task any more | 0, base 0, share 0 |
+
+**Count only `approved` rows as earned** (analytics). Transitions: worked out → `provisional` / `pending_review` /
+`ineligible` as above. **Reviewed rows** (`approved`, `rejected`) keep their decision and numbers unless something
+material changes while the task is completed — judged under the settings the award was decided with (its
+`policy_version`, read back whole from the settings' history), so only a change of the task itself counts, never a
+policy change (bands, grace, a pilot, Weighted Points off, the bonus off and on again): E differs, A differs by at least `bonus.materialChangeHours` (and more
+than 0), the base differs, the people credited differ, or (approved) a condition no longer holds — then every row goes
+back through the flow (`pending_review` or `ineligible`, reviewer cleared, audit `review_reopened` with
+`meta.material: ["estimate"|"time"|"base"|"people"|"eligibility"]`). Not material: only the flags are updated.
+Opened again (not completed): `approved` → `provisional` (as server/scoring.js); `rejected` stays until a material
+change. A policy change never touches a decided award (no retroactive change); undecided rows follow it.
+
+**Flags** (for the reviewer, never an accusation): `review_fast` (A ÷ E under `reviewBelowRatio`; the engine's sentence),
+`review_time_after_approval` (`{n}` entries created/edited/deleted after the latest version's approval, else after the
+award's approval), `review_estimate_raised` (`{from, to, hours: 24}`: the hours value went up in the 24 h before the
+baseline's approval, by anyone but its approver — an accepted proposal counts as its author's), `review_rebaselined`
+(`{from, to}`), `review_base_not_locked`. No per-period cap in v1 (pinned `perPeriodCap: null`).
+
+### 13.4 Audit (`scoring_audit`, module `efficiency`)
+
+`recalculated` | `pending_review` | `review_reopened` (worked out; `old_value`/`new_value` = the task's awards
+`[{userId, share, estimate, actual, basePoints, bonusPoints, awardedPoints, status, reasons, needsReview, reviewerId,
+reviewedAt, qualityScore}]`, `meta {via, status, E, A, B, bonus, reasons, flags, material, flagsOnly}`), `approved`
+(`meta {qualityScore, sharesAdjusted, sharesFrom, sharesTo, verifiedEntries, base, bonus, earned}`, `reason`),
+`rejected` (`meta {qualityScore}`, `reason`); and server/scoring.js's `reopened`, `removed_with_task`.
+`security.log("scoring_award_approved" | "scoring_award_rejected")`. No activity line (the bonus stays private).
+
+### 13.5 Routes (registered in server.js after the other Smart Scoring modules)
+
+Order of checks: `COS_SCORING=0` → **409** "Smart Scoring is turned off on this server"; unknown task → **404**; the
+right → **403**; Smart Scoring / Effort Hours / the bonus off → **409** (each its own message; awards stay readable);
+the body → **400** (`reason` > 1000 → **413**). Every answer: `{ taskId, efficiency /* §13.6, as the caller sees it */,
+task /* forViewer */, changed }` — **not the whole scoring view** (server/scoring.js does not export it; the panel asks
+for the view again after a write). Writes touch `tasks.updated_at` and announce `task_changed` (the regex covers
+`/efficiency…`).
+
+- **`POST /api/tasks/:id/efficiency/recalculate`** `{}` — whoever sees the task's efficiency (`scoringSeesEfficiency`
+  with the credited = award people ∪ people with time of their own; not a stakeholder). Idempotent: `changed:false` and
+  nothing written the second time.
+- **`POST /api/tasks/:id/efficiency/approve`** `{ qualityScore?: 1–5 (whole), shares?: {userId: percent}, reason?,
+  calcKey? }` — `scoringApproveCompletion(u, t, credited)`: 403 "…acting as someone else." while impersonating; 403
+  "You worked on this task (assigned to it or credited on it), so you cannot approve or reject its efficiency bonus."
+  (admins included); 403 without the permission. Every live award must be `pending_review` (409 otherwise, saying why:
+  already approved, rejected, not completed, not eligible); a `calcKey` that is not the current one → 409. With
+  `bonus.minQuality` set, `qualityScore` is required and at least it (400). `shares`: exactly the people credited, each
+  0–100, adding up to 100 (±0.01) — when they differ from the current shares a `reason` is required (400) and they
+  re-split base and bonus. Approving sets `approved`, `reviewer_id/at`, `review_note`, `quality_score` and **verifies
+  the time**: every non-deleted manual entry of the people credited → `verified 1, verified_by, verified_at` (a later
+  edit of an entry clears it — server/scoring-time.js). Answer also `{approved: n, verified: n}`.
+- **`POST /api/tasks/:id/efficiency/reject`** `{ reason (required), qualityScore?, calcKey? }` — the same right and
+  states; → `rejected`, bonus 0, awarded = base. Answer also `{rejected: n}`.
+
+**Notification**: when a task's awards become `pending_review` (from anything else), everyone active who may approve it
+(`can.scoringApproveCompletion` through `userContext`: the permission, not assigned, not credited) except whoever
+caused it gets type **`efficiency_review`** (entity the task) through `deliverNotifs` (bell, e-mail, push);
+`NOTIF_CATEGORY.efficiency_review = "approval"` (server.js; the browser's `NC_CATEGORY` gets it from
+src/scoring-awards.js); the e-mail/push words are set by the module into server.js's `MAIL_TEXT` / `PUSH_TEXT_ID`
+(passed in as `texts`), the bell's into `NTEXT` / `NTEXT_ID`.
+
+Registration: `require("./scoring-awards")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now,
+tx, sz, userContext, forViewer, bumpData, notify: deliverNotifs, texts: {mail, pushId} })` → `{ evaluate(taskId,
+user, info), sweep(), block(u, task) }`; pure: `require("./scoring-awards").pure.evaluateFacts(settings, facts)`
+(tests/scoring-sanity.test.js), `contributions`, `share`, `quarter`, `SENTENCES`.
+
+### 13.6 The `efficiency` block of `GET /api/tasks/:id/scoring`
+
+Only for `scoringSeesEfficiency(u, t, credited)` (credited = award people ∪ people with time of their own); the
+module also sets `can.viewEfficiency` and `can.approveCompletion` with that list. Never on the task document.
+
+```
+{ on /* awards being worked out */, bonusOn, status /* of the task's first live award, or null: no award */, eligible,
+  completed, estimate /* E */, actual /* A */, saved, savedRatio, actualRatio, varianceHours, legacyHours,
+  base: {value /* B */, source: "weighted"|"hour_mapping"|null, band}, bonus, potentialBonus, earned,
+  reasons: [{code, key, vars}], flags: [{code, key, vars}],      // key: the English sentence; the page shows fill(tr(key), vars)
+  steps: [{key, vars}],                                          // basePoints + efficiency steps (a decided award: its own numbers and policy)
+  quality: {required, ok, why, version: {n, state, decidedBy, decidedAt}|null},
+  lock: {status, value, approvedBy, approvedAt, rebaselined, baseline},
+  people: [{userId, minutes, hours, share, basePoints, bonusPoints, awardedPoints, status}],   // everyone for approvers/analytics, else own
+  awards: [Award],                                               // §5.2.1 Award; everyone for approvers/analytics, else own
+  review: {by, at, note, quality}|null, calcKey /* send it back with approve/reject */,
+  policy: {version, grace, rewardFactor, maxRate, minE, minA, reviewBelowRatio, materialChangeHours, minQuality, requireApprovedVersion},
+  can: {recalculate, review, approve, reject, blocked: null|"stakeholder"|"impersonating"|"permission"|"worked_on_it", qualityRequired} }
+```
+When there are award rows, the numbers are the rows' (a decided award keeps its own); without rows they are worked
+out live (why there is no award: the reasons).
+
+### 13.7 The page (`src/scoring-awards.js`)
+
+- `scoringEfficiencyLineHtml(tk, efficiency)` (the panel's hook): "" without a block, with the bonus off and nothing
+  awarded, or with neither a locked estimate nor time logged. Else `.scr-eff-box[data-scr-eff=<task>]`: the line
+  `.scr-eff-line` "Estimated 8 h · Actual 5 h · Saved 3 h · Base 8.00 pts · Efficiency Bonus +1.10 pts · Earned 9.10
+  pts · <status>" (hours up to 2 decimals, points always 2; "Saved" is "Hemat" in Indonesian through `sceSavedWord()`,
+  since the page's `UI_ID.Saved` is "Tersimpan", stored), its `title` the breakdown; the shares; the reasons
+  ("Not eligible" / "Before it counts"); the flags; the decision; "How it is worked out" (`SCE.why[id]`, the engine's
+  steps through the panel's `scrStep`); Recalculate; for a reviewer Approve bonus / Reject (modal: the numbers, the
+  flags, quality 1–5, the shares of a shared task with a live total, the reason); why someone who worked on it has no
+  buttons; "Operational metric, not compensation or a ranking." Repainted by the panel (`scrPaint`); after a write
+  `scrAfter` replaces the task and reloads the view.
+- Wraps `scrSig` (the panel reloads the view when the stage, the Actual — and, for whoever sees the bonus, the task's
+  `updatedAt` — change) and `scrAuditNorm` (the history names the award's actions: `SCR_ACTIONS.efficiency_*`).
+- `scoringBonusSettingsHtml(ro, ed)` — Settings → Smart Scoring → "Efficiency bonus" (replaces the read-only preview):
+  the switch (disabled in the offline demo, whose save keeps it off), "Turned on <date>", the worked example
+  (`#sceExample`, repainted on every input through a `scTotalsPaint` wrapper; `scoringBonusExample(policy)` →
+  `{bonus, earned, saved, beyond, rate}`), grace / reward factor / most bonus / shortest estimate / least time / review
+  below / material change, the base source, the bands (add/remove, 1–12), the completion stages (checkboxes of the
+  closed stages; the default set is stored as `null`), the version requirement, the minimum quality, the pilot teams,
+  and the fixed rules with why (independent approval, no self-approval, no per-period cap, never negative, no
+  retroactive awards). Wraps `scPathLabel` for the bonus fields' names in the settings' history.
+
+### 13.8 Deviations
+
+| # | Planned | Done | Why |
+|---|---|---|---|
+| 1 | Write answers carry the whole scoring view | `{taskId, efficiency, task, changed}` | `server/scoring.js` (not this phase's file) does not export its view; the panel reloads it. |
+| 2 | A = "verified actual hours" | A = the manual work+revision time to the quarter hour; "verified" is what the approval records on the entries | Logged time is verified by the reviewer approving the award (owner decision); the pending award needs A first. |
+| 3 | `validLogs` | always true; `legacy_time_only` names the case the plan meant | The time log refuses invalid entries; legacy time is the only time that never counts. |
+| 4 | Reopen → "provisional/revoked" | reopen → `provisional`; `revoked` = someone no longer credited | Consistent with server/scoring.js's reopen rule. |
+| 5 | Flags in their own column | flag codes (`review_*`) after the reasons in `reasons`, `needs_review` = 1 | No schema change (Phase 0 owns the schema). |
+| 6 | A "Needs your review" list | not built; approvers get the `efficiency_review` notification | Optional; the bell already leads to the task. |
+| 7 | Points "Base 8 pts" | "Base 8.00 pts" | Points are always shown with 2 decimals (owner decision 1). |

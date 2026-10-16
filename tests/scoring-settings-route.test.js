@@ -76,7 +76,9 @@ test('who reads and who changes the settings; versions, 409, normalizing, the au
   assert.equal(d.settings.primaryCapacity, 'hours'); assert.deepEqual(d.settings.weighted.weights, { complexity: 0.5, scope: 0.5, uncertainty: 0, dependencies: 0 });
   assert.equal(d.settings.weighted.mappingVersion, 2, 'new weights: a new mapping version, counted by the server');
   assert.equal(d.settings.hours.bounds.max, 400); assert.deepEqual(d.settings.story.scale, [1, 2, 3, 5, 8, 13]);
-  assert.equal(d.settings.bonus.on, false, 'the bonus stays off until the awards ship'); assert.equal(d.settings.bonus.enabledAt, null);
+  /* the awards are built (server/scoring-awards.js): the bonus can be turned on, and when is the server's to say */
+  assert.equal(d.settings.bonus.on, true, 'the bonus can be turned on');
+  assert.ok(d.settings.bonus.enabledAt && d.settings.bonus.enabledAt !== '2020-01-01T00:00:00.000Z' && Date.now() - Date.parse(d.settings.bonus.enabledAt) < 60000, 'stamped by the server, now: no retroactive start');
 
   /* the audit row: the whole old and new settings, what changed, who and why */
   { const db = new DatabaseSync(path.join(s.dir, 'creative-os.db'), { readOnly: true });

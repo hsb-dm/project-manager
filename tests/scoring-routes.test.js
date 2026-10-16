@@ -81,7 +81,8 @@ test('who sees a task\'s scores and who changes them: per role and per extra per
   await refused(await s.req('GET', '/api/tasks/' + T.id + '/scoring', undefined, nadia), 403, /permission/, 'a stakeholder');
   assert.equal('scoring' in (await k.doc(T.id, nadia)), false, 'a stakeholder\'s copy of the task goes without the summary');
   assert.ok('scoring' in (await k.doc(T.id, sarah)));
-  assert.deepEqual((await k.view(T.id)).efficiency, { awards: [] }, 'an admin sees the (empty) awards');
+  { const ef = (await k.view(T.id)).efficiency;   /* server/scoring-awards.js fills the block in (docs/SMART-SCORING.md §13) */
+    assert.deepEqual(ef.awards, [], 'an admin sees the (empty) awards'); assert.equal(ef.status, null); assert.equal(ef.on, false); }
 
   /* Smart Scoring off: changes refused, reading fine */
   await refused(await k.calc(T.id, { module: 'hours' }, sarah), 409, /turned off in this workspace/);
