@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="49727513fb45">
+<meta name="zc-build" content="1d1b802f3e80">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -24871,7 +24871,9 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
    own count typed under Assets & versions, or as the reports credit them (taskAssetCredit in src/export.js) — earn
    output points by the kind of work, read from the title as the estimator reads it (ScoringEngine.kindOf): one feed
    post is 1 point, a resize 0.25, a logo 5, as the workspace sets it in Settings → Smart Scoring. A count a team's
-   lead has not validated yet counts all the same and says so; one changed since it was validated says that too.
+   lead has not validated yet counts all the same and says so; one changed since it was validated says that too —
+   to those who see validation on the Assets tab (whoever may validate the task's counts) and to those who see Smart
+   Scoring's analytics; a member sees their count and points without it, as the Assets tab shows it to them.
    The points are a figure of their own, never hours, base points or the efficiency bonus, and never a ranking:
    people are listed in name order. Off — the module, Smart Scoring, or the server's feature — nothing shows.
    For the other scoring files to call when they are there:
@@ -24892,7 +24894,8 @@ function scoringAssetsTask(tk){ var c=typeof taskAssetCredit==="function"?taskAs
   var r=ScoringEngine.assetPoints(scaSettings(),{kind:kind,split:c.by,validated:tk&&tk.meta&&tk.meta.assetSplitOk});
   return {credit:c,kind:kind,r:r}; }
 /* the engine's steps in the person's language, with names for the ids */
-function scaWhy(r){ return r.steps.map(function(s){ var v=Object.assign({},s.vars); if(v.person) v.person=person(v.person).name; if(v.kind) v.kind=scaKindName(v.kind);
+function scaSeesValidation(tk){ return (typeof assetSplitCanValidate==="function"&&!!tk&&assetSplitCanValidate(tk))||(typeof canI!=="undefined"&&typeof canI.scoringViewAnalytics==="function"&&canI.scoringViewAnalytics()); }
+function scaWhy(r,seeVal){ return r.steps.filter(function(s){ return seeVal!==false||!/validat/i.test(String(s.key)); }).map(function(s){ var v=Object.assign({},s.vars); if(v.person) v.person=person(v.person).name; if(v.kind) v.kind=scaKindName(v.kind);
   return ScoringEngine.fill(tr(s.key),v); }).join(" "); }
 function scaMark(x){ if(x.validated) return '<span class="badge ok scr-ap-mark">'+I.check+tr("Validated")+'</span>';
   return '<span class="badge warn scr-ap-mark">'+tr(x.changedSinceValidation?"Changed since validation":"Not validated yet")+'</span>'; }
@@ -24900,12 +24903,12 @@ function scaMark(x){ if(x.validated) return '<span class="badge ok scr-ap-mark">
 /* ---------- the task panel's row ---------- */
 function scoringAssetsRowHtml(tk){
   if(!tk||tk._draft||!scoringAssetsOn()||(PEOPLE[ME]&&PEOPLE[ME].stakeholder)) return "";
-  var a=scoringAssetsTask(tk), r=a.r, ids=Object.keys(r.perPerson).sort(function(x,y){ return person(x).name.localeCompare(person(y).name); });
+  var a=scoringAssetsTask(tk), r=a.r, seeVal=scaSeesValidation(tk), ids=Object.keys(r.perPerson).sort(function(x,y){ return person(x).name.localeCompare(person(y).name); });
   var head='<div class="scr-ap-head"><div class="scr-ap-title"><b>'+tr("Assets produced")+'</b><span class="hint">'+esc(scaKindName(a.kind))+' · '+scaPts(r.pointsPerAsset)+' '+tr("pts per asset")+'</span></div>'
-    + '<b class="scr-ap-total" title="'+attr(scaWhy(r))+'">'+scaPts(r.total)+' '+tr("pts")+'</b></div>';
+    + '<b class="scr-ap-total" title="'+attr(scaWhy(r,seeVal))+'">'+scaPts(r.total)+' '+tr("pts")+'</b></div>';
   var rows=ids.map(function(id){ var x=r.perPerson[id];
     return '<div class="scr-ap-row" data-person="'+attr(id)+'">'+av(id)+'<div class="scr-ap-main"><span class="scr-ap-name" data-no-translate>'+esc(person(id).name)+'</span>'
-      + '<span class="scr-ap-nums"><span class="scr-ap-calc">'+scaNum(x.counted)+' × '+scaPts(r.pointsPerAsset)+' = <b>'+scaPts(x.points)+'</b> '+tr("pts")+'</span>'+scaMark(x)+'</span></div></div>'; }).join("");
+      + '<span class="scr-ap-nums"><span class="scr-ap-calc">'+scaNum(x.counted)+' × '+scaPts(r.pointsPerAsset)+' = <b>'+scaPts(x.points)+'</b> '+tr("pts")+'</span>'+(seeVal?scaMark(x):'')+'</span></div></div>'; }).join("");
   var notes=(ids.length?'':'<div class="hint">'+tr("No assets produced yet. Each person's count goes under Assets & versions.")+'</div>')
     + (ids.length&&!a.credit.exact?'<div class="hint">'+tr("Shared among the people assigned until each person's count is typed.")+'</div>':'')
     + (!r.countUnvalidated&&ids.some(function(id){ return !r.perPerson[id].validated; })?'<div class="hint">'+tr("Only counts a lead has validated earn points in this workspace.")+'</div>':'')
@@ -24970,7 +24973,8 @@ function scoringAssetsCompute(q){ q=q||{}; var s=scoringSettings(), stages=s&&s.
 function scoringAssetsSummaryHtml(data){
   var list=Array.isArray(data)?data:((data&&data.people)||[]), total=Array.isArray(data)?null:data&&data.total;
   list=list.slice().sort(function(x,y){ return person(x.userId).name.localeCompare(person(y.userId).name); });
-  var chip=function(o,label,cls){ return o&&o.assets?'<span class="badge'+(cls?' '+cls:'')+'">'+tr(label)+' '+scaNum(o.assets)+' · '+scaPts(o.points)+' '+tr("pts")+'</span>':''; };
+  var seeVal=typeof canI!=="undefined"&&typeof canI.scoringViewAnalytics==="function"&&canI.scoringViewAnalytics();
+  var chip=function(o,label,cls){ return seeVal&&o&&o.assets?'<span class="badge'+(cls?' '+cls:'')+'">'+tr(label)+' '+scaNum(o.assets)+' · '+scaPts(o.points)+' '+tr("pts")+'</span>':''; };
   var rows=list.map(function(p){ return '<div class="scr-asum-row" data-person="'+attr(p.userId)+'">'+av(p.userId)+'<div class="scr-ap-main"><span class="scr-ap-name" data-no-translate>'+esc(person(p.userId).name)+'</span>'
       + '<span class="scr-ap-nums"><span class="scr-asum-n"><b>'+scaNum(p.assets)+(p.attributed?'*':'')+'</b> '+tr(p.assets===1?"asset":"assets")+'</span><span class="scr-asum-n"><b>'+scaPts(p.points)+'</b> '+tr("pts")+'</span></span>'
       + '<span class="scr-asum-marks">'+chip(p.validated,"Validated","ok")+chip(p.notValidated,"Not validated yet","warn")+chip(p.changed,"Changed since validation","warn")+'</span></div></div>'; }).join("");

@@ -65,6 +65,16 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(who(o.zara).locator(".scr-ap-calc")).toHaveText("2 × 5.00 = 10.00 pts");
     await expect(who(o.me).locator(".scr-ap-mark")).toHaveText("Validated");
     await expect(row.locator(".scr-ap-total")).toHaveText("20.00 pts");
+    /* someone who may not validate and does not see Smart Scoring's analytics — a member — sees counts and points
+       without the validation marks, as the Assets tab shows it to them */
+    await page.evaluate(() => { window.__v = assetSplitCanValidate; window.__a = canI.scoringViewAnalytics; assetSplitCanValidate = () => false; canI.scoringViewAnalytics = () => false; });
+    await draw();
+    await expect(row.locator(".scr-ap-mark"), "no validation marks for a member").toHaveCount(0);
+    await expect(who(o.zara).locator(".scr-ap-calc")).toHaveText("2 × 5.00 = 10.00 pts");
+    expect(await row.locator(".scr-ap-total").getAttribute("title")).not.toMatch(/validat/i);
+    await page.evaluate(() => { assetSplitCanValidate = window.__v; canI.scoringViewAnalytics = window.__a; });
+    await draw();
+    await expect(who(o.me).locator(".scr-ap-mark")).toHaveText("Validated");
     /* in the task panel, where it shows the row */
     await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; renderDrawer(); }, o.task);
     const inPanel = page.locator('#drawer [data-scoring-assets="' + o.task + '"]');
