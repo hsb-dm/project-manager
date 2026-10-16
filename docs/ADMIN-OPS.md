@@ -13,6 +13,7 @@
 3. [Identitas dan struktur workspace](#3-identitas-dan-struktur-workspace)
 4. [Mengelola anggota](#4-mengelola-anggota)
 5. [Administrasi AI](#5-administrasi-ai)
+   - [5b. Smart Scoring](#5b-smart-scoring-oktober-2026)
 6. [Email / SMTP](#6-email--smtp)
 7. [Backup & Data](#7-backup--data)
 8. [Google Drive](#8-google-drive)
@@ -408,6 +409,125 @@ ditolak dengan *"Credentials cannot be saved in AI Gallery."*
 
 ---
 
+## 5b. Smart Scoring (Oktober 2026)
+
+Smart Scoring menilai pekerjaan dengan angka yang bisa dijelaskan: estimasi jam, Story Points, Weighted Points,
+poin aset, KPI/OKR, dan bonus efisiensi kecil untuk task yang selesai lebih cepat dari estimasi yang sudah dikunci.
+Semuanya **OFF** sampai admin menyalakannya. Selama OFF, aplikasi berjalan persis seperti sebelumnya. Kalau
+dimatikan lagi, semua angka, riwayat, dan audit tetap tersimpan.
+
+### Menyalakan
+
+**Settings → Smart Scoring** (tepat setelah Automation):
+
+1. Nyalakan **switch utama**.
+2. Pilih modul yang dipakai. Masing-masing punya switch sendiri:
+
+| Modul | Isinya | Default |
+|---|---|---|
+| Effort Hours | estimasi jam dari jenis pekerjaan × jumlah deliverable (Assets produced) × kompleksitas × dependency; jam aktual dari **log waktu** | ON (di dalam switch utama) |
+| Story Points | rating 1–5 untuk kompleksitas, scope, ketidakpastian, dependency → 1, 2, 3, 5, 8, 13 (13 = saran dipecah) | OFF |
+| Weighted Points | rating yang sama, dibobot 40/30/20/10% → skala 1–10 | OFF |
+| Assets produced | poin output per orang dari jumlah asetnya, per jenis pekerjaan (1 post feed = 1 poin, resize 0,25, reels 3, logo 5) | OFF |
+| KPI / OKR | dua switch terpisah: KPI, serta Objective dengan Key Result | OFF |
+
+3. Untuk tiap modul, pilih mode: **Math only**, **AI-assisted**, atau **Hybrid**. Hitungan matematis selalu ada
+   sebagai cadangan.
+4. Atur angka-angkanya: template jam per jenis pekerjaan, pengali kompleksitas dan dependency, ambang Story Points,
+   bobot faktor (harus total 100%), poin aset per jenis, dan kebijakan AI serta perubahan manual.
+
+Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpananmu ditolak dan tab dimuat ulang.
+Riwayat 20 perubahan terakhir ada di bawah tab.
+
+### Siapa boleh apa
+
+Ada delapan izin di **Roles & permissions → Smart Scoring**, dan juga di izin tambahan per orang:
+
+| Izin | Untuk |
+|---|---|
+| `scoring_manage_workspace` | mengatur Settings → Smart Scoring |
+| `scoring_manage_project` | (disiapkan; pengaturan per project menyusul) |
+| `scoring_approve_estimate` | approve & kunci estimasi, re-baseline |
+| `scoring_edit_task` | mengubah angka yang sudah dikunci, membetulkan log waktu orang lain (wajib alasan) |
+| `scoring_request_ai` | meminta saran AI |
+| `scoring_approve_completion` | approve/reject bonus efisiensi |
+| `scoring_manage_outcomes` | membuat KPI/OKR dan mengisi nilai manual (wajib alasan) |
+| `scoring_view_analytics` | melihat angka seluruh tim di Analytics |
+
+Default-nya hanya Admin. Tombol **Beri izin ini ke Team Lead dan Creative Lead** di tab Smart Scoring menambahkan tiga izin itu
+(approve estimasi, approve bonus, analytics) ke kedua role tersebut dalam satu klik.
+
+Pemisahan tugas berlaku untuk semua orang, admin juga:
+- yang ditugaskan di task tidak bisa meng-approve estimasinya sendiri;
+- yang ikut mengerjakan tidak bisa meng-approve bonusnya sendiri;
+- tidak ada approval saat sedang *acting as* orang lain.
+
+Role yang bisa mengubah sekaligus meng-approve skor diberi peringatan di editor role.
+
+### Estimasi, kunci, dan log waktu
+
+- Sebelum dikunci, estimasi boleh diubah oleh siapa pun yang bisa mengedit task (tercatat "manual").
+- Setelah di-**Approve & lock**, hanya pemegang `scoring_edit_task` yang bisa mengubahnya, lewat semua jalur:
+  drawer, grid, restore riwayat. Kalau scope berubah (jumlah deliverable, brief, dependency), statusnya menjadi
+  "Re-baseline needed".
+- Kalau pekerjaan sudah mulai sebelum di-approve, angkanya dibekukan sebagai baseline yang belum di-approve. Baseline
+  seperti ini tidak bisa mendapat bonus.
+- Selama Effort Hours ON, **Actual** dihitung dari log waktu: kerja + revisi, dibulatkan ke 15 menit. Waktu
+  terblokir tidak dihitung. Angka Actual lama disimpan sebagai entri lama yang belum terverifikasi.
+
+### Bonus efisiensi
+
+Bonus dinyalakan di bagian **Efficiency bonus** pada tab yang sama. Contoh hitungannya ikut berubah langsung saat
+angkanya diketik. Rumus bawaan dari spec:
+
+- hemat waktu di bawah 10% tidak mendapat bonus;
+- di atasnya, bonus = 0,5 × penghematan, maksimal 20% dari base point;
+- tidak pernah negatif;
+- kalau aktual kurang dari 40% estimasi, task ditandai untuk ditinjau.
+
+Contohnya: estimasi 8 jam, aktual 5 jam, base 8 poin → bonus +1,10 → total 9,10.
+
+Syarat sebuah task mendapat bonus:
+- estimasinya dikunci dan di-approve oleh orang lain setelah bonus dinyalakan;
+- jam tercatat lewat log waktu, bukan angka lama;
+- task selesai, dan versi terakhirnya di-approve oleh orang yang tidak ikut mengerjakan;
+- scope-nya tidak berubah.
+
+Pemegang `scoring_approve_completion` yang tidak ikut mengerjakan mendapat notifikasi saat ada bonus yang menunggu
+review. Bonus dibagi menurut jam masing-masing orang di log waktu, dan approver boleh mengubah pembagiannya dengan
+alasan. Bonus tidak berlaku mundur.
+
+Bonus ini **angka operasional, bukan kompensasi atau ranking**.
+
+### KPI dan OKR
+
+Didefinisikan di bagian **KPIs and OKRs** pada tab yang sama. Progress hanya naik dari bukti:
+- jumlah aset yang sudah **divalidasi lead** pada task yang selesai;
+- jumlah task yang selesai;
+- nilai manual, yang wajib disertai alasan.
+
+Task yang dibuka ulang atau validasi yang dicabut membatalkan hitungannya. AI tidak pernah mengisi progress.
+
+### Saran AI
+
+Saran AI memakai koneksi chat AI yang sama dengan AI Intelligence, dan mengikuti switch **external processing**
+serta **workspace context** di Settings → AI. Kuota harian per orang dan per workspace diatur di tab Smart Scoring,
+begitu juga AI saat task dibuat dan AI saat brief direvisi besar.
+
+Saran yang jauh dari hitungan diberi peringatan dan butuh alasan untuk dipakai. AI tidak pernah mengunci,
+meng-approve, atau memberi bonus.
+
+### Di server
+
+- `COS_SCORING=0` di `.env` mematikan seluruh fitur di server itu: route menjawab 409 dan tampilannya hilang, tapi
+  datanya tetap ada. Kalau tidak diisi, fitur ini aktif dan admin tinggal menyalakannya per workspace.
+- Tabel Smart Scoring dibuat otomatis saat server start. Setelah `git pull` yang membawa perubahan server, **restart**
+  server.
+- Estimasi lama otomatis dicatat sekali sebagai "unverified", dan Actual lama sebagai entri log waktu lama. Tidak ada
+  angka task yang ditimpa.
+- Detail teknis: `docs/SMART-SCORING.md`.
+
+
 ## 6. Email / SMTP
 
 **Settings → Notifications & email**.
@@ -795,6 +915,7 @@ Allowlist bawaan: `api.anthropic.com`, `generativelanguage.googleapis.com`,
 | `COS_CONFIRM_RESET` | `YES` membuka seed/reset di production |
 | `COS_CONFIRM_RESTORE` | `YES` diwajibkan oleh jalur restore **CLI** saja |
 | `COS_DEMO_PASSWORD` | password bersama untuk anggota demo saat seed |
+| `COS_SCORING` | `0` mematikan Smart Scoring di server ini (route 409, tampilan hilang, data tetap ada); kosong = aktif, admin menyalakan per workspace (§5b) |
 | `COS_ALLOW_MISSING_ORIGIN` | `1` mengizinkan request tanpa header Origin di production |
 | `COS_DEV_HEADER_AUTH` / `COS_ALLOW_HEADER_AUTH` | `1` menyalakan auth lewat header `x-user-id`. Non-production saja |
 

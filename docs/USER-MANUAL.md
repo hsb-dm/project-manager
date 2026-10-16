@@ -342,6 +342,45 @@ Di layar sempit semua posisi tampil sama (panel selebar layar).
 
 ---
 
+### Scoring & Intelligence (Smart Scoring)
+
+Kalau admin menyalakan **Smart Scoring**, tab Brief punya panel **Scoring & Intelligence** di bawah baris Effort.
+Panel ini terlipat secara default, dan posisi buka/tutupnya diingat per orang. Satu baris untuk tiap modul yang
+dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
+
+- **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan dari judul, jumlah **Assets produced** sebagai
+  jumlah deliverable, rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat
+  langkah hitungannya.
+- **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
+  jauh dari hitungan diberi peringatan.
+- **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,
+  Approved, Locked, Re-baseline needed).
+
+Yang bisa kamu lakukan:
+- **Calculate**: menghitung ulang.
+- **Change value**: kalau tidak punya izin mengubah, perubahanmu menjadi usulan, dengan alasan.
+- **Approve & lock**: hanya untuk yang berhak, dan tidak bisa untuk task yang ditugaskan kepadamu sendiri.
+
+Setelah estimasi dikunci, kolom Estimate di task dan di grid menjadi abu-abu, dengan keterangan siapa yang
+menguncinya.
+
+**Rating** untuk Story/Weighted Points: empat faktor dinilai 1–5. Nilai **Scope** disarankan dari jumlah aset
+(1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13+ → 5) dan bisa diubah.
+
+**Log waktu.** Selama Effort Hours aktif, kolom **Actual** diganti total jam yang dicatat, dengan tombol
+**Log time**. Catat jam kerjamu per tanggal sebagai Kerja, Revisi, atau Terblokir. Actual = kerja + revisi,
+dibulatkan ke 15 menit. Waktu terblokir dicatat tapi tidak dihitung. Kamu hanya mencatat jam milikmu sendiri.
+Pembetulan jam orang lain hanya bisa oleh yang berhak, dan wajib disertai alasan.
+
+**Poin aset.** Kalau modulnya aktif, panel juga menampilkan poin output tiap orang dari jumlah asetnya. Poin ini
+dihitung per jenis pekerjaan: 1 post feed = 1 poin, resize 0,25, reels 3, logo 5.
+
+**Bonus efisiensi.** Kalau aktif, baris bonus tampil hanya untuk yang mendapat kredit, approver, dan pemegang izin
+analytics. Contohnya: "Estimated 8h · Actual 5h · Saved 3h · Base 8 pts · Efficiency Bonus +1,10 pts · Earned 9,10 pts
+· Pending/Approved". Bonus di-approve oleh orang yang tidak ikut mengerjakan task. Ini angka operasional, bukan gaji
+atau ranking.
+
+
 ## 5. Calendar
 
 Cakupan **Mine / Team**, ditambah seluruh filter task.
@@ -653,6 +692,18 @@ Grafik dan panel:
 | Pipeline snapshot | jumlah task per stage |
 
 Rentang waktu diatur lewat segmen **4 wks / 8 wks** atau angka **Timeline** (1–52 minggu).
+
+**Smart Scoring** (kalau admin menyalakannya) menambah satu bagian di bawahnya. Isinya:
+- estimasi vs aktual dan akurasinya: estimasi yang dikunci dan jam dari log waktu dihitung terpisah dari angka lama;
+- velocity menurut ukuran kapasitas workspace;
+- asal angka (math / AI / manual);
+- first-pass approval dan siklus review;
+- base point dan bonus efisiensi (dipisah);
+- poin aset;
+- progress KPI/OKR.
+
+Jam dan poin tidak pernah digabung jadi satu skor, dan orang tidak pernah diurutkan sebagai ranking. Pemegang izin
+analytics Smart Scoring melihat seluruh tim. Yang lain melihat angkanya sendiri, termasuk di halaman profilnya.
 
 ---
 
