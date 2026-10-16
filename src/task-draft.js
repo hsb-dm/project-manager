@@ -12,7 +12,7 @@ function isDraftTask(tk){ return !!(tk&&!tk._draft&&tk.meta&&tk.meta.draft); }
 /* what is in the panel's editors is the newest text: the title and description save on their own clock */
 function draftCapture(tk){ if(typeof descWysiwygSave==="function") descWysiwygSave(); if(S.briefEdit&&typeof briefFlush==="function") briefFlush(tk); var el=document.querySelector(".dr-title"); if(el&&S.drawerTask===tk.id){ var t=String(el.textContent||"").trim(); if(t) tk.title=t; } }
 function draftWorthKeeping(tk){ var t=String(tk.title||"").trim(); if(t&&t!=="Untitled task") return true; if(String(tk.description||"").trim()) return true; var b=tk.brief||{}; return Object.keys(b).some(function(k){ return k!=="tpl"&&String(b[k]==null?"":b[k]).trim(); }); }
-function draftTitle(tk){ var t=String(tk.title||"").trim(); if(t&&t!=="Untitled task") return t.slice(0,240); var line=String(tk.description||"").split(/\n/).map(function(s){ return s.replace(/[#*_>`~\[\]]/g," ").replace(/\s+/g," ").trim(); }).filter(Boolean)[0]; return (line||tr("Untitled draft")).slice(0,120); }
+function draftTitle(tk){ var t=String(tk.title||"").trim(); if(t&&t!=="Untitled task") return t.slice(0,240); var line=String(typeof descPlainText==="function"?descPlainText(tk.description):tk.description||"").split(/\n/).map(function(s){ return s.replace(/[#*_>`~\[\]]/g," ").replace(/\s+/g," ").trim(); }).filter(Boolean)[0]; return (line||tr("Untitled draft")).slice(0,120); }
 function saveAsDraft(tk){
   var t=clone(tk); delete t._draft; delete t._draftKey; delete t._onCreated; delete t._request; delete t._kept;
   t.meta=Object.assign({},t.meta||{},{draft:{status:t.status,assignees:assigneesOf(t),reviewers:reviewersOf(t),by:ME,at:new Date().toISOString()}});

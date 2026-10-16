@@ -10,14 +10,16 @@
    "file_name_v2" and "C:\Users" stay as they are — and on the way out a backslash-escaped character is shown as itself.
    Plain text pasted into either editor is taken the same way, and the description's paste is handled again (it was
    lost when the editor became a WYSIWYG one). Readers of the plain text (search, AI Hub's brief) drop the backslashes.
+   Later the same month: pasted plain text that carries Markdown or WhatsApp marks is that formatting (src/desc-format.js),
+   and underline is kept as <u>…</u> — so a typed "<u>" or "</u>" is written "\<u>", "\</u>", and shown as typed.
    Loaded after every other wrapper of the two (src/ref-chips.js above all): it marks what a person typed before any
    chip is turned into its token, so a task or project chip is never taken for typing.
    ============================================================ */
-var DL_CHARS="\\*_~`[]#>-+.)!|";
+var DL_CHARS="\\*_~`[]#>-+.)!|<";   /* new ones go at the end: a character's placeholder is its place here */
 var DL_IN={}, DL_OUT={};
 (function(){ for(var i=0;i<DL_CHARS.length;i++){ var c=DL_CHARS.charAt(i); DL_IN[c]=String.fromCharCode(0xE100+i); DL_OUT[String.fromCharCode(0xE100+i)]=c; } })();
 var DL_ANY=new RegExp("["+Object.keys(DL_OUT).join("")+"]","g");
-var DL_ESC_RE=/\\([\\*_~`\[\]#>\-+.)!|])/g;   /* a backslash before one of these is an escape */
+var DL_ESC_RE=/\\([\\*_~`\[\]#>\-+.)!|<])/g;   /* a backslash before one of these is an escape */
 /* a typed text's special characters as placeholders, so the serializer passes them through untouched */
 function dlMark(text){ var out=""; for(var i=0;i<text.length;i++){ var c=text.charAt(i); out+=DL_IN[c]||c; } return out; }
 /* placeholders back to characters: escaped only where Markdown would otherwise read them */
@@ -41,6 +43,7 @@ function dlFinish(md){
       else if(c==="-"||c==="+") esc=lead&&(next===" "||next==="-"&&c==="-");
       else if(c==="."||c===")") esc=/^\s*\d+$/.test(out)&&(next===" "||next==="");
       else if(c==="|") esc=false;
+      else if(c==="<"){ var ahead=""; for(var k=i+1;k<i+4&&k<line.length;k++) ahead+=DL_OUT[line.charAt(k)]||line.charAt(k); esc=/^\/?u>/.test(ahead); }   /* <u>, </u>: underline */
       out+=(esc?"\\":"")+c; started=true;
     }
     return out;
@@ -48,8 +51,9 @@ function dlFinish(md){
 }
 /* text, as Markdown that reads back as exactly that text */
 function dlLiteral(text){ return dlFinish(dlMark(String(text==null?"":text))); }
-/* Markdown's escapes, dropped: what a reader of the plain text sees */
-function descPlainText(md){ return String(md==null?"":md).replace(DL_ESC_RE,"$1"); }
+/* Markdown's escapes, dropped, and underline's tags (not a typed, escaped one): what a reader of the plain text sees */
+var DL_PLAIN_RE=new RegExp(DL_ESC_RE.source+"|<\\/?u>","g");
+function descPlainText(md){ return String(md==null?"":md).replace(DL_PLAIN_RE,function(all,c){ return c||""; }); }
 
 /* the way in: the editor's writing, every typed character marked, then serialized */
 function dlMarkHtml(html){
@@ -63,19 +67,22 @@ function dlMarkHtml(html){
   return n?d.innerHTML:html;
 }
 /* the way out: each escaped character kept as itself through the reader, shown as itself */
-function dlProtect(md){ return String(md==null?"":md).replace(/\\\\|\\([*_~`\[\]#>\-+.)!|])/g,function(all,c){ return c?DL_IN[c]:DL_IN["\\"]; }); }
-function dlRestoreHtml(html){ return String(html).replace(DL_ANY,function(ch){ var c=DL_OUT[ch]; return c===">"?"&gt;":c; }); }
+function dlProtect(md){ return String(md==null?"":md).replace(/\\\\|\\([*_~`\[\]#>\-+.)!|<])/g,function(all,c){ return c?DL_IN[c]:DL_IN["\\"]; }); }
+function dlRestoreHtml(html){ return String(html).replace(DL_ANY,function(ch){ var c=DL_OUT[ch]; return c===">"?"&gt;":c==="<"?"&lt;":c; }); }
 
 (function(){
   if(typeof descHtmlToMd==="function"){ var save=descHtmlToMd; descHtmlToMd=function(html,opts){ return dlFinish(save.call(this,dlMarkHtml(html),opts)); }; }
   if(typeof descMdHtml==="function"){ var view=descMdHtml; descMdHtml=function(src){ return dlRestoreHtml(view.call(this,dlProtect(src))); }; }
-  /* Pasted text is text: the browser puts it where the caret is, and saving takes it as typed. Pasted HTML (a page,
+  /* Pasted text is text: the browser puts it where the caret is, and saving takes it as typed — unless it carries
+     formatting marks, which are its formatting (src/desc-format.js). Pasted HTML (a page,
      Google Docs, Word) keeps its formatting, not its fonts and colours, and its characters as typed; one line of it
      goes into the line, not onto a new one. */
-  function dlPasteHtml(e,after){ var cd=e.clipboardData; if(!cd) return; if(cd.files&&cd.files.length) return; var html=cd.getData("text/html"); if(!html) return;
-    var md=descHtmlToMd(html,{paste:true}); if(!md) return; e.preventDefault();
-    var h=descMdHtml(md); if(md.indexOf("\n")<0) h=h.replace(/^<div>([\s\S]*)<\/div>$/,"$1");
-    document.execCommand("insertHTML",false,h); if(typeof after==="function") after(); }
+  function dlPasteHtml(e,after){ var cd=e.clipboardData; if(!cd) return; if(cd.files&&cd.files.length) return; var html=cd.getData("text/html"), h;
+    if(html){ var md=descHtmlToMd(html,{paste:true}); if(!md) return;
+      h=descMdHtml(md); if(md.indexOf("\n")<0) h=h.replace(/^<div>([\s\S]*)<\/div>$/,"$1"); }
+    /* plain text: its Markdown or WhatsApp marks are formatting (src/desc-format.js); with none, the browser pastes it */
+    else { h=typeof descMarkedTextHtml==="function"?descMarkedTextHtml(cd.getData("text/plain")):""; if(!h) return; }
+    e.preventDefault(); document.execCommand("insertHTML",false,h); if(typeof after==="function") after(); }
   descPaste=function(e){ dlPasteHtml(e,typeof descWysiwygInput==="function"?descWysiwygInput:null); };
   if(typeof pnPaste==="function") pnPaste=function(e){ dlPasteHtml(e,typeof pnInput==="function"?pnInput:null); };
   /* the description's paste, handled again: the editor lost its onpaste when it became a WYSIWYG one */

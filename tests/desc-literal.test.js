@@ -41,3 +41,19 @@ test('the plain text drops the escapes again', () => {
   assert.equal(plain('**bold** and *it*'), '**bold** and *it*');
   assert.equal(plain(null), '');
 });
+
+test('a typed <u> or </u> is text: escaped only there (underline is kept as <u>…</u>), shown and searched as typed', () => {
+  const { dlLiteral: lit, descPlainText: plain, dlProtect, dlRestoreHtml } = page();
+  const cases = [
+    ['<u>x</u>', '\\<u>x\\</u>'],
+    ['</u>', '\\</u>'],
+    ['a < b and <b>bold</b> <ul>', 'a < b and <b>bold</b> <ul>'],
+    ['a\\<b', 'a\\\\<b'],
+  ];
+  for (const [typed, md] of cases) assert.equal(lit(typed), md, typed);
+  for (const t of ['<u>x</u>', '</u>', 'a\\<b', '<script>alert(1)</script>']) assert.equal(plain(lit(t)), t, t);
+  /* underline's own tags are not words */
+  assert.equal(plain('<u>under</u> line and \\<u>typed\\</u>'), 'under line and <u>typed</u>');
+  /* the reader shows an escaped < as itself, never as a tag */
+  assert.equal(dlRestoreHtml(dlProtect('\\<u>x\\</u>')), '&lt;u>x&lt;/u>');
+});
