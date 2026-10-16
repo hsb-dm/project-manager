@@ -35,7 +35,7 @@ test('the hours templates are src/effort-estimate.js EST_KINDS: same ids, same n
   const kinds = JSON.parse(JSON.stringify(vm.runInNewContext(src.match(/var EST_KINDS=(\[[\s\S]*?\n\]);/)[1])));
   const t = S.normalizeSettings({}).hours.templates;
   assert.deepEqual(Object.keys(t), kinds.map(k => k[0]));
-  kinds.forEach(k => assert.deepEqual(t[k[0]], { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] ? 0.6 : 0 }, k[0]));
+  kinds.forEach(k => assert.deepEqual(t[k[0]], { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] }, k[0]));
 });
 
 /* the engine (shared/scoring-engine.js, written alongside) falls back to its own copy of the defaults: the two agree */
@@ -69,7 +69,7 @@ test('whatever arrives is held to the shape', () => {
   assert.equal('foo' in n, false); assert.equal('extra' in n.modules, false); assert.equal('x' in n.modules.story, false); assert.equal('mode' in n.modules.kpi, false);
   assert.equal(n.modules.story.on, true); assert.equal(n.modules.story.mode, 'math_only', 'an unknown mode: the module\'s default');
   assert.equal(n.primaryCapacity, 'hours');
-  assert.deepEqual(n.hours.templates.feed, { perUnit: 200, low: 0.05, high: 200, nextUnitFactor: 2 }, 'clamped, low ≤ typical ≤ high');
+  assert.deepEqual(n.hours.templates.feed, { perUnit: 200, low: 0.05, high: 200, nextUnitFactor: 1 }, 'clamped, low ≤ typical ≤ high, a next piece never more than the first');
   assert.equal(n.hours.templates.story.perUnit, 2.5, 'a number written as text');
   assert.equal('made_up' in n.hours.templates, false, 'only the known kinds');
   assert.deepEqual(n.hours.complexity, { 1: 0.1, 2: 0.9, 3: 1, 4: 1.25, 5: 10 });

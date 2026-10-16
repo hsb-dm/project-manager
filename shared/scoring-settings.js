@@ -8,8 +8,8 @@
    metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
 
    Off by default: the master switch is off, and inside it only Effort Hours is on. The hours templates are the kinds
-   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids; a kind made in sets counts
-   each next deliverable at 60% of the first, the others count once (nextUnitFactor 0), as today.
+   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
+   (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
 
    diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
 
@@ -25,19 +25,19 @@ const SCALE = [1, 2, 3, 5, 8, 13];
 const LOCK_POLICIES = ["approve", "approve_or_work_start"];
 const COMPARABLES = ["team", "none"];
 const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
-/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, made in sets] */
+/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, each next deliverable at] */
 const KINDS = [
-  ["carousel", 4, 3, 6, false], ["story", 1.5, 1, 3, true], ["reels", 6, 4, 10, false], ["video", 8, 4, 16, false],
-  ["kv", 6, 4, 10, false], ["resize", 1.5, 0.5, 3, true], ["feed", 2, 1, 3, true], ["poster", 3, 2, 5, true],
-  ["banner", 3, 2, 5, true], ["copy", 1.5, 0.5, 3, false], ["deck", 6, 3, 10, false], ["logo", 10, 6, 16, false],
-  ["web", 10, 6, 20, false], ["email", 3, 2, 5, false]];
+  ["carousel", 4, 3, 6, 0.5], ["story", 1.5, 1, 3, 0.5], ["reels", 6, 4, 10, 0.6], ["video", 8, 4, 16, 0.6],
+  ["kv", 6, 4, 10, 0.5], ["resize", 1.5, 0.5, 3, 0.25], ["feed", 2, 1, 3, 0.5], ["poster", 3, 2, 5, 0.6],
+  ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
+  ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
 const KIND_IDS = KINDS.map(k => k[0]);
 /* written by the server, never by the person saving: left out of what diffSettings reports */
 const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy"]);
 
 function defaults() {
   const templates = {};
-  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] ? 0.6 : 0 }; });
+  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
   return {
     enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
     modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false } },
@@ -126,7 +126,7 @@ function normalizeSettings(raw) {
   KIND_IDS.forEach(id => {
     const t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
     const perUnit = num(t.perUnit, 0.05, 200, dt.perUnit);
-    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 2, dt.nextUnitFactor) };
+    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt.nextUnitFactor) };
   });
   const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
   o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });

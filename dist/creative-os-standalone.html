@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="9ab7eaa63448">
+<meta name="zc-build" content="c56b80e7abb8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -6097,8 +6097,8 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
    metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
 
    Off by default: the master switch is off, and inside it only Effort Hours is on. The hours templates are the kinds
-   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids; a kind made in sets counts
-   each next deliverable at 60% of the first, the others count once (nextUnitFactor 0), as today.
+   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
+   (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
 
    diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
 
@@ -6114,19 +6114,19 @@ const SCALE = [1, 2, 3, 5, 8, 13];
 const LOCK_POLICIES = ["approve", "approve_or_work_start"];
 const COMPARABLES = ["team", "none"];
 const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
-/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, made in sets] */
+/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, each next deliverable at] */
 const KINDS = [
-  ["carousel", 4, 3, 6, false], ["story", 1.5, 1, 3, true], ["reels", 6, 4, 10, false], ["video", 8, 4, 16, false],
-  ["kv", 6, 4, 10, false], ["resize", 1.5, 0.5, 3, true], ["feed", 2, 1, 3, true], ["poster", 3, 2, 5, true],
-  ["banner", 3, 2, 5, true], ["copy", 1.5, 0.5, 3, false], ["deck", 6, 3, 10, false], ["logo", 10, 6, 16, false],
-  ["web", 10, 6, 20, false], ["email", 3, 2, 5, false]];
+  ["carousel", 4, 3, 6, 0.5], ["story", 1.5, 1, 3, 0.5], ["reels", 6, 4, 10, 0.6], ["video", 8, 4, 16, 0.6],
+  ["kv", 6, 4, 10, 0.5], ["resize", 1.5, 0.5, 3, 0.25], ["feed", 2, 1, 3, 0.5], ["poster", 3, 2, 5, 0.6],
+  ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
+  ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
 const KIND_IDS = KINDS.map(k => k[0]);
 /* written by the server, never by the person saving: left out of what diffSettings reports */
 const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy"]);
 
 function defaults() {
   const templates = {};
-  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] ? 0.6 : 0 }; });
+  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
   return {
     enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
     modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false } },
@@ -6215,7 +6215,7 @@ function normalizeSettings(raw) {
   KIND_IDS.forEach(id => {
     const t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
     const perUnit = num(t.perUnit, 0.05, 200, dt.perUnit);
-    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 2, dt.nextUnitFactor) };
+    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt.nextUnitFactor) };
   });
   const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
   o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });
@@ -24531,7 +24531,7 @@ function scHoursPanel(ro,ed){
     + '<div class="tbl-wrap scr-tpl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("First (h)")+'</th><th>'+tr("Low (h)")+'</th><th>'+tr("High (h)")+'</th><th>'+tr("Each next (× first)")+'</th></tr></thead><tbody>'
     + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t">'+esc(name(id))+'</td>'+cell(id,"perUnit","0.25")+cell(id,"low","0.25")+cell(id,"high","0.25")+cell(id,"nextUnitFactor","0.05")+'</tr>'; }).join("")
     + '</tbody></table></div>'
-    + '<p class="hint" style="margin:6px 0 12px">'+tr("Each next: 0 counts the work once however many deliverables it has (a carousel); 0.6 adds 60% of the first for each next one; 1 counts every deliverable in full.")+'</p>'
+    + '<p class="hint" style="margin:6px 0 12px">'+tr("Each next: the share of the first that every next deliverable adds — 0.25 for a resize, about 0.5 for most work, 1 counts every deliverable in full. Never more than 1: a next piece is not more work than the first.")+'</p>'
     + '<div class="eyebrow">'+tr("Complexity multiplier")+'</div><div class="scr-grid">'+cx.map(function(c){ return scNumHtml("sc_cx_"+c[0],"hours.complexity."+c[0],c[1],{min:0.1,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
     + '<div class="eyebrow">'+tr("Dependency multiplier")+'</div><div class="scr-grid">'+dp.map(function(c){ return scNumHtml("sc_dp_"+c[0],"hours.dependency."+c[0],c[1],{min:0.5,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
     + '<div class="scr-grid">'+scNumHtml("sc_bmin","hours.bounds.min","Fewest hours",{min:0.05,max:40,step:0.25,unit:"h",ro:ro})+scNumHtml("sc_bmax","hours.bounds.max","Most hours",{min:0.5,max:400,step:1,unit:"h",ro:ro})+'</div>'
@@ -24684,7 +24684,7 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Estimated hours = the hours of the first deliverable, plus each next one at its share, × the complexity multiplier × the dependency multiplier, kept within the bounds. An estimate a task already has is kept as it is: nothing is recalculated unless someone asks.":"Jam estimasi = jam deliverable pertama, ditambah tiap deliverable berikutnya sesuai porsinya, × pengali kompleksitas × pengali ketergantungan, dijaga dalam batas. Estimasi yang sudah ada pada task tetap seperti adanya: tidak ada yang dihitung ulang kecuali diminta.",
   "Kind of work":"Jenis pekerjaan","First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
   "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
-  "Each next: 0 counts the work once however many deliverables it has (a carousel); 0.6 adds 60% of the first for each next one; 1 counts every deliverable in full.":"Tiap berikutnya: 0 menghitung pekerjaan sekali berapa pun deliverable-nya (karosel); 0,6 menambah 60% dari yang pertama untuk tiap berikutnya; 1 menghitung setiap deliverable penuh.",
+  "Each next: the share of the first that every next deliverable adds — 0.25 for a resize, about 0.5 for most work, 1 counts every deliverable in full. Never more than 1: a next piece is not more work than the first.":"Tiap berikutnya: porsi dari yang pertama yang ditambahkan setiap deliverable berikutnya — 0,25 untuk resize, sekitar 0,5 untuk kebanyakan pekerjaan, 1 menghitung setiap deliverable penuh. Tidak lebih dari 1: potongan berikutnya tidak lebih berat dari yang pertama.",
   "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali ketergantungan",
   "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
   "No open dependencies":"Tanpa ketergantungan terbuka","1 open dependency":"1 ketergantungan terbuka","2 open dependencies":"2 ketergantungan terbuka","3 or more":"3 atau lebih",
