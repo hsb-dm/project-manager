@@ -1330,6 +1330,7 @@ route("PUT", "/api/workspace", (u, p, q, b, ctx) => { forbid(can.manageWorkspace
    module handed them before that line would throw. The scoring modules of the later phases are wired in next to it.
    (Not between the /api/ai/chat route and the workspace save: tests/studio-editor.test.js runs that stretch alone.) */
 const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can, security, uid, now, tx, act, readRoles, featureOn: () => SCORING_FEATURE });
+require("./scoring-assets")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* points for assets produced: GET /api/scoring/assets */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */

@@ -57,7 +57,9 @@ function setScoring(){
   var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
   scDraft(); var ed=canI.scoringConfigure(), ro=!ed;
   setTimeout(scLoadOnce,0); setTimeout(scTotalsPaint,0);
-  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)+scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
+  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
+    +(typeof scoringAssetsSettingsHtml==="function"?scoringAssetsSettingsHtml(ro,ed):"")   /* src/scoring-assets.js */
+    +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
     +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
 function scMainPanel(cur,ed,ro){
   var by=cur.updatedBy?person(cur.updatedBy).name:"";

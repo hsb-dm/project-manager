@@ -22,25 +22,14 @@ var EST_MIN=0.4, EST_ENOUGH=3, EST_BASE={}, EST_T=null;
    quick once the first is done (25%), posts, stories and banners take about half, a poster, a reel or a video more,
    and a deck, a copy or a logo concept less than half. It used to be 60% for work made in sets and nothing for the
    rest, so twelve resizes came to ten hours and three reels to the hours of one. Matched on the title, English or
-   Indonesian, the more specific kinds first. The same numbers are shared/scoring-engine.js's hour templates.
+   Indonesian, the more specific kinds first.
+   One list for all of it (Oct 2026): the kinds, their names and the title patterns are Smart Scoring's engine's
+   (ScoringEngine.KINDS and kindOf, shared/scoring-engine.js, inlined before this file), and so are the hours (its hour
+   templates) — the estimator, the scoring and the points for assets produced always agree on what a title is.
    [id, English name, Indonesian name, title pattern, typical, low, high, each next deliverable at] */
-var EST_KINDS=[
-  ["carousel","carousel","karosel",/carousel|karosel/,4,3,6,0.5],
-  ["story","story","story",/\bstor(y|ies)\b|insta ?story|ig ?story/,1.5,1,3,0.5],
-  ["reels","reels or short video","reels atau video pendek",/\breels?\b|tiktok|\bshorts\b|short video|video pendek/,6,4,10,0.6],
-  ["video","video","video",/video|motion|animation|animasi/,8,4,16,0.6],
-  ["kv","key visual","key visual",/\bkv\b|key ?visual/,6,4,10,0.5],
-  ["resize","resize or adaptation","resize atau adaptasi",/resize|adaptasi|adaptation|turunan/,1.5,0.5,3,0.25],
-  ["feed","feed post","post feed",/\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/,2,1,3,0.5],
-  ["poster","poster or flyer","poster atau flyer",/poster|flyer|leaflet|brosur|brochure|pamflet/,3,2,5,0.6],
-  ["banner","banner or ad","banner atau iklan",/banner|\bads?\b|iklan|billboard|baliho|spanduk/,3,2,5,0.5],
-  ["copy","copywriting","copywriting",/copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/,1.5,0.5,3,0.4],
-  ["deck","presentation","presentasi",/\bdeck\b|presentation|presentasi|\bppt\b|pitch/,6,3,10,0.4],
-  ["logo","logo or brand identity","logo atau identitas brand",/\blogo\b|branding|brand identity|identitas brand/,10,6,16,0.4],
-  ["web","web page","halaman web",/landing ?page|website|web ?page|halaman web/,10,6,20,0.5],
-  ["email","email or newsletter","email atau newsletter",/\bemail\b|newsletter|\bedm\b/,3,2,5,0.5]
-];
-function estKind(title){ var s=String(title||"").toLowerCase(); for(var i=0;i<EST_KINDS.length;i++) if(EST_KINDS[i][3].test(s)) return EST_KINDS[i]; return null; }
+var EST_KINDS=(typeof ScoringEngine!=="undefined"?ScoringEngine.KINDS:[]).map(function(k){ var t=ScoringEngine.ENGINE_DEFAULTS.hours.templates[k.id];
+  return [k.id,k.name,k.nameId,k.pattern,t.perUnit,t.low,t.high,t.nextUnitFactor]; });
+function estKind(title){ var id=typeof ScoringEngine!=="undefined"?ScoringEngine.kindOf(String(title||"")):null; for(var i=0;id&&i<EST_KINDS.length;i++) if(EST_KINDS[i][0]===id) return EST_KINDS[i]; return null; }
 /* the kind's hours for this many deliverables: the first in full, each next one at the kind's share */
 function estKindHours(k,items){ var f=items>1?1+k[7]*(items-1):1; return {h:k[4]*f,low:k[5]*f,high:k[6]*f}; }
 function estKindName(id){ var k=EST_KINDS.filter(function(x){ return x[0]===id; })[0]; return k?(UI_LANG==="id"?k[2]:k[1]):id; }

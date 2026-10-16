@@ -15,7 +15,8 @@ const SCORING_CAPS = ['scoring_manage_workspace', 'scoring_manage_project', 'sco
 test('the defaults: everything off but Effort Hours inside the master switch; bonus off; the scale and weights as specified', () => {
   const d = S.normalizeSettings(undefined);
   assert.equal(d.enabled, false);
-  assert.deepEqual(d.modules, { hours: { on: true, mode: 'hybrid' }, story: { on: false, mode: 'math_only' }, weighted: { on: false, mode: 'math_only' }, kpi: { on: false }, okr: { on: false } });
+  assert.deepEqual(d.modules, { hours: { on: true, mode: 'hybrid' }, story: { on: false, mode: 'math_only' }, weighted: { on: false, mode: 'math_only' }, kpi: { on: false }, okr: { on: false }, assets: { on: false } });
+  assert.deepEqual(d.assets, { on: false, countUnvalidated: true, perKind: { carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5, banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5 }, unknownKind: 1 }, 'asset points off; per kind of work, one feed post = 1');
   assert.equal(d.primaryCapacity, 'hours');
   assert.equal(d.configVersion, 1);
   assert.deepEqual(d.story.scale, [1, 2, 3, 5, 8, 13]);
@@ -31,8 +32,13 @@ test('the defaults: everything off but Effort Hours inside the master switch; bo
 });
 
 test('the hours templates are src/effort-estimate.js EST_KINDS: same ids, same numbers, the same per-deliverable rule', () => {
-  const src = fs.readFileSync(path.join(root, 'src', 'effort-estimate.js'), 'utf8');
-  const kinds = JSON.parse(JSON.stringify(vm.runInNewContext(src.match(/var EST_KINDS=(\[[\s\S]*?\n\]);/)[1])));
+  /* the estimator builds its table from the engine (shared/scoring-engine.js), inlined before it in the page */
+  const ctx = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, document: { addEventListener() {} } }; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'shared', 'scoring-engine.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'src', 'effort-estimate.js'), 'utf8').replace(/<\/?script>/g, ''), ctx);
+  const kinds = JSON.parse(JSON.stringify(ctx.EST_KINDS.map(k => [k[0], k[1], k[2], String(k[3]), k[4], k[5], k[6], k[7]])));
+  assert.equal(kinds.length, 14);
+  assert.deepEqual(Object.keys(S.normalizeSettings({}).assets.perKind), kinds.map(k => k[0]), 'the asset points have the same kinds');
   const t = S.normalizeSettings({}).hours.templates;
   assert.deepEqual(Object.keys(t), kinds.map(k => k[0]));
   kinds.forEach(k => assert.deepEqual(t[k[0]], { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] }, k[0]));
@@ -47,7 +53,10 @@ test('the defaults are the engine\'s defaults, sub-object by sub-object', { skip
   assert.deepEqual(JSON.parse(JSON.stringify(E.ENGINE_DEFAULTS.weighted)), d.weighted);
   assert.deepEqual(JSON.parse(JSON.stringify(E.ENGINE_DEFAULTS.ai)), d.ai);
   assert.deepEqual(JSON.parse(JSON.stringify(E.ENGINE_DEFAULTS.bonus)), d.bonus);
+  assert.deepEqual(JSON.parse(JSON.stringify(E.ENGINE_DEFAULTS.assets)), d.assets);
+  assert.deepEqual(E.KIND_IDS, S.KINDS, 'the same kinds of work, in the same order');
   assert.deepEqual(E.STORY_SCALE, d.story.scale);
+  assert.equal(E.assetPoints(d.assets, { kind: E.kindOf('Logo concept'), split: { a: 2 } }).total, 10);
   /* and a normalized settings object is what the engine reads */
   assert.equal(E.storyPoints(d.story, { complexity: 3, scope: 3, uncertainty: 3, dependencies: 3 }).value, 3);
   assert.equal(E.basePoints(d.bonus, { lockedHours: 8 }).value, 5);
@@ -114,6 +123,23 @@ test('diffSettings lists each changed leaf, not the server\'s bookkeeping', () =
     { path: 'story.thresholds', from: [1.5, 2.5, 3.5, 4.25, 4.75], to: [1, 2, 3, 4, 5] }]);
   assert.deepEqual(S.diffSettings(a, S.normalizeSettings(a)), []);
   assert.deepEqual(S.diffSettings({}, { x: { y: 1 } }), [{ path: 'x', from: null, to: { y: 1 } }], 'what one side lacks is reported whole');
+});
+
+test('the asset points settings are held to their shape, and their switch is the module\'s', () => {
+  const n = S.normalizeSettings({ modules: { assets: { on: true, mode: 'hybrid' } }, assets: { on: false, countUnvalidated: 'no', perKind: { logo: 99, resize: -1, feed: '2.5', made_up: 3 }, unknownKind: 50, extra: 1 } });
+  assert.deepEqual(n.modules.assets, { on: true }, 'no mode');
+  assert.equal(n.assets.on, true, 'assets.on mirrors the module switch');
+  assert.equal(n.assets.countUnvalidated, true, 'not a yes or no: the default');
+  assert.deepEqual([n.assets.perKind.logo, n.assets.perKind.resize, n.assets.perKind.feed, n.assets.unknownKind], [20, 0, 2.5, 20], 'clamped to 0–20, numbers written as text read');
+  assert.equal('made_up' in n.assets.perKind, false, 'only the known kinds'); assert.equal('extra' in n.assets, false);
+  assert.deepEqual(Object.keys(n.assets.perKind), S.KINDS);
+  assert.deepEqual(S.normalizeSettings(n), n, 'normalizing twice changes nothing');
+  assert.equal(S.normalizeSettings({ assets: { on: true } }).modules.assets.on, true, 'an object with only assets.on is read');
+  assert.equal(S.normalizeSettings({ assets: { countUnvalidated: false } }).assets.countUnvalidated, false);
+  const d = S.normalizeSettings({}), on = S.normalizeSettings(Object.assign({}, d, { modules: Object.assign({}, d.modules, { assets: { on: true } }) }));
+  assert.deepEqual(S.diffSettings(d, on), [{ path: 'modules.assets.on', from: false, to: true }], 'turning it on is one change in the history');
+  assert.equal(S.moduleOn(Object.assign({}, on, { enabled: true }), 'assets'), true); assert.equal(S.moduleOn(on, 'assets'), false, 'only with the master switch');
+  assert.deepEqual(Object.assign({}, S.ASSET_POINTS), d.assets.perKind);
 });
 
 test('in the page the module is window.ScoringSettings', () => {

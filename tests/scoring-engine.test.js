@@ -191,22 +191,142 @@ test('complexity and open dependencies multiply the hours, kept within the bound
   assert.equal(none.reason, 'no_template');
 });
 
-test('the hour templates are the kinds of src/effort-estimate.js, and give its numbers', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'effort-estimate.js'), 'utf8');
-  const start = src.indexOf('var EST_KINDS=['), end = src.indexOf('];', start) + 2;
-  const c = {};
+/* today's estimator (src/effort-estimate.js), run whole as the page runs it — after the engine, which build.js inlines first */
+function estimator() {
+  const c = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, document: { addEventListener() {} } };
   vm.createContext(c);
-  vm.runInContext(src.slice(start, end), c);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'shared', 'scoring-engine.js'), 'utf8'), c);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'effort-estimate.js'), 'utf8').replace(/<\/?script>/g, ''), c);
+  return c;
+}
+/* the estimator's table as it has been since 2026-10-16 (id, typical, low, high, each next at): the hours it gives
+   never change because the list moved into the engine */
+const EST_TABLE = [['carousel', 4, 3, 6, 0.5], ['story', 1.5, 1, 3, 0.5], ['reels', 6, 4, 10, 0.6], ['video', 8, 4, 16, 0.6],
+  ['kv', 6, 4, 10, 0.5], ['resize', 1.5, 0.5, 3, 0.25], ['feed', 2, 1, 3, 0.5], ['poster', 3, 2, 5, 0.6], ['banner', 3, 2, 5, 0.5],
+  ['copy', 1.5, 0.5, 3, 0.4], ['deck', 6, 3, 10, 0.4], ['logo', 10, 6, 16, 0.4], ['web', 10, 6, 20, 0.5], ['email', 3, 2, 5, 0.5]];
+test('the hour templates are the kinds of src/effort-estimate.js, and give its numbers', () => {
+  const c = estimator();
   const kinds = Array.from(c.EST_KINDS, k => Array.from(k));
-  assert.ok(kinds.length >= 10);
+  assert.equal(kinds.length, 14);
   assert.deepEqual(Object.keys(D.hours.templates), kinds.map(k => k[0]), 'same ids, same order');
+  assert.deepEqual(kinds.map(k => [k[0], k[4], k[5], k[6], k[7]]), EST_TABLE, 'the estimator\'s hours are what they were');
   for (const k of kinds) {
     assert.deepEqual(Object.assign({}, D.hours.templates[k[0]]), { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] }, k[0]);
+    const def = S.KINDS.find(x => x.id === k[0]);
+    assert.deepEqual([k[1], k[2], String(k[3])], [def.name, def.nameId, String(def.pattern)], k[0] + ': the names and the pattern are the engine\'s');
     for (let items = 1; items <= 4; items++) {
       const f = items > 1 ? 1 + k[7] * (items - 1) : 1; /* estKindHours */
       assert.equal(S.hours(D.hours, { kind: k[0], units: items }).value, S.round2(k[4] * f), k[0] + ' × ' + items);
+      assert.equal(S.round2(c.estKindHours(k, items).h), S.round2(k[4] * f), k[0] + ' × ' + items + ' (estKindHours)');
     }
   }
+});
+
+/* ---------- the kinds of work, from a task's title ---------- */
+const TITLES = [
+  ['Carousel 5 slides promo Oktober', 'carousel'], ['Karosel edukasi trading', 'carousel'], ['IG story giveaway', 'story'],
+  ['Insta story x3', 'story'], ['Stories for the launch', 'story'], ['Reels market update', 'reels'], ['TikTok trend', 'reels'],
+  ['Video pendek promo', 'reels'], ['Explainer video', 'video'], ['Motion graphic intro', 'video'], ['Animasi logo', 'video'],
+  ['KV campaign Ramadan', 'kv'], ['Key visual for the expo', 'kv'], ['Resize banner 12 sizes', 'resize'], ['Adaptasi KV ke story', 'story'],
+  ['Turunan materi', 'resize'], ['Feed post Monday', 'feed'], ['Konten Instagram', 'feed'], ['Social media plan', 'feed'],
+  ['Poster seminar', 'poster'], ['Brosur produk', 'poster'], ['Web banner', 'banner'], ['Iklan Google', 'banner'],
+  ['Spanduk cabang', 'banner'], ['Copywriting caption', 'copy'], ['Naskah video', 'video'], ['Blog article SEO', 'copy'],
+  ['Pitch deck investor', 'deck'], ['Presentasi Q3', 'deck'], ['Logo concept', 'logo'], ['Brand identity refresh', 'logo'],
+  ['Landing page promo', 'web'], ['Halaman web karier', 'web'], ['Newsletter October', 'email'], ['EDM blast', 'email'],
+  ['Weekly sync', null], ['', null]];
+test('kindOf reads the kind of work from a title, English or Indonesian, the more specific kinds first — and the estimator reads it the same', () => {
+  const c = estimator();
+  for (const [title, kind] of TITLES) {
+    assert.equal(S.kindOf(title), kind, JSON.stringify(title));
+    const k = c.estKind(title);
+    assert.equal(k ? k[0] : null, kind, 'estKind ' + JSON.stringify(title));
+  }
+  assert.equal(S.kindOf(null), null); assert.equal(S.kindOf(undefined), null); assert.equal(S.kindOf('LOGO CONCEPT'), 'logo', 'any case');
+  assert.deepEqual(S.KIND_IDS, Object.keys(D.hours.templates), 'one kind per hour template, in the same order');
+  assert.deepEqual(S.KIND_IDS, Object.keys(D.assets.perKind), 'one kind per asset points value, in the same order');
+  assert.ok(Object.isFrozen(S.KINDS) && Object.isFrozen(S.KINDS[0]), 'nobody changes the list in passing');
+  S.KINDS.forEach(k => assert.ok(k.name && k.nameId && k.pattern instanceof RegExp && !k.pattern.global, k.id));
+});
+
+/* ---------- points for the assets produced ---------- */
+test('asset points: each kind of work has its own value per asset, a kind not known counts 1, two decimals', () => {
+  const pp = kind => S.assetPoints(D.assets, { kind, split: { a: 1 } }).pointsPerAsset;
+  assert.deepEqual(S.KIND_IDS.map(pp), [2, 0.75, 3, 4, 3, 0.25, 1, 1.5, 1.5, 0.75, 3, 5, 5, 1.5]);
+  assert.equal(pp(null), 1); assert.equal(pp('nothing-like-this'), 1);
+  const r = S.assetPoints(D.assets, { kind: 'logo', split: { a: 2, b: '1' } });
+  assert.deepEqual(r.perPerson.a, { count: 2, counted: 2, points: 10, validated: false, changedSinceValidation: false, validatedCount: null });
+  assert.equal(r.perPerson.b.points, 5, 'a count written as text');
+  assert.equal(r.total, 15); assert.equal(r.totalAssets, 3); assert.equal(r.kindKnown, true); assert.equal(r.reason, null);
+  assert.ok(r.explanation.includes('a: 2 × 5.00 = 10.00 points.'), r.explanation.join(' | '));
+  assert.ok(r.explanation.some(s => s === 'Total: 15.00 points for 3 assets.'));
+  /* resizes: 7 × 0.25 */
+  assert.equal(S.assetPoints(D.assets, { kind: 'resize', split: { a: 7 } }).total, 1.75);
+  /* a share worked out by the reports (3 assets between two people) keeps its fraction; points have two decimals */
+  const shared = S.assetPoints(D.assets, { kind: 'story', split: { a: 1.5, b: 1.5 } });
+  assert.deepEqual([shared.perPerson.a.points, shared.total], [1.13, 2.26]);
+  /* the admin's own table, a kind left out of it falls back to the default, the whole settings object works too */
+  assert.equal(S.assetPoints({ perKind: { feed: 2 }, unknownKind: 0.5 }, { kind: 'feed', split: { a: 3 } }).total, 6);
+  assert.equal(S.assetPoints({ perKind: { feed: 2 } }, { kind: 'logo', split: { a: 1 } }).pointsPerAsset, 5);
+  assert.equal(S.assetPoints({ perKind: {}, unknownKind: 0.5 }, { kind: 'nope', split: { a: 2 } }).total, 1);
+  assert.equal(S.assetPoints({ assets: { perKind: { logo: 8 } }, hours: {} }, { kind: 'logo', split: { a: 1 } }).total, 8);
+  /* steps translate */
+  r.steps.forEach(s => assert.ok(Object.values(S.SENTENCES).includes(s.key), s.key));
+});
+
+test('asset points: never negative, nothing for no counts, and the counts as given are never changed', () => {
+  const split = { a: -3, b: 0, c: 'x', d: 2, e: null };
+  const r = S.assetPoints(D.assets, { kind: 'feed', split });
+  assert.deepEqual(Object.keys(r.perPerson), ['d'], 'only counts above 0');
+  assert.equal(r.total, 2);
+  assert.deepEqual(split, { a: -3, b: 0, c: 'x', d: 2, e: null });
+  assert.equal(S.assetPoints({ perKind: { feed: -4 } }, { kind: 'feed', split: { a: 2 } }).total, 0, 'a negative value is read as 0');
+  assert.equal(S.assetPoints({ unknownKind: -1 }, { split: { a: 2 } }).total, 0);
+  const none = S.assetPoints(D.assets, { kind: 'feed', split: {} });
+  assert.deepEqual([none.total, none.totalAssets, none.reason], [0, 0, 'no_assets']);
+  assert.deepEqual(none.explanation.slice(-1), ['No assets produced yet.']);
+  assert.equal(S.assetPoints(D.assets).total, 0, 'no inputs at all');
+  assert.equal(S.assetPoints(null, null).pointsPerAsset, 1);
+});
+
+test('asset points: counts a lead has not validated yet count and are marked; a count changed since is marked too', () => {
+  const ok = { by: 'lead', at: '2026-10-16T09:00:00.000Z', split: { a: 2, b: 3 }, total: 5 };
+  /* never validated */
+  let r = S.assetPoints(D.assets, { kind: 'feed', split: { a: 2, b: 3 } });
+  assert.equal(r.isValidated, false);
+  assert.deepEqual([r.perPerson.a.validated, r.perPerson.a.changedSinceValidation, r.total], [false, false, 5], 'counted, not validated yet');
+  assert.ok(r.explanation.includes('a: not validated by a lead yet; counted as entered.'));
+  /* validated as it is */
+  r = S.assetPoints(D.assets, { kind: 'feed', split: { a: 2, b: 3 }, validated: ok });
+  assert.deepEqual([r.perPerson.a.validated, r.perPerson.b.validated, r.perPerson.b.changedSinceValidation, r.total], [true, true, false, 5]);
+  /* b changed afterwards: b is marked, a still validated; and someone new is changed since too */
+  r = S.assetPoints(D.assets, { kind: 'feed', split: { a: 2, b: 4, c: 1 }, validated: ok });
+  assert.deepEqual([r.perPerson.a.validated, r.perPerson.b.validated, r.perPerson.b.changedSinceValidation, r.perPerson.b.validatedCount, r.perPerson.c.changedSinceValidation], [true, false, true, 3, true]);
+  assert.equal(r.total, 7, 'counted as entered now');
+  assert.ok(r.explanation.includes('b: changed since a lead validated 3; counted as entered now.'), r.explanation.join(' | '));
+  /* one person on the task: the total is what was validated */
+  const one = { by: 'lead', split: {}, total: 3 };
+  assert.equal(S.assetPoints(D.assets, { kind: 'feed', split: { a: 3 }, validated: one }).perPerson.a.validated, true);
+  r = S.assetPoints(D.assets, { kind: 'feed', split: { a: 5 }, validated: one });
+  assert.deepEqual([r.perPerson.a.validated, r.perPerson.a.changedSinceValidation, r.perPerson.a.validatedCount], [false, true, 3]);
+  /* a validation with no counts in it is no validation (as the page reads meta.assetSplitOk); true/false with the counts apart */
+  assert.equal(S.assetPoints(D.assets, { kind: 'feed', split: { a: 1 }, validated: { by: 'lead' } }).isValidated, false);
+  r = S.assetPoints(D.assets, { kind: 'feed', split: { a: 2 }, validated: true, validatedSplit: { a: 1 } });
+  assert.deepEqual([r.perPerson.a.changedSinceValidation, r.perPerson.a.validatedCount], [true, 1]);
+  assert.equal(S.assetPoints(D.assets, { kind: 'feed', split: { a: 2 }, validated: true }).perPerson.a.validated, true, 'validated, nothing to compare with');
+});
+
+test('asset points with only validated counts counting: nothing before a lead validates, at most what was validated after a change', () => {
+  const strict = Object.assign({}, D.assets, { countUnvalidated: false });
+  const ok = { by: 'lead', split: { a: 2, b: 3 }, total: 5 };
+  let r = S.assetPoints(strict, { kind: 'poster', split: { a: 2, b: 3 } });
+  assert.deepEqual([r.perPerson.a.counted, r.perPerson.a.points, r.total, r.countUnvalidated], [0, 0, 0, false]);
+  assert.ok(r.explanation.includes('a: not validated by a lead yet; no points until a lead validates it.'));
+  r = S.assetPoints(strict, { kind: 'poster', split: { a: 2, b: 3 }, validated: ok });
+  assert.equal(r.total, 7.5);
+  r = S.assetPoints(strict, { kind: 'poster', split: { a: 1, b: 6 }, validated: ok });
+  assert.deepEqual([r.perPerson.a.counted, r.perPerson.b.counted, r.total], [1, 3, 6], 'fewer now: what there is; more now: what was validated');
+  assert.ok(r.explanation.includes('b: changed since a lead validated 3; 3 counts until a lead validates it again.'), r.explanation.join(' | '));
+  assert.equal(S.assetPoints({ countUnvalidated: 'no' }, { split: { a: 1 } }).countUnvalidated, true, 'not a yes or no: the default');
 });
 
 /* ---------- Story Points and Weighted Points ---------- */
@@ -433,7 +553,9 @@ test('inputHash is stable under key order, spacing, case and label order, and ch
 
 /* ---------- the defaults, the sentences, purity ---------- */
 test('ENGINE_DEFAULTS hold the plan\'s numbers, frozen; defaults() is a copy to change', () => {
-  assert.deepEqual(Object.keys(D), ['hours', 'story', 'weighted', 'ai', 'bonus']);
+  assert.deepEqual(Object.keys(D), ['hours', 'story', 'weighted', 'ai', 'bonus', 'assets']);
+  assert.ok(Object.isFrozen(D.assets.perKind));
+  assert.deepEqual([D.assets.on, D.assets.countUnvalidated, D.assets.unknownKind], [false, true, 1]);
   assert.ok(Object.isFrozen(D) && Object.isFrozen(D.hours.templates.feed) && Object.isFrozen(D.bonus.hourMapping.bands[0]));
   const b = D.bonus;
   assert.deepEqual([b.on, b.grace, b.rewardFactor, b.maxRate, b.minE, b.minA, b.reviewBelowRatio], [false, 0.1, 0.5, 0.2, 1, 0.25, 0.4]);
@@ -532,6 +654,8 @@ test('the page built by build.js carries the same engine, and it gives the same 
     same('rollup', [{ progress: 0.5, weight: 2 }, { progress: null }]);
     same('validateAi', { hours: 500, storyPoints: 4, confidence: 80, factors: { complexity: 7 } }, D);
     same('inputHash', { title: 'Feed  post', description: 'Été — 😀', labels: ['b', 'a'], brief: { tpl: 'x', goal: 'Sell' }, assetCount: 3 });
+    same('assetPoints', D.assets, { kind: 'logo', split: { a: 2, b: 1 }, validated: { by: 'l', split: { a: 2, b: 2 }, total: 4 } });
+    same('kindOf', 'Logo concept');
     assert.equal(B.round2(0.1 + 0.2), 0.3);
   }
 });

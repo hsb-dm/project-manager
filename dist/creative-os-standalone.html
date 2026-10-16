@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="c56b80e7abb8">
+<meta name="zc-build" content="49727513fb45">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -6100,6 +6100,10 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
    of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
    (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
 
+   Asset points (Oct 2026): modules.assets.on is their switch (off by default; assets.on mirrors it), and assets holds
+   what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
+   whether counts a lead has not validated yet count (they do by default, marked as such).
+
    diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
 
    The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
@@ -6121,15 +6125,19 @@ const KINDS = [
   ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
   ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
 const KIND_IDS = KINDS.map(k => k[0]);
-/* written by the server, never by the person saving: left out of what diffSettings reports */
-const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy"]);
+/* points for one asset produced, per kind of work (the same ids; the engine's ENGINE_DEFAULTS.assets.perKind): one feed
+   post = 1, about a piece's typical hours ÷ 2 — a resize 0.25, a logo 5 */
+const ASSET_POINTS = { carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5, banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5 };
+/* written by the server, never by the person saving: left out of what diffSettings reports; assets.on is
+   modules.assets.on mirrored, so turning the module on is reported once */
+const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy", "assets.on"]);
 
 function defaults() {
   const templates = {};
   KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
   return {
     enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
-    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false } },
+    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false }, assets: { on: false } },
     primaryCapacity: "hours",
     hours: {
       templates,
@@ -6148,7 +6156,8 @@ function defaults() {
       hourMapping: { type: "bands", bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
       completionStages: null, requireApprovedVersion: true, minQuality: null,
       independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
-    }
+    },
+    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 }
   };
 }
 function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
@@ -6207,7 +6216,10 @@ function normalizeSettings(raw) {
   o.configVersion = int(r.configVersion, 1, 1e9, d.configVersion);
   o.updatedAt = isoOrNull(r.updatedAt); o.updatedBy = idOrNull(r.updatedBy);
   const m = isObj(r.modules) ? r.modules : {};
-  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr) };
+  const ra = isObj(r.assets) ? r.assets : {};
+  /* the asset points switch is modules.assets.on; an older or hand-made object with only assets.on is read too */
+  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr),
+    assets: mod(m.assets, { on: bool(ra.on, d.modules.assets.on) }) };
   o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
 
   const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
@@ -6251,6 +6263,11 @@ function normalizeSettings(raw) {
     independentApproval: true, allowSelfApproval: false, perPeriodCap: null,
     pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
   };
+
+  /* asset points: each kind's points for one asset, 0–20, only the known kinds; on mirrors the module switch */
+  const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
+  o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
+  KIND_IDS.forEach(id => { o.assets.perKind[id] = num(pk[id], 0, 20, da2.perKind[id]); });
   return o;
 }
 
@@ -6267,7 +6284,7 @@ function diffSettings(a, b) {
 /* a module counts only with the master switch on */
 const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
 
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES };
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
 if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
 })(typeof window !== "undefined" ? window : this);
 </script><script>/* ============================================================
@@ -6375,12 +6392,37 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
      task gives the same hash in the browser and on the server, whatever the key order or spacing — the AI cache key,
      with the settings' configVersion.
 
-   ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the five sub-objects:
-   hours (the 14 kinds of src/effort-estimate.js EST_KINDS as templates, same ids and hours — the kinds made per
+   KINDS → [{id, name, nameId, pattern}], frozen; kindOf(title) → a kind id or null
+     The kinds of work, with their English and Indonesian names and the title pattern each is recognised by, the more
+     specific first (a "carousel" before a "feed post", "reels" before "video", a "resize" before anything it
+     resizes). kindOf lower-cases the title and gives the first kind whose pattern matches it, English or Indonesian;
+     nothing matches: null. The one list there is: src/effort-estimate.js (today's estimator, EST_KINDS) is built
+     from it, the hour templates and the asset points have its ids, and the server reads a task's kind with it.
+
+   assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})
+     → {perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total,
+        totalAssets, pointsPerAsset, kind, kindKnown, countUnvalidated, isValidated, reason, inputs, explanation, steps}
+     Output points for the assets each person produced on a task (meta.assetSplit, or as the reports credit them):
+     points = count × the points one asset of this kind of work is worth (perKind[kind]; a kind not known, or none,
+     takes unknownKind), 2 decimals; total is their sum. Anchored at one feed post = 1 point, about a piece's typical
+     hours ÷ 2: a resize 0.25, a logo 5 — a logo is not a resize. split is {userId: count}; counts below or at 0 are
+     left out and a count is never negative. validated is the task's meta.assetSplitOk ({by, at, split, total}, as a
+     team lead validated it; without a split object it is not a validation) or true/false with validatedSplit and
+     validatedTotal given apart. A person's count is validated when it is what the lead validated (their own number
+     when the validation holds per person, else the task's total), changedSinceValidation when it differs now. With
+     countUnvalidated (the default) every count counts and is only marked; without it a count never validated earns
+     nothing yet, and one changed since earns at most what was validated (min of the two) until validated again.
+     The caller checks that the module is on. Points from assets are output credit, kept apart from hours, base
+     points and the bonus — never the base of the efficiency bonus.
+
+   ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the six sub-objects:
+   hours (the 14 kinds of KINDS as templates, the hours today's estimator has always used — the kinds made per
    deliverable at its own share: resize 0.25, copy, deck and logo 0.4, poster, reels and video 0.6, the rest 0.5 —
    the complexity and dependency tables, bounds 0.25–80 h),
-   story, weighted, ai and bonus. shared/scoring-settings.js owns normalizing and the rest of the settings, and can
-   take these numbers from here.
+   story, weighted, ai, bonus and assets (off; every count counts; per kind of work: resize 0.25, story and copy
+   0.75, feed 1, poster, banner and email 1.5, carousel 2, reels, key visual and deck 3, video 4, logo and web 5;
+   a kind not known 1). shared/scoring-settings.js owns normalizing and the rest of the settings, and can take these
+   numbers from here.
    ============================================================ */
 (function (root) {
   'use strict';
@@ -6418,9 +6460,43 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
       hourMapping: { type: 'bands', bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
       completionStages: null, requireApprovedVersion: true, minQuality: null, independentApproval: true,
       allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
+    },
+    /* points for one asset produced, per kind of work: one feed post = 1, about a piece's typical hours ÷ 2 */
+    assets: {
+      on: false, countUnvalidated: true,
+      perKind: {
+        carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5,
+        banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5
+      },
+      unknownKind: 1
     }
   });
   const defaults = () => JSON.parse(JSON.stringify(ENGINE_DEFAULTS));
+
+  /* ---------- the kinds of work, and how a title says which (the one list: src/effort-estimate.js is built on it) ---------- */
+  const kindDef = (id, name, nameId, pattern) => Object.freeze({ id, name, nameId, pattern });
+  const KINDS = Object.freeze([
+    kindDef('carousel', 'carousel', 'karosel', /carousel|karosel/),
+    kindDef('story', 'story', 'story', /\bstor(y|ies)\b|insta ?story|ig ?story/),
+    kindDef('reels', 'reels or short video', 'reels atau video pendek', /\breels?\b|tiktok|\bshorts\b|short video|video pendek/),
+    kindDef('video', 'video', 'video', /video|motion|animation|animasi/),
+    kindDef('kv', 'key visual', 'key visual', /\bkv\b|key ?visual/),
+    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', /resize|adaptasi|adaptation|turunan/),
+    kindDef('feed', 'feed post', 'post feed', /\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/),
+    kindDef('poster', 'poster or flyer', 'poster atau flyer', /poster|flyer|leaflet|brosur|brochure|pamflet/),
+    kindDef('banner', 'banner or ad', 'banner atau iklan', /banner|\bads?\b|iklan|billboard|baliho|spanduk/),
+    kindDef('copy', 'copywriting', 'copywriting', /copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/),
+    kindDef('deck', 'presentation', 'presentasi', /\bdeck\b|presentation|presentasi|\bppt\b|pitch/),
+    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', /\blogo\b|branding|brand identity|identitas brand/),
+    kindDef('web', 'web page', 'halaman web', /landing ?page|website|web ?page|halaman web/),
+    kindDef('email', 'email or newsletter', 'email atau newsletter', /\bemail\b|newsletter|\bedm\b/)
+  ]);
+  const KIND_IDS = KINDS.map(k => k.id);
+  function kindOf(title) {
+    const s = String(title === null || title === undefined ? '' : title).toLowerCase();
+    for (const k of KINDS) if (k.pattern.test(s)) return k.id;
+    return null;
+  }
 
   /* ---------- the sentences (keys of `steps`; the page translates them with tr()) ---------- */
   const SENTENCES = {
@@ -6486,7 +6562,16 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
     uNone: 'No progress yet: no key result has a measured value.',
     uIgnored: '{n} of {total} key results have no measured progress yet and are left out.',
     uZero: 'No progress: the key results with a value all weigh 0.',
-    uWeighted: 'Weighted progress of {n} key results: {pct}%.'
+    uWeighted: 'Weighted progress of {n} key results: {pct}%.',
+    apKind: 'Kind of work "{kind}": {per} points for each asset.',
+    apUnknown: 'The kind of work is not known from the title: {per} points for each asset.',
+    apNone: 'No assets produced yet.',
+    apPerson: '{person}: {count} × {per} = {points} points.',
+    apNotYet: '{person}: not validated by a lead yet; counted as entered.',
+    apNotYetHeld: '{person}: not validated by a lead yet; no points until a lead validates it.',
+    apChanged: '{person}: changed since a lead validated {validated}; counted as entered now.',
+    apChangedHeld: '{person}: changed since a lead validated {validated}; {counted} counts until a lead validates it again.',
+    apTotal: 'Total: {points} points for {assets} assets.'
   };
   /* efficiency() reason code → its sentence */
   const REASONS = {
@@ -6811,6 +6896,61 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
     return out(value, null);
   }
 
+  /* ---------- points for the assets produced, per person ---------- */
+  /* {id: count} with the counts above 0 only, never negative; anything else is no counts */
+  function countsOf(v) {
+    const out = {};
+    if (!isObj(v)) return out;
+    Object.keys(v).forEach(id => { const n = num(v[id]); if (n !== null && n > 0) out[id] = clean(n); });
+    return out;
+  }
+  function assetPoints(as, inputs) {
+    as = sub(as, 'assets', ['perKind', 'unknownKind', 'countUnvalidated']);
+    inputs = isObj(inputs) ? inputs : {};
+    const D = ENGINE_DEFAULTS.assets, ex = explainer();
+    const perKind = isObj(as.perKind) ? as.perKind : {};
+    const kind = typeof inputs.kind === 'string' && inputs.kind ? inputs.kind : null;
+    const given = kind && hasOwn(perKind, kind) ? num(perKind[kind]) : null;
+    const kindKnown = !!kind && (given !== null || hasOwn(D.perKind, kind));
+    const unknownKind = setting(as.unknownKind, D.unknownKind, 0, 20);
+    const per = round2(given !== null ? clamp(given, 0, 20) : kindKnown ? D.perKind[kind] : unknownKind);
+    const countUnvalidated = typeof as.countUnvalidated === 'boolean' ? as.countUnvalidated : D.countUnvalidated;
+    /* the lead's validation: meta.assetSplitOk itself, or true/false with its counts given apart */
+    const vin = inputs.validated, vObj = isObj(vin) ? vin : null;
+    const isValidated = vObj ? isObj(vObj.split) : vin === true;
+    const vSplit = countsOf(inputs.validatedSplit !== undefined ? inputs.validatedSplit : vObj ? vObj.split : null);
+    const vt = num(inputs.validatedTotal !== undefined ? inputs.validatedTotal : vObj ? vObj.total : null);
+    const vTotal = vt === null ? null : Math.max(0, vt);
+    const perPersonCheck = Object.keys(vSplit).length > 0;
+    const split = countsOf(inputs.split), ids = Object.keys(split);
+    const totalAssets = clean(ids.reduce((n, id) => n + split[id], 0));
+    const differs = (a, b) => Math.abs(a - b) > 1e-9;
+    ex.add(kindKnown ? SENTENCES.apKind : SENTENCES.apUnknown, { kind, per: p2(per) });
+    const perPerson = {};
+    let total = 0;
+    ids.forEach(id => {
+      const count = split[id];
+      const validatedCount = !isValidated ? null : perPersonCheck ? (vSplit[id] || 0) : vTotal !== null ? vTotal : count;
+      const changed = isValidated &&(perPersonCheck ? differs(count, vSplit[id] || 0) : vTotal !== null && differs(totalAssets, vTotal));
+      const ok = isValidated && !changed;
+      const counted = countUnvalidated || ok ? count : changed ? clean(Math.min(count, validatedCount)) : 0;
+      const points = round2(counted * per);
+      total += points;
+      perPerson[id] = { count, counted, points, validated: ok, changedSinceValidation: changed, validatedCount };
+      ex.add(SENTENCES.apPerson, { person: id, count: counted, per: p2(per), points: p2(points) });
+      if (!isValidated) ex.add(countUnvalidated ? SENTENCES.apNotYet : SENTENCES.apNotYetHeld, { person: id });
+      else if (changed) ex.add(countUnvalidated ? SENTENCES.apChanged : SENTENCES.apChangedHeld, { person: id, validated: validatedCount, counted });
+    });
+    total = round2(total);
+    if (!ids.length) ex.add(SENTENCES.apNone);
+    else ex.add(SENTENCES.apTotal, { points: p2(total), assets: totalAssets });
+    return Object.assign({
+      perPerson, total, totalAssets, pointsPerAsset: per, kind, kindKnown, countUnvalidated, isValidated,
+      reason: ids.length ? null : 'no_assets',
+      inputs: { kind, split, validated: isValidated, validatedSplit: vSplit, validatedTotal: vTotal }
+    }, ex.done());
+  }
+
   /* ---------- what the AI says, cleaned before anything stores it ---------- */
   const AI_KEYS = ['kind', 'deliverables', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes'];
   const ID_TEXT = /^[-\w.:]{1,64}$/;
@@ -6955,6 +7095,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
 
   const engine = {
     round2, hours, storyPoints, weightedPoints, basePoints, efficiency, allocate, progress, rollup, validateAi, inputHash,
+    assetPoints, kindOf, KINDS, KIND_IDS,
     fill, defaults, ENGINE_DEFAULTS, SENTENCES, REASONS, FACTORS, STORY_SCALE, ENGINE_VERSION, INPUT_HASH_VERSION
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = engine; else root.ScoringEngine = engine;
@@ -23384,25 +23525,14 @@ var EST_MIN=0.4, EST_ENOUGH=3, EST_BASE={}, EST_T=null;
    quick once the first is done (25%), posts, stories and banners take about half, a poster, a reel or a video more,
    and a deck, a copy or a logo concept less than half. It used to be 60% for work made in sets and nothing for the
    rest, so twelve resizes came to ten hours and three reels to the hours of one. Matched on the title, English or
-   Indonesian, the more specific kinds first. The same numbers are shared/scoring-engine.js's hour templates.
+   Indonesian, the more specific kinds first.
+   One list for all of it (Oct 2026): the kinds, their names and the title patterns are Smart Scoring's engine's
+   (ScoringEngine.KINDS and kindOf, shared/scoring-engine.js, inlined before this file), and so are the hours (its hour
+   templates) — the estimator, the scoring and the points for assets produced always agree on what a title is.
    [id, English name, Indonesian name, title pattern, typical, low, high, each next deliverable at] */
-var EST_KINDS=[
-  ["carousel","carousel","karosel",/carousel|karosel/,4,3,6,0.5],
-  ["story","story","story",/\bstor(y|ies)\b|insta ?story|ig ?story/,1.5,1,3,0.5],
-  ["reels","reels or short video","reels atau video pendek",/\breels?\b|tiktok|\bshorts\b|short video|video pendek/,6,4,10,0.6],
-  ["video","video","video",/video|motion|animation|animasi/,8,4,16,0.6],
-  ["kv","key visual","key visual",/\bkv\b|key ?visual/,6,4,10,0.5],
-  ["resize","resize or adaptation","resize atau adaptasi",/resize|adaptasi|adaptation|turunan/,1.5,0.5,3,0.25],
-  ["feed","feed post","post feed",/\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/,2,1,3,0.5],
-  ["poster","poster or flyer","poster atau flyer",/poster|flyer|leaflet|brosur|brochure|pamflet/,3,2,5,0.6],
-  ["banner","banner or ad","banner atau iklan",/banner|\bads?\b|iklan|billboard|baliho|spanduk/,3,2,5,0.5],
-  ["copy","copywriting","copywriting",/copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/,1.5,0.5,3,0.4],
-  ["deck","presentation","presentasi",/\bdeck\b|presentation|presentasi|\bppt\b|pitch/,6,3,10,0.4],
-  ["logo","logo or brand identity","logo atau identitas brand",/\blogo\b|branding|brand identity|identitas brand/,10,6,16,0.4],
-  ["web","web page","halaman web",/landing ?page|website|web ?page|halaman web/,10,6,20,0.5],
-  ["email","email or newsletter","email atau newsletter",/\bemail\b|newsletter|\bedm\b/,3,2,5,0.5]
-];
-function estKind(title){ var s=String(title||"").toLowerCase(); for(var i=0;i<EST_KINDS.length;i++) if(EST_KINDS[i][3].test(s)) return EST_KINDS[i]; return null; }
+var EST_KINDS=(typeof ScoringEngine!=="undefined"?ScoringEngine.KINDS:[]).map(function(k){ var t=ScoringEngine.ENGINE_DEFAULTS.hours.templates[k.id];
+  return [k.id,k.name,k.nameId,k.pattern,t.perUnit,t.low,t.high,t.nextUnitFactor]; });
+function estKind(title){ var id=typeof ScoringEngine!=="undefined"?ScoringEngine.kindOf(String(title||"")):null; for(var i=0;id&&i<EST_KINDS.length;i++) if(EST_KINDS[i][0]===id) return EST_KINDS[i]; return null; }
 /* the kind's hours for this many deliverables: the first in full, each next one at the kind's share */
 function estKindHours(k,items){ var f=items>1?1+k[7]*(items-1):1; return {h:k[4]*f,low:k[5]*f,high:k[6]*f}; }
 function estKindName(id){ var k=EST_KINDS.filter(function(x){ return x[0]===id; })[0]; return k?(UI_LANG==="id"?k[2]:k[1]):id; }
@@ -24496,7 +24626,9 @@ function setScoring(){
   var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
   scDraft(); var ed=canI.scoringConfigure(), ro=!ed;
   setTimeout(scLoadOnce,0); setTimeout(scTotalsPaint,0);
-  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)+scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
+  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
+    +(typeof scoringAssetsSettingsHtml==="function"?scoringAssetsSettingsHtml(ro,ed):"")   /* src/scoring-assets.js */
+    +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
     +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
 function scMainPanel(cur,ed,ro){
   var by=cur.updatedBy?person(cur.updatedBy).name:"";
@@ -24732,6 +24864,174 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way.":"Role ini bisa mengubah skor sekaligus menyetujuinya. Disarankan: berikan ke orang yang berbeda. Bagaimanapun, tidak ada yang menyetujui estimasi atau bonus pada task-nya sendiri."
 });
 </script>
+<script>
+/* ============================================================
+   POINTS FOR THE ASSETS PEOPLE PRODUCE (Oct 2026)
+   Smart Scoring's "assets" module (docs/SMART-SCORING.md §11): the assets each person produced on a task — their
+   own count typed under Assets & versions, or as the reports credit them (taskAssetCredit in src/export.js) — earn
+   output points by the kind of work, read from the title as the estimator reads it (ScoringEngine.kindOf): one feed
+   post is 1 point, a resize 0.25, a logo 5, as the workspace sets it in Settings → Smart Scoring. A count a team's
+   lead has not validated yet counts all the same and says so; one changed since it was validated says that too.
+   The points are a figure of their own, never hours, base points or the efficiency bonus, and never a ranking:
+   people are listed in name order. Off — the module, Smart Scoring, or the server's feature — nothing shows.
+   For the other scoring files to call when they are there:
+   - scoringAssetsRowHtml(tk): the task panel's row — each person's count, points and validation mark.
+   - scoringAssetsSettingsHtml(ro, ed): the Settings tab's section — the switch, whether counts not validated yet
+     count, and the points per asset of each kind of work with the hours a piece typically takes beside it.
+   - scoringAssetsSummaryHtml(data): the "Assets produced" points view for Analytics, from scoringAssetsLoad(q)
+     (GET /api/scoring/assets; worked out in the page in the offline demo), cached so it draws at once.
+   ============================================================ */
+var SCA={cache:{}};
+function scoringAssetsOn(){ return typeof scoringModuleOn==="function"&&scoringModuleOn("assets")&&typeof ScoringEngine!=="undefined"; }
+function scaSettings(){ var s=scoringSettings(); return (s&&s.assets)||ScoringEngine.ENGINE_DEFAULTS.assets; }
+function scaNum(x){ var n=Math.round((+x||0)*100)/100; return String(n); }
+function scaPts(x){ return (Math.round((+x||0)*100)/100).toFixed(2); }
+function scaKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("Kind not recognised"); }
+/* one task's points: who is credited with how many (as the reports credit them), at the kind's points per asset */
+function scoringAssetsTask(tk){ var c=typeof taskAssetCredit==="function"?taskAssetCredit(tk):{by:{},exact:true,how:""}, kind=ScoringEngine.kindOf(tk&&tk.title);
+  var r=ScoringEngine.assetPoints(scaSettings(),{kind:kind,split:c.by,validated:tk&&tk.meta&&tk.meta.assetSplitOk});
+  return {credit:c,kind:kind,r:r}; }
+/* the engine's steps in the person's language, with names for the ids */
+function scaWhy(r){ return r.steps.map(function(s){ var v=Object.assign({},s.vars); if(v.person) v.person=person(v.person).name; if(v.kind) v.kind=scaKindName(v.kind);
+  return ScoringEngine.fill(tr(s.key),v); }).join(" "); }
+function scaMark(x){ if(x.validated) return '<span class="badge ok scr-ap-mark">'+I.check+tr("Validated")+'</span>';
+  return '<span class="badge warn scr-ap-mark">'+tr(x.changedSinceValidation?"Changed since validation":"Not validated yet")+'</span>'; }
+
+/* ---------- the task panel's row ---------- */
+function scoringAssetsRowHtml(tk){
+  if(!tk||tk._draft||!scoringAssetsOn()||(PEOPLE[ME]&&PEOPLE[ME].stakeholder)) return "";
+  var a=scoringAssetsTask(tk), r=a.r, ids=Object.keys(r.perPerson).sort(function(x,y){ return person(x).name.localeCompare(person(y).name); });
+  var head='<div class="scr-ap-head"><div class="scr-ap-title"><b>'+tr("Assets produced")+'</b><span class="hint">'+esc(scaKindName(a.kind))+' · '+scaPts(r.pointsPerAsset)+' '+tr("pts per asset")+'</span></div>'
+    + '<b class="scr-ap-total" title="'+attr(scaWhy(r))+'">'+scaPts(r.total)+' '+tr("pts")+'</b></div>';
+  var rows=ids.map(function(id){ var x=r.perPerson[id];
+    return '<div class="scr-ap-row" data-person="'+attr(id)+'">'+av(id)+'<div class="scr-ap-main"><span class="scr-ap-name" data-no-translate>'+esc(person(id).name)+'</span>'
+      + '<span class="scr-ap-nums"><span class="scr-ap-calc">'+scaNum(x.counted)+' × '+scaPts(r.pointsPerAsset)+' = <b>'+scaPts(x.points)+'</b> '+tr("pts")+'</span>'+scaMark(x)+'</span></div></div>'; }).join("");
+  var notes=(ids.length?'':'<div class="hint">'+tr("No assets produced yet. Each person's count goes under Assets & versions.")+'</div>')
+    + (ids.length&&!a.credit.exact?'<div class="hint">'+tr("Shared among the people assigned until each person's count is typed.")+'</div>':'')
+    + (!r.countUnvalidated&&ids.some(function(id){ return !r.perPerson[id].validated; })?'<div class="hint">'+tr("Only counts a lead has validated earn points in this workspace.")+'</div>':'')
+    + '<div class="hint">'+tr("Counted when the task is completed. Output points, kept apart from hours, base points and the bonus.")+'</div>';
+  return '<div class="scr-ap" data-scoring-assets="'+attr(tk.id)+'">'+head+rows+notes+'</div>';
+}
+
+/* ---------- Settings → Smart Scoring: the section ---------- */
+function scoringAssetsSettingsHtml(ro,ed){
+  if(typeof scGet!=="function"||typeof sp!=="function") return "";
+  if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
+  var kinds=ScoringEngine.KIND_IDS, sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b><span>'+tr(desc)+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
+  var cell=function(id,path,label){ return '<td><input type="number" class="scr-cell" id="'+id+'" aria-label="'+attr(label)+'" data-sc="'+attr(path)+'" data-k="num" min="0" max="20" step="0.25" value="'+attr(scGet(path))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
+  var hours=function(id){ var h=scGet("hours.templates."+id+".perUnit"); return h==null?"":'<span class="hint scr-ap-h">'+esc(tr("about {h} h a piece").replace("{h}",scaNum(h)))+'</span>'; };
+  return sp("Assets produced",
+    '<p class="hint" style="margin-bottom:6px">'+tr("Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.")+'</p>'
+    + sw("modules.assets.on","Points for assets produced","Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.")
+    + sw("assets.countUnvalidated","Counts not validated yet count","On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.")
+    + '<div class="tbl-wrap scr-tpl scr-ap-tbl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("Points per asset")+'</th></tr></thead><tbody>'
+    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t"><span class="scr-ap-k">'+esc(scaKindName(id))+'</span>'+hours(id)+'</td>'+cell("sc_ap_"+id,"assets.perKind."+id,scaKindName(id)+" · "+tr("Points per asset"))+'</tr>'; }).join("")
+    + '<tr data-kind=""><td class="t"><span class="scr-ap-k">'+tr("Kind not recognised")+'</span><span class="hint scr-ap-h">'+tr("from the title")+'</span></td>'+cell("sc_ap_unknown","assets.unknownKind",tr("Kind not recognised")+" · "+tr("Points per asset"))+'</tr>'
+    + '</tbody></table></div>'
+    + '<p class="hint" style="margin:6px 0 0">'+tr("About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.")+'</p>',
+    typeof scSaveFoot==="function"?scSaveFoot(ed):null,I.assets);
+}
+/* the section's changes in the tab's history */
+if(typeof SC_MODULE_LABEL!=="undefined") SC_MODULE_LABEL.assets="Assets produced";
+(function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; scPathLabel=function(p){ var s=String(p).split(".");
+  if(s[0]==="assets"&&s[1]==="perKind") return tr("Asset points")+" · "+scaKindName(s[2]);
+  if(p==="assets.unknownKind") return tr("Asset points")+" · "+tr("Kind not recognised");
+  if(p==="assets.countUnvalidated") return tr("Asset points")+" · "+tr("Counts not validated yet count");
+  return base.apply(this,arguments); }; })();
+
+/* ---------- the figures over a period: the server's, or worked out in the page in the offline demo ---------- */
+function scaKey(q){ q=q||{}; return ["from","to","team","project","person"].map(function(k){ return q[k]||""; }).join("|"); }
+function scoringAssetsCached(q){ return SCA.cache[scaKey(q)]||null; }
+function scoringAssetsLoad(q){ q=q||{}; var key=scaKey(q);
+  var p=API.on?apiFetch("GET","/api/scoring/assets?"+["from","to","team","project","person"].filter(function(k){ return q[k]; }).map(function(k){ return k+"="+encodeURIComponent(q[k]); }).join("&"))
+    :Promise.resolve(scoringAssetsCompute(q));
+  return p.then(function(r){ SCA.cache[key]=r; return r; }); }
+/* the server's rule, on the page's tasks: completed in the period in a completed stage, by the reports' credit */
+function scoringAssetsCompute(q){ q=q||{}; var s=scoringSettings(), stages=s&&s.bonus&&s.bonus.completionStages, all=canI.scoringViewAnalytics(), only=all?(q.person||null):ME;
+  var tasks=TASKS.filter(function(t){ var day=String(t.completedAt||"").slice(0,10);
+    return !t._draft&&day&&isClosed(t)&&(stages?stages.indexOf(t.status)>=0:t.status!=="declined")&&assetCount(t)>0&&(!q.from||day>=q.from)&&(!q.to||day<=q.to)&&(!q.team||t.team===q.team)&&(!q.project||t.proj===q.project||(t.alsoIn||[]).indexOf(q.project)>=0); });
+  var rows={}, b=function(){ return {assets:0,points:0}; }, add=function(o,n,pt){ o.assets+=n; o.points+=pt; }, counted=0;
+  var row=function(id){ return rows[id]||(rows[id]={userId:id,name:person(id).name,raw:0,points:0,tasks:0,validated:b(),notValidated:b(),changed:b(),attributed:false,typed:false,uploads:false,byKind:{},byWeek:{}}); };
+  if(only) row(only);
+  tasks.forEach(function(t){ var a=scoringAssetsTask(t), c=a.credit, d=new Date(String(t.completedAt).slice(0,10)+"T00:00:00Z"), mine=false; d.setUTCDate(d.getUTCDate()-(d.getUTCDay()+6)%7); var wk=isNaN(d.getTime())?null:d.toISOString().slice(0,10);
+    Object.keys(a.r.perPerson).forEach(function(id){ if(only&&id!==only) return; var x=a.r.perPerson[id], p=row(id), n=c.by[id], k=a.kind||"unknown"; mine=true;
+      p.raw+=n; p.points+=x.points; p.tasks++; if(!c.exact) p.attributed=true; else if(c.how==="split") p.typed=true; else p.uploads=true;
+      add(x.validated?p.validated:x.changedSinceValidation?p.changed:p.notValidated,n,x.points); add(p.byKind[k]=p.byKind[k]||b(),n,x.points); if(wk) add(p.byWeek[wk]=p.byWeek[wk]||b(),n,x.points); });
+    if(mine) counted++; });
+  var r2=ScoringEngine.round2, fin=function(o){ return {assets:r2(o.assets),points:r2(o.points)}; }, map=function(o){ var out={}; Object.keys(o).sort().forEach(function(k){ out[k]=fin(o[k]); }); return out; };
+  var list=Object.keys(rows).map(function(id){ var p=rows[id]; return {userId:id,name:p.name,assets:Math.round(p.raw),assetsExact:r2(p.raw),points:r2(p.points),tasks:p.tasks,validated:fin(p.validated),notValidated:fin(p.notValidated),changed:fin(p.changed),attributed:p.attributed,typed:p.typed,uploads:p.uploads,byKind:map(p.byKind),byWeek:map(p.byWeek)}; })
+    .sort(function(x,y){ return String(x.name).localeCompare(String(y.name))||(x.userId<y.userId?-1:1); });
+  var raw=Object.keys(rows).reduce(function(n,id){ return n+rows[id].raw; },0), as=(s&&s.assets)||{};
+  return {scope:all?"everyone":"own",from:q.from||null,to:q.to||null,team:q.team||null,project:q.project||null,person:only,rule:"completed_in_period",stages:stages||null,countUnvalidated:as.countUnvalidated!==false,perKind:as.perKind||{},unknownKind:as.unknownKind,
+    people:list,total:{assets:Math.round(raw),assetsExact:r2(raw),points:r2(list.reduce(function(n,x){ return n+x.points; },0)),tasks:counted,people:list.filter(function(x){ return x.tasks>0; }).length}};
+}
+
+/* ---------- the "Assets produced" points view (for Analytics): a plain list in name order ---------- */
+function scoringAssetsSummaryHtml(data){
+  var list=Array.isArray(data)?data:((data&&data.people)||[]), total=Array.isArray(data)?null:data&&data.total;
+  list=list.slice().sort(function(x,y){ return person(x.userId).name.localeCompare(person(y.userId).name); });
+  var chip=function(o,label,cls){ return o&&o.assets?'<span class="badge'+(cls?' '+cls:'')+'">'+tr(label)+' '+scaNum(o.assets)+' · '+scaPts(o.points)+' '+tr("pts")+'</span>':''; };
+  var rows=list.map(function(p){ return '<div class="scr-asum-row" data-person="'+attr(p.userId)+'">'+av(p.userId)+'<div class="scr-ap-main"><span class="scr-ap-name" data-no-translate>'+esc(person(p.userId).name)+'</span>'
+      + '<span class="scr-ap-nums"><span class="scr-asum-n"><b>'+scaNum(p.assets)+(p.attributed?'*':'')+'</b> '+tr(p.assets===1?"asset":"assets")+'</span><span class="scr-asum-n"><b>'+scaPts(p.points)+'</b> '+tr("pts")+'</span></span>'
+      + '<span class="scr-asum-marks">'+chip(p.validated,"Validated","ok")+chip(p.notValidated,"Not validated yet","warn")+chip(p.changed,"Changed since validation","warn")+'</span></div></div>'; }).join("");
+  return '<div class="scr-asum">'+(total?'<div class="scr-asum-total"><b>'+scaNum(total.assets)+'</b> '+tr("assets")+' · <b>'+scaPts(total.points)+'</b> '+tr("pts")+' · '+total.tasks+' '+tr(total.tasks===1?"task completed":"tasks completed")+'</div>':'')
+    + (rows||'<div class="hint">'+tr("No assets produced in this period.")+'</div>')
+    + '<div class="hint scr-asum-rule">'+tr("Tasks completed in the period, by the day they were completed; declined tasks and work still open are not counted. * shared among the people assigned, until each person's count is typed. People in name order — not a ranking.")+'</div></div>';
+}
+
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Assets produced":"Aset yang dihasilkan","pts per asset":"poin per aset","pts":"poin","Kind not recognised":"Jenis tidak dikenali",
+  "Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validation":"Berubah sejak divalidasi",
+  "No assets produced yet. Each person's count goes under Assets & versions.":"Belum ada aset yang dihasilkan. Jumlah tiap orang diisi di Aset & versi.",
+  "Shared among the people assigned until each person's count is typed.":"Dibagi rata di antara orang yang ditugaskan sampai jumlah tiap orang diisi.",
+  "Only counts a lead has validated earn points in this workspace.":"Di workspace ini, hanya jumlah yang sudah divalidasi lead yang mendapat poin.",
+  "Counted when the task is completed. Output points, kept apart from hours, base points and the bonus.":"Dihitung saat task selesai. Poin hasil kerja, terpisah dari jam, poin dasar, dan bonus.",
+  "Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.":"Setiap aset yang dihasilkan seseorang mendapat poin sesuai jenis pekerjaannya, dibaca dari judul task: satu post feed 1 poin, resize 0,25, logo 5. Yang dihitung adalah jumlah milik tiap orang di task, atau kredit versi laporan selama belum diisi. Poin dihitung saat task selesai, pada minggu task itu selesai; task yang ditolak (Declined) tidak pernah dihitung. Poin ini angka tersendiri — bukan jam, poin dasar, atau bonus efisiensi — dan bukan peringkat.",
+  "Points for assets produced":"Poin untuk aset yang dihasilkan",
+  "Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.":"Mati: tidak ada yang berubah. Nyala: task menampilkan poin aset tiap orang, dan Analitik bisa menghitungnya.",
+  "Counts not validated yet count":"Jumlah yang belum divalidasi ikut dihitung",
+  "On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.":"Nyala: setiap jumlah dihitung, ditandai “belum divalidasi” sampai lead tim memvalidasinya. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
+  "Kind of work":"Jenis pekerjaan","Points per asset":"Poin per aset","about {h} h a piece":"sekitar {h} jam per karya","from the title":"dari judul",
+  "About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.":"Kira-kira jam yang lazim untuk satu karya ÷ 2, dibulatkan ke 0,25 — jamnya dari template Jam Kerja di atas. 0 sampai 20 poin per aset.",
+  "Asset points":"Poin aset","asset":"aset","assets":"aset","task completed":"task selesai","tasks completed":"task selesai",
+  "No assets produced in this period.":"Tidak ada aset yang dihasilkan pada periode ini.",
+  "Tasks completed in the period, by the day they were completed; declined tasks and work still open are not counted. * shared among the people assigned, until each person's count is typed. People in name order — not a ranking.":"Task yang selesai dalam periode ini, menurut tanggal selesainya; task yang ditolak dan pekerjaan yang masih berjalan tidak dihitung. * dibagi rata di antara orang yang ditugaskan, sampai jumlah tiap orang diisi. Orang diurutkan menurut nama — bukan peringkat.",
+  /* the engine's sentences (shared/scoring-engine.js SENTENCES) */
+  "Kind of work \"{kind}\": {per} points for each asset.":"Jenis pekerjaan \"{kind}\": {per} poin untuk setiap aset.",
+  "The kind of work is not known from the title: {per} points for each asset.":"Jenis pekerjaan tidak dikenali dari judul: {per} poin untuk setiap aset.",
+  "No assets produced yet.":"Belum ada aset yang dihasilkan.",
+  "{person}: {count} × {per} = {points} points.":"{person}: {count} × {per} = {points} poin.",
+  "{person}: not validated by a lead yet; counted as entered.":"{person}: belum divalidasi lead; dihitung sesuai yang diisi.",
+  "{person}: not validated by a lead yet; no points until a lead validates it.":"{person}: belum divalidasi lead; belum ada poin sampai lead memvalidasinya.",
+  "{person}: changed since a lead validated {validated}; counted as entered now.":"{person}: berubah sejak lead memvalidasi {validated}; dihitung sesuai yang diisi sekarang.",
+  "{person}: changed since a lead validated {validated}; {counted} counts until a lead validates it again.":"{person}: berubah sejak lead memvalidasi {validated}; {counted} yang dihitung sampai lead memvalidasinya lagi.",
+  "Total: {points} points for {assets} assets.":"Total: {points} poin untuk {assets} aset."
+});
+</script>
+<style>
+.scr-ap{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
+.scr-ap-head{display:flex;align-items:flex-start;gap:8px}
+.scr-ap-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.scr-ap-total{flex:none;font-variant-numeric:tabular-nums;color:var(--color-text-primary)}
+.scr-ap-row,.scr-asum-row{display:flex;align-items:center;gap:8px;min-width:0}
+.scr-ap-row>.av,.scr-asum-row>.av{flex:none}
+.scr-ap-main{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.scr-ap-name{flex:1 1 110px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.scr-ap-nums{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.scr-ap-calc,.scr-asum-n{font-size:var(--fs-sm);color:var(--color-text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.scr-ap-calc b,.scr-asum-n b{color:var(--color-text-primary)}
+.scr-ap-mark .i{width:11px;height:11px}
+.scr-ap-tbl td.t{white-space:normal}
+.scr-ap-k{display:block}
+.scr-ap-h{display:block;font-size:var(--fs-sm);font-weight:400}
+.scr-ap-tbl input.scr-cell{width:84px}
+.scr-asum{display:flex;flex-direction:column;gap:8px}
+.scr-asum-total{font-size:var(--fs-sm);color:var(--color-text-secondary)}
+.scr-asum-total b{color:var(--color-text-primary)}
+.scr-asum-row{padding:6px 0;border-bottom:1px solid var(--color-border)}
+.scr-asum-marks{display:flex;flex-wrap:wrap;gap:4px;flex-basis:100%}
+.scr-asum-rule{margin-top:2px}
+</style>
 <script>
 /* ============================================================
    THE TASK'S "SCORING & INTELLIGENCE" PANEL (Oct 2026) — reserved, empty for now

@@ -31,6 +31,8 @@ test('today\'s estimator, run whole, gives the engine\'s hours for every kind an
   const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
   const c = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, document: { addEventListener() {} } };
   vm.createContext(c);
+  /* the page inlines the engine first; the estimator's kinds and hours are built from it */
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'shared', 'scoring-engine.js'), 'utf8'), c);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'effort-estimate.js'), 'utf8').replace(/<\/?script>/g, ''), c);
   assert.equal(typeof c.estKindHours, 'function'); assert.ok(Array.isArray(c.EST_KINDS) && c.EST_KINDS.length === Object.keys(D.hours.templates).length, 'the table is there');
   for (const k of c.EST_KINDS) for (let n = 1; n <= 6; n++)
@@ -99,4 +101,38 @@ test('the efficiency bonus stays small, bounded and fair', () => {
   assert.equal(run(8, 12, 5).earned, 5);
   const shared = S.allocate(run(8, 5, 8).earned, { a: 3, b: 2 });
   assert.equal(Math.round((shared.values.a + shared.values.b) * 100), 910, 'a shared task gives out exactly what it earned');
+});
+
+test('points for assets produced follow the work: a logo is not a resize, more assets never earn less, nothing negative', () => {
+  const per = kind => S.assetPoints(D.assets, { kind, split: { a: 1 } }).pointsPerAsset;
+  const pts = (kind, n, extra) => S.assetPoints(D.assets, Object.assign({ kind, split: { a: n } }, extra)).total;
+  assert.ok(per('logo') > per('resize'), 'a logo earns more than a resize');
+  assert.ok(per('video') > per('feed'), 'a video earns more than a feed post');
+  assert.ok(per('reels') > per('story'), 'a reel earns more than a story');
+  assert.ok(per('carousel') > per('feed'), 'a carousel earns more than one feed post');
+  assert.equal(per('feed'), 1, 'one feed post is the anchor: 1 point');
+  assert.equal(per('something we have never seen'), 1, 'a kind not known counts like a feed post');
+  for (const kind of S.KIND_IDS) {
+    const p = per(kind), hours = D.hours.templates[kind].perUnit;
+    assert.ok(p >= 0.25 && p <= 5, kind + ': ' + p + ' points per asset is outside 0.25–5');
+    assert.ok(p <= Math.round(hours / 2 * 4) / 4, kind + ': ' + p + ' points is more than half the ' + hours + ' h a piece takes');
+    let last = 0;
+    for (let n = 1; n <= 30; n++) {
+      const t = pts(kind, n);
+      assert.ok(t >= last, kind + ': ' + n + ' assets earn fewer points than ' + (n - 1)); last = t;
+      assert.ok(Math.abs(t - S.round2(n * p)) < 0.011, kind + ': ' + n + ' assets are not ' + n + ' × ' + p);
+    }
+  }
+  /* kinds that take clearly longer per piece never earn fewer points per asset */
+  for (const a of S.KIND_IDS) for (const b of S.KIND_IDS)
+    if (D.hours.templates[a].perUnit >= 2 * D.hours.templates[b].perUnit) assert.ok(per(a) >= per(b), a + ' takes twice the hours of ' + b + ' but earns less per asset');
+  /* a lead's validation never adds points, and counting only validated counts never gives more */
+  const strict = Object.assign({}, D.assets, { countUnvalidated: false });
+  for (const v of [undefined, { split: { a: 3 }, total: 3 }, { split: { a: 5 }, total: 5 }])
+    for (const n of [0, 1, 3, 4, 8]) {
+      const lenient = S.assetPoints(D.assets, { kind: 'poster', split: { a: n }, validated: v }).total, only = S.assetPoints(strict, { kind: 'poster', split: { a: n }, validated: v }).total;
+      assert.ok(only <= lenient + 1e-9 && only >= 0, 'validated only: ' + only + ' vs ' + lenient);
+      assert.equal(lenient, pts('poster', n), 'validation does not change what a count earns by default');
+    }
+  assert.equal(pts('logo', -5), 0, 'never negative');
 });

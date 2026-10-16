@@ -11,6 +11,10 @@
    of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
    (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
 
+   Asset points (Oct 2026): modules.assets.on is their switch (off by default; assets.on mirrors it), and assets holds
+   what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
+   whether counts a lead has not validated yet count (they do by default, marked as such).
+
    diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
 
    The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
@@ -32,15 +36,19 @@ const KINDS = [
   ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
   ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
 const KIND_IDS = KINDS.map(k => k[0]);
-/* written by the server, never by the person saving: left out of what diffSettings reports */
-const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy"]);
+/* points for one asset produced, per kind of work (the same ids; the engine's ENGINE_DEFAULTS.assets.perKind): one feed
+   post = 1, about a piece's typical hours ÷ 2 — a resize 0.25, a logo 5 */
+const ASSET_POINTS = { carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5, banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5 };
+/* written by the server, never by the person saving: left out of what diffSettings reports; assets.on is
+   modules.assets.on mirrored, so turning the module on is reported once */
+const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy", "assets.on"]);
 
 function defaults() {
   const templates = {};
   KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
   return {
     enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
-    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false } },
+    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false }, assets: { on: false } },
     primaryCapacity: "hours",
     hours: {
       templates,
@@ -59,7 +67,8 @@ function defaults() {
       hourMapping: { type: "bands", bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
       completionStages: null, requireApprovedVersion: true, minQuality: null,
       independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
-    }
+    },
+    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 }
   };
 }
 function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
@@ -118,7 +127,10 @@ function normalizeSettings(raw) {
   o.configVersion = int(r.configVersion, 1, 1e9, d.configVersion);
   o.updatedAt = isoOrNull(r.updatedAt); o.updatedBy = idOrNull(r.updatedBy);
   const m = isObj(r.modules) ? r.modules : {};
-  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr) };
+  const ra = isObj(r.assets) ? r.assets : {};
+  /* the asset points switch is modules.assets.on; an older or hand-made object with only assets.on is read too */
+  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr),
+    assets: mod(m.assets, { on: bool(ra.on, d.modules.assets.on) }) };
   o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
 
   const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
@@ -162,6 +174,11 @@ function normalizeSettings(raw) {
     independentApproval: true, allowSelfApproval: false, perPeriodCap: null,
     pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
   };
+
+  /* asset points: each kind's points for one asset, 0–20, only the known kinds; on mirrors the module switch */
+  const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
+  o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
+  KIND_IDS.forEach(id => { o.assets.perKind[id] = num(pk[id], 0, 20, da2.perKind[id]); });
   return o;
 }
 
@@ -178,6 +195,6 @@ function diffSettings(a, b) {
 /* a module counts only with the master switch on */
 const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
 
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES };
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
 if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
 })(typeof window !== "undefined" ? window : this);

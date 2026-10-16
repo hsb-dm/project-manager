@@ -84,7 +84,8 @@ validateAi, inputHash); this file only records how the settings feed it.
     hours:    { on: true,  mode: "hybrid"    },   // mode: "math_only" | "ai_assisted" | "hybrid"
     story:    { on: false, mode: "math_only" },
     weighted: { on: false, mode: "math_only" },
-    kpi: { on: false }, okr: { on: false } },     // no mode: AI only ever suggests links
+    kpi: { on: false }, okr: { on: false },       // no mode: AI only ever suggests links
+    assets: { on: false } },                      // points for assets produced (§11); no mode
   primaryCapacity: "hours",            // "hours" | "story_points" | "weighted_points" (velocity unit; workload stays hours)
   hours: {
     templates: { <kindId>: { perUnit, low, high, nextUnitFactor } },  // exactly the 14 ids of src/effort-estimate.js EST_KINDS
@@ -112,7 +113,12 @@ validateAi, inputHash); this file only records how the settings feed it.
            independentApproval: true, allowSelfApproval: false,       // pinned (decision 3)
            perPeriodCap: null,                                        // pinned null in v1 (decision 21)
            pilotTeams: [],                                            // team ids; empty = every team
-           negative: false, retroactive: false } }                    // pinned (spec §7.2, decision 17)
+           negative: false, retroactive: false },                     // pinned (spec §7.2, decision 17)
+  assets: { on: false,                 // mirrors modules.assets.on (normalizeSettings writes it; diffSettings leaves it out)
+            countUnvalidated: true,    // counts a lead has not validated yet count (marked); false: only validated ones
+            perKind: { carousel: 2, story: .75, reels: 3, video: 4, kv: 3, resize: .25, feed: 1, poster: 1.5,
+                       banner: 1.5, copy: .75, deck: 3, logo: 5, web: 5, email: 1.5 },   // points per asset, 0–20
+            unknownKind: 1 } }         // a title no kind matches
 ```
 
 ### 3.3 normalizeSettings(raw) → settings
@@ -395,6 +401,7 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 |---|---|---|
 | `src/scoring-core.js` | Phase 0 | `scoringFeature()` (server flag; always true in the offline demo), `scoringSettings()`, `scoringOn()` (= feature && settings.enabled), `scoringModuleOn(id)`, `scoringMode(id)`, `scoringPrimary()`, the `canI.scoring*` mirror, `scoringLoad()`, `scoringSave(next, version)`, `scoringDelegateLeads()` (all with demo-mode fallbacks), `scoringLeadsMissing()`, `SCORING_CAPS`, `SCORING_LEAD_CAPS`, `I.gauge`. Wraps `settingsTabAllowed` (tab hidden when the server has the feature off) and `dTask` (never sends `scoring` back through `PUT /api/tasks`). |
 | `src/scoring-settings.js` | Phase 1 B | `setScoring()` — the Settings tab (dispatch in `renderSettings`), draft state `SC`, save with 409 reload, the role-modal warning `scoringDutyWarn()`. Phase 3 B adds the live bonus policy here. Phase 4 B adds outcome definitions here. |
+| `src/scoring-assets.js` | wave 2 (asset points) | points for assets produced: the panel row, the Settings section, the period figures and their view (§11). |
 | `src/scoring-panel.js` | Phase 1 C | empty — the task's Scoring & Intelligence panel (wraps `effortHtml`; old block unchanged while off; `.enh-blocks` stays Brief-tab only). |
 | `src/scoring-time.js` | Phase 3a D | empty — the time log. |
 | `src/scoring-analytics.js` | Phase 1 D / 3 D | empty — analytics sections (wrap `renderAnalytics`, `renderMember`; no ranking). |
@@ -446,3 +453,55 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   and "Smart Scoring", 11 group icons), `e2e/mobile-settings.spec.js` (sweeps every tab at phone width, "scoring"
   included), `tests/v37-code-health.test.js`, `e2e/progress-note.spec.js` (`.enh-blocks` Brief only),
   `e2e/ai-context.spec.js` (`meta.actualEffort`), `tests/v30-accounts-and-scale.test.js` (batch = single read).
+
+---
+
+## 11. Assets produced in scoring — the `assets` module (Oct 2026, wave 2)
+
+What already existed: each person's count on a task (`meta.assetSplit`, whole numbers, `assetCount` their sum), a
+team lead's validation (`meta.assetSplitOk {by, at, split, total}`; "changed since" when a count differs from it), the
+reports' crediting (`src/export.js taskAssetCredit` / `personAssetCredit`: typed counts, else version uploaders in
+proportion, else the assignees shared equally — an estimate). The module turns those counts into **output points per
+kind of work**; it is never hours, base points or the bonus, and never the bonus base.
+
+**Kinds of work — one list.** `ScoringEngine.KINDS` (`{id, name, nameId, pattern}`, frozen, the more specific first) and
+`ScoringEngine.kindOf(title) → id | null`. `src/effort-estimate.js` builds `EST_KINDS` (`[id, name, nameId, pattern,
+typical, low, high, next]`) from `KINDS` and `ENGINE_DEFAULTS.hours.templates`, and `estKind` calls `kindOf`; the numbers
+are the ones it always had (tests/scoring-engine.test.js holds the table). The server reads a task's kind with `kindOf`.
+
+**Engine.** `ScoringEngine.assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})` →
+`{perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total, totalAssets,
+pointsPerAsset, kind, kindKnown, countUnvalidated, isValidated, reason ('no_assets'|null), inputs, explanation, steps}`.
+`validated` is `meta.assetSplitOk` itself (no `split` object → not a validation) or `true/false` with the counts apart.
+Per person: validated when the count equals the validated one (per person when the validation holds a split, else the
+task's total), `changedSinceValidation` when it differs. `countUnvalidated` (default): every count counts, marked. Off:
+a never-validated count earns 0, a changed one at most `min(now, validated)`. Points = counted × perKind (unknown kind →
+`unknownKind`), 2 decimals; counts ≤ 0 left out; never negative. The caller checks the module is on.
+
+**Settings.** `modules.assets.on` is the switch (off by default, no mode; an object with only `assets.on` is read too);
+`assets.on` mirrors it and is not reported by `diffSettings`. `perKind` values 0–20, unknown kinds dropped.
+
+**Route** (`server/scoring-assets.js`, registered right after `server/scoring.js`): `GET /api/scoring/assets?from&to&team&
+project&person` (dates `YYYY-MM-DD`, inclusive, on the completion date). 409 when the server's feature, Smart Scoring
+or the module is off (each with its own message); 400 for a bad date, a period ending before it starts or an odd id; 403
+for a non-holder asking for someone else. Counted: tasks with `completed_at` in the period, in a completion stage
+(`bonus.completionStages`, default every closed stage but Declined), `asset_count > 0`; open work counts in the week it
+is completed. `team` = the task's team; `project` = its project or one of `alsoIn`; `person` = the row. Hidden tasks and
+tasks of archived projects count (points earned do not disappear with a display choice). Kind from the title only — a
+kind picked in the hours calculation does not change asset points. Crediting = the reports' rule on the stored task
+(the uploads are the stored versions' `uploaded_by`; no linked asset records or `producedByUserId` exist server-side), so
+`assets` equals `personAssetCredit(id, sameTasks).count` (tested). `scoring_view_analytics` holders: every credited
+person (or `person`); anyone else: their own row only, zeros included. Answer:
+`{scope:"everyone"|"own", from, to, team, project, person, rule:"completed_in_period", stages, countUnvalidated, perKind,
+unknownKind, people:[{userId, name, assets (rounded like the report), assetsExact, points, tasks, validated:{assets,points},
+notValidated:{…}, changed:{…}, attributed, typed, uploads, byKind:{kind|"unknown":{assets,points}}, byWeek:{monday:{…}}}],
+total:{assets, assetsExact, points, tasks, people}}` — people in name order, never ranked. Read only; nothing stored.
+
+**Page** (`src/scoring-assets.js`, after `scoring-settings.js` in build.js): `scoringAssetsRowHtml(tk)` → the task panel's
+row (`.scr-ap`, `data-scoring-assets="<task id>"`; "" when off, for a draft or a stakeholder): each person's
+count × points per asset, the validation mark, the engine's steps on the total's hover. `scoringAssetsSettingsHtml(ro, ed)`
+→ the Settings section (called by `setScoring` after Weighted Points). `scoringAssetsLoad(q)` → the route (worked out in
+the page in the offline demo by `scoringAssetsCompute(q)`), cached for `scoringAssetsCached(q)`;
+`scoringAssetsSummaryHtml(data)` → the "Assets produced" points view for Analytics (the answer or its `people`).
+`scoringAssetsTask(tk)` → `{credit, kind, r}`. Tests: `tests/scoring-engine.test.js`, `tests/scoring-sanity.test.js`,
+`tests/scoring-settings.test.js`, `tests/scoring-assets.test.js`, `e2e/scoring-assets.spec.js`.

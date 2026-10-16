@@ -103,12 +103,37 @@
      task gives the same hash in the browser and on the server, whatever the key order or spacing — the AI cache key,
      with the settings' configVersion.
 
-   ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the five sub-objects:
-   hours (the 14 kinds of src/effort-estimate.js EST_KINDS as templates, same ids and hours — the kinds made per
+   KINDS → [{id, name, nameId, pattern}], frozen; kindOf(title) → a kind id or null
+     The kinds of work, with their English and Indonesian names and the title pattern each is recognised by, the more
+     specific first (a "carousel" before a "feed post", "reels" before "video", a "resize" before anything it
+     resizes). kindOf lower-cases the title and gives the first kind whose pattern matches it, English or Indonesian;
+     nothing matches: null. The one list there is: src/effort-estimate.js (today's estimator, EST_KINDS) is built
+     from it, the hour templates and the asset points have its ids, and the server reads a task's kind with it.
+
+   assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})
+     → {perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total,
+        totalAssets, pointsPerAsset, kind, kindKnown, countUnvalidated, isValidated, reason, inputs, explanation, steps}
+     Output points for the assets each person produced on a task (meta.assetSplit, or as the reports credit them):
+     points = count × the points one asset of this kind of work is worth (perKind[kind]; a kind not known, or none,
+     takes unknownKind), 2 decimals; total is their sum. Anchored at one feed post = 1 point, about a piece's typical
+     hours ÷ 2: a resize 0.25, a logo 5 — a logo is not a resize. split is {userId: count}; counts below or at 0 are
+     left out and a count is never negative. validated is the task's meta.assetSplitOk ({by, at, split, total}, as a
+     team lead validated it; without a split object it is not a validation) or true/false with validatedSplit and
+     validatedTotal given apart. A person's count is validated when it is what the lead validated (their own number
+     when the validation holds per person, else the task's total), changedSinceValidation when it differs now. With
+     countUnvalidated (the default) every count counts and is only marked; without it a count never validated earns
+     nothing yet, and one changed since earns at most what was validated (min of the two) until validated again.
+     The caller checks that the module is on. Points from assets are output credit, kept apart from hours, base
+     points and the bonus — never the base of the efficiency bonus.
+
+   ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the six sub-objects:
+   hours (the 14 kinds of KINDS as templates, the hours today's estimator has always used — the kinds made per
    deliverable at its own share: resize 0.25, copy, deck and logo 0.4, poster, reels and video 0.6, the rest 0.5 —
    the complexity and dependency tables, bounds 0.25–80 h),
-   story, weighted, ai and bonus. shared/scoring-settings.js owns normalizing and the rest of the settings, and can
-   take these numbers from here.
+   story, weighted, ai, bonus and assets (off; every count counts; per kind of work: resize 0.25, story and copy
+   0.75, feed 1, poster, banner and email 1.5, carousel 2, reels, key visual and deck 3, video 4, logo and web 5;
+   a kind not known 1). shared/scoring-settings.js owns normalizing and the rest of the settings, and can take these
+   numbers from here.
    ============================================================ */
 (function (root) {
   'use strict';
@@ -146,9 +171,43 @@
       hourMapping: { type: 'bands', bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
       completionStages: null, requireApprovedVersion: true, minQuality: null, independentApproval: true,
       allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
+    },
+    /* points for one asset produced, per kind of work: one feed post = 1, about a piece's typical hours ÷ 2 */
+    assets: {
+      on: false, countUnvalidated: true,
+      perKind: {
+        carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5,
+        banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5
+      },
+      unknownKind: 1
     }
   });
   const defaults = () => JSON.parse(JSON.stringify(ENGINE_DEFAULTS));
+
+  /* ---------- the kinds of work, and how a title says which (the one list: src/effort-estimate.js is built on it) ---------- */
+  const kindDef = (id, name, nameId, pattern) => Object.freeze({ id, name, nameId, pattern });
+  const KINDS = Object.freeze([
+    kindDef('carousel', 'carousel', 'karosel', /carousel|karosel/),
+    kindDef('story', 'story', 'story', /\bstor(y|ies)\b|insta ?story|ig ?story/),
+    kindDef('reels', 'reels or short video', 'reels atau video pendek', /\breels?\b|tiktok|\bshorts\b|short video|video pendek/),
+    kindDef('video', 'video', 'video', /video|motion|animation|animasi/),
+    kindDef('kv', 'key visual', 'key visual', /\bkv\b|key ?visual/),
+    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', /resize|adaptasi|adaptation|turunan/),
+    kindDef('feed', 'feed post', 'post feed', /\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/),
+    kindDef('poster', 'poster or flyer', 'poster atau flyer', /poster|flyer|leaflet|brosur|brochure|pamflet/),
+    kindDef('banner', 'banner or ad', 'banner atau iklan', /banner|\bads?\b|iklan|billboard|baliho|spanduk/),
+    kindDef('copy', 'copywriting', 'copywriting', /copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/),
+    kindDef('deck', 'presentation', 'presentasi', /\bdeck\b|presentation|presentasi|\bppt\b|pitch/),
+    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', /\blogo\b|branding|brand identity|identitas brand/),
+    kindDef('web', 'web page', 'halaman web', /landing ?page|website|web ?page|halaman web/),
+    kindDef('email', 'email or newsletter', 'email atau newsletter', /\bemail\b|newsletter|\bedm\b/)
+  ]);
+  const KIND_IDS = KINDS.map(k => k.id);
+  function kindOf(title) {
+    const s = String(title === null || title === undefined ? '' : title).toLowerCase();
+    for (const k of KINDS) if (k.pattern.test(s)) return k.id;
+    return null;
+  }
 
   /* ---------- the sentences (keys of `steps`; the page translates them with tr()) ---------- */
   const SENTENCES = {
@@ -214,7 +273,16 @@
     uNone: 'No progress yet: no key result has a measured value.',
     uIgnored: '{n} of {total} key results have no measured progress yet and are left out.',
     uZero: 'No progress: the key results with a value all weigh 0.',
-    uWeighted: 'Weighted progress of {n} key results: {pct}%.'
+    uWeighted: 'Weighted progress of {n} key results: {pct}%.',
+    apKind: 'Kind of work "{kind}": {per} points for each asset.',
+    apUnknown: 'The kind of work is not known from the title: {per} points for each asset.',
+    apNone: 'No assets produced yet.',
+    apPerson: '{person}: {count} × {per} = {points} points.',
+    apNotYet: '{person}: not validated by a lead yet; counted as entered.',
+    apNotYetHeld: '{person}: not validated by a lead yet; no points until a lead validates it.',
+    apChanged: '{person}: changed since a lead validated {validated}; counted as entered now.',
+    apChangedHeld: '{person}: changed since a lead validated {validated}; {counted} counts until a lead validates it again.',
+    apTotal: 'Total: {points} points for {assets} assets.'
   };
   /* efficiency() reason code → its sentence */
   const REASONS = {
@@ -539,6 +607,61 @@
     return out(value, null);
   }
 
+  /* ---------- points for the assets produced, per person ---------- */
+  /* {id: count} with the counts above 0 only, never negative; anything else is no counts */
+  function countsOf(v) {
+    const out = {};
+    if (!isObj(v)) return out;
+    Object.keys(v).forEach(id => { const n = num(v[id]); if (n !== null && n > 0) out[id] = clean(n); });
+    return out;
+  }
+  function assetPoints(as, inputs) {
+    as = sub(as, 'assets', ['perKind', 'unknownKind', 'countUnvalidated']);
+    inputs = isObj(inputs) ? inputs : {};
+    const D = ENGINE_DEFAULTS.assets, ex = explainer();
+    const perKind = isObj(as.perKind) ? as.perKind : {};
+    const kind = typeof inputs.kind === 'string' && inputs.kind ? inputs.kind : null;
+    const given = kind && hasOwn(perKind, kind) ? num(perKind[kind]) : null;
+    const kindKnown = !!kind && (given !== null || hasOwn(D.perKind, kind));
+    const unknownKind = setting(as.unknownKind, D.unknownKind, 0, 20);
+    const per = round2(given !== null ? clamp(given, 0, 20) : kindKnown ? D.perKind[kind] : unknownKind);
+    const countUnvalidated = typeof as.countUnvalidated === 'boolean' ? as.countUnvalidated : D.countUnvalidated;
+    /* the lead's validation: meta.assetSplitOk itself, or true/false with its counts given apart */
+    const vin = inputs.validated, vObj = isObj(vin) ? vin : null;
+    const isValidated = vObj ? isObj(vObj.split) : vin === true;
+    const vSplit = countsOf(inputs.validatedSplit !== undefined ? inputs.validatedSplit : vObj ? vObj.split : null);
+    const vt = num(inputs.validatedTotal !== undefined ? inputs.validatedTotal : vObj ? vObj.total : null);
+    const vTotal = vt === null ? null : Math.max(0, vt);
+    const perPersonCheck = Object.keys(vSplit).length > 0;
+    const split = countsOf(inputs.split), ids = Object.keys(split);
+    const totalAssets = clean(ids.reduce((n, id) => n + split[id], 0));
+    const differs = (a, b) => Math.abs(a - b) > 1e-9;
+    ex.add(kindKnown ? SENTENCES.apKind : SENTENCES.apUnknown, { kind, per: p2(per) });
+    const perPerson = {};
+    let total = 0;
+    ids.forEach(id => {
+      const count = split[id];
+      const validatedCount = !isValidated ? null : perPersonCheck ? (vSplit[id] || 0) : vTotal !== null ? vTotal : count;
+      const changed = isValidated &&(perPersonCheck ? differs(count, vSplit[id] || 0) : vTotal !== null && differs(totalAssets, vTotal));
+      const ok = isValidated && !changed;
+      const counted = countUnvalidated || ok ? count : changed ? clean(Math.min(count, validatedCount)) : 0;
+      const points = round2(counted * per);
+      total += points;
+      perPerson[id] = { count, counted, points, validated: ok, changedSinceValidation: changed, validatedCount };
+      ex.add(SENTENCES.apPerson, { person: id, count: counted, per: p2(per), points: p2(points) });
+      if (!isValidated) ex.add(countUnvalidated ? SENTENCES.apNotYet : SENTENCES.apNotYetHeld, { person: id });
+      else if (changed) ex.add(countUnvalidated ? SENTENCES.apChanged : SENTENCES.apChangedHeld, { person: id, validated: validatedCount, counted });
+    });
+    total = round2(total);
+    if (!ids.length) ex.add(SENTENCES.apNone);
+    else ex.add(SENTENCES.apTotal, { points: p2(total), assets: totalAssets });
+    return Object.assign({
+      perPerson, total, totalAssets, pointsPerAsset: per, kind, kindKnown, countUnvalidated, isValidated,
+      reason: ids.length ? null : 'no_assets',
+      inputs: { kind, split, validated: isValidated, validatedSplit: vSplit, validatedTotal: vTotal }
+    }, ex.done());
+  }
+
   /* ---------- what the AI says, cleaned before anything stores it ---------- */
   const AI_KEYS = ['kind', 'deliverables', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes'];
   const ID_TEXT = /^[-\w.:]{1,64}$/;
@@ -683,6 +806,7 @@
 
   const engine = {
     round2, hours, storyPoints, weightedPoints, basePoints, efficiency, allocate, progress, rollup, validateAi, inputHash,
+    assetPoints, kindOf, KINDS, KIND_IDS,
     fill, defaults, ENGINE_DEFAULTS, SENTENCES, REASONS, FACTORS, STORY_SCALE, ENGINE_VERSION, INPUT_HASH_VERSION
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = engine; else root.ScoringEngine = engine;
