@@ -136,3 +136,50 @@ test('points for assets produced follow the work: a logo is not a resize, more a
     }
   assert.equal(pts('logo', -5), 0, 'never negative');
 });
+
+/* KPIs and OKRs (server/outcomes.js): progress only from evidence, within 0–100%, moving the right way, never made up */
+test('a KPI or key result moves towards its target with its evidence, stays within 0–100% and is never made up', () => {
+  const O = require('../server/outcomes.js').pure;
+  const rule = (type, extra) => O.ruleOf(Object.assign({ type }, extra || {}));
+  const kpi = (o, ev, manual) => O.metricProgress(Object.assign({ baseline: 0, target: 40, direction: 'up', rule: rule('approved_assets') }, o), ev, manual);
+  /* more approved assets never lower an increasing KPI; a burn-down never rises against its target */
+  let up = -1, down = -1;
+  for (let n = 0; n <= 60; n += 3) {
+    const a = kpi({}, { count: n ? 1 : 0, total: n }), b = kpi({ baseline: 30, target: 0, direction: 'down', rule: rule('tasks_completed') }, { count: n, total: n });
+    for (const p of [a, b]) assert.ok(p.progress.value >= 0 && p.progress.value <= 1, 'within 0–100% (' + n + ')');
+    assert.ok(a.progress.value >= up, 'more assets never lower it (' + n + ')'); up = a.progress.value;
+    assert.ok(b.progress.value >= down, 'each completion brings a burn-down closer (' + n + ')'); down = b.progress.value;
+  }
+  assert.equal(kpi({}, { count: 0, total: 0 }).progress.value, 0, 'nothing counted: no progress');
+  assert.equal(kpi({}, { count: 3, total: 10 }).progress.value, 0.25, '10 of 40 assets is a quarter');
+  /* nothing to measure against: no number, a reason */
+  for (const [o, why] of [[{ target: 0 }, 'zero_range'], [{ target: null }, 'missing_data'], [{ baseline: null }, 'missing_data'], [{ target: -5 }, 'direction_mismatch']])
+    assert.deepEqual([kpi(o, { count: 2, total: 2 }).progress.value, kpi(o, { count: 2, total: 2 }).progress.reason], [null, why], JSON.stringify(o));
+  /* by hand: the reading itself, clamped; no reading, no progress */
+  const sat = v => kpi({ baseline: 7.2, target: 8.5, rule: rule('manual') }, null, v == null ? null : { value: v }).progress;
+  assert.deepEqual([sat(null).value, sat(null).reason], [null, 'no_value']);
+  assert.equal(sat(9.5).value, 1, 'past the target counts as 100%'); assert.equal(sat(6).value, 0, 'below the baseline as 0%');
+  assert.ok(sat(7.9).value > 0.5 && sat(7.9).value < 0.6, '7.9 on 7.2 → 8.5 is a little over half');
+});
+
+test('a task adds only what is verified, and an objective is never more than its best key result nor less than its worst', () => {
+  const O = require('../server/outcomes.js').pure;
+  const m = type => ({ rule: O.ruleOf({ type }), period: { start: null, end: null } });
+  const done = o => Object.assign({ id: 'T-1', status: 'done', kind: 'closed', meta: { assetSplitOk: { total: 5, at: '2026-10-10T03:00:00.000Z' } }, completedAt: '2026-10-11T03:00:00.000Z', labels: [], alsoIn: [] }, o);
+  assert.equal(O.wanted(m('approved_assets'), done()).value, 5, 'the validated total of a finished task');
+  assert.equal(O.wanted(m('approved_assets'), done({ status: 'progress', kind: 'work' })).value, null, 'not finished: nothing');
+  assert.equal(O.wanted(m('approved_assets'), done({ status: 'declined' })).value, null, 'declined: nothing');
+  assert.equal(O.wanted(m('approved_assets'), done({ meta: {} })).value, null, 'not validated: nothing');
+  assert.equal(O.wanted(m('approved_assets'), done({ meta: { assetSplitOk: { total: -4 } } })).value, null, 'never negative');
+  assert.equal(O.wanted(m('tasks_completed'), done()).value, 1, 'a finished task is one');
+  assert.equal(O.wanted(m('manual'), done()).value, null, 'a manual metric counts no task');
+  /* the objective sits between its key results; raising one never lowers it; a key result weighing 0 changes nothing */
+  const obj = krs => O.objectiveProgress(krs.map(([p, w]) => ({ progress: { value: p }, weight: w, status: 'active' }))).value;
+  for (const set of [[[0.2, 1], [0.8, 3]], [[0, 2], [1, 2], [0.5, 1]], [[0.4, 1]]]) {
+    const v = obj(set), ps = set.map(x => x[0]);
+    assert.ok(v >= Math.min(...ps) - 1e-9 && v <= Math.max(...ps) + 1e-9, 'between its key results');
+    assert.ok(obj(set.map((x, i) => (i === 0 ? [Math.min(1, x[0] + 0.1), x[1]] : x))) >= v - 1e-9, 'raising a key result never lowers it');
+    assert.equal(obj(set.concat([[0, 0]])), v, 'a key result weighing 0 is not counted');
+  }
+  assert.equal(obj([]), null, 'no key results: no progress');
+});

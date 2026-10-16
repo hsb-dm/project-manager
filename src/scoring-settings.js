@@ -60,6 +60,7 @@ function setScoring(){
   return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
     +(typeof scoringAssetsSettingsHtml==="function"?scoringAssetsSettingsHtml(ro,ed):"")   /* src/scoring-assets.js */
     +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)+scBonusPanel()
+    +(typeof scoringOutcomesSettingsHtml==="function"?scoringOutcomesSettingsHtml():"")   /* KPIs and OKRs (src/scoring-outcomes.js) */
     +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
 function scMainPanel(cur,ed,ro){
   var by=cur.updatedBy?person(cur.updatedBy).name:"";

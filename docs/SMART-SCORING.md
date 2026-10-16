@@ -505,3 +505,97 @@ the page in the offline demo by `scoringAssetsCompute(q)`), cached for `scoringA
 `scoringAssetsSummaryHtml(data)` → the "Assets produced" points view for Analytics (the answer or its `people`).
 `scoringAssetsTask(tk)` → `{credit, kind, r}`. Tests: `tests/scoring-engine.test.js`, `tests/scoring-sanity.test.js`,
 `tests/scoring-settings.test.js`, `tests/scoring-assets.test.js`, `e2e/scoring-assets.spec.js`.
+
+## 12. KPIs and OKRs (Phase 4 B — built: `server/outcomes.js`, `src/scoring-outcomes.js`)
+
+Supersedes the planned outcome routes of §5.2. One metric model for KPI indicators (`kind 'kpi'`) and Key Results
+(`kind 'kr'`, always under an objective), plus objectives; the KPI and OKR switches are independent.
+
+### 11.1 Where progress comes from (`evidence_rule`)
+
+`{ type: 'approved_assets' | 'tasks_completed' | 'manual', scope: 'matching' | 'linked', filter: { team, project, label } }`
+(`scope` is an addition to the plan's shape; missing = `'matching'`).
+
+- **Which tasks**: scope `matching` (default) counts every task matching the filter — each of team (`team_id`),
+  project (`project_id` or `extra_projects`), label (a label id) that is given must match; no filter is every task in
+  the workspace. In either scope a task with a **confirmed** link counts too; scope `linked` counts linked tasks only.
+- **Finished successfully**: a closed stage other than Declined, or — when the workspace chose them —
+  `settings.bonus.completionStages` (one meaning of "completed" for awards and outcomes).
+- `approved_assets`: a finished task with a lead's validation (`meta.assetSplitOk`) adds `round(assetSplitOk.total)`
+  (0 adds nothing). A validation re-stamped with a new total changes the contribution; a count changed after validation
+  still adds what was validated; validation withdrawn or the task reopened → revoked. (Deviation from plan §4 Phase 4
+  "once the latest version is approved": successful completion is the condition, so a reopen revokes.)
+- `tasks_completed`: 1 per finished task; Declined, reopened → revoked.
+- `manual`: never counts tasks; the **latest manual value is the actual** (a reading such as 7.9 on a satisfaction
+  score 7.2 → 8.5), not an amount added to the baseline. Manual values are accepted only on manual metrics (409 on an
+  evidence metric): a counted metric is never typed over.
+- **Period**: a task counts in `[period_start, period_end]` (inclusive, either open) by the server's local day of
+  `completed_at` (fallback: the validation's `at`, then `updated_at`).
+- **Actual** = baseline + counted (direction `up`), baseline − counted (`down`: each piece of evidence moves it towards
+  its target, e.g. a backlog burnt down), the manual value (`manual`). **Progress** = `ScoringEngine.progress`:
+  `null` with `reason` `missing_data` / `zero_range` / `direction_mismatch` / `no_value` (manual, nothing entered) —
+  never a made-up percentage; clamped 0–1. Nothing counted on an evidence metric: actual = baseline, progress 0.
+- **Objective** = `ScoringEngine.rollup` of its key results with status active or closed (drafts and archived left
+  out); a key result weighing 0 is left out (said in the steps) unless all do (`zero_weight`); no key results →
+  `no_key_results`. Every progress carries `steps: [{key, vars}]` (English sentence + values; the page shows
+  `fill(tr(key), vars)`; the module's own sentences are `require("./outcomes").pure.SENTENCES`).
+
+### 11.2 Storage
+
+- Link rows and evidence rows share `task_outcome_links` (no schema change). **Link row**: `evidence_type 'link'`,
+  `evidence_id` = task id, `linked_by`, `origin` ('manual' | 'ai_accepted'), `status 'linked'` = waiting for an outcomes
+  manager, `'counted'` = confirmed (`counted_at` = when). **Evidence row**: `evidence_type` = the rule's type,
+  `evidence_id` = task id (the UNIQUE key makes it once per metric and task), `contribution`, `status 'counted' |
+  'revoked'`, `linked_by` NULL.
+- `outcome_values`: `source 'manual'` (value, reason, actor) and `source 'evidence'` — the metric's actual each time
+  its counted total changes (its history).
+- `scoring_audit` (`module 'outcomes'`, `meta.metricId` / `meta.objectiveId`, `kind`): `objective_created|updated|deleted`,
+  `metric_created|updated|deleted` (old/new values; a delete keeps the whole metric with its progress),
+  `manual_value` (old/new, reason), `task_linked`, `link_confirmed`, `task_unlinked`, and on the task
+  `evidence_counted|evidence_updated|evidence_revoked` (`meta.why` on a revoke: `not_completed`, `not_validated`,
+  `outside_period`, `outside_filter`, `not_linked` …). A metric counted again from scratch writes one
+  `evidence_recounted` row `{counted, changed, revoked}` instead of one per task.
+- Sweep cursor: `app_meta` key `outcomes_sweep_v1` = `{at, kpi, kr}`.
+
+### 11.3 When it counts
+
+`evaluateTask(taskId, user)` after every task write — registered with `scoring.onTaskWritten` when server/scoring.js
+has it — and `evaluateMetric(metricId)` (run inside the create/update routes). A sweep at start-up (+3 s), every
+10 minutes, and before every outcomes read (`GET /api/outcomes`, `…/metrics/:id`, `/api/tasks/:id/outcomes`)
+evaluates the tasks with `updated_at` ≥ the cursor against the metrics of each switch that stayed on; a switch that
+came on since the last sweep counts its metrics again from scratch. Only `status 'active'` metrics whose switch is on
+count anything: while off (or closed, draft, archived) nothing is counted **or revoked** — frozen. All idempotent;
+`bumpData()` after the sweep or a hook changed something. Each call opens its own transaction (or joins the caller's).
+
+### 11.4 Routes (all: `COS_SCORING=0` → 409 "Smart Scoring is turned off on this server")
+
+| route | who | body / query → answer |
+|---|---|---|
+| `GET /api/outcomes` | signed in, not a stakeholder (403) | → `{on:{enabled,kpi,okr}, objectives:[…], metrics:[…], can:{manage}}` |
+| `GET /api/outcomes/metrics/:id` | same | → `{metric, evidence:[{taskId,title,type,contribution,status,countedAt,revokedAt}], links:[{id,taskId,title,confirmed,by,at,confirmedAt}], values:[{value,source,reason,by,at}] (50), audit:[{id,action,taskId,by,impersonatedBy,at,reason,from,to,why}] (50)}` |
+| `POST /api/outcomes/objectives` | `scoringManageOutcomes`; OKR on | `{title, description?, period?:{start,end}, owner?, status?, sortOrder?}` → state + `id` |
+| `PUT /api/outcomes/objectives/:id` | same | fields to change + `rev` (stale → 409) → state |
+| `DELETE /api/outcomes/objectives/:id?rev&cascade=1` | same | with key results: 409 unless `cascade=1` (they go too, audited) → state |
+| `POST /api/outcomes/metrics` | same; KPI on for `kind 'kpi'`, OKR on for `'kr'` | `{kind, title, objective (kr), description, unit, direction, baseline (default 0), target, weight (0–1000, default 1), period, rule, owner, status}` → state + `id` |
+| `PUT /api/outcomes/metrics/:id` | same (by the stored kind) | fields to change + `rev` → state (the metric is counted again) |
+| `DELETE /api/outcomes/metrics/:id?rev` | same | → state (links, evidence, values cascade; the audit keeps it) |
+| `POST /api/outcomes/metrics/:id/value` | same; manual rule only (409) | `{value, reason}` — reason required (400) → state |
+| `GET /api/tasks/:id/outcomes` | not a stakeholder | → `{on, taskId, items:[{metric, link:{id,confirmed,by,at,confirmedAt}\|null, evidence:{status,contribution,countedAt,revokedAt}\|null, counts, why}], available:[metrics it may be linked to], objectives:[{id,title}], can:{link, manage}}` |
+| `POST /api/tasks/:id/outcomes` | `can.editTask` or a manager; the metric's switch on; metric active | `{metricId, origin?}` → as GET; a manager's link is confirmed at once, anyone else's waits; twice → 409 |
+| `POST /api/tasks/:id/outcomes/:linkId/confirm` | manager | → as GET |
+| `DELETE /api/tasks/:id/outcomes/:linkId` | manager; a task editor only while unconfirmed | → as GET (its count is revoked) |
+
+Switch messages (409): "Smart Scoring is switched off for this workspace. Turn it on in Settings → Smart Scoring
+first." / "KPIs are switched off. …" / "OKRs are switched off. …". Every write is refused while off; reads stay.
+The module returns `{ evaluateTask, evaluateMetric, sweep, forTask(u, taskId), state(u) }` — `forTask` is the
+`outcomes` block `GET /api/tasks/:id/scoring` can include. Wiring still for the server owner: `LIVE_KINDS`
+(`/api/outcomes` → "outcomes") and the `announceTaskChange` regex (`outcomes`) for live updates.
+
+### 11.5 Browser (`src/scoring-outcomes.js`)
+
+`scoringOutcomesSettingsHtml()` (the Settings tab's "KPIs and OKRs" panel, `section.scr-out-panel`, body `#scrOut`;
+cache `SCO.data` from `GET /api/outcomes`, fetched when the tab opens afresh, at most every 5 s on redraws, painted
+only when the markup changed) and `scoringOutcomesRowHtml(tk)` (the task panel's row, `.scr-out-row[data-out-task]`,
+cache `SCO.tasks[id]`; "" while Smart Scoring, both switches, or the viewer is a stakeholder). The row's picker is the
+shared `entityPicker` with `kind:"metric"` (an `epRow` override). `settingsTabAllowed("scoring")` is also true for
+`scoring_manage_outcomes` holders. The offline demo shows a note: no server, no evidence.
