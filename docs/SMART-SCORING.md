@@ -488,8 +488,34 @@ stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `
   entries; others' only with `scoring_edit_task` and a reason; audited.
 - `POST /api/tasks/:id/efficiency/recalculate|approve|reject` (Phase 3 A) — approve/reject:
   `scoringApproveCompletion(u, t, creditedIds)`, body `{ qualityScore?, shares?, reason? }`.
-- `GET /api/scoring/analytics?weeks&from&to&project&team&assignee&status` (D) — team for
-  `scoring_view_analytics`, else own rows only.
+- `GET /api/scoring/analytics?from&to&weeks&team&project&person&status&history` — **built** (wave 3,
+  server/scoring-analytics.js, src/scoring-analytics.js). Checks in order: `COS_SCORING=0` → 409; signed out → 401;
+  stakeholder → 403; a bad date, `weeks` outside 1–104, a period over two years, an end before the start, an odd id
+  or a `status` other than `approved|locked|not_locked|unverified|any` → 400; master switch off → 409 unless the
+  caller holds `scoring_view_analytics` and sends `history=1`; asking for another person without that permission → 403.
+  Tasks counted: completed in the period (by `completed_at`, inclusive) in a completed stage (`bonus.completionStages`,
+  else every closed stage but Declined) — the asset-points route's rule; weeks are UTC Mondays. `person` = the tasks
+  they are assigned to (for asset points and awards: what they are credited with). Answer:
+  ```
+  { scope:"team"|"own", from, to, weeks:[Mondays], filters:{team,project,person,status}, rule:"completed_in_period", stages,
+    on:{enabled,hours,story,weighted,assets,kpi,okr,bonus}, primary, history, within:0.2,
+    throughput:{tasks, byWeek:[n]},
+    estimates?:{off?, verified:{tasks,estimateHours,actualHours,approved,accuracy:Acc,byWeek:[…|null]},
+                unverified:{…, why:{scope_changed,estimate_from_before,estimate_not_locked,time_from_before,actual_typed}},
+                notEstimated, noTimeLogged, blockedHours, timeLog},
+    velocity?:{off?, module, unit, total, scored, unscored, shared, byWeek:[{value,tasks}|null]},
+    sources?:{hours?|story?|weighted?:{off?, math,ai,manual,legacy,notScored,aiSuggested,manualChanges,changedTasks,tasks}},
+    review:{reviewed,firstPass,firstPassShare,approved,rounds,medianCycleHours,tasks,byWeek},
+    points?:{off?, approved:{base,bonus,awards,bonusShare}, pending:{base,bonus,awards}, other:{rejected,revoked,ineligible},
+             distribution:[{from,to,awards}×6], quality:{scored,average}, byWeek},
+    assets?:{off?, assets, assetsExact, points, validatedPoints, tasks, attributed, countUnvalidated, byWeek},
+    outcomes?:{off:{kpi,okr}, note:"own_periods", kpis?, objectives?},
+    people?:[{userId,name,tasks,loggedHours?,velocity?,basePoints?,bonusPoints?,pendingPoints?,assetPoints?}] }  // team scope, name order
+  Acc = {tasks, medianError, within, over, under, withinShare}   // shares 0–1 or null, never a made-up 0 %
+  ```
+  A verified pair is a locked estimate (approved or locked) with Actual from the time log and no legacy entries; the
+  rest is counted under `unverified` with its reasons. Time and points are never combined into one score, and people
+  are never ranked. The pure helpers are `require('./server/scoring-analytics').pure`.
 - `GET|POST|PUT|DELETE /api/outcomes[/:id]`, `POST /api/outcomes/:id/value`, `POST /api/tasks/:id/outcomes`,
   `DELETE /api/tasks/:id/outcomes/:linkId` (Phase 4 B) — `scoringManageOutcomes` for definitions and manual values.
 
