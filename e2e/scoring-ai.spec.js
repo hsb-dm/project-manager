@@ -48,7 +48,7 @@ function pipeline() {
 const ANSWER = o => Object.assign({ kind: "feed", deliverables: 5, factors: { complexity: 3, scope: 3, uncertainty: 2, dependencies: 1 }, hours: 6.5, storyPoints: 3, weightedPoints: 4.6, confidence: 0.8, explanation: "Five feed posts from one key visual; the first takes longest.", assumptions: ["One round of revision"], missing: ["The copy is not written yet"], comparables: [], outcomes: [] }, o || {});
 
 test.describe.serial("the AI's suggestion in the task panel", () => {
-  let page, ctx, original, P, me, made = [], mode = "pipeline", lastBody = null, delay = 0;
+  let page, ctx, original, prefs, P, me, made = [], mode = "pipeline", lastBody = null, delay = 0;
   const ROUTE = "**/api/tasks/*/scoring/ai";
   const intercept = async route => {
     const req = route.request(), id = decodeURIComponent(new URL(req.url()).pathname.split("/")[3]), body = req.postDataJSON() || {}, u = { id: me, role: "admin", caps: {}, teams: [], ledTeams: [] };
@@ -68,6 +68,7 @@ test.describe.serial("the AI's suggestion in the task panel", () => {
     page = await ctx.newPage();
     await signIn(page);
     me = await page.evaluate(() => ME);
+    prefs = await page.evaluate(() => ({ scoringPanelOpen: myPrefs().scoringPanelOpen, taskMoreDetailsOpen: myPrefs().taskMoreDetailsOpen }));
     original = await page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
     expect(original.enabled).toBe(false);
     await page.evaluate(async () => { const cur = (await apiFetch("GET", "/api/scoring/settings")).settings;
@@ -83,8 +84,9 @@ test.describe.serial("the AI's suggestion in the task panel", () => {
       if (task("T-new")) discardDraft(); closeDrawer();
       for (const id of o.made) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {});
       try { localStorage.removeItem("zc_scr_ai_hide"); } catch (e) {}
-      delete myPrefs().scoringPanelOpen; await saveMyPrefs();
-    }, { original, made });
+      /* this person's preferences as they were (the panel folded or open, More details open or not) */
+      Object.keys(o.prefs).forEach(k => { if (o.prefs[k] === undefined || o.prefs[k] === null) delete myPrefs()[k]; else myPrefs()[k] = o.prefs[k]; }); await saveMyPrefs();
+    }, { original, made, prefs });
     if (made.length) P.db.prepare("DELETE FROM scoring_ai_runs WHERE task_id IN (" + made.map(() => "?").join(",") + ")").run(...made);
     P.db.close();
     const back = await page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
