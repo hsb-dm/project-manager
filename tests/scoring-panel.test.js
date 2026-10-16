@@ -42,7 +42,9 @@ test('every word the panel shows has its Indonesian', () => {
   for (const m of JS.matchAll(/openModal\((?:mine\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrAfter\(tk,m,d,(?:proposed\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?\)/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrBtn\(tk,m,"\w+",(?:r\.proposal\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
-  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS]) Object.values(map).forEach(v => literals.add(v));
+  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS, c.SCR_AI_WARN, c.SCR_AI_GAPS, c.SCR_AI_NOTE]) Object.values(map).forEach(v => literals.add(v));
+  /* the AI's reason placeholders */
+  for (const m of JS.matchAll(/scrReasonField\(true,s\.far\?"((?:[^"\\]|\\.)*)":"((?:[^"\\]|\\.)*)"\)/g)) { literals.add(m[1]); literals.add(m[2]); }
   Object.values(c.SCR_LEVELS).forEach(l => l.forEach(v => literals.add(v)));
   assert.ok(literals.size > 120, 'the strings were found (' + literals.size + ')');
   const missing = [...literals].filter(s => !(s in c.UI_ID));

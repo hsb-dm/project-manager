@@ -203,12 +203,12 @@ test.describe.serial("the Scoring & Intelligence panel", () => {
     await expect(row(admin, "hours").locator('[data-scr-v="final"] [data-scr-src]')).toHaveText("Legacy");
     await expect(row(admin, "hours").locator("[data-scr-status]")).toHaveText("Unverified");
     await expect(row(admin, "hours").locator('[data-scr-v="math"] b')).toHaveText("—");
-    await expect(row(admin, "hours").locator('[data-scr-v="ai"]')).toContainText("Available in a later phase");
+    await expect(row(admin, "hours").locator('[data-scr-v="ai"]')).toContainText("Not asked yet");
     await expect(row(admin, "hours")).toContainText("5 deliverables");
-    /* an admin may do everything but ask the AI (later), and has nothing to re-baseline yet */
+    /* the server's `can` here leaves out asking the AI (e2e/scoring-ai.spec.js asks it), and there is nothing to re-baseline yet */
     for (const a of ["calculate", "change", "approve", "explain"]) await expect(act(admin, "hours", a)).toBeVisible();
     await expect(act(admin, "hours", "ai")).toBeDisabled();
-    await expect(act(admin, "hours", "ai")).toHaveAttribute("title", /later phase/);
+    await expect(act(admin, "hours", "ai")).toHaveAttribute("title", /needs the permission/);
     await expect(act(admin, "weighted", "ai")).toHaveCount(0);   /* math only */
     for (const a of ["propose", "rebaseline"]) await expect(act(admin, "hours", a)).toHaveCount(0);
 

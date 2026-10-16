@@ -96,11 +96,29 @@ function effortAskAi(id,probe,est){ var c=aiCfg(), ex=c.processing.workspaceCont
     var h=j&&+j.hours, t=task(id); if(!(h>0)||!t||taskMeta(t).effortManual||!canI.editTask(t)) return false; h=Math.min(40,h);
     var auto={src:"ai",basis:ex.length?"alike":"",n:ex.length,low:estRound(h),high:estRound(h),reason:String(j.reason||"").slice(0,200)};
     return editTaskWith(t,function(x){ if(taskMeta(x).effortManual) return; x.effort=estRound(h); taskMeta(x).effortAuto=auto; }); }).catch(function(){ return false; }); }
+/* With Smart Scoring and its Effort Hours on (Oct 2026), the workspace's "AI on create" (Settings → Smart Scoring)
+   decides: off, the AI is not asked on Create; on (and Effort Hours not "math only"), it is asked through Smart
+   Scoring's own route — the server builds the prompt from the task, checks the answer against the calculation and
+   counts it against the workspace's quota — and the answer fills the Estimate as before, only when it is not far from
+   the calculation and the AI is sure enough (else it waits in the task's Scoring & Intelligence for a person to take
+   it). With Smart Scoring off, exactly as before. */
+function effortAiRoute(){ if(typeof scoringOn!=="function"||!scoringOn()||typeof scoringModuleOn!=="function"||!scoringModuleOn("hours")) return "chat";
+  var s=typeof scoringSettings==="function"?scoringSettings():null; return s&&s.ai&&s.ai.onCreate&&scoringMode("hours")!=="math_only"?"scoring":"none"; }
+function effortAskScoring(id,est){
+  return apiFetch("POST","/api/tasks/"+encodeURIComponent(id)+"/scoring/ai",{module:"hours",trigger:"create",comparables:est&&est.ids?est.ids.slice(0,5):[],lang:UI_LANG==="id"?"id":"en"}).then(function(d){ var t=task(id); if(!t||!d) return false;
+    if(d.task&&typeof hTask==="function"){ var keep=t.scoring; replaceInto(t,hTask(d.task)); if(!t.scoring&&keep) t.scoring=keep; }
+    if(typeof scrStore==="function") scrStore(id,d,"hours");
+    var st=d.aiResult&&d.aiResult.status, a=d.ai&&d.ai.rows&&d.ai.rows.hours, row=d.rows&&d.rows.hours;
+    if((st!=="ok"&&st!=="cached")||!a||a.far||a.lowConfidence||a.stale||!(+a.value>0)) return false;
+    if(row&&(row.locked||row.status==="proposed"||row.source==="manual")||taskMeta(t).effortManual||!canI.editTask(t)) return false;
+    /* kept within reason: a suggestion past a working week is read as a full week (it was asked for one task) */
+    var h=Math.min(40,+a.value), n=(a.comparables||[]).length, auto={src:"ai",basis:n?"alike":"",n:n,low:estRound(h),high:estRound(h),reason:String(a.explanation||"").slice(0,200)};
+    return editTaskWith(t,function(x){ if(taskMeta(x).effortManual) return; x.effort=estRound(h); taskMeta(x).effortAuto=auto; }); }).catch(function(){ return false; }); }
 (function(){ if(typeof createDraft!=="function") return; var base=createDraft; createDraft=function(){ var tk=task("T-new"), want=null;
   if(tk) try{ var el=document.querySelector(".dr-title"), probe=Object.assign({},tk,{title:String((el&&el.textContent)||tk.title||"").trim()}), est=effortEstimate(probe);
-    if(effortApply(tk,est)&&effortWantsAi(est)&&effortAiOk()) want={probe:probe,est:est}; }catch(e){ console.error(e); }
+    if(effortApply(tk,est)&&effortWantsAi(est)&&effortAiOk()) want={probe:probe,est:est,route:effortAiRoute()}; }catch(e){ console.error(e); }
   var out=base.apply(this,arguments);
-  if(want&&out&&typeof out.then==="function") out.then(function(t){ if(t&&t.id) effortAskAi(t.id,want.probe,want.est); });
+  if(want&&want.route!=="none"&&out&&typeof out.then==="function") out.then(function(t){ if(t&&t.id){ if(want.route==="scoring") effortAskScoring(t.id,want.est); else effortAskAi(t.id,want.probe,want.est); } });
   return out; }; })();
 
 Object.assign(UI_ID,{"auto":"otomatis","Filled in automatically":"Diisi otomatis","Estimated by AI":"Diperkirakan oleh AI","Examples":"Contoh","similar task":"task serupa","similar tasks":"task serupa",

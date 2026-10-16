@@ -70,6 +70,23 @@ function chatText(kind, j) {
   return direct || (typeof choice === "string" ? choice : Array.isArray(choice) ? choice.map(x => x && (x.text || x.content || "")).join("") : "");
 }
 
+/* The tokens a reply cost, where the provider says (Oct 2026, Smart Scoring's cost log, server/scoring-ai.js):
+   { in, out } — whole numbers, null when the provider did not give one. Anthropic usage.input_tokens / output_tokens,
+   Gemini usageMetadata.promptTokenCount / candidatesTokenCount (+ thoughtsTokenCount, which is billed as output),
+   Responses usage.input_tokens / output_tokens, Chat Completions usage.prompt_tokens / completion_tokens; a reply of
+   another shape is read by whichever of those names it carries. */
+function chatUsage(kind, j) {
+  j = j || {};
+  const n = v => { const x = typeof v === "string" && v.trim() !== "" ? Number(v) : v; return typeof x === "number" && Number.isFinite(x) && x >= 0 ? Math.round(x) : null; };
+  const sum = (a, b) => (a === null && b === null ? null : (a || 0) + (b || 0));
+  const g = j.usageMetadata, u = j.usage && typeof j.usage === "object" ? j.usage : null;
+  if ((kind === "gemini" || !u) && g && typeof g === "object") return { in: n(g.promptTokenCount), out: sum(n(g.candidatesTokenCount), n(g.thoughtsTokenCount)) };
+  if (!u) return { in: null, out: null };
+  const first = (...ks) => { for (const k of ks) { const v = n(u[k]); if (v !== null) return v; } return null; };
+  if (kind === "chat") return { in: first("prompt_tokens", "input_tokens"), out: first("completion_tokens", "output_tokens") };
+  return { in: first("input_tokens", "prompt_tokens"), out: first("output_tokens", "completion_tokens") };
+}
+
 /* The hosts the server sends a workspace's AI key to: the providers people use, any Azure OpenAI resource, and
    whatever the server's COS_AI_ALLOWED_HOSTS adds. Nothing else — an admin cannot point the key at any address. */
 const AI_HOSTS = ["api.anthropic.com", "generativelanguage.googleapis.com", "api.openai.com", "ai.sumopod.com", "openrouter.ai",
@@ -77,4 +94,4 @@ const AI_HOSTS = ["api.anthropic.com", "generativelanguage.googleapis.com", "api
   "api.cerebras.ai", "api.moonshot.ai", "api.cohere.com", "api.magnific.ai", "api.magnific.com", "api.freepik.com"];
 function allowedAIHost(hostname, extra) { const h = String(hostname || "").toLowerCase(); return AI_HOSTS.includes(h) || isAzure(h) || (extra || []).includes(h); }
 
-module.exports = { chatRequest, chatText, isResponsesEndpoint, chatCompletionsUrl, allowedAIHost, AI_HOSTS };
+module.exports = { chatRequest, chatText, chatUsage, isResponsesEndpoint, chatCompletionsUrl, allowedAIHost, AI_HOSTS };

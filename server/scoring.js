@@ -16,8 +16,10 @@
    scoring analytics. For whoever manages roles; nothing else about the roles changes; audited.
 
    A TASK'S SCORES. Each task has at most one row per module in task_scoring — Effort Hours, Story Points, Weighted
-   Points — with the math, the AI's suggestion (a later phase), the final value, where the final value came from (math,
-   AI, manual, legacy), its status and its lock. GET /api/tasks/:id/scoring gives the rows, the last fifty changes and
+   Points — with the math, the AI's suggestion (server/scoring-ai.js writes only that), the final value, where the final
+   value came from (math, AI, manual, legacy), its status and its lock. A person takes the AI's suggestion with
+   {use:"ai"} — set, or proposed, as any other change — never onto a locked score, and only while it was made for the
+   task as it is now. GET /api/tasks/:id/scoring gives the rows, the last fifty changes and
    what the caller may do with them. Calculate works the math out with shared/scoring-engine.js on the server, from the
    task itself: the kind of work its title names, its asset count as the deliverables, the complexity rating, and its
    open dependencies; Story and Weighted Points from four 1–5 ratings, the Scope rating suggested from the asset count
@@ -294,6 +296,14 @@ module.exports = function scoring(db, WS_ID, d) {
   }
   /* the estimator's mark for an estimate taken from the math: "typical for this kind, n deliverables" */
   const mathMarks = row => { const mi = parse(row && row.math_inputs, {}) || {}, inp = mi.inputs || {}; const v = row && row.math_value != null ? halfHour(row.math_value) : null; return inp.kind && v ? { src: "kind", basis: "", n: 0, low: mi.low != null ? halfHour(mi.low) : v, high: mi.high != null ? halfHour(mi.high) : v, reason: "", kind: inp.kind, items: inp.units || 1 } : "manual"; };
+  /* the estimator's mark for an estimate taken from the AI's suggestion (server/scoring-ai.js gives a fuller one) */
+  const aiMarks = v => ({ src: "ai", basis: "", n: 0, low: halfHour(v), high: halfHour(v), reason: "" });
+  /* where a final value taken from {use} comes from, and the task's mark for it (hours) */
+  const sourceOfUse = use => (use === "math" ? "math" : use === "ai" ? "ai" : "manual");
+  const marksOfUse = (use, row, v) => (use === "math" ? mathMarks(row) : use === "ai" ? aiMarks(v) : "manual");
+  /* server/scoring-ai.js: whether a row's AI suggestion may be taken now — fn(row, task, module, settings) →
+     {ok, status?, error?, far?, marks?}; without it {use:"ai"} is refused */
+  let aiGuard = null;
   function sourceFromMeta(meta, dflt) {
     const a = meta && meta.effortAuto;
     if (a && a.src === "ai") return "ai";
@@ -463,6 +473,19 @@ module.exports = function scoring(db, WS_ID, d) {
     ["task_scoring", "task_time_entries", "task_efficiency_awards", "task_outcome_links"].forEach(tb => { try { db.prepare("DELETE FROM " + tb + " WHERE task_id=?").run(taskId); } catch (e) { /* a table this database does not have */ } });
   }
 
+  /* The AI's suggestion for a score (server/scoring-ai.js): only ai_value and ai_run_id are written — never the final
+     value, the status, the lock or the ratings; a score with no row yet gets a draft without a final value. The row's
+     revision goes up (other open copies reload it), the task is touched, and it is audited as "ai_suggested". Nothing
+     is written when the row already holds this suggestion. Inside the caller's transaction. */
+  function setAiSuggestion(taskId, m, value, runId, actor, meta) {
+    const row = readRow(taskId, m);
+    if (row && row.ai_value === value && (row.ai_run_id || null) === (runId || null)) return { row, changed: false };
+    const next = saveRow(taskId, m, row, { ai_value: value, ai_run_id: runId || null }, actor ? actor.id : null, settings());
+    touch(taskId);
+    auditRow(taskId, m, "ai_suggested", actor, row, next, "", meta || {});
+    return { row: next, changed: true };
+  }
+
   /* ---------- the routes ---------- */
   /* writes: the server's feature, the workspace's master switch and the module must be on */
   function writable(m) {
@@ -478,13 +501,27 @@ module.exports = function scoring(db, WS_ID, d) {
     if (!/^\d{1,9}$/.test(String(b.rev))) throw new HttpError(400, "rev is the score's revision, a whole number");
     return +b.rev;
   }
-  /* the value a change sends: {value}, {ratings} (Story and Weighted Points) or {use:"math"} (the calculated value) */
-  function valueFrom(m, b, row, s) {
+  /* the value a change sends: {value}, {ratings} (Story and Weighted Points), {use:"math"} (the calculated value) or
+     {use:"ai"} (the AI's suggestion, server/scoring-ai.js) — never onto a locked score, never one the AI's answer did not
+     give, never one made for the task as it was before (the AI module's check says so) */
+  function valueFrom(m, b, row, s, t) {
     if (b.use === "math") {
       if (!row || row.math_value == null) throw new HttpError(400, "Calculate it first: there is no math value to use.");
       return { value: m === "hours" ? halfHour(row.math_value) : row.math_value, ratings: null, use: "math" };
     }
-    if (b.use !== undefined && b.use !== null) throw new HttpError(400, "Only the math value can be used here (use: \"math\")");
+    if (b.use === "ai") {
+      if (!row || row.ai_value == null) throw new HttpError(400, "There is no AI suggestion to use yet: ask the AI first.");
+      if (LOCKED.has(row.status)) throw new HttpError(409, NAME[m] + " is locked, so the AI's suggestion is not applied to it. Re-baseline it, with a reason, to change it.");
+      const chk = aiGuard ? aiGuard(row, t, m, s) : null;
+      if (!chk) throw new HttpError(409, "AI suggestions are not available on this server.");
+      if (!chk.ok) throw new HttpError(chk.status || 409, chk.error || "The AI's suggestion cannot be used.");
+      let value = engine.round2(row.ai_value);
+      if (m === "hours") value = Math.min(s.hours.bounds.max, Math.max(s.hours.bounds.min, halfHour(value)));
+      else if (m === "story") { if (engine.STORY_SCALE.indexOf(value) < 0) throw new HttpError(400, "The AI's suggestion could not be used: story points are 1, 2, 3, 5, 8 or 13."); }
+      else value = Math.min(s.weighted.scaleMax, Math.max(1, value));
+      return { value, ratings: null, use: "ai", far: !!chk.far, marks: chk.marks || null, runId: row.ai_run_id || null };
+    }
+    if (b.use !== undefined && b.use !== null) throw new HttpError(400, "Only the math value or the AI's suggestion can be used here (use: \"math\" or \"ai\")");
     if (isObj(b.ratings) && m !== "hours") {
       const given = {}; engine.FACTORS.forEach(f => { try { const v = rating(b.ratings[f], f); if (v !== null) given[f] = v; } catch (e) { throw new HttpError(400, e.message); } });
       const r = m === "story" ? engine.storyPoints(s.story, given) : engine.weightedPoints(s.weighted, given);
@@ -586,20 +623,24 @@ module.exports = function scoring(db, WS_ID, d) {
       if (m === "hours") rows.hours = syncHours(t, rows.hours, s, null, { via: "sync" });
       const row = rows[m];
       if ((row ? row.rev : 0) !== rev) throw new HttpError(409, STALE);
-      const v = valueFrom(m, b, row, s);
+      const v = valueFrom(m, b, row, s, t);
+      /* a suggestion far from the calculation is taken only by someone who says why, whatever the reason policy */
+      if (v.use === "ai" && v.far && !reason) throw new HttpError(400, "The AI's suggestion is far from the calculation: say why you take it.");
+      const aiMeta = v.use === "ai" ? { aiRunId: v.runId, far: v.far } : {};
       if (direct) {
         const locked = !!row && LOCKED.has(row.status);
-        const changes = { final_value: v.value, source: v.use === "math" ? "math" : "manual", proposal: null, status: "draft" };
+        const changes = { final_value: v.value, source: sourceOfUse(v.use), proposal: null, status: "draft" };
         if (v.ratings) changes.factors = J(v.ratings);
         if (locked) Object.assign(changes, { status: "locked", locked_value: v.value, locked_at: now(), locked_by: u.id, approved_by: null, approved_at: null, scope_fingerprint: J(scopeOf(t)) });
         const next = saveRow(t.id, m, row, changes, u.id, s);
-        if (m === "hours") writeEffort(t.id, v.value, v.use === "math" ? mathMarks(next) : "manual"); else touch(t.id);
-        auditRow(t.id, m, locked ? "locked_changed" : "changed", u, row, next, reason, { via: "scoring", use: v.use || "value", approvalCleared: locked && !!row.approved_by, proposalSuperseded: !!(row && row.proposal) });
+        if (m === "hours") writeEffort(t.id, v.value, v.use === "math" ? mathMarks(next) : v.use === "ai" ? (v.marks || aiMarks(v.value)) : "manual"); else touch(t.id);
+        auditRow(t.id, m, locked ? "locked_changed" : "changed", u, row, next, reason, Object.assign({ via: "scoring", use: v.use || "value", approvalCleared: locked && !!row.approved_by, proposalSuperseded: !!(row && row.proposal) }, aiMeta));
       } else {
         const proposal = { value: v.value, ratings: v.ratings || null, use: v.use || null, by: u.id, at: now(), reason };
+        if (v.use === "ai") proposal.aiRunId = v.runId;
         const changes = { proposal: J(proposal) }; if (!row || !LOCKED.has(row.status)) changes.status = "proposed";
         const next = saveRow(t.id, m, row, changes, u.id, s); touch(t.id);
-        auditRow(t.id, m, "proposed", u, row, next, reason, { value: v.value, use: v.use || "value" });
+        auditRow(t.id, m, "proposed", u, row, next, reason, Object.assign({ value: v.value, use: v.use || "value" }, aiMeta));
       }
     });
     afterTaskWrite(t.id, u, { via: "scoring" });
@@ -623,7 +664,7 @@ module.exports = function scoring(db, WS_ID, d) {
       let value = row ? row.final_value : null, source = row ? row.source : null, factors, marks = null;
       if (b.useProposal) {
         const pr = row && parse(row.proposal, null); if (!pr) throw new HttpError(400, "There is no proposed change to accept.");
-        value = pr.value; source = pr.use === "math" ? "math" : "manual"; factors = pr.ratings; marks = pr.use === "math" ? mathMarks(row) : "manual";
+        value = pr.value; source = sourceOfUse(pr.use); factors = pr.ratings; marks = marksOfUse(pr.use, row, pr.value);
       }
       if (!(value > 0)) throw new HttpError(400, "There is no estimate to approve yet: calculate or enter one first.");
       /* a baseline frozen when work started keeps when it was frozen: approved later, it was not approved before work */
@@ -656,9 +697,9 @@ module.exports = function scoring(db, WS_ID, d) {
       let value = row.final_value, source = row.source, factors = null, marks = null;
       if (b.useProposal) {
         const pr = parse(row.proposal, null); if (!pr) throw new HttpError(400, "There is no proposed change to accept.");
-        value = pr.value; source = pr.use === "math" ? "math" : "manual"; factors = pr.ratings; marks = pr.use === "math" ? mathMarks(row) : "manual";
+        value = pr.value; source = sourceOfUse(pr.use); factors = pr.ratings; marks = marksOfUse(pr.use, row, pr.value);
       } else if (b.value !== undefined || b.ratings !== undefined || b.use !== undefined) {
-        const v = valueFrom(m, b, row, s); value = v.value; source = v.use === "math" ? "math" : "manual"; factors = v.ratings; marks = v.use === "math" ? mathMarks(row) : "manual";
+        const v = valueFrom(m, b, row, s, t); value = v.value; source = sourceOfUse(v.use); factors = v.ratings; marks = marksOfUse(v.use, row, v.value);
       }
       if (!(value > 0)) throw new HttpError(400, "Say the new baseline (value).");
       const at = now();
@@ -694,7 +735,14 @@ module.exports = function scoring(db, WS_ID, d) {
     extendView: fn => { if (typeof fn === "function") extenders.push(fn); },
     liveCollection: (kind, fn) => { if (typeof fn === "function") live[kind] = fn; },
     liveRead: (kind, u) => (Object.prototype.hasOwnProperty.call(live, kind) ? live[kind](u) : null),
-    sweep, backfill, kindOf, scopeFromAssets
+    sweep, backfill, kindOf, scopeFromAssets,
+    /* for server/scoring-ai.js: the checks and answers of the task scoring routes, the task as the scores read it, the
+       suggestion write, and the check {use:"ai"} asks of it */
+    ai: {
+      guard: fn => { aiGuard = typeof fn === "function" ? fn : null; },
+      requireFeature: on, taskOr404, moduleParam, writable, liteTask, readRows, openDeps, answer, setSuggestion: setAiSuggestion,
+      completed: statusId => completedStage(statusId, settings()), isAssignee, LOCKED, NAME
+    }
   };
 };
 module.exports.calculate = calculate;

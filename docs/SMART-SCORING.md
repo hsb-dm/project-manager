@@ -1,6 +1,6 @@
 # Smart Scoring & Intelligence — the build contract
 
-Status: **Phase 0 + Phase 1 B + Phase 1 A done** (Oct 2026): schema, permissions, settings model, settings routes, the
+Status: **Phase 0 + Phase 1 B + Phase 1 A done, Phase 2 A/C (the AI's suggestions, §5.4) done** (Oct 2026): schema, permissions, settings model, settings routes, the
 Settings → Smart Scoring tab, the roles UI, empty browser modules for the later phases, and the server side of a task's
 scores (§5.2: the task scoring routes, the guards on the task's own writes, the re-evaluation after every task write and
 its sweep, the projection on task documents, the backfill). **Phase 3 A done** (Oct 2026): the efficiency bonus — its
@@ -392,7 +392,7 @@ Body `{ module: "hours", inputs?: { kind?, units?, complexity? } }` or `{ module
 
 #### 5.2.3 `PUT /api/tasks/:id/scoring/:module` — `scoringEditTask` sets it, `scoringPropose` proposes
 
-Body `{ value | ratings | use: "math", reason, rev }`. Hours: `value` within `settings.hours.bounds` (2 decimals);
+Body `{ value | ratings | use: "math" | use: "ai" (§5.4), reason, rev }`. Hours: `value` within `settings.hours.bounds` (2 decimals);
 story: one of 1, 2, 3, 5, 8, 13 or `ratings` (all four, mapped by the engine); weighted: 1–`scaleMax` (2 decimals) or
 `ratings`; `use:"math"` takes the row's `mathValue` (400 when there is none; hours to the half hour). `reason` required
 while `overrides.requireReason` (default) → 400 "Say why the score changes: a reason is required."
@@ -429,7 +429,8 @@ estimate." (admins too) unless `overrides.allowSelfApproveEstimate` (then audite
 (`meta {via: "scoring"|"task"|"restore"|"sync"|…, approvalCleared, unlocked}`), `estimate_set` / `estimate_changed`
 (the hours row following the task's Estimate, `meta.via`), `frozen_at_work_start` (`meta {trigger: "stage"|"time",
 stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `scope_restored`, `scope_recorded`,
-`removed_with_task` (§4), `backfilled` (task NULL, `meta {counts}`), and module `efficiency` `reopened` (`meta
+`removed_with_task` (§4), `backfilled` (task NULL, `meta {counts}`), `ai_suggested` (§5.4: only the AI value
+changed, `meta {runId, far, confidence, trigger, cached?}`), and module `efficiency` `reopened` (`meta
 {awards, stage}`). `by` NULL = done by the server (a sweep, a catch-up).
 
 #### 5.2.6 The task's own writes (server.js hook points) and the re-evaluation
@@ -486,8 +487,7 @@ stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `
 
 ### 5.3 Planned (plan §3.5). Permission → body → answer.
 
-- `POST /api/tasks/:id/scoring/ai` (Phase 2 A) — `scoringRequestAi`, or `trigger:"create"` when `ai.onCreate` → math
-  fallback with a reason when AI is off / out of quota / invalid. Never sets final on approved/locked/manual rows.
+- `POST /api/tasks/:id/scoring/ai` (Phase 2 A) — **built: §5.4**.
 - `GET|POST /api/tasks/:id/time`, `PUT|DELETE /api/tasks/:id/time/:entryId` (Phase 3a D) — `logTime` for one's own
   entries; others' only with `scoring_edit_task` and a reason; audited.
 - `POST /api/tasks/:id/efficiency/recalculate|approve|reject` (Phase 3 A) — **built, see §13.5**.
@@ -521,6 +521,130 @@ stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `
   are never ranked. The pure helpers are `require('./server/scoring-analytics').pure`.
 - `GET|POST|PUT|DELETE /api/outcomes[/:id]`, `POST /api/outcomes/:id/value`, `POST /api/tasks/:id/outcomes`,
   `DELETE /api/tasks/:id/outcomes/:linkId` (Phase 4 B) — `scoringManageOutcomes` for definitions and manual values.
+
+### 5.4 The AI's suggestions — built (Phase 2 A/C, `server/scoring-ai.js`)
+
+The AI suggests; people decide. A run writes **only** `task_scoring.ai_value` and `ai_run_id` (a score with no row yet
+gets a draft row without a final value) — never the final value, the status, a lock, an approval, a proposal, the
+ratings, a bonus or a KPI's progress. Every run is one `scoring_ai_runs` row.
+
+**`POST /api/tasks/:id/scoring/ai`** — `can.scoringRequestAi`; or, with `trigger:"create"` while `ai.onCreate`, the
+task's creator or anyone working on it (`can.scoringPropose`), within 10 minutes of its creation, once per task.
+
+Body `{ module?: "hours"|"story"|"weighted"|"all" (default "all"), trigger?: "ask" (default)|"create"|"brief_revision",
+comparables?: [taskId] (≤ 20 read, ≤ 5 used), lang?: "en"|"id" (the language the AI writes its explanation in) }`.
+
+Order of checks: `COS_SCORING=0` → 409; unknown task → 404; bad `trigger` → 400; unknown module → 400; permission → 403;
+master switch off → 409; the module off → 409 (§5.2); the module **"math only"** → 409 "<Effort Hours|…> is set to math
+only in Smart Scoring, so the AI is not asked for it. An admin can change that in Settings → Smart Scoring." (`"all"`:
+the modules on and not math only; none → 409). Past those, the AI itself never fails the request — **200** with the
+view (§5.2.1, with `ai` below), `task`, and:
+
+```
+aiResult = { status: "ok"|"cached"|"invalid"|"error"|"timeout"|"quota"|"off",
+  reason: null | "cached" | "external_off" | "not_configured" | "quota_user" | "quota_workspace" | "invalid_reply"
+          | "timeout" | "provider_error",
+  message,                      // plain English; the panel words it itself from `reason`
+  runId, cachedFrom?, at?, trigger, modules, stored /* modules whose AI value changed */, missingModules /* asked, no usable value */,
+  suggestion /* validateAi's value */ | null, errors /* validateAi's sentences */, math: { <module>: {value, reason} } /* what
+  Calculate gives now — not stored */, gaps: ["no_description"|"no_brief"|"no_deliverables"|"no_kind"], hash, configVersion,
+  promptVersion, ms?, provider?, model?, usage?: {in, out}, examples? /* finished tasks sent */, error?, quota: Quota }
+Quota = { window: "24h", user: {used, limit, left, resetAt} | null /* trigger "create": not the person's */, workspace: {…} }
+```
+
+`ai` in every view (`GET …/scoring` and every write's answer, through `scoring.extendView`):
+
+```
+ai = { on, modules /* on and not math only */, modes: {hours, story, weighted}, external /* processing.externalEnabled */,
+  context /* workspaceContextEnabled && ai.comparables !== "none" */, onCreate, onBriefRevision, minConfidence, promptVersion,
+  hash /* of what the AI is told now */, gaps, rows: { hours: Suggestion|null, story, weighted },
+  last: { id, status, reason, trigger, at, by, requestedBy, background, stale } | null   /* the task's latest run */,
+  quota: Quota /* user part only for scoring_request_ai holders */ }
+Suggestion = { module, value /* row.aiValue */, runId, at, by, requestedBy, trigger, background, confidence /* the AI's */,
+  shownConfidence /* × 0.6 when far */, lowConfidence /* shown < ai.minConfidence, or none given */,
+  far: true|false|null /* null: nothing calculated to compare with */, math, mathSource: "score"|"calculation"|null, stale,
+  explanation, assumptions, missing, factors, kind, deliverables, comparables,
+  warnings: [{ code: "far" (math, ratio|steps|diff) | "no_math" | "low_confidence" (confidence, min) | "no_confidence"
+               | "stale" | "kind_differs" (ai, title) | "deliverables_differ" (ai, task) }],
+  acceptable /* not locked, not stale, its run ok */, reasonRequired /* far, or overrides.requireReason */ }
+```
+
+**Far from the calculation** (the "make sense" rule): against the score's math value, else what Calculate gives at the
+run — hours outside ×0.5–×2 (exactly ×0.5 and ×2 are near), story points more than one step apart on 1, 2, 3, 5, 8, 13,
+weighted points more than 3 apart. Far → the shown confidence is the AI's × 0.6, taking it needs a reason (whatever
+`requireReason` says), and nothing takes it by itself.
+
+**Taking it** — `PUT /api/tasks/:id/scoring/:module {use:"ai", reason, rev}` (§5.2.3 extended): set for
+`scoring_edit_task` holders (final = the AI value — hours to the half hour within the bounds — `source "ai"`; hours write
+the task's Estimate with `meta.effortAuto = {src:"ai", basis, n, low, high, reason}`), proposed for anyone else on the
+task (`proposal.use "ai"`, `proposal.aiRunId`). Refused: no AI value → 400 "There is no AI suggestion to use yet: ask the
+AI first."; a **locked** score (approved, locked, rebaseline_needed) → 409 "<Name> is locked, so the AI's suggestion is
+not applied to it. Re-baseline it, with a reason, to change it." (also through a re-baseline's `use:"ai"`); its run not
+`ok` or without a value for the module → 400 "…its answer was not valid. Ask the AI again."; **stale** — the task's AI
+input hash, the settings' `configVersion` or the prompt version differ from the run's → 409 "The task changed since the
+AI's suggestion: ask the AI again first."; far without a reason → 400. Audited as `changed`/`locked_changed`/`proposed`
+with `meta {use:"ai", aiRunId, far}`. Approving or re-baselining an AI proposal (`useProposal`) keeps `source "ai"`.
+The run's suggestion itself is audited as **`ai_suggested`** (`meta {runId, far, confidence, trigger, cached?}`).
+
+**What the AI is told** (built on the server, `buildPrompt`; `pure.cleanText` takes links → `[link]`, e-mail addresses →
+`[e-mail]`, markup and angle brackets out, spaces collapsed): the title (≤ 200), the kind the title names, the deliverable
+count (`asset_count`), the team's name, the label names, the brief template's name and its fields by their labels (each
+≤ 300, ≤ 1 500 in all, ≤ 14), the description ≤ 800; the workspace's own hour templates as a yardstick, the rating scale,
+the story scale and the weighted weights; finished tasks like it — `[id] "title": hours (logged, else the estimate),
+deliverables`, ≤ 5, only of this workspace, finished (`bonus.completionStages`, else closed but not Declined), of the
+task's team when `ai.comparables` is `"team"`, only while `workspaceContextEnabled` (and never when `"none"`). The task's
+text is fenced (`<task>…</task>`) and the system message says it is data, never instructions. The reply asked for: exactly
+validateAi's keys as JSON; extracted from plain JSON, a fenced block or the first balanced `{…}` (a trailing comma
+forgiven); `comparables` kept only among the examples sent; `outcomes` dropped (not asked yet). Nothing is sent while
+`processing.externalEnabled` is off (`status "off"`, the math stands).
+
+**The model call**: `aiConf("chat")` → `chatRequest` → `aiFetch(…, "Chat", 30000)` → `chatText` / **`chatUsage(kind, json)`**
+(`server/ai-chat-format.js`: `{in, out}` from Anthropic `usage.input_tokens/output_tokens`, Gemini
+`usageMetadata.promptTokenCount` / `candidatesTokenCount + thoughtsTokenCount`, Responses `usage.input_tokens/output_tokens`,
+Chat Completions `usage.prompt_tokens/completion_tokens`; null where not given); once more after a timeout or a 5xx; awaited
+outside any transaction. Injectable: `deps.callModel(prompt, info) → {text, usage, provider, model}` or `deps.aiConf` /
+`deps.aiFetch`.
+
+**Runs** (`scoring_ai_runs`): `status` ok | invalid | error (`external AI processing is off` and a missing chat model are
+errors with `ms` NULL) | timeout | quota | cached; `recommendation` JSON `{value, errors, sent /* what was sent, example ids
+*/, math, raw /* invalid: the reply, ≤ 2 000 */, attempts, requestedBy, background, lang, modules, reason?, cachedFrom?}`;
+`confidence`, `tokens_in/out`, `provider`, `model`, `ms`, `error`. `security.log("scoring_ai_requested", {userId,
+requestedBy, taskId, trigger, status, modules, ms, provider, model, tokensIn, tokensOut, examples, cachedFrom})`.
+
+**Cache**: the latest `ok` run with the same `(task_id, input_hash, config_version, prompt_version)` answers (a `cached`
+row pointing at it, its values stored if missing); two asks at once wait for one call. `input_hash` =
+`ScoringEngine.inputHash({title, description, brief, deliverables, labels, team})` of what the AI is told (cleaned text,
+label and team names), so a link edited in the description or a change of case is not a change.
+
+**Quotas**: rolling 24 hours, counted from runs that asked the model (`ok|invalid|error|timeout` with `ms` set; cached
+runs and refusals never): `ai.perUserDaily` counts the person's `ask` and `brief_revision` asks, `ai.workspaceDaily`
+everything (create and background runs included). Out → `status "quota"`, `reason "quota_user"|"quota_workspace"`,
+`quota.*.resetAt` when the oldest counted run leaves the window; `left` is never below 0.
+
+**"AI on brief revision"** (`ai.onBriefRevision`): registered with `scoring.onTaskWritten`; after a task write (not
+`via "scoring"`, not a creation) of a task whose latest answered run (`ok|cached`) is for another hash, a run is
+scheduled 60 s after the last such write (debounced per task, `deps.debounceMs`), then `setImmediate`, outside any
+transaction: the modules on and not math only, `trigger "brief_revision"`, `user_id` NULL (`requestedBy` = the editor),
+the earlier run's examples again, counted against the workspace's quota; `bumpData()` and `task_changed` after it.
+
+**Browser**: the panel row (§8) and `src/effort-estimate.js` — with Smart Scoring and Effort Hours on, the Create-time AI
+call goes here (`{module:"hours", trigger:"create", comparables: effortEstimate().ids}`) when `ai.onCreate` is on (and
+Effort Hours is not math only), and nowhere when it is off; the answer fills the Estimate as before (`effortAuto.src
+"ai"`, at most 40 h) only when it is `ok|cached`, not far, not low confidence, not stale, and the hours row is not locked,
+proposed or manual. Smart Scoring off: the old `/api/ai/chat` call, exactly as before.
+
+**Deviations** (decided here): the AI's factor ratings stay with the run (shown in the panel), not in
+`task_scoring.factors` — Calculate reads that column as the task's own ratings, and an AI rating would become a math input
+unseen; a low-confidence answer is not put into the Estimate on Create (it waits in the panel) — today's estimator took any
+answer; `trigger:"brief_revision"` sent by a page counts as the person's ask; outcome links are not asked for yet.
+
+`module.exports(db, WS_ID, {scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, aiConf, aiFetch,
+bumpData, announce, callModel?, debounceMs?})` → `{ suggest(u, taskId, {modules, trigger, comparables, lang, background,
+requestedBy}), runBackground(taskId, editorId), taskInput(id), hashOf(input), usage(userId, settings), pending(),
+PROMPT_VERSION }`; `module.exports.pure = { cleanText, extractJson, farFrom, shownConfidence, buildPrompt, gapsOf, FAR,
+PROMPT_VERSION, LIMITS, MESSAGES }`. It uses `scoring.ai` (server/scoring.js): `guard(fn)` (the `use:"ai"` check),
+`requireFeature`, `taskOr404`, `moduleParam`, `writable`, `liteTask`, `readRows`, `openDeps`, `answer`,
+`setSuggestion(taskId, module, value, runId, actor, meta)`, `completed(statusId)`, `isAssignee`, `LOCKED`, `NAME`.
 
 ---
 
@@ -631,7 +755,7 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 | `src/scoring-core.js` | Phase 0 | `scoringFeature()` (server flag; always true in the offline demo), `scoringSettings()`, `scoringOn()` (= feature && settings.enabled), `scoringModuleOn(id)`, `scoringMode(id)`, `scoringPrimary()`, the `canI.scoring*` mirror, `scoringLoad()`, `scoringSave(next, version)`, `scoringDelegateLeads()` (all with demo-mode fallbacks), `scoringLeadsMissing()`, `SCORING_CAPS`, `SCORING_LEAD_CAPS`, `I.gauge`. Wraps `settingsTabAllowed` (tab hidden when the server has the feature off) and `dTask` (never sends `scoring` back through `PUT /api/tasks`). |
 | `src/scoring-settings.js` | Phase 1 B | `setScoring()` — the Settings tab (dispatch in `renderSettings`), draft state `SC`, save with 409 reload, the role-modal warning `scoringDutyWarn()`. Phase 3 B adds the live bonus policy here. Phase 4 B adds outcome definitions here. |
 | `src/scoring-assets.js` | wave 2 (asset points) | points for assets produced: the panel row, the Settings section, the period figures and their view (§11). |
-| `src/scoring-panel.js` | Phase 1 C | The task's Scoring & Intelligence panel under the Effort line on the Brief tab (wraps `effortHtml`, which takes an optional third argument `{lock, lockIcon, actualRo}`; without it, and whenever `scoringOn()` is false, the line is byte-for-byte as before; `.enh-blocks` stays Brief-tab only). Folded by default, `myPrefs().scoringPanelOpen` per person. Rows per module on: math, AI (Phase 2), final/locked with provenance and status, last change; buttons from the `can` of `GET /api/tasks/:id/scoring` (the `canI` mirror until it answers); drawn from `tk.scoring` + `SCR.cache` first, fetched on open or when the summaries/estimate/assets change, redrawn in place (`scrPaint`). `scoringEstimateLock(tk)` → `{by, at, value, approved, title}` or null — src/drawer.js, src/tasks.js and the Effort line grey out the Estimate with it. Hooks, each called only if defined: `scoringTimeRowHtml(tk)` (under the hours row; Actual becomes read-only while it returns HTML), `scoringAssetsRowHtml(tk)`, `scoringOutcomesRowHtml(tk)`, Phase 3 `scoringEfficiencyLineHtml(tk, efficiency)`. The offline demo answers the routes in the page (`scrDemo`). Tests: `tests/scoring-panel.test.js`, `e2e/scoring-panel.spec.js`. |
+| `src/scoring-panel.js` | Phase 1 C | The task's Scoring & Intelligence panel under the Effort line on the Brief tab (wraps `effortHtml`, which takes an optional third argument `{lock, lockIcon, actualRo}`; without it, and whenever `scoringOn()` is false, the line is byte-for-byte as before; `.enh-blocks` stays Brief-tab only). Folded by default, `myPrefs().scoringPanelOpen` per person. Rows per module on: math, AI (Phase 2, §5.4: Ask AI for `can.requestAi` on a module not math only, the suggestion card `[data-scr-ai=<module>]` with its confidence, warnings `[data-scr-warn]`, explanation, assumptions, missing inputs, Accept → `PUT {use:"ai"}`, Dismiss per person in `localStorage` `zc_scr_ai_hide`; notes `[data-scr-ai-note=<reason>]`; a task with a suggestion is fetched again after each of its saves, so "stale" is the server's), final/locked with provenance and status, last change; buttons from the `can` of `GET /api/tasks/:id/scoring` (the `canI` mirror until it answers); drawn from `tk.scoring` + `SCR.cache` first, fetched on open or when the summaries/estimate/assets change, redrawn in place (`scrPaint`). `scoringEstimateLock(tk)` → `{by, at, value, approved, title}` or null — src/drawer.js, src/tasks.js and the Effort line grey out the Estimate with it. Hooks, each called only if defined: `scoringTimeRowHtml(tk)` (under the hours row; Actual becomes read-only while it returns HTML), `scoringAssetsRowHtml(tk)`, `scoringOutcomesRowHtml(tk)`, Phase 3 `scoringEfficiencyLineHtml(tk, efficiency)`. The offline demo answers the routes in the page (`scrDemo`). Tests: `tests/scoring-panel.test.js`, `e2e/scoring-panel.spec.js`. |
 | `src/scoring-awards.js` | Phase 3 A | the efficiency bonus in the page (§13.7): `scoringEfficiencyLineHtml(tk, efficiency)` (the panel's line, the breakdown, the reasons, the flags, Approve/Reject), `scoringBonusSettingsHtml(ro, ed)` (the Settings section, called by `setScoring`), `scoringBonusExample(bonusPolicy)`, the `efficiency_review` notification's words. Prefix `sce`/`SCE` (`sca` is the asset points'). |
 | `src/scoring-time.js` | Phase 3a D | empty — the time log. |
 | `src/scoring-analytics.js` | Phase 1 D / 3 D | empty — analytics sections (wrap `renderAnalytics`, `renderMember`; no ranking). |
@@ -658,7 +782,7 @@ in place; CSS in `src/v38.css` (prefix `scr-` for Smart Scoring — `sc-` is tak
 | 1 B | settings/roles | `src/scoring-settings.js`, `src/settings.js`, `src/settings-access.js` (done) |
 | 1 C | task panel | `src/scoring-panel.js`, drawer/enhance/tasks/effort-estimate |
 | 1 D / 3a / 3 D | time + analytics | `src/scoring-time.js`, `src/scoring-analytics.js`, `server/scoring-time.js`, `server/scoring-analytics.js` (wired by A) |
-| 2 A | server | `server/scoring-ai.js`, `chatUsage` in `server/ai-chat-format.js` |
+| 2 A/C | AI (built, §5.4) | `server/scoring-ai.js`, `chatUsage` in `server/ai-chat-format.js`, `{use:"ai"}` and `scoring.ai` in `server/scoring.js`, the AI parts of `src/scoring-panel.js`, the Create-time call in `src/effort-estimate.js` |
 | 3 A | bonus (built) | `server/scoring-awards.js`, `src/scoring-awards.js`, the bonus section of the Settings tab, `BONUS_READY` in `server/scoring.js` (§13) |
 | 4 B | outcomes | `server/outcomes.js`, `src/scoring-outcomes.js` |
 
@@ -689,12 +813,24 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   never rewritten); `onTaskWritten` hooks after create/update/move/restore/scoring with one throwing; "removed with
   task"; the sweep at start (a scope changed in the database, a time entry).
 - `tests/scoring-sanity.test.js` — also what Calculate gives for real titles (EN and ID), monotonic in deliverables,
-  dependencies and complexity, to the half hour, and the Scope bands; and the efficiency awards (§13): 8 h / 5 h / 8 pts
+  dependencies and complexity, to the half hour, and the Scope bands; the AI's "far from the calculation" for every kind
+  and count, story pair and weighted gap, its confidence only ever lowered; an AI value never applied to a locked score;
+  quotas never below zero; and the efficiency awards (§13): 8 h / 5 h / 8 pts
   → 1.10 / 9.10, small, capped, never negative, never more for more time, legacy time never earning, shares adding up.
 - `tests/scoring-awards.test.js` (Phase 3 A) — spawned server: the acceptance case §14.6 end to end, self-approval and
   impersonation refused, reopen, scope pause and re-baseline, late time, recalculation twice, shares, legacy time, a lock
   after work started or before the bonus, pilot teams, a duplicate, the approvers' notification, off / COS_SCORING=0; and
   the page's line and its Indonesian. `e2e/scoring-awards.spec.js` — the line and the review in the browser.
+- `tests/scoring-ai.test.js` (Phase 2, in process through `tests/scoring-ai-harness.js` — the demo seed in memory, the
+  model injected — and once on the real server with a stand-in provider): chatUsage per provider, the JSON extraction, the
+  text cleaning, who may ask and "math only", the prompt (no links or e-mail, ≤ 800 characters, examples only with
+  workspace context, of the team, finished), external processing off, the cache (and two asks at once), invalid answers,
+  the retry on a timeout or a 5xx, quotas per person and workspace over 24 hours, never touching a final, a lock or a
+  proposal, far and low confidence, taking it as an editor or a member, stale, "AI on create", "AI on brief revision"
+  debounced, the view's `ai` block.
+- `e2e/scoring-ai.spec.js` — Ask AI's spinner and suggestion, Accept through the real PUT, stale, far with its reason,
+  Dismiss across a reload, the cache and quota notes, the real server without a chat model, Indonesian, a phone, and the
+  Create-time call (`page.route` on `**/api/tasks/*/scoring/ai`, answered by the server's module on the test database).
 - `e2e/scoring-settings.spec.js` — admin toggles the master switch, a module and OKR and they persist; weights not
   totalling 100% cannot be saved; member has no tab; a role with `scoring_manage_workspace` has it; analytics-only is
   read-only; the role-modal warning; the one-click delegation. Everything put back.

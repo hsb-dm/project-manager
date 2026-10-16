@@ -398,3 +398,46 @@ test('an efficiency award makes sense: 8 h, 5 h, 8 points give 1.10 and 9.10; th
     ids.forEach((id, i) => { if (i && split[i] < split[0]) assert.ok(x.alloc[id].awarded <= x.alloc.p0.awarded, 'less time, never more points'); });
   }
 });
+
+/* the AI's suggestions (server/scoring-ai.js): "far from the calculation" is where a team would call a second opinion
+   far — hours under half or over twice the calculation, story points two steps or more apart, weighted points more
+   than 3 apart — and the confidence shown is only ever lowered for it, never raised, never outside 0–100% */
+test('an AI suggestion far from the calculation is flagged where a team would call it far, and its confidence is only ever lowered', () => {
+  const { farFrom, shownConfidence, FAR } = require('../server/scoring-ai').pure;
+  for (const kind of Object.keys(D.hours.templates)) for (let n = 1; n <= 12; n++) {
+    const m = hours(kind, n);
+    for (const f of [0.5, 0.75, 1, 1.5, 2]) assert.equal(farFrom('hours', m * f, m).far, false, kind + ' × ' + n + ': ' + (m * f) + ' h against ' + m + ' h is near');
+    for (const f of [0.3, 0.45, 2.2, 4]) assert.equal(farFrom('hours', m * f, m).far, true, kind + ' × ' + n + ': ' + (m * f) + ' h against ' + m + ' h is far');
+  }
+  S.STORY_SCALE.forEach((a, i) => S.STORY_SCALE.forEach((b, j) => assert.equal(farFrom('story', a, b).far, Math.abs(i - j) > 1, a + ' SP against ' + b + ' SP')));
+  for (let m = 1; m <= D.weighted.scaleMax; m += 0.5) for (let ai = 1; ai <= D.weighted.scaleMax; ai += 0.25) assert.equal(farFrom('weighted', ai, m).far, Math.abs(ai - m) > 3, ai + ' pts against ' + m + ' pts');
+  for (let c = 0; c <= 1.0001; c += 0.05) {
+    const far = shownConfidence(c, true), near = shownConfidence(c, false);
+    assert.ok(far >= 0 && far <= near && near <= 1, c + ': ' + far + ' / ' + near);
+    assert.equal(far, S.round2(Math.min(1, c) * FAR.confidence));
+  }
+  assert.equal(shownConfidence(null, true), null, 'none given: none shown, never made up');
+  assert.equal(farFrom('hours', 5, null).far, null, 'nothing to compare with: neither far nor near');
+  assert.equal(farFrom('weighted', 5, 0).far, null);
+});
+
+test('an AI value is never applied to a locked score, whatever it says, and the quotas never go below zero', async () => {
+  const { setup, reply } = require('./scoring-ai-harness');
+  const k = setup(); await k.on();
+  const T = k.task(); await k.calc(T, { module: 'hours' });
+  await k.approve(T, 'hours', { rev: k.row(T, 'hours').rev }, k.user('andi', ['scoring_approve_estimate']));
+  for (const h of [0.5, 3, 6, 12, 40]) {
+    k.edit(T, { title: 'Feed post Ramadan ' + h }); k.model = () => reply({ hours: h });
+    const a = await k.ask(T), r = k.row(T, 'hours');
+    assert.equal(r.status, 'approved'); assert.equal(r.final_value, 6); assert.equal(r.locked_value, 6); assert.equal(r.ai_value, h, 'beside it, as a suggestion');
+    assert.equal(a.task.effort, 6, 'the task\'s estimate stays the locked one');
+    await assert.rejects(k.put(T, 'hours', { use: 'ai', rev: r.rev, reason: 'the AI says ' + h }), e => e.status === 409);
+  }
+  await k.set(s => { s.ai.perUserDaily = 0; s.ai.workspaceDaily = 0; });
+  const before = k.calls.length; k.edit(T, { title: 'Feed post Ramadan again' });
+  const q = (await k.ask(T)).aiResult;
+  assert.equal(q.status, 'quota'); assert.equal(k.calls.length, before, 'refused before the model');
+  const v = await k.view(T);
+  assert.ok(v.ai.quota.user.used > v.ai.quota.user.limit, 'more used than the limit now allows');
+  assert.equal(v.ai.quota.user.left, 0); assert.equal(v.ai.quota.workspace.left, 0);
+});

@@ -4,7 +4,7 @@
    Smart Scoring's place in a task (docs/SMART-SCORING.md, Phase 1 C). On the Brief tab, under the Effort line, a
    panel that opens and folds — folded at first, and each person's choice is remembered with their preferences — with a
    row for every module the workspace has on: Effort Hours, Story Points, Weighted Points. Each row shows the number the
-   workspace's own arithmetic gives (Math baseline), the AI's suggestion (not yet: Ask AI comes in a later phase), the
+   workspace's own arithmetic gives (Math baseline), the AI's suggestion (Ask AI, below), the
    final value — or the locked one — with where it came from (math, AI, set by a person, kept from before Smart
    Scoring), its status (draft, proposed, approved, locked, unverified, re-baseline needed), who changed it last and
    when. Its buttons follow what the server says this person may do (the `can` of GET /api/tasks/:id/scoring), and the
@@ -28,11 +28,19 @@
      scoringTimeRowHtml(tk) (the time log, in place of the Actual number while time is logged per entry),
      scoringAssetsRowHtml(tk) (points for assets produced), scoringOutcomesRowHtml(tk) (KPI and OKR links) and, in
      Phase 3, scoringEfficiencyLineHtml(tk, efficiency) for the efficiency bonus line.
+   - Ask AI (Phase 2, server/scoring-ai.js): for whoever may ask the AI (scoring_request_ai) and a score not set to
+     "math only", POST …/scoring/ai asks the workspace's AI model — on the server, from the task's own data — and the
+     row then shows its suggestion with how sure it is (lowered when it is far from the calculation), why, what it
+     assumed and what the task does not say, the warnings (far from the calculation, low confidence, made for the task
+     as it was before), and Accept (PUT …/:module {use:"ai"}: set, or proposed for an approver, with a reason when it is
+     far) or Dismiss (this person's view only). The AI's own words stay as it wrote them; everything around them is in
+     English or Indonesian. An answer from the cache, a quota used up, external AI processing off, an answer that could
+     not be used: said in plain words, and the math stands. A spinner while it is asked; nothing else moves.
    - Without a server (the offline demo) the same routes are answered in the page (scrDemo), with the same rules.
    While Smart Scoring is off (scoringOn() in src/scoring-core.js) the Effort line is exactly as it always was, and
    nothing here runs.
    ============================================================ */
-var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null};
+var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null,aiBusy:{},aiNote:{},aiHide:null};
 var SCR_MODULES=["hours","story","weighted"];
 var SCR_NAMES={hours:"Effort Hours",story:"Story Points",weighted:"Weighted Points"};
 var SCR_SRC={math:"Math",ai:"AI",manual:"Manual",legacy:"Legacy"};
@@ -46,7 +54,7 @@ var SCR_LEVELS={
   uncertainty:["The brief is clear and settled","A few small open questions","Some unknowns","Many unknowns, likely to change","The brief is unclear and will change"],
   dependencies:["Needs nobody else","One hand-off","Input from a few others","Several people or teams","Waits on many others"]};
 var SCR_ACTIONS={calculate:"Calculated",calculated:"Calculated",propose:"Proposed a change",proposed:"Proposed a change",manual:"Changed the value",set:"Changed the value",change:"Changed the value",changed:"Changed the value",override:"Changed the value",approve:"Approved and locked",approved:"Approved and locked",lock:"Locked",locked:"Locked",frozen:"Frozen when work started",rebaseline:"Set a new baseline",rebaselined:"Set a new baseline",rebaseline_needed:"Needs a new baseline",backfill:"Kept from before Smart Scoring",backfilled:"Kept from before Smart Scoring",ai:"AI suggestion",removed_with_task:"Removed with the task",
-  locked_changed:"Changed the locked value",estimate_set:"Took the task's Estimate",estimate_changed:"Followed the task's Estimate",frozen_at_work_start:"Frozen when work started",scope_changed:"The scope changed",scope_restored:"The scope is as it was again",scope_recorded:"Noted the scope"};
+  locked_changed:"Changed the locked value",estimate_set:"Took the task's Estimate",estimate_changed:"Followed the task's Estimate",frozen_at_work_start:"Frozen when work started",scope_changed:"The scope changed",scope_restored:"The scope is as it was again",scope_recorded:"Noted the scope",ai_suggested:"The AI suggested a value"};
 
 /* ---------- reading what the server sends (camelCase or snake_case, a summary or a whole row) ---------- */
 function scrPick(o,keys){ if(!o) return null; for(var i=0;i<keys.length;i++){ var v=o[keys[i]]; if(v!==undefined&&v!==null) return v; } return null; }
@@ -150,7 +158,10 @@ function scrStepsHtml(steps){ return steps&&steps.length?'<ol class="scr-steps">
 function scrPath(id,rest){ return "/api/tasks/"+encodeURIComponent(id)+"/scoring"+(rest?"/"+rest:""); }
 function scrApi(method,path,body){ return API.on?apiFetch(method,path,body):scrDemo(method,path,body); }
 /* what changes make the details worth asking for again: the summaries the task carries, its estimate, its assets */
-function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|"); }
+function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|")+scrAiSig(tk); }
+/* a task with an AI suggestion is asked again after each of its saves: a new title, brief, description, label or team
+   makes the suggestion one for the task as it was (stale), and only the server can say so */
+function scrAiSig(tk){ var c=SCR.cache[tk.id], r=c&&c.ai&&c.ai.rows; return r&&(r.hours||r.story||r.weighted)?"|ai:"+(tk.updatedAt||""):""; }
 function scrRespRow(d,m){ if(!d) return null; if(d.row) return scrRowNorm(d.row,m); if(d.rows&&d.rows[m]) return scrRowNorm(d.rows[m],m); return null; }
 function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""});
   /* a slow answer never puts back an older row: rev only grows */
@@ -159,7 +170,7 @@ function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[i
   if(rows&&typeof rows==="object") SCR_MODULES.forEach(function(k){ if(k in rows) put(k,rows[k]?scrRowNorm(rows[k],k):null); });
   if(d.row){ var r=scrRowNorm(d.row,m); if(r&&SCR_MODULES.indexOf(r.module)>=0) put(r.module,r); }
   if(Array.isArray(d.audit)) c.audit=d.audit.slice(0,50); if(d.can&&typeof d.can==="object") c.can=d.can;
-  if("efficiency" in d) c.efficiency=d.efficiency; if("outcomes" in d) c.outcomes=d.outcomes;
+  if("efficiency" in d) c.efficiency=d.efficiency; if("outcomes" in d) c.outcomes=d.outcomes; if("ai" in d) c.ai=d.ai&&typeof d.ai==="object"?d.ai:null;
   if(d.context&&typeof d.context==="object") c.context=d.context; if(d.on&&typeof d.on==="object") c.on=d.on; c.local=!API.on; c.at=Date.now();
   /* the task's summaries follow, so every view of the task (grid, details) agrees with the panel */
   var tk=task(id); if(tk){ tk.scoring=tk.scoring&&typeof tk.scoring==="object"?tk.scoring:{}; SCR_MODULES.forEach(function(k){ var x=c.rows[k]; if(x) tk.scoring[k]={finalValue:x.finalValue,status:x.status,source:x.source,lockedValue:x.lockedValue,lockedAt:x.lockedAt,lockedBy:x.lockedBy,approvedBy:x.approvedBy,approvedAt:x.approvedAt,rev:x.rev}; }); c.sig=scrSig(tk); } }
@@ -200,7 +211,7 @@ function scrBtn(tk,m,act,label,fn,cls,extra){ return '<button type="button" clas
 function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r), fin=lk?scrLockedValue(r):r.finalValue, aiOn=scoringMode(m)!=="math_only", key=tk.id+"|"+m, open=!!SCR.why[key];
   var vals='<div class="scr-vals">'
     +'<div class="scr-val" data-scr-v="math"><span class="scr-k">'+tr("Math baseline")+'</span><b>'+scrFmt(m,r.mathValue)+'</b>'+(r.mathValue==null?'<span class="hint">'+tr("Not calculated yet")+'</span>':scrSrcChip("math"))+'</div>'
-    +'<div class="scr-val" data-scr-v="ai"><span class="scr-k">'+tr("AI suggestion")+'</span><b>—</b><span class="hint">'+tr("Available in a later phase")+'</span></div>'
+    +'<div class="scr-val" data-scr-v="ai">'+scrAiCell(tk,m,aiOn)+'</div>'
     +'<div class="scr-val" data-scr-v="final"><span class="scr-k">'+tr(lk?"Locked value":"Final value")+'</span><b>'+scrFmt(m,fin)+'</b>'+scrSrcChip(r.source)+'</div></div>';
   var info=[];
   if(m==="hours"){ var mi=r.mathInputs||{}, kind=mi.kind||scrCtxKind(tk), cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
@@ -219,7 +230,7 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
   var held=!can.approve&&(can.blocked==="assignee"||can.blocked==="impersonating")&&r.status!=="approved"?'<p class="hint scr-held" data-scr-held="'+can.blocked+'">'+tr(can.blocked==="assignee"?"You are assigned to this task, so someone else approves its estimate.":"Estimates are never approved while acting as someone else.")+'</p>':'';
   var acts=[];
   if(can.calculate) acts.push(scrBtn(tk,m,"calculate","Calculate","scrCalc","primary"));
-  if(aiOn) acts.push('<button type="button" class="btn xs" data-scr-act="ai" data-scr-m="'+m+'" disabled title="'+attr(tr("Ask AI is available in a later phase"))+'">'+I.sparkle+tr("Ask AI")+'</button>');
+  if(aiOn) acts.push(scrAiBtn(tk,m,can));
   if(can.edit) acts.push(scrBtn(tk,m,"change","Change value","scrChange"));
   else if(can.propose) acts.push(scrBtn(tk,m,"propose","Propose change","scrChange"));
   /* what is not approved yet can be: a draft, a proposal, an estimate from before, a baseline frozen at work start */
@@ -227,7 +238,7 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
   if(can.rebaseline&&lk) acts.push(scrBtn(tk,m,"rebaseline","Re-baseline","scrRebase"));
   acts.push(scrBtn(tk,m,"explain","Explanation","scrWhyToggle","ghost",' aria-expanded="'+(open?"true":"false")+'"'));
   return '<div class="scr-row" data-scr-module="'+m+'"><div class="scr-rhead"><b>'+tr(SCR_NAMES[m])+'</b>'+scrStChip(r.status)+'</div>'+vals
-    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+prop+lockLine+when+held
+    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+(aiOn?scrAiCardHtml(tk,m,can,lk):'')+prop+lockLine+when+held
     +(open?'<div class="scr-why" data-scr-why="'+m+'">'+scrWhyHtml(tk,m,r)+'</div>':'')
     +'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
 /* the explanation: the math, step by step, then where the final value came from and what holds it */
@@ -377,6 +388,94 @@ function scrAfter(tk,m,d,msg){ if(d&&d.task&&typeof d.task==="object"&&typeof hT
   if(msg) toast(tr(msg)); refresh(); if(API.on&&!(d&&d.rows)) scrLoad(tk,true); }
 function scrFail(tk,e){ toast(e&&e.message||tr("Could not save"),"bad"); scrLoad(tk,true); }
 
+/* ---------- the AI's suggestion: Ask AI, what it says, Accept, Dismiss (server/scoring-ai.js) ---------- */
+var SCR_AI_WARN={far:"Far from the calculation ({math}): check it before taking it.",low_confidence:"Low confidence: under the workspace's minimum of {min}%.",no_confidence:"The AI did not say how sure it is.",
+  no_math:"Nothing calculated to compare it with yet.",stale:"The task changed since this suggestion: ask the AI again.",kind_differs:"The AI reads it as {ai}; the title says {title}.",deliverables_differ:"The AI counted {ai} deliverables; the task has {task}."};
+var SCR_AI_GAPS={no_description:"No description",no_brief:"No brief filled in",no_deliverables:"No assets produced recorded (counted as 1)",no_kind:"The title does not say what kind of work it is"};
+var SCR_AI_NOTE={cached:"The AI's earlier answer, for the task as it is now: it was not asked again.",external_off:"External AI processing is off in Settings → AI, so only the math is shown.",
+  not_configured:"No AI chat model is set up in Settings → AI, so only the math is shown.",quota_user:"You have used your {n} AI suggestions for today, so the math stands.",
+  quota_workspace:"The workspace has used its {n} AI suggestions for today, so the math stands.",invalid_reply:"The AI's answer could not be used, so the math stands.",
+  timeout:"The AI did not answer in time, so the math stands.",provider_error:"The AI could not be reached, so the math stands.",offline:"The AI needs the server: the offline demo shows the math only.",
+  missing:"The AI gave no usable value for this score."};
+function scrAiInfo(tk){ var c=SCR.cache[tk.id]; return c&&c.ai&&typeof c.ai==="object"?c.ai:null; }
+function scrAiOf(tk,m){ var a=scrAiInfo(tk), s=a&&a.rows&&a.rows[m]; return s&&typeof s==="object"&&scrNum(s.value)!=null?s:null; }
+function scrPct(v){ return Math.round(Math.max(0,Math.min(1,+v||0))*100); }
+/* Dismiss is this person's: the suggestion folds away on this device until the AI suggests something else */
+function scrAiHides(){ if(SCR.aiHide) return SCR.aiHide; var o={}; try{ o=JSON.parse(localStorage.getItem("zc_scr_ai_hide")||"{}")||{}; }catch(e){ o={}; } SCR.aiHide=o&&typeof o==="object"?o:{}; return SCR.aiHide; }
+function scrAiHidden(tk,m,s){ return !!s&&scrAiHides()[tk.id+"|"+m]===s.runId; }
+function scrAiHideSet(id,m,runId){ var h=scrAiHides(), k=id+"|"+m; if(runId) h[k]=runId; else delete h[k]; var keys=Object.keys(h); if(keys.length>200) keys.slice(0,keys.length-200).forEach(function(x){ delete h[x]; }); try{ localStorage.setItem("zc_scr_ai_hide",JSON.stringify(h)); }catch(e){} }
+function scrAiConf(s){ if(s.shownConfidence==null) return scrSrcChip("ai"); var low=s.far||s.lowConfidence;
+  return '<span class="scr-chip scr-src-ai'+(low?' scr-ai-low':'')+'" data-scr-conf="'+scrPct(s.shownConfidence)+'" title="'+attr(tr(SCR_SRC_WHY.ai))+'">'+fmt(tr("{n}% sure"),{n:scrPct(s.shownConfidence)})+'</span>'; }
+/* the AI cell of a row: math only, being asked, not asked yet, or the suggestion with how sure it is */
+function scrAiCell(tk,m,aiOn){ var head='<span class="scr-k">'+tr("AI suggestion")+'</span>', s=scrAiOf(tk,m), busy=SCR.aiBusy[tk.id]===m;
+  if(!aiOn) return head+'<b>—</b><span class="hint">'+tr("Math only")+'</span>';
+  if(busy) return head+'<b><span class="scr-spin" aria-hidden="true"></span>…</b><span class="hint" role="status">'+tr("Asking the AI…")+'</span>';
+  if(!s) return head+'<b>—</b><span class="hint">'+tr("Not asked yet")+'</span>';
+  return head+'<b data-scr-ai-value>'+scrFmt(m,s.value)+'</b>'+scrAiConf(s)+(scrAiHidden(tk,m,s)?'<button type="button" class="scr-link" data-scr-act="ai-show" data-scr-m="'+m+'" onclick="scrAiShow('+jsq(tk.id)+',\''+m+'\')">'+tr("Show the suggestion")+'</button>':''); }
+/* Ask AI: for whoever may ask the AI; not while it is being asked, nor while external AI processing is off */
+function scrAiBtn(tk,m,can){ var a=scrAiInfo(tk), busy=!!SCR.aiBusy[tk.id], off=!!a&&a.external===false, ok=!!can.requestAi&&!busy&&!off;
+  var why=!can.requestAi?tr("Asking the AI needs the permission to ask the AI for a task's scores."):off?tr("External AI processing is off in Settings → AI."):"";
+  return '<button type="button" class="btn xs" data-scr-act="ai" data-scr-m="'+m+'"'+(ok?' onclick="scrAskAi('+jsq(tk.id)+',\''+m+'\')"':' disabled')+(why?' title="'+attr(why)+'"':'')+(busy&&SCR.aiBusy[tk.id]===m?' aria-busy="true"':'')+'>'
+    +(busy&&SCR.aiBusy[tk.id]===m?'<span class="scr-spin" aria-hidden="true"></span>'+tr("Asking…"):I.sparkle+(scrAiOf(tk,m)?tr("Ask AI again"):tr("Ask AI")))+'</button>'; }
+function scrAiWarnText(m,w){ var t=tr(SCR_AI_WARN[w.code]||w.code);
+  if(w.code==="far") return fmt(t,{math:scrFmt(m,w.math)}); if(w.code==="low_confidence") return fmt(t,{min:scrPct(w.min)});
+  if(w.code==="kind_differs") return fmt(t,{ai:scrKindName(w.ai),title:scrKindName(w.title)}); if(w.code==="deliverables_differ") return fmt(t,{ai:w.ai,task:w.task}); return t; }
+/* what was said after the last ask (or by the last request made in the background): the cache, a quota, AI off, an answer not used */
+function scrAiNoteText(n){ if(!n||!n.code) return ""; var t=fmt(tr(SCR_AI_NOTE[n.code]||SCR_AI_NOTE.provider_error),{n:n.n!=null?n.n:""});
+  if(n.resetAt){ var d=new Date(n.resetAt); if(!isNaN(d.getTime())) t+=" "+fmt(tr("The next one is possible from {when}."),{when:d.toLocaleString(UI_LANG==="id"?"id-ID":"en-US",{weekday:"short",hour:"2-digit",minute:"2-digit"})}); }
+  return t; }
+function scrAiNoteOf(tk,m){ var n=SCR.aiNote[tk.id+"|"+m]; if(n) return n; var a=scrAiInfo(tk), l=a&&a.last, s=scrAiOf(tk,m);
+  if(l&&l.background&&l.status!=="ok"&&l.status!=="cached"&&(!s||(l.at&&s.at&&l.at>s.at))) return {code:l.reason||"provider_error"}; return null; }
+function scrAiNoteFrom(r,m){ if(!r||!r.status) return null; var st=r.status;
+  if(st==="ok"||st==="cached"){ if((r.missingModules||[]).indexOf(m)>=0) return {code:"missing"}; return st==="cached"?{code:"cached"}:null; }
+  if(st==="quota"){ var q=r.quota||{}, part=r.reason==="quota_user"?q.user:q.workspace; return {code:r.reason==="quota_user"?"quota_user":"quota_workspace",n:part?part.limit:null,resetAt:part?part.resetAt:null}; }
+  if(st==="off") return {code:r.reason==="offline"?"offline":r.reason||"external_off"};
+  return {code:r.reason||(st==="timeout"?"timeout":st==="invalid"?"invalid_reply":"provider_error")}; }
+/* the suggestion itself: how sure, the warnings, why, what it assumed, what the task does not say, Accept and Dismiss */
+function scrAiCardHtml(tk,m,can,lk){ var s=scrAiOf(tk,m), a=scrAiInfo(tk), nt=scrAiNoteText(scrAiNoteOf(tk,m)), note=nt?'<p class="hint scr-ai-note" data-scr-ai-note="'+attr((scrAiNoteOf(tk,m)||{}).code)+'" role="status">'+esc(nt)+'</p>':'';
+  if(!s||scrAiHidden(tk,m,s)) return note;
+  var li=function(x){ return '<li data-no-translate>'+esc(x)+'</li>'; };
+  var warns=(s.warnings||[]).map(function(w){ return '<li data-scr-warn="'+attr(w.code)+'">'+esc(scrAiWarnText(m,w))+'</li>'; }).join("");
+  var gaps=(a&&a.gaps||[]).map(function(g){ return '<li data-scr-gap="'+attr(g)+'">'+esc(tr(SCR_AI_GAPS[g]||g))+'</li>'; }).join("")+(s.missing||[]).map(li).join("");
+  var conf=s.shownConfidence!=null?fmt(tr("Confidence {n}%"),{n:scrPct(s.shownConfidence)})+(s.far&&s.confidence!=null?" — "+fmt(tr("lowered from {n}%, far from the calculation"),{n:scrPct(s.confidence)}):""):tr("Confidence not given");
+  var by=s.by||s.requestedBy, who=s.background?tr("Asked again after the brief changed"):s.trigger==="create"?tr("Asked when the task was created"):by?fmt(tr("Asked by {name}"),{name:person(by).name}):tr("Asked");
+  var fx=m!=="hours"&&s.factors?SCR_FACTORS.filter(function(f){ return scrNum(s.factors[f])!=null; }).map(function(f){ return scrFactorName(f)+" "+s.factors[f]; }).join(" · "):"";
+  var n=(s.comparables||[]).length, meta=esc(who)+(s.at?' · '+esc(scrWhen(s.at)):'')+(n?' · '+esc(fmt(n===1?tr("compared with {n} finished task"):tr("compared with {n} finished tasks"),{n:n})):'');
+  var acts=[];
+  if(!lk&&s.acceptable!==false&&(can.edit||can.propose)) acts.push('<button type="button" class="btn xs primary" data-scr-act="ai-accept" data-scr-m="'+m+'" onclick="scrAiAccept('+jsq(tk.id)+',\''+m+'\')">'+(can.edit?tr("Accept"):tr("Propose it"))+'</button>');
+  acts.push('<button type="button" class="btn xs ghost" data-scr-act="ai-dismiss" data-scr-m="'+m+'" onclick="scrAiDismiss('+jsq(tk.id)+',\''+m+'\')">'+tr("Dismiss")+'</button>');
+  return '<div class="scr-ai'+(s.far?' far':'')+'" data-scr-ai="'+m+'">'
+    +'<div class="scr-ai-head">'+I.sparkle+'<b>'+fmt(tr("The AI suggests {v}"),{v:scrFmt(m,s.value)})+'</b><span class="scr-ai-conf'+(s.far||s.lowConfidence?' scr-ai-low':'')+'" data-scr-ai-conf>'+esc(conf)+'</span></div>'
+    +(warns?'<ul class="scr-ai-warn" data-scr-warns>'+warns+'</ul>':'')
+    +(s.explanation?'<p class="scr-ai-text" data-no-translate>'+esc(s.explanation)+'</p>':'')
+    +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')
+    +(s.assumptions&&s.assumptions.length?'<div class="scr-ai-list" data-scr-ai-assumptions><b>'+tr("It assumes")+'</b><ul>'+s.assumptions.map(li).join("")+'</ul></div>':'')
+    +(gaps?'<div class="scr-ai-list" data-scr-ai-missing><b>'+tr("Missing inputs")+'</b><ul>'+gaps+'</ul></div>':'')
+    +(lk?'<p class="hint">'+tr("The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.")+'</p>':'')
+    +'<p class="hint scr-ai-meta">'+meta+'</p>'+note+'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
+/* the finished tasks like it that the estimator found (src/effort-estimate.js): the server decides whether the AI sees them */
+function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?effortEstimate(tk):null; return e&&Array.isArray(e.ids)?e.ids.slice(0,5):[]; }catch(x){ return []; } }
+function scrAskAi(id,m){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; SCR.aiBusy[id]=m; delete SCR.aiNote[id+"|"+m]; scrPaint(id);
+  scrApi("POST",scrPath(id,"ai"),{module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}).then(function(d){ delete SCR.aiBusy[id];
+      var r=d&&d.aiResult||{}, n=scrAiNoteFrom(r,m); if(n) SCR.aiNote[id+"|"+m]=n; scrAiHideSet(id,m,null);
+      scrAfter(tk,m,d,null); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
+    .catch(function(e){ delete SCR.aiBusy[id]; scrFail(tk,e); }); }
+function scrAiDismiss(id,m){ var tk=task(id), s=tk&&scrAiOf(tk,m); if(!s) return; scrAiHideSet(id,m,s.runId); scrPaint(id); }
+function scrAiShow(id,m){ scrAiHideSet(id,m,null); scrPaint(id); }
+/* Accept: PUT …/:module {use:"ai", reason, rev} — set for whoever may change scores, proposed for anyone else on the task;
+   a reason when the workspace asks for one, for a proposal, and always for a suggestion far from the calculation */
+function scrAiAccept(id,m){ var tk=task(id), s=tk&&scrAiOf(tk,m); if(!s) return; var can=scrCan(tk,m), mine=!!can.edit, need=!mine||scrNeedReason(tk)||!!s.far;
+  if(!need) return scrAiAcceptGo(id,m,0);
+  var warns=(s.warnings||[]).filter(function(w){ return w.code==="far"||w.code==="low_confidence"; }).map(function(w){ return '<li>'+esc(scrAiWarnText(m,w))+'</li>'; }).join("");
+  openModal(mine?"Accept the AI's suggestion":"Propose the AI's suggestion",'<p>'+fmt(tr("{module}: {v}, the AI's suggestion."),{module:tr(SCR_NAMES[m]),v:scrFmt(m,s.value)})+'</p>'
+    +(warns?'<ul class="scr-ai-warn">'+warns+'</ul>':'')+'<p class="hint">'+(mine?tr("It becomes the final value, from the AI, with your reason in the history."):tr("Your change goes to an approver as a proposal. The current value stays until it is approved."))+'</p>'
+    +scrReasonField(true,s.far?"Why take a value far from the calculation?":"Why take this value?"),
+    '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn primary" id="scrGo" onclick="scrAiAcceptGo('+jsq(id)+',\''+m+'\',1)">'+(mine?tr("Accept"):tr("Propose"))+'</button>'); }
+function scrAiAcceptGo(id,m,need){ var tk=task(id); if(!tk) return closeModal(); var why=need?scrReasonRead():""; if(need&&!why) return toast(tr("Write a reason for the change"),"bad");
+  var r=scrView(tk,m), b=document.getElementById("scrGo"); if(b) b.disabled=true;
+  scrApi("PUT",scrPath(tk.id,m),{use:"ai",reason:why,rev:r.rev||0}).then(function(d){ if(need) closeModal(); var proposed=!!(d&&d.applied===false); scrAfter(tk,m,d,proposed?"Change proposed — an approver will look at it":"Saved"); })
+    .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
+
 /* ---------- the task's scoring history (the last 50 changes) ---------- */
 function scrAuditValue(v){ var j=scrJson(v); if(j) v=scrPick(j,["lockedValue","locked_value","finalValue","final_value","value","mathValue","math_value"]); var n=scrNum(v); return n==null?"":String(n); }
 function scrAudit(id){ var tk=task(id); if(!tk) return; var c=SCR.cache[id], list=(c&&c.audit||[]).map(scrAuditNorm).slice(0,50);
@@ -401,6 +500,8 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
       can:{view:true,calculate:can.calculate,propose:can.propose,edit:can.edit,approve:can.approve,rebaseline:can.rebaseline,requestAi:can.requestAi,approveBlocked:can.blocked}},extra||{}); };
   var fail=function(msg){ return Promise.reject(new Error(tr(msg))); };
   if(method==="GET") return Promise.resolve(view());
+  /* the AI is the server's: the demo answers with the math only, and says why */
+  if(mt[2]==="ai") return Promise.resolve(view({aiResult:{status:"off",reason:"offline",modules:[body.module||"hours"],missingModules:[]}}));
   var m=mt[2]==="calculate"?body.module:mt[2], act=mt[2]==="calculate"?"calculate":(mt[3]||"set");
   if(SCR_MODULES.indexOf(m)<0) return fail("Unknown kind of score");
   if(!scoringModuleOn(m)) return fail("That kind of score is turned off in Smart Scoring.");
@@ -464,12 +565,12 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "Locked by {name}":"Dikunci oleh {name}","not approved yet":"belum disetujui","Change it under Scoring & Intelligence on the Brief tab.":"Ubah di Skor & Intelijen pada tab Brief.",
   "SP":"SP","pts":"poin",  "Not scored yet":"Belum diberi skor","proposal waiting":"usulan menunggu","proposals waiting":"usulan menunggu",
   "Could not load the latest scores":"Skor terbaru tidak dapat dimuat","Scoring history":"Riwayat skor",
-  "Math baseline":"Baseline hitungan","Not calculated yet":"Belum dihitung","Available in a later phase":"Tersedia di tahap berikutnya","Locked value":"Nilai terkunci","Final value":"Nilai final",
+  "Math baseline":"Baseline hitungan","Not calculated yet":"Belum dihitung","Locked value":"Nilai terkunci","Final value":"Nilai final",
   "Kind of work":"Jenis pekerjaan","not recognised":"tidak dikenali","Complexity {n} of 5":"Kompleksitas {n} dari 5","Complexity not rated":"Kompleksitas belum dinilai",
   "deliverable":"deliverable","deliverables":"deliverable","No assets produced recorded yet — counted as 1":"Belum ada aset dihasilkan yang dicatat — dihitung 1","from":"dari","Assets produced":"Aset dihasilkan",
   "1 open dependency":"1 dependensi terbuka","{n} open dependencies":"{n} dependensi terbuka","The task's Estimate is {h} h":"Estimasi task ini {h} jam",
   "Not rated yet":"Belum dinilai","Scope suggested from {n} assets produced: {v}":"Lingkup disarankan dari {n} aset dihasilkan: {v}","by":"oleh",
-  "Ask AI is available in a later phase":"Tanya AI tersedia di tahap berikutnya","Ask AI":"Tanya AI","Calculate":"Hitung","Change value":"Ubah nilai","Propose change":"Usulkan perubahan","Review & lock":"Tinjau & kunci","Approve & lock":"Setujui & kunci","Re-baseline":"Baseline ulang","Explanation":"Penjelasan",
+  "Ask AI":"Tanya AI","Calculate":"Hitung","Change value":"Ubah nilai","Propose change":"Usulkan perubahan","Review & lock":"Tinjau & kunci","Approve & lock":"Setujui & kunci","Re-baseline":"Baseline ulang","Explanation":"Penjelasan",
   "How the math baseline is worked out":"Cara baseline hitungan diperoleh","Not calculated yet. Calculate works it out from the workspace's templates and this task.":"Belum dihitung. Hitung akan menghitungnya dari template workspace dan task ini.",
   "Hours are shown to the nearest half hour: {v}.":"Jam ditampilkan dibulatkan ke setengah jam terdekat: {v}.","The final value {v} is the math baseline.":"Nilai final {v} adalah baseline hitungan.","The final value {v} came from the AI's suggestion.":"Nilai final {v} berasal dari saran AI.","The final value {v} was set by a person.":"Nilai final {v} diisi oleh seseorang.","The final value {v} is the task's estimate from before Smart Scoring.":"Nilai final {v} adalah estimasi task dari sebelum Smart Scoring.","The final value is {v}.":"Nilai finalnya {v}.",
   "Nobody has checked it since Smart Scoring was turned on; an approver can lock it.":"Belum ada yang memeriksanya sejak Smart Scoring diaktifkan; approver dapat menguncinya.","The task's scope changed after it was locked: it needs a new baseline.":"Lingkup task berubah setelah dikunci: perlu baseline baru.","A change to {v} is waiting for an approver.":"Perubahan menjadi {v} menunggu approver.",
@@ -487,7 +588,26 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "the math baseline":"baseline hitungan","Use the math baseline ({v})":"Pakai baseline hitungan ({v})","The baseline frozen when work started":"Baseline yang dibekukan saat pekerjaan dimulai","Keep":"Tetap","Another value":"Nilai lain",
   "A new baseline is approved and locked now, by you. The one it replaces stays in the history.":"Baseline baru disetujui dan dikunci sekarang, olehmu. Yang digantikan tetap ada di riwayat.","New baseline approved and locked":"Baseline baru disetujui dan dikunci",
   "That kind of score is turned off in Smart Scoring.":"Jenis skor itu dimatikan di Smart Scoring.","This estimate is already approved. Re-baseline it to change it.":"Estimasi ini sudah disetujui. Lakukan baseline ulang untuk mengubahnya.","The scope changed since it was locked: re-baseline it instead.":"Lingkupnya berubah sejak dikunci: lakukan baseline ulang.","Only a locked estimate is re-baselined; approve this one instead.":"Hanya estimasi yang terkunci yang di-baseline ulang; setujui yang ini saja.","Could not save":"Tidak dapat disimpan","acting as":"bertindak sebagai","Nothing has been scored on this task yet.":"Belum ada skor yang diberikan untuk task ini.","Done":"Selesai",
-  "That item is not available to you":"Item itu tidak tersedia untukmu","Unknown kind of score":"Jenis skor tidak dikenal","You don't have permission to do that":"Kamu tidak punya izin untuk itu","Someone else changed this score in the meantime. Make your change again.":"Orang lain sudah mengubah skor ini. Ulangi perubahanmu.","Enter a value":"Masukkan nilai"
+  "That item is not available to you":"Item itu tidak tersedia untukmu","Unknown kind of score":"Jenis skor tidak dikenal","You don't have permission to do that":"Kamu tidak punya izin untuk itu","Someone else changed this score in the meantime. Make your change again.":"Orang lain sudah mengubah skor ini. Ulangi perubahanmu.","Enter a value":"Masukkan nilai",
+  /* the AI's suggestion (Phase 2) */
+  "The AI suggested a value":"AI menyarankan nilai",
+  "Far from the calculation ({math}): check it before taking it.":"Jauh dari hitungan ({math}): periksa dulu sebelum memakainya.","Low confidence: under the workspace's minimum of {min}%.":"Keyakinan rendah: di bawah batas minimum workspace {min}%.",
+  "The AI did not say how sure it is.":"AI tidak menyebutkan seberapa yakin.","Nothing calculated to compare it with yet.":"Belum ada hitungan untuk dibandingkan.","The task changed since this suggestion: ask the AI again.":"Task sudah berubah sejak saran ini: tanya AI lagi.",
+  "The AI reads it as {ai}; the title says {title}.":"AI membacanya sebagai {ai}; judulnya menyebut {title}.","The AI counted {ai} deliverables; the task has {task}.":"AI menghitung {ai} deliverable; task ini punya {task}.",
+  "No description":"Tidak ada deskripsi","No brief filled in":"Brief belum diisi","No assets produced recorded (counted as 1)":"Belum ada aset dihasilkan yang dicatat (dihitung 1)","The title does not say what kind of work it is":"Judul tidak menyebutkan jenis pekerjaannya",
+  "The AI's earlier answer, for the task as it is now: it was not asked again.":"Jawaban AI sebelumnya, untuk task seperti sekarang: AI tidak ditanya lagi.","External AI processing is off in Settings → AI, so only the math is shown.":"Pemrosesan AI eksternal dimatikan di Pengaturan → AI, jadi hanya hitungan yang ditampilkan.",
+  "No AI chat model is set up in Settings → AI, so only the math is shown.":"Belum ada model chat AI di Pengaturan → AI, jadi hanya hitungan yang ditampilkan.","You have used your {n} AI suggestions for today, so the math stands.":"Kamu sudah memakai {n} saran AI untuk hari ini, jadi hitungan yang berlaku.",
+  "The workspace has used its {n} AI suggestions for today, so the math stands.":"Workspace sudah memakai {n} saran AI untuk hari ini, jadi hitungan yang berlaku.","The AI's answer could not be used, so the math stands.":"Jawaban AI tidak dapat dipakai, jadi hitungan yang berlaku.",
+  "The AI did not answer in time, so the math stands.":"AI tidak menjawab tepat waktu, jadi hitungan yang berlaku.","The AI could not be reached, so the math stands.":"AI tidak dapat dihubungi, jadi hitungan yang berlaku.","The AI needs the server: the offline demo shows the math only.":"AI membutuhkan server: demo offline hanya menampilkan hitungan.",
+  "The AI gave no usable value for this score.":"AI tidak memberi nilai yang dapat dipakai untuk skor ini.","{n}% sure":"yakin {n}%","Math only":"Hanya hitungan","Asking the AI…":"Menanyakan AI…","Not asked yet":"Belum ditanyakan","Show the suggestion":"Tampilkan saran",
+  "Asking the AI needs the permission to ask the AI for a task's scores.":"Bertanya ke AI memerlukan izin untuk meminta saran skor task dari AI.","External AI processing is off in Settings → AI.":"Pemrosesan AI eksternal dimatikan di Pengaturan → AI.","Asking…":"Menanyakan…","Ask AI again":"Tanya AI lagi",
+  "The next one is possible from {when}.":"Saran berikutnya bisa mulai {when}.","Confidence {n}%":"Keyakinan {n}%","lowered from {n}%, far from the calculation":"diturunkan dari {n}%, jauh dari hitungan","Confidence not given":"Keyakinan tidak disebutkan",
+  "Asked again after the brief changed":"Ditanyakan lagi setelah brief berubah","Asked when the task was created":"Ditanyakan saat task dibuat","Asked by {name}":"Ditanyakan oleh {name}","Asked":"Ditanyakan",
+  "compared with {n} finished task":"dibandingkan dengan {n} task selesai","compared with {n} finished tasks":"dibandingkan dengan {n} task selesai","Accept":"Terima","Propose it":"Usulkan nilai ini","Dismiss":"Tutup",
+  "The AI suggests {v}":"AI menyarankan {v}","The AI's ratings":"Penilaian AI","It assumes":"Asumsinya","Missing inputs":"Masukan yang kurang",
+  "The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.":"Estimasi sudah dikunci: saran AI hanya ditampilkan di sampingnya, tidak pernah diterapkan. Lakukan baseline ulang untuk mengubahnya.",
+  "The AI's suggestion is ready":"Saran AI sudah siap","Accept the AI's suggestion":"Terima saran AI","Propose the AI's suggestion":"Usulkan saran AI","{module}: {v}, the AI's suggestion.":"{module}: {v}, saran AI.",
+  "It becomes the final value, from the AI, with your reason in the history.":"Ini menjadi nilai final, dari AI, dengan alasanmu di riwayat.","Why take a value far from the calculation?":"Mengapa memakai nilai yang jauh dari hitungan?","Why take this value?":"Mengapa memakai nilai ini?"
 });
 /* the engine's sentences (ScoringEngine.SENTENCES, the keys of every explanation step) in Indonesian, by their name there */
 (function(E,d){ if(!E||!E.SENTENCES) return; Object.keys(d).forEach(function(k){ var en=E.SENTENCES[k]; if(en&&!(en in UI_ID)) UI_ID[en]=d[k]; }); })(typeof ScoringEngine!=="undefined"?ScoringEngine:null,{
@@ -615,5 +735,22 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-alog{display:flex;flex-direction:column;gap:8px}
 .scr-aitem{padding:8px 10px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);font-size:var(--fs-sm);overflow-wrap:anywhere}
 .scr-aitem-why{margin-top:2px;color:var(--color-text-secondary)}
+.scr-ai{display:flex;flex-direction:column;gap:6px;min-width:0;padding:8px 10px;border:1px solid var(--color-border);border-left:3px solid var(--color-info);border-radius:var(--radius-sm);background:var(--color-surface);font-size:var(--fs-sm);color:var(--color-text-secondary);overflow-wrap:anywhere}
+.scr-ai.far{border-left-color:var(--color-warning)}
+.scr-ai-head{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;color:var(--color-text-primary)}
+.scr-ai-head svg{width:13px;height:13px;flex:none;color:var(--color-info)}
+.scr-ai-head b{font-weight:650}
+.scr-ai-conf{font-size:11.5px;color:var(--color-text-secondary)}
+.scr-ai-low{color:var(--color-warning);border-color:var(--color-warning)}
+.scr-ai-warn{margin:0;padding:6px 10px 6px 26px;border-radius:var(--radius-sm);background:var(--color-warning-soft);color:var(--color-text-primary)}
+.scr-ai-text,.scr-ai-fx,.scr-ai-note,.scr-ai-meta{margin:0}
+.scr-ai-text{color:var(--color-text-primary)}
+.scr-ai-list{min-width:0}
+.scr-ai-list b{display:block;font-weight:600;color:var(--color-text-primary)}
+.scr-ai-list ul{margin:2px 0 0;padding-left:18px}
+.scr-ai-meta{font-size:11.5px;color:var(--color-text-tertiary)}
+.scr-spin{display:inline-block;width:11px;height:11px;margin-right:5px;border:2px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;vertical-align:-1px;animation:scr-spin .8s linear infinite}
+@keyframes scr-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.scr-spin{animation:none}}
 @media(max-width:640px){.scr-vals{grid-template-columns:repeat(2,minmax(0,1fr))}.scr-val[data-scr-v="final"]{grid-column:1/-1}}
 </style>
