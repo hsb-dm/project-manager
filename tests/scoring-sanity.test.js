@@ -260,3 +260,32 @@ test('the time log\'s Actual is the work and revision logged, to the quarter hou
   assert.equal(T.LIMITS.maxMinutes, 1440); assert.equal(T.LIMITS.maxDayMinutes, 1440); assert.equal(T.LIMITS.daysBack, 60); assert.equal(T.LIMITS.longDayFactor, 1.5);
   assert.deepEqual(T.dayWindow(Date.parse('2026-10-16T12:00:00Z')), { latest: '2026-10-17', earliest: '2026-08-17' }, 'today anywhere on Earth, 60 days back');
 });
+
+/* the task panel (src/scoring-panel.js), run as the page runs it: the Scope it suggests from the assets produced and
+   the hours it previews with them as the deliverables */
+test('the Scope suggested from the assets produced, and the hours previewed from them, make sense', () => {
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), Settings = require('../shared/scoring-settings.js');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring-panel.js'), 'utf8');
+  const c = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, ScoringEngine: S, I: {}, assetCount: t => Math.max(0, +(t && t.assetCount) || 0),
+    estKind: title => (/post|feed/i.test(title) ? ['feed'] : /resize/i.test(title) ? ['resize'] : /reel/i.test(title) ? ['reels'] : null),
+    unresolvedDependencies: () => [], scoringSettings: () => Settings.normalizeSettings({}) };
+  vm.createContext(c); vm.runInContext(src.slice(src.indexOf('<script>') + 8, src.indexOf('</script>')), c);
+  const sug = c.scrScopeFromAssets;
+  assert.equal(sug(0), null, 'no assets recorded: nothing suggested, nothing made up');
+  assert.deepEqual([1, 2, 3, 4, 6, 7, 12, 13, 40].map(sug), [1, 2, 2, 3, 3, 4, 4, 5, 5], 'the bands: 1, 2–3, 4–6, 7–12, 13 or more');
+  let last = 0;
+  for (let n = 1; n <= 200; n++) { const v = sug(n); assert.ok(v >= 1 && v <= 5, n + ' assets: Scope ' + v); assert.ok(v >= last, 'more assets never suggest a smaller Scope (' + n + ')'); last = v; }
+  /* with the suggested Scope and the rest fixed, more assets never give fewer points */
+  let sp = 0, wp = 0;
+  for (let n = 1; n <= 40; n++) { const r = ratings(3, sug(n), 2, 1), s = S.storyPoints(D.story, r).value, w = S.weightedPoints(D.weighted, r).value;
+    assert.ok(s >= sp && w >= wp, n + ' assets: ' + s + ' SP, ' + w + ' pts'); assert.ok(w >= 1 && w <= D.weighted.scaleMax); sp = s; wp = w; }
+  assert.equal(S.storyPoints(D.story, ratings(3, sug(5), 3, 2)).value, 3, 'five posts of ordinary work: 3 story points');
+  /* the hours previewed: the assets produced are the deliverables; none recorded counts as one, never as zero hours */
+  const prev = (title, assetCount, cx) => c.scrCompute('hours', c.scrHoursInputs({ title, assetCount }, cx ? { complexity1to5: cx } : {})).value;
+  assert.equal(prev('Feed post', 0), hours('feed', 1), 'no assets recorded yet: one deliverable');
+  let h = 0;
+  for (let n = 1; n <= 30; n++) { const v = prev('Feed posts', n); assert.ok(v > h, n + ' posts: ' + v + ' h'); if (n > 1) assert.ok(v - h < hours('feed', 1), 'each next post costs less than the first'); h = v; }
+  assert.equal(prev('Resize the banner', 12, 2), hours('resize', 12, 2), 'the preview is the engine\'s number');
+  assert.equal(prev('Something new', 3), null, 'a kind the title does not name: no hours made up');
+  assert.ok(prev('Three reels', 3) >= 10 && prev('Three reels', 3) <= 18, 'three reels');
+});

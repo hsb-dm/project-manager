@@ -63,6 +63,7 @@ function editTask(k,v){ var tk=task(S.drawerTask); if (!tk) return;
   if (k==="due"||k==="start"){ var due=k==="due"?offsetFromIso(v):tk.due; var start=k==="start"?offsetFromIso(v):tk.due-tk.span; if (start>due) start=due; if (due===tk.due&&start===tk.due-tk.span) return; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(start),dueDate:iso(due)},function(t){ t.due=due; t.span=Math.max(1,due-start); }); return; }
   /* with several people on it, a task's total is the sum of each one's count (avCountRow) */
   if (k==="assetCount"&&typeof assetSplitOn==="function"&&assetSplitOn(tk)) return toast(tr("Type each person's count under Assets & versions — the total adds them up."),"bad");
+  if (k==="effort"&&typeof scoringEstimateLock==="function"&&scoringEstimateLock(tk)) return toast(scoringEstimateLock(tk).title,"bad");
   var saving=editTaskWith(tk,function(t){ if (k==="assetCount"){ t.assetCount=Math.max(0,Math.round(+v||0)); if(t.meta&&t.meta.assetSplit) delete t.meta.assetSplit; } else if (k==="effort"){ t.effort=+v||0; if(typeof effortManual==="function") effortManual(t); } else if (k==="tags") t.tags=tagsFromLegacy(v); else if (k==="title"){ if (!v.trim()) return; t.title=v.trim(); } else if (k==="description") t.description=v; else if (k==="reviewer") t.reviewer=v; if (k!=="description"||v!==old) log(t,"edited",{what:k==="description"?"the description":k}); });
   if (k==="reviewer"&&v&&v!==old) saving.then(function(saved){ if(saved!==false) notify("reviewer",v,tk.id); }); }
 /* §P0-3 the picker hands back an array; nothing re-serialises it to a
@@ -172,7 +173,8 @@ function renderDrawer(){ if(typeof signedIn==="function"&&!signedIn()) return; v
     reviewers:function(){ return pplChips(tk,"reviewers",ed); },
     start:function(){ return taskDateField("start",tk.due-tk.span,tk,ed,false); },
     due:function(){ return taskDateField("due",tk.due,tk,ed,true); },
-    effort:function(){ return '<input'+ro+' type="number" min="0" style="width:54px" value="'+tk.effort+'" onchange="editTask(\'effort\',this.value)"><span class="muted">h</span>'+(typeof effortBadge==="function"?effortBadge(tk):''); },
+    /* a locked hour estimate (Smart Scoring) is greyed out and says who locked it */
+    effort:function(){ var lk=!draft&&typeof scoringEstimateLock==="function"?scoringEstimateLock(tk):null; return '<input'+(lk?' disabled data-scr-lock="1" title="'+attr(lk.title)+'" aria-label="'+attr(tr("Estimate")+" — "+lk.title)+'"':ro)+' type="number" min="0" style="width:54px" value="'+tk.effort+'" onchange="editTask(\'effort\',this.value)"><span class="muted">h</span>'+(lk&&typeof scrLockIcon==="function"?scrLockIcon(lk):'')+(typeof effortBadge==="function"?effortBadge(tk):''); },
     assetCount:function(){ return '<input'+ro+' type="number" min="0" step="1" style="width:60px" value="'+assetCount(tk)+'" onchange="editTask(\'assetCount\',this.value)"><span class="muted">'+tr("deliverables")+'</span>'; },
     tags:function(){ return tagPicker("tp_task_"+tk.id,tk.tags||[],function(value){ editTaskTags(value); },{readonly:!ed}); }
   };
