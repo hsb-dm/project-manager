@@ -218,15 +218,70 @@ function aiExpandBuildComposite(cb,plainCrop){
   im.onerror = function(){ toast(tr("Could not load the current visual to expand."), "bad"); aiExpandSetBusy(false); AI_EXPAND.busy=false; };
   im.src = e.srcUrl;
 }
-/* one place that lands a finished picture on the canvas, whether AI made it or a crop did */
+/* One place that lands a finished picture on the canvas, whether AI made it or a crop did. The canvas takes the
+   picture's own size and the layer fills it exactly: the layer used to keep the place and scale it had before, and
+   the canvas the size that was asked for — a provider that answers in a size of its own (OpenAI has three) left part
+   of the picture off the canvas, which looked like a crop. */
 function aiExpandApplyResult(url,w,h,promptText,modelId,recordRun){
   aiHistoryBefore();
   AI_LAST = { imgUrl:url, w:w, h:h, prompt:promptText||"", model:modelId||"", at:new Date().toISOString(), fields:clone(AIF) };
   AIF.size = "custom"; AIF.customW = w; AIF.customH = h;
   var layer = (AIF.extraLayers||[]).filter(function(x){ return x.id===AI_EXPAND.layerId; })[0];
-  if (layer) layer.src = url; else aiAddGeneratedLayer(url, {w:w,h:h});
+  if (layer){ layer.src = url; layer.aspectLock = true; layer.w = 100; layer.x = AIF.offsetUnit==="px" ? w/2 : 50; layer.y = AIF.offsetUnit==="px" ? h/2 : 50;
+    if (typeof aiLayerMeta==="function"){ var m = aiLayerMeta("extra_"+layer.id); m.rotation = 0; m.flipX = false; m.flipY = false; } }
+  else aiAddGeneratedLayer(url, {w:w,h:h});
   if (recordRun){ AI_RUNS.unshift({ url:url, prompt:promptText||"", w:w, h:h, model:modelId||"", at:AI_LAST.at, headline:AIF.headline, fields:aiRunSettings() }); aiSaveRuns(); }
   AI_EXPAND = null; closeModal(); renderScreen(false);
+}
+
+/* ---------- the expanded picture, checked before it reaches the canvas (Oct 2026) ----------
+   What the model made is shown first, at its real size: Use this puts it on the canvas; Adjust or crop opens the frame
+   again on this picture (crop it, or expand it further); Generate again asks once more with the same settings; Discard
+   leaves the canvas as it was. Nothing changes on the canvas before Use this. */
+function aiExpandReview(url,body,t){
+  var e = AI_EXPAND; if (!e) return;
+  var im = new Image(); im.crossOrigin = "anonymous";
+  im.onload = function(){
+    e.result = { url:url, w:im.naturalWidth||t.w, h:im.naturalHeight||t.h, prompt:body.prompt, model:body.model, body:body, asked:{ w:t.w, h:t.h } };
+    aiExpandReviewModal();
+  };
+  im.onerror = function(){ e.busy = false; aiExpandSetBusy(false); toast(tr("Could not load the expanded picture."), "bad"); };
+  im.src = url;
+}
+function aiExpandReviewModal(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  var k = Math.min(1, AI_EXPAND_STAGE / Math.max(r.w, r.h)), other = r.w!==r.asked.w || r.h!==r.asked.h;
+  var size = UI_LANG==="id" ? "Hasil: "+r.w+" × "+r.h+(other?" (diminta "+r.asked.w+" × "+r.asked.h+")":"") : "Result: "+r.w+" × "+r.h+(other?" (asked for "+r.asked.w+" × "+r.asked.h+")":"");
+  var body = '<div class="ai-expand-review"><div class="ai-expand-review-pic"><img id="aiExpandResult" src="'+attr(r.url)+'" alt="'+attr(tr("The expanded picture"))+'" style="width:'+Math.round(r.w*k)+'px;height:'+Math.round(r.h*k)+'px"></div>'
+    + '<div class="ai-expand-dims"><b>'+esc(size)+'</b></div>'
+    + '<p class="hint">'+tr("Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.")+'</p></div>';
+  var foot = '<button class="btn" onclick="aiExpandDiscard()">'+tr("Discard")+'</button><span class="spacer"></span>'
+    + '<button class="btn" id="aiExpandAdjust" onclick="aiExpandAdjust()">'+I.expand+tr("Adjust or crop")+'</button>'
+    + '<button class="btn" id="aiExpandAgain" onclick="aiExpandAgain()">'+I.sync+tr("Generate again")+'</button>'
+    + '<button class="btn primary" id="aiExpandUse" onclick="aiExpandUse()">'+I.check+tr("Use this")+'</button>';
+  openModal(tr("Check the expanded picture"), body, foot, true);
+}
+function aiExpandUse(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  aiExpandApplyResult(r.url, r.w, r.h, r.prompt, r.model, true);
+  toast(tr("Canvas expanded — new size applied"));
+}
+function aiExpandDiscard(){ AI_EXPAND = null; closeModal(); }
+/* the frame again, on the expanded picture: crop it, or grow it further */
+function aiExpandAdjust(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  AI_EXPAND = { srcUrl: r.url, layerId: e.layerId, baseW: r.w, baseH: r.h, top:0, right:0, bottom:0, left:0, ratio:"free", busy:false };
+  aiExpandModal();
+}
+function aiExpandAgain(){
+  var e = AI_EXPAND, r = e && e.result; if (!r || e.busy) return;
+  e.busy = true; ["aiExpandAgain","aiExpandUse","aiExpandAdjust"].forEach(function(id){ var b = document.getElementById(id); if (b) b.disabled = true; });
+  var again = document.getElementById("aiExpandAgain"); if (again) again.innerHTML = '<i class="ai-button-spinner" aria-hidden="true"></i>'+tr("Expanding…");
+  apiFetch("POST","/api/ai/expand",r.body).then(function(res){
+    e.busy = false; if (AI_EXPAND !== e) return;
+    if (!res.imageUrl) throw new Error("The provider returned no image.");
+    aiExpandReview(res.imageUrl, r.body, { w:r.asked.w, h:r.asked.h });
+  }).catch(function(err){ e.busy = false; if (AI_EXPAND === e) aiExpandReviewModal(); toast(tr("Expand failed: ")+err.message, "bad"); });
 }
 function aiExpandGenerate(){
   var e = AI_EXPAND; if (!e || e.busy) return;
@@ -255,12 +310,14 @@ function aiExpandGenerate(){
     apiFetch("POST","/api/ai/expand",body).then(function(res){
       e.busy = false;
       var url = res.imageUrl; if (!url) throw new Error("The provider returned no image.");
-      aiExpandApplyResult(url, t.w, t.h, body.prompt, body.model, true);
-      toast(tr("Canvas expanded — new size applied"));
+      /* checked first — nothing reaches the canvas before Use this */
+      aiExpandReview(url, body, t);
     }).catch(function(err){
       e.busy = false; aiExpandSetBusy(false);
       toast(tr("Expand failed: ")+err.message, "bad");
     });
   });
 }
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Check the expanded picture":"Cek gambar hasil expand","Use this":"Pakai ini","Adjust or crop":"Atur atau crop","Generate again":"Generate lagi","Discard":"Buang","The expanded picture":"Gambar hasil expand","Could not load the expanded picture.":"Gambar hasil expand tidak bisa dimuat.",
+  "Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.":"Belum ada yang masuk ke kanvas sampai kamu pilih Pakai ini. Atur atau crop membuka bingkai pada gambar ini."});
 </script>

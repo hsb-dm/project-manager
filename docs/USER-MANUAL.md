@@ -232,6 +232,11 @@ Field mana yang tampil diatur admin di **Settings → Custom fields**.
 Brief terstruktur bersifat **opsional** — brief boleh ditulis langsung di Description, lengkap
 dengan gambarnya. Kalau belum ada brief, bagian ini bertanda **Optional** dan bisa dilipat dengan
 **Hide** (tetap terlipat untuk kamu di semua task tanpa brief, sampai dibuka lagi dengan **Show**).
+Teks apa pun di Description dan Progress note tampil persis seperti diketik atau di-paste — emoji,
+huruf non-Latin, simbol, `5 * 3`, `# tag`, `- item`, `<b>`. Format hanya datang dari toolbar (bold,
+italic, heading, list, quote, link) atau dari teks berformat yang di-paste (Google Docs, Word, web);
+font dan warna dari halaman asal tidak ikut. Emoji yang di-paste sebagai gambar (Gmail, WhatsApp
+Web, X, Slack) menjadi emoji biasa.
 Untuk memakainya, pilih salah satu template (Social Media, Banner, Presentation,
 Branding, Video, Print, General Creative Request). Header brief menunjukkan **Complete**
 atau **n required fields missing**.

@@ -90,6 +90,22 @@ try {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('ai_brand_prompt_poster', ?)").run(new Date().toISOString());
   }
 } catch (e) { console.error("[ai] brand default prompt: " + e.message); }
+/* 16 Oct 2026: the brand look for a forex broker — nothing that reads as crypto — and a clean, tack-sharp picture (no
+   grain, haze or blur). A workspace whose Brand default prompt is still, word for word, the text it was given before
+   gets the new one, once; one an admin wrote is left as it is. */
+try {
+  if (!db.prepare("SELECT 1 FROM app_meta WHERE key='ai_brand_prompt_forex'").get()) {
+    const brand = require("./ai-brand");
+    let moved = 0;
+    db.prepare("SELECT id, ai_settings FROM workspaces").all().forEach(w => {
+      let a = {}; try { a = JSON.parse(w.ai_settings || "{}") || {}; } catch (e) { return; }
+      if (!a.image || brand.PREVIOUS_BRAND_PROMPTS.indexOf(String(a.image.defaultStyle || "")) < 0) return;
+      a.image.defaultStyle = brand.RECOMMENDED_BRAND_PROMPT;
+      db.prepare("UPDATE workspaces SET ai_settings=? WHERE id=?").run(JSON.stringify(a), w.id); moved++;
+    });
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('ai_brand_prompt_forex', ?)").run(JSON.stringify({ at: new Date().toISOString(), moved }));
+  }
+} catch (e) { console.error("[ai] brand prompt (forex): " + e.message); }
 /* AI Hub templates kept for oneself got a permission of their own (Oct 2026): every role that can use AI Hub gets it,
    once; from then on it is the admin's, per role, in Roles & permissions */
 try {
@@ -137,7 +153,7 @@ function descLinkRepair(md) {
   let s = String(md == null ? "" : md);
   s = s.replace(new RegExp("(?:[\\[\\]()]*" + URL_RE + "[\\[\\]()]*)+", "g"), (run, off, all) => {
     if (off > 0 && all.charAt(off - 1) === "!") return run;
-    if (run.indexOf("[](") < 0 && !/\[(https?:\/\/[^\]\s]+)\]\(\1\)/.test(run)) return run;
+    if (run.indexOf("[](") < 0) return run;   /* only the old bug's mark: brackets around a proper link stay */
     const urls = run.match(new RegExp(URL_RE, "g")) || [];
     return urls.length ? [...new Set(urls)].join(" ") : run;
   });
@@ -848,12 +864,14 @@ async function aiImageCall(c, provider, body) {
     const size = /^dall-e-3/.test(model) ? (ratio > 1.2 ? "1792x1024" : ratio < 0.83 ? "1024x1792" : "1024x1024") : (ratio > 1.2 ? "1536x1024" : ratio < 0.83 ? "1024x1536" : "1024x1024");
     const req = { model, prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), size, n: 1 };
     if (/^dall-e/.test(model)) req.response_format = "b64_json";
-    if ((body.refs || []).length) {
+    /* the canvas's layout map (Oct 2026) goes with them, after the others — DALL·E takes no pictures, so it simply goes without */
+    const pics = (body.refs || []).concat(body.layout && !/^dall-e/.test(model) ? [body.layout] : []);
+    if (pics.length) {
       /* reference pictures (brand characters, the member's own image) go to the edits endpoint, which takes them as image[] */
       if (/^dall-e/.test(model)) throw new HttpError(400, "DALL·E cannot follow reference photos. Choose a GPT Image model.");
       const form = new FormData();
-      form.append("model", model); form.append("prompt", req.prompt.slice(0, 32000)); form.append("size", size); form.append("n", "1");
-      body.refs.forEach((r, i) => form.append("image[]", new Blob([r.data], { type: r.mime }), "reference-" + (i + 1) + "." + (r.mime.split("/")[1] || "png")));
+      form.append("model", model); form.append("prompt", (req.prompt + (body.layout ? "\n\n" + AI_LAYOUT_NOTE : "")).slice(0, 32000)); form.append("size", size); form.append("n", "1");
+      pics.forEach((r, i) => form.append("image[]", new Blob([r.data], { type: r.mime }), (r.kind === "layout" ? "layout-map" : "reference-" + (i + 1)) + "." + (r.mime.split("/")[1] || "png")));
       const je = await aiFetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { "Authorization": "Bearer " + c.key }, body: form }, "Image", 120000);
       const ue = aiPickFirstImage(je); if (!ue) throw new HttpError(424, "OpenAI returned no image."); return ue;
     }
@@ -872,7 +890,8 @@ async function aiImageCall(c, provider, body) {
       const p0 = (j.predictions || [])[0]; if (p0 && p0.bytesBase64Encoded) return "data:" + (p0.mimeType || "image/png") + ";base64," + p0.bytesBase64Encoded;
       throw new HttpError(424, "Imagen returned no image (the prompt may have been filtered).");
     }
-    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }].concat((body.refs || []).map(r => ({ inlineData: { mimeType: r.mime, data: r.data.toString("base64") } }))) }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
+    const gpics = (body.refs || []).concat(body.layout ? [body.layout] : []);
+    const j = await aiFetch(base + ":generateContent", { method: "POST", headers, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt + (body.layout ? "\n\n" + AI_LAYOUT_NOTE : "") }].concat(gpics.map(r => ({ inlineData: { mimeType: r.mime, data: r.data.toString("base64") } }))) }], generationConfig: { responseModalities: ["IMAGE", "TEXT"], imageConfig: { aspectRatio: aspect } } }) }, "Image", 90000);
     const parts = (((j.candidates || [])[0] || {}).content || {}).parts || [];
     const img = parts.find(p => p.inlineData || p.inline_data); const d = img && (img.inlineData || img.inline_data);
     if (d && d.data) return "data:" + (d.mimeType || d.mime_type || "image/png") + ";base64," + d.data;
@@ -887,12 +906,15 @@ async function aiImageCall(c, provider, body) {
   if (isMystic && (body.refs || []).some(r => r.kind === "character")) throw new HttpError(400, "Magnific Mystic cannot keep a person's likeness from photos. Brand characters need an image provider that accepts reference images, such as OpenAI (GPT Image) or Gemini (Nano Banana).");
   let reqBody = Object.assign({}, body); delete reqBody.refs;
   if ((body.refs || []).length) reqBody.reference_images = body.refs.map(r => "data:" + r.mime + ";base64," + r.data.toString("base64"));
+  const ownStructure = (body.refs || []).length && body.refMode === "structure";
   if (isMystic) {
     const aspect = ratio > 1.9 ? "widescreen_16_9" : ratio > 1.6 ? "widescreen_16_9" : ratio > 1.4 ? "standard_3_2" : ratio > 1.2 ? "classic_4_3" : ratio < 0.53 ? "social_story_9_16" : ratio < 0.62 ? "social_story_9_16" : ratio < 0.72 ? "portrait_2_3" : ratio < 0.83 ? "traditional_3_4" : "square_1_1";
     const MYSTIC_MODELS = ["realism", "fluid", "zen", "flexible", "super_real", "editorial_portraits"];
     const m = String(body.model || "").toLowerCase();
     reqBody = { prompt: body.prompt + (body.negative_prompt ? "\n\nAvoid: " + body.negative_prompt : ""), aspect_ratio: aspect, resolution: process.env.COS_MYSTIC_RESOLUTION || "2k", model: MYSTIC_MODELS.includes(m) ? m : "realism", filter_nsfw: true };
     /* the member's reference picture: its style (adherence: the higher, the more the prompt leads) or its structure */
+    /* the canvas's layout map: where the text will sit stays dark and calm, the subject goes in the lighter area */
+    if (body.layout && !ownStructure) { reqBody.structure_reference = body.layout.data.toString("base64"); reqBody.structure_strength = AI_LAYOUT_STRENGTH; }
     const ref = (body.refs || [])[0];
     if (ref) { const k = Math.max(0, Math.min(100, Math.round(+body.refStrength >= 0 ? +body.refStrength : 50))); if (body.refMode === "structure") { reqBody.structure_reference = ref.data.toString("base64"); reqBody.structure_strength = k; } else { reqBody.style_reference = ref.data.toString("base64"); reqBody.adherence = 100 - k; } }
   }
@@ -917,6 +939,18 @@ async function aiImageCall(c, provider, body) {
 /* The pictures a generation follows: the photos of the brand characters the member chose (read from the workspace
    by id, so a request can name a character but never a file), then the member's own reference image. Only for a
    model with the "reference" capability; the browser already holds them back from any other. */
+/* The canvas's layout map (Oct 2026): the poster at its proportions, black where the headline, the other text and the
+   logo will sit and lighter where the picture may be busy. Sent with a generation while "Keep AI image outside text
+   areas" is on (src/ai-layout-map.js), so the picture is composed around the text instead of under it. A map that is
+   not a small picture is left out rather than failing the generation. */
+const AI_LAYOUT_NOTE = "The last attached image is a layout map of the finished poster, not content: its black areas are where the headline and the other text will be placed, so keep those areas as plain, calm, dark background, and place the subject and all detail in the lighter area. Do not copy the map's shapes.";
+const AI_LAYOUT_STRENGTH = 35;
+function aiLayoutMapFrom(b) {
+  const m = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String((b && b.layoutMap) || ""));
+  if (!m) return null;
+  const data = Buffer.from(m[2], "base64");
+  return data.length > 0 && data.length <= 2_000_000 ? { mime: m[1], data, kind: "layout" } : null;
+}
 function aiReferenceImages(b, chosen, mystic) {
   const ids = Array.isArray(b.characters) ? b.characters.slice(0, 2).map(String) : [];
   if (!ids.length && !b.referenceImage) return [];
@@ -973,6 +1007,7 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
     model: (chosen ? chosen.modelId : (b.model || c.model)) || undefined,
     num_images: 1,
     refs: aiReferenceImages(b, chosen, mystic),
+    layout: aiLayoutMapFrom(b),
     /* how Mystic follows the member's picture: its style or its structure, 0–100 */
     refMode: b.referenceMode === "structure" ? "structure" : "style",
     refStrength: Math.max(0, Math.min(100, Math.round(+b.referenceStrength >= 0 ? +b.referenceStrength : 50)))

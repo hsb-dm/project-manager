@@ -16,7 +16,9 @@ function descLinkRepair(md){
   /* a run of "[](" and addresses, nothing else in it, back to its addresses — each once, a space apart */
   s=s.replace(new RegExp("(?:[\\[\\]()]*"+DESC_URL+"[\\[\\]()]*)+","g"),function(run,off,all){
     if(off>0&&all.charAt(off-1)==="!") return run;
-    if(run.indexOf("[](")<0&&!/\[(https?:\/\/[^\]\s]+)\]\(\1\)/.test(run)) return run;
+    /* only the old bug's mark: brackets around a proper link are the writing's own (a link reading as its address
+       is made the address below, without them) */
+    if(run.indexOf("[](")<0) return run;
     var urls=run.match(url)||[];
     return urls.length?urls.filter(function(u,i){ return urls.indexOf(u)===i; }).join(" "):run;
   });

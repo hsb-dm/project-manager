@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="919f063c0da0">
+<meta name="zc-build" content="717eccdb7f31">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5744,6 +5744,10 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* AI Hub: the preview drawn at the size it is shown, over the full-size canvas, which still takes every click (src/canvas-sharpen.js) */
 .ai-zoom-stage{position:relative}
 .ai-view-canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}
+/* Generative Expand: the result checked before it reaches the canvas */
+.ai-expand-review-pic{display:grid;place-items:center;padding:12px;border-radius:12px;background:var(--color-surface-sunken);max-height:62vh;overflow:auto}
+.ai-expand-review-pic img{display:block;max-width:100%;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.ai-expand-review .ai-expand-dims{margin-top:10px}
 
 </style>
 </head>
@@ -6870,7 +6874,7 @@ function scheduleSearch(q){ clearTimeout(_searchTimer); if(!q.trim())return onSe
 /* Reached from the topbar input rather than renderScreen, so it carries its own guard. */
 function onSearch(q){ if(!signedIn()) return; clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
 function renderSearch(){ var q=S.search.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; };
-  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
+  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(typeof descPlainText==="function"?descPlainText(x.description):x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
   var ps=PROJECTS.filter(function(x){ return m(x.name)||m(x.description); }); var tm=activeTeams().filter(function(t){ return m(t.name)||m(t.description); }); var us=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role)||m(PEOPLE[id].email); });
   var fs=[]; TASKS.forEach(function(t){ t.files.forEach(function(f){ if (m(f.name)) fs.push({t:t,f:f}); }); }); var as=ASSETS.filter(function(x){ return m(x.name)||m(x.tags.join(" ")); }); var ks=KNOWLEDGE.filter(function(x){ return m(x.title)||m(x.body); });
   var h='<div class="pagehead"><div><h1>Search</h1><div class="muted mono" style="margin-top:4px">“'+esc(S.search)+'”</div></div></div>'; var any=ts.length||ps.length||tm.length||us.length||fs.length||as.length||ks.length||bs.length;
@@ -8974,25 +8978,25 @@ function aiConfigured(which){ return !!(aiCfg()[which].keySet || aiKey(which)); 
    built-in template makes the workspace's own copy. */
 var AI_LIME = "#D4FA00", AI_INK = "#030603", AI_PILL = "#15180F";
 var AI_DISCLAIMER_HSB = "HSB Investasi, Pialang Berjangka Teregulasi BAPPEBTI, OJK, Dan BI.\nForex Trading Mengandung Resiko, High Risk High Return";
-var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, glossy reflections, crisp edges, high detail";
+var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, clean glossy reflections, tack-sharp focus, crisp edges, high detail, clean, flawless surfaces, smooth gradients";
 var AI_AVOID = "text, letters, numbers, logos, watermark, clutter, extra objects, cartoon, flat illustration, blue or purple colour cast";
 var AI_PROMPT_DEFAULT = [
   { id:"p_thumb_object", name:"Video thumbnail \u2014 3D object", size:"thumb", layout:"left", characterPrompt:"standing beside the hero object in the right half, half-turned to the camera, smiling, in a lime-green shirt",
-    brief:"One large premium 3D hero object in the right half of the frame: a polished silver coin with a soft green glass video-camera icon, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
+    brief:"One large premium 3D hero object in the right half of the frame: a sleek brushed-silver video-camera icon with a soft green glass lens, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"HSB INVESTASI WEBINAR", sub:"Insight Langsung dari Para Ahli", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
   { id:"p_thumb_people", name:"Video thumbnail \u2014 people", size:"thumb", layout:"left", people:2, characterPrompt:"the two people stand together in the right half, talking and holding smartphones, in lime-green overshirts over white T-shirts",
     brief:"Two friendly young Indonesian adults, a woman and a man, in lime-green linen overshirts over white T-shirts, talking to each other and holding smartphones, seen from the thighs up in the right half of the frame. A large frosted-glass circle with a pale green tint sits behind them. Natural, candid expressions. The left half is open dark background for the title.",
-    style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, sharp focus", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
+    style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, tack-sharp focus, clean high-resolution image", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
     headline:"TESTIMONI NASABAH", sub:"Kata mereka tentang HSB Investasi", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
   { id:"p_feed_edu", name:"Educational feed", size:"feed34", layout:"poster", characterPrompt:"standing beside the glass jar in the middle band, smiling at the camera and holding a smartphone",
-    brief:"A clear glass jar filled with stacked silver-and-gold coins and a cork lid, centred in the middle band of the frame, a few coins floating around it and one large coin leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
+    brief:"A clear glass jar with a cork lid, filled with neatly rolled rupiah and US dollar banknotes and two small polished gold bars, centred in the middle band of the frame, one more gold bar leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Bisa Melek Finansial itu Privilege?", sub:"Makin paham kelola uang, makin cepet Financial Freedom!", cta:"", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_engage", name:"Comment-to-DM post", size:"feed34", layout:"poster", characterPrompt:"standing behind the duffel bag in the middle band, looking at the banknotes with a curious expression",
     brief:"A tan leather duffel bag stuffed with bundles of Indonesian rupiah banknotes, standing on a dark green felt table in the middle band of the frame, a few loose bundles around it, moody low-key light. The top third and the bottom quarter stay dark and empty.",
-    style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, sharp focus", negative:AI_AVOID,
+    style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, tack-sharp focus, clean high-resolution image", negative:AI_AVOID,
     headline:"Penasaran gak, kenapa Rupiah termasuk mata uang terlemah?", sub:"Komen \u201cRupiah!\u201d & cek DM kamu buat tau alasannya!", cta:"HSB Investasi #JadiPilihan.", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_promo", name:"Competition & promo", size:"feed34", layout:"poster", characterPrompt:"standing next to the trophy in the middle band, raising a fist in celebration, in a lime-green shirt",
@@ -9000,16 +9004,16 @@ var AI_PROMPT_DEFAULT = [
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"COMPETITION", sub:"Tanpa Modal & Tanpa Deposit!", cta:"HSB Investasi #JadiPilihan.", badge:"Demo trading",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_market", name:"Weekly market highlight", size:"feed34", layout:"bottom", characterPrompt:"standing beside the globe in the upper two-thirds, looking at a smartphone, calm and confident",
-    brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a large silver dollar coin leaning against it, placed in the upper two-thirds with a soft reflection beneath. The bottom third stays dark and empty for text.",
+    brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a short stack of polished gold bars beside it, placed in the upper two-thirds with a clean reflection beneath. The bottom third stays dark and empty for text.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Market Highlight Minggu Ini", sub:"5\u20139 Oktober 2026", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_story_launch", name:"Product launch story", size:"story", layout:"poster", characterPrompt:"standing beside the safe on the podium, smiling with arms crossed, in a lime-green shirt",
-    brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; thin mist, and a few small curved glass panels showing rising candlestick charts around it. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
+    brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; clean dark air around it, and a few small curved glass panels showing rising lime candlestick charts. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Asuransi Perlindungan Dana Nasabah", sub:"Tanpa Biaya Tambahan", cta:"", badge:"Telah hadir",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_story_webinar", name:"Webinar story", size:"story", layout:"poster", characterPrompt:"shown waist-up in the middle band as the speakers, side by side, friendly and professional",
-    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft electric-lime glow made of fine halftone dots across the upper middle and a subtle grain. No objects; speaker photos are usually added later as layers.",
-    style:"minimal abstract backdrop, soft gradient light, fine halftone texture", negative:"text, letters, logos, watermark, objects, clutter, blue or purple colour cast",
+    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft, perfectly smooth electric-lime glow across the upper middle. No objects; speaker photos are usually added later as layers.",
+    style:"minimal abstract backdrop, smooth clean gradient light, perfectly smooth surfaces, tack-sharp, high resolution", negative:"text, letters, logos, watermark, objects, clutter, blue or purple colour cast",
     headline:"Trading is More Than a Chart!", sub:"Kamis, 29 Oktober 2026 \u00b7 19:00\u201321:00 WIB", cta:"Daftar sekarang", badge:"Live webinar",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_LIME, ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB }
 ];
@@ -9385,6 +9389,7 @@ function aiGenerate(){
                referenceMode:AIF.referenceMode==="structure"?"structure":"style", referenceStrength:AIF.referenceStrength==null?50:+AIF.referenceStrength,
                characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
                referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
+               layoutMap:(API.on&&typeof aiLayoutMap==="function"?aiLayoutMap():null)||undefined,   /* where the text sits, for the AI to compose around (src/ai-layout-map.js) */
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
   AI_BUSY = true; renderScreen(false);
   var call = API.on
@@ -10416,15 +10421,70 @@ function aiExpandBuildComposite(cb,plainCrop){
   im.onerror = function(){ toast(tr("Could not load the current visual to expand."), "bad"); aiExpandSetBusy(false); AI_EXPAND.busy=false; };
   im.src = e.srcUrl;
 }
-/* one place that lands a finished picture on the canvas, whether AI made it or a crop did */
+/* One place that lands a finished picture on the canvas, whether AI made it or a crop did. The canvas takes the
+   picture's own size and the layer fills it exactly: the layer used to keep the place and scale it had before, and
+   the canvas the size that was asked for — a provider that answers in a size of its own (OpenAI has three) left part
+   of the picture off the canvas, which looked like a crop. */
 function aiExpandApplyResult(url,w,h,promptText,modelId,recordRun){
   aiHistoryBefore();
   AI_LAST = { imgUrl:url, w:w, h:h, prompt:promptText||"", model:modelId||"", at:new Date().toISOString(), fields:clone(AIF) };
   AIF.size = "custom"; AIF.customW = w; AIF.customH = h;
   var layer = (AIF.extraLayers||[]).filter(function(x){ return x.id===AI_EXPAND.layerId; })[0];
-  if (layer) layer.src = url; else aiAddGeneratedLayer(url, {w:w,h:h});
+  if (layer){ layer.src = url; layer.aspectLock = true; layer.w = 100; layer.x = AIF.offsetUnit==="px" ? w/2 : 50; layer.y = AIF.offsetUnit==="px" ? h/2 : 50;
+    if (typeof aiLayerMeta==="function"){ var m = aiLayerMeta("extra_"+layer.id); m.rotation = 0; m.flipX = false; m.flipY = false; } }
+  else aiAddGeneratedLayer(url, {w:w,h:h});
   if (recordRun){ AI_RUNS.unshift({ url:url, prompt:promptText||"", w:w, h:h, model:modelId||"", at:AI_LAST.at, headline:AIF.headline, fields:aiRunSettings() }); aiSaveRuns(); }
   AI_EXPAND = null; closeModal(); renderScreen(false);
+}
+
+/* ---------- the expanded picture, checked before it reaches the canvas (Oct 2026) ----------
+   What the model made is shown first, at its real size: Use this puts it on the canvas; Adjust or crop opens the frame
+   again on this picture (crop it, or expand it further); Generate again asks once more with the same settings; Discard
+   leaves the canvas as it was. Nothing changes on the canvas before Use this. */
+function aiExpandReview(url,body,t){
+  var e = AI_EXPAND; if (!e) return;
+  var im = new Image(); im.crossOrigin = "anonymous";
+  im.onload = function(){
+    e.result = { url:url, w:im.naturalWidth||t.w, h:im.naturalHeight||t.h, prompt:body.prompt, model:body.model, body:body, asked:{ w:t.w, h:t.h } };
+    aiExpandReviewModal();
+  };
+  im.onerror = function(){ e.busy = false; aiExpandSetBusy(false); toast(tr("Could not load the expanded picture."), "bad"); };
+  im.src = url;
+}
+function aiExpandReviewModal(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  var k = Math.min(1, AI_EXPAND_STAGE / Math.max(r.w, r.h)), other = r.w!==r.asked.w || r.h!==r.asked.h;
+  var size = UI_LANG==="id" ? "Hasil: "+r.w+" × "+r.h+(other?" (diminta "+r.asked.w+" × "+r.asked.h+")":"") : "Result: "+r.w+" × "+r.h+(other?" (asked for "+r.asked.w+" × "+r.asked.h+")":"");
+  var body = '<div class="ai-expand-review"><div class="ai-expand-review-pic"><img id="aiExpandResult" src="'+attr(r.url)+'" alt="'+attr(tr("The expanded picture"))+'" style="width:'+Math.round(r.w*k)+'px;height:'+Math.round(r.h*k)+'px"></div>'
+    + '<div class="ai-expand-dims"><b>'+esc(size)+'</b></div>'
+    + '<p class="hint">'+tr("Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.")+'</p></div>';
+  var foot = '<button class="btn" onclick="aiExpandDiscard()">'+tr("Discard")+'</button><span class="spacer"></span>'
+    + '<button class="btn" id="aiExpandAdjust" onclick="aiExpandAdjust()">'+I.expand+tr("Adjust or crop")+'</button>'
+    + '<button class="btn" id="aiExpandAgain" onclick="aiExpandAgain()">'+I.sync+tr("Generate again")+'</button>'
+    + '<button class="btn primary" id="aiExpandUse" onclick="aiExpandUse()">'+I.check+tr("Use this")+'</button>';
+  openModal(tr("Check the expanded picture"), body, foot, true);
+}
+function aiExpandUse(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  aiExpandApplyResult(r.url, r.w, r.h, r.prompt, r.model, true);
+  toast(tr("Canvas expanded — new size applied"));
+}
+function aiExpandDiscard(){ AI_EXPAND = null; closeModal(); }
+/* the frame again, on the expanded picture: crop it, or grow it further */
+function aiExpandAdjust(){
+  var e = AI_EXPAND, r = e && e.result; if (!r) return;
+  AI_EXPAND = { srcUrl: r.url, layerId: e.layerId, baseW: r.w, baseH: r.h, top:0, right:0, bottom:0, left:0, ratio:"free", busy:false };
+  aiExpandModal();
+}
+function aiExpandAgain(){
+  var e = AI_EXPAND, r = e && e.result; if (!r || e.busy) return;
+  e.busy = true; ["aiExpandAgain","aiExpandUse","aiExpandAdjust"].forEach(function(id){ var b = document.getElementById(id); if (b) b.disabled = true; });
+  var again = document.getElementById("aiExpandAgain"); if (again) again.innerHTML = '<i class="ai-button-spinner" aria-hidden="true"></i>'+tr("Expanding…");
+  apiFetch("POST","/api/ai/expand",r.body).then(function(res){
+    e.busy = false; if (AI_EXPAND !== e) return;
+    if (!res.imageUrl) throw new Error("The provider returned no image.");
+    aiExpandReview(res.imageUrl, r.body, { w:r.asked.w, h:r.asked.h });
+  }).catch(function(err){ e.busy = false; if (AI_EXPAND === e) aiExpandReviewModal(); toast(tr("Expand failed: ")+err.message, "bad"); });
 }
 function aiExpandGenerate(){
   var e = AI_EXPAND; if (!e || e.busy) return;
@@ -10453,14 +10513,16 @@ function aiExpandGenerate(){
     apiFetch("POST","/api/ai/expand",body).then(function(res){
       e.busy = false;
       var url = res.imageUrl; if (!url) throw new Error("The provider returned no image.");
-      aiExpandApplyResult(url, t.w, t.h, body.prompt, body.model, true);
-      toast(tr("Canvas expanded — new size applied"));
+      /* checked first — nothing reaches the canvas before Use this */
+      aiExpandReview(url, body, t);
     }).catch(function(err){
       e.busy = false; aiExpandSetBusy(false);
       toast(tr("Expand failed: ")+err.message, "bad");
     });
   });
 }
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Check the expanded picture":"Cek gambar hasil expand","Use this":"Pakai ini","Adjust or crop":"Atur atau crop","Generate again":"Generate lagi","Discard":"Buang","The expanded picture":"Gambar hasil expand","Could not load the expanded picture.":"Gambar hasil expand tidak bisa dimuat.",
+  "Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.":"Belum ada yang masuk ke kanvas sampai kamu pilih Pakai ini. Atur atau crop membuka bingkai pada gambar ini."});
 </script>
 <script>
 /* ============================================================
@@ -11098,7 +11160,7 @@ var AI_BRIEF={source:"manual",taskId:null,includeDiscussion:false,refs:null,inst
 function aiBriefFieldLabel(k){ var f=(WS.briefFields||[]).filter(function(x){ return x[0]===k; })[0]; return f?f[1]:k; }
 function aiBriefLines(v){ return String(v||"").split(/\n|;|\u2022/).map(function(x){ return x.replace(/^[-*\s]+/,"").trim(); }).filter(Boolean); }
 function aiBriefNormalise(tk,opts){ opts=opts||{}; var b=tk.brief||{}, pj=project(tk.proj);
-  var ctx={task_id:tk.id,task_title:tk.title,project:pj?pj.name:"",team:tk.team?teamName(tk.team):"",priority:tk.prio,due_date:iso(tk.due),status:stageName(tk.status),objective:b.objective||tk.description||"",background:b.background||"",audience:b.audience||"",deliverables:aiBriefLines(b.deliverables),key_message:b.keyMessage||"",copy:b.copy||"",cta:b.cta||"",platform:b.platform||"",dimensions:b.dimensions||"",brand:b.brand||"",requirements:aiBriefLines(b.mandatory),constraints:aiBriefLines(b.notes),references:aiBriefLines(b.references),attachments:(tk.files||[]).map(function(f){ return {name:f.name,type:f.type,source:f.source,url:f.url||""}; }),drive_links:(tk.files||[]).filter(function(f){ return /drive\.google\.com|docs\.google\.com/.test(f.url||""); }).map(function(f){ return f.url; }),discussion:[]};
+  var ctx={task_id:tk.id,task_title:tk.title,project:pj?pj.name:"",team:tk.team?teamName(tk.team):"",priority:tk.prio,due_date:iso(tk.due),status:stageName(tk.status),objective:b.objective||(typeof descPlainText==="function"?descPlainText(tk.description):tk.description)||"",background:b.background||"",audience:b.audience||"",deliverables:aiBriefLines(b.deliverables),key_message:b.keyMessage||"",copy:b.copy||"",cta:b.cta||"",platform:b.platform||"",dimensions:b.dimensions||"",brand:b.brand||"",requirements:aiBriefLines(b.mandatory),constraints:aiBriefLines(b.notes),references:aiBriefLines(b.references),attachments:(tk.files||[]).map(function(f){ return {name:f.name,type:f.type,source:f.source,url:f.url||""}; }),drive_links:(tk.files||[]).filter(function(f){ return /drive\.google\.com|docs\.google\.com/.test(f.url||""); }).map(function(f){ return f.url; }),discussion:[]};
   /* extra brief fields a workspace may have added */
   Object.keys(b).forEach(function(k){ if(["tpl","objective","background","audience","deliverables","keyMessage","copy","cta","platform","dimensions","brand","mandatory","references","notes"].indexOf(k)<0&&b[k]) ctx[k]=b[k]; });
   /* §106 comments only when explicitly included, or marked as decision/requirement */
@@ -16382,6 +16444,43 @@ function fontEnsure(font,weight){
   return r; }; })();
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Font style":"Gaya huruf","Brand fonts":"Font brand","Fonts":"Font","Style":"Gaya"});
+</script>
+<script>
+/* ============================================================
+   THE CANVAS'S LAYOUT, SENT WITH A GENERATION (Oct 2026)
+   The text-safe area used to be described to the AI in words only, and the picture still ran under the headline.
+   While "Keep AI image outside text areas" is on (it is unless turned off), a generation now also sends a layout
+   map drawn from the canvas as it stands: the poster at its proportions, black where the headline, the other text,
+   the button, the badge, the disclaimer and the logo sit — a little wider, softly edged — and lighter where the
+   picture may be busy. Magnific Mystic follows it as the structure of the picture (unless the member's own reference
+   is in Structure mode); GPT Image and Gemini get it as one more picture, told what it is (server.js AI_LAYOUT_NOTE).
+   No text on the canvas, or no canvas yet: no map, as before.
+   ============================================================ */
+var AI_LAYOUT_TEXT_IDS={headline:1,sub:1,cta:1,badge:1,disclaimer:1,logo:1};
+function aiLayoutTextHits(){
+  return (typeof AI_LAYER_HITS!=="undefined"&&AI_LAYER_HITS||[]).filter(function(h){
+    if(!h||!(h.w>0)||!(h.h>0)) return false;
+    if(AI_LAYOUT_TEXT_IDS[h.id]) return true;
+    if(String(h.id).indexOf("extra_")===0&&typeof aiExtra==="function"){ var x=aiExtra(h.id.slice(6)); return !!x&&x.type==="text"&&!!String(x.content||"").trim(); }
+    return false;
+  });
+}
+function aiLayoutMap(){
+  if(typeof AIF==="undefined"||AIF.protectText===false||typeof document==="undefined") return null;
+  var hits=aiLayoutTextHits(); if(!hits.length) return null;
+  var sz=typeof aiActiveSize==="function"?aiActiveSize():null; if(!sz||!sz.w||!sz.h) return null;
+  var k=Math.min(1,768/Math.max(sz.w,sz.h)), w=Math.max(16,Math.round(sz.w*k)), h=Math.max(16,Math.round(sz.h*k));
+  var cv=document.createElement("canvas"); cv.width=w; cv.height=h; var g=cv.getContext("2d"); if(!g) return null;
+  /* where the picture may be busy: a soft light, brightest where no text is */
+  g.fillStyle="#7a7a7a"; g.fillRect(0,0,w,h);
+  /* where the text sits: black, a little wider than the words, softly edged so no hard shape is copied */
+  var pad=Math.round(Math.min(w,h)*0.035), soft=Math.max(4,Math.round(Math.min(w,h)*0.05));
+  try{ g.filter="blur("+soft+"px)"; }catch(e){}
+  g.fillStyle="#000000";
+  hits.forEach(function(hh){ g.fillRect(Math.round(hh.x*k)-pad,Math.round(hh.y*k)-pad,Math.round(hh.w*k)+pad*2,Math.round(hh.h*k)+pad*2); });
+  try{ g.filter="none"; }catch(e){}
+  try{ return cv.toDataURL("image/png"); }catch(e){ return null; }
+}
 </script>
 <script>
 /* One selection model drives the layer list, canvas, alignment and keyboard. */
@@ -21915,7 +22014,9 @@ function descLinkRepair(md){
   /* a run of "[](" and addresses, nothing else in it, back to its addresses — each once, a space apart */
   s=s.replace(new RegExp("(?:[\\[\\]()]*"+DESC_URL+"[\\[\\]()]*)+","g"),function(run,off,all){
     if(off>0&&all.charAt(off-1)==="!") return run;
-    if(run.indexOf("[](")<0&&!/\[(https?:\/\/[^\]\s]+)\]\(\1\)/.test(run)) return run;
+    /* only the old bug's mark: brackets around a proper link are the writing's own (a link reading as its address
+       is made the address below, without them) */
+    if(run.indexOf("[](")<0) return run;
     var urls=run.match(url)||[];
     return urls.length?urls.filter(function(u,i){ return urls.indexOf(u)===i; }).join(" "):run;
   });
@@ -21936,6 +22037,54 @@ function descUnnestLinks(html){
   if(typeof descMdInline==="function"){ var inline=descMdInline; descMdInline=function(s){ return descUnnestLinks(inline.apply(this,arguments)); }; }
   if(typeof descMdHtml==="function"){ var view=descMdHtml; descMdHtml=function(src){ return view.call(this,descLinkRepair(src)); }; }
   if(typeof descHtmlToMd==="function"){ var save=descHtmlToMd; descHtmlToMd=function(){ return descLinkRepair(save.apply(this,arguments)); }; }
+})();
+</script>
+<script>
+/* ============================================================
+   AN EMOJI IS A LETTER, NOT A PICTURE (Oct 2026)
+   Many sites put emoji on the clipboard as small pictures (<img alt="✅" src="…/emoji/…png">): Gmail, Google Chat,
+   WhatsApp Web, X, Slack. Pasted into a description (or a progress note — the same editor) each became a picture: a
+   framed block on a line of its own, as large as the picture file, with its words pushed below it.
+   Now an emoji picture becomes the emoji itself, where it was, when it is pasted and when the writing is saved; one
+   already stored as a picture is shown as the emoji, on the line it belongs to, and is stored that way when the
+   description is next saved. A picture that is not an emoji is untouched.
+   ============================================================ */
+var DESC_EMOJI_HOSTS=/(^|\.)(fonts\.gstatic\.com|twemoji\.maxcdn\.com|abs\.twimg\.com|emoji\.slack-edge\.com|a\.slack-edge\.com|github\.githubassets\.com|static\.xx\.fbcdn\.net|static\.whatsapp\.net|web\.whatsapp\.com|cdn\.jsdelivr\.net|emojipedia-us\.s3\.amazonaws\.com|em-content\.zobj\.net)$/i;
+/* the emoji a picture stands for: its alt when that is emoji (✅, 👍🏽, 🇮🇩, 1️⃣), or a ":name:" from an emoji host */
+function descEmojiOf(alt,src){
+  var a=String(alt||"").trim(); if(!a||a.length>24) return "";
+  try{
+    if(/^[\p{Extended_Pictographic}\p{Emoji_Component}\p{Regional_Indicator}‍️⃣\s]+$/u.test(a)&&/[\p{Extended_Pictographic}\p{Regional_Indicator}⃣]/u.test(a)) return a;
+  }catch(e){ return ""; }
+  var host=""; try{ host=new URL(String(src||""),location.href).hostname; }catch(e){}
+  if(/^:[\w+-]{1,40}:$/.test(a)&&(DESC_EMOJI_HOSTS.test(host)||/emoji/i.test(String(src||"")))) return a;
+  return "";
+}
+/* pasted or saved: each emoji picture in the HTML becomes its letter, in place */
+function descEmojiPictures(html){
+  if(!html||String(html).indexOf("<img")<0||typeof document==="undefined") return html;
+  var d=document.createElement("div"); d.innerHTML=html; var n=0;
+  d.querySelectorAll("img").forEach(function(im){
+    var e=descEmojiOf(im.getAttribute("alt")||im.getAttribute("aria-label")||im.getAttribute("data-emoji")||"",im.getAttribute("src")||"");
+    if(!e) return; im.parentNode.replaceChild(document.createTextNode(e),im); n++;
+  });
+  return n?d.innerHTML:html;
+}
+/* stored before: an emoji picture on a line of its own, its words on the next — the emoji, on that line */
+function descEmojiLines(md){
+  var s=String(md==null?"":md); if(s.indexOf("![")<0) return s;
+  var lines=s.split("\n"), out=[];
+  for(var i=0;i<lines.length;i++){
+    var m=/^\s*!\[([^\]\n]{1,60})\]\(((?:https?:\/\/|zc-att:)[^\s)]+)(?:\s+=\s*\d{1,3}%)?\)\s*$/.exec(lines[i]), e=m&&descEmojiOf(m[1],m[2]);
+    if(e){ if(i+1<lines.length&&lines[i+1].trim()&&!/^\s*!\[/.test(lines[i+1])){ out.push(e+" "+lines[i+1].replace(/^\s+/,"")); i++; } else out.push(e); continue; }
+    /* within a line: the letter in place of the picture */
+    out.push(lines[i].replace(/!\[([^\]\n]{1,60})\]\(((?:https?:\/\/|zc-att:)[^\s)]+)(?:\s+=\s*\d{1,3}%)?\)/g,function(all,alt,src){ return descEmojiOf(alt,src)||all; }));
+  }
+  return out.join("\n");
+}
+(function(){
+  if(typeof descHtmlToMd==="function"){ var save=descHtmlToMd; descHtmlToMd=function(html,opts){ return descEmojiLines(save.call(this,descEmojiPictures(html),opts)); }; }
+  if(typeof descMdHtml==="function"){ var view=descMdHtml; descMdHtml=function(src){ return view.call(this,descEmojiLines(src)); }; }
 })();
 </script>
 <script>
@@ -22413,6 +22562,90 @@ function refInsertRef(w,kind,id,label){
   "Find a task…":"Cari task…","Find a project…":"Cari proyek…","Mention":"Sebut",
   "Type @ to mention someone. A task or a project goes in as a chip:":"Ketik @ untuk menyebut seseorang. Task atau proyek masuk sebagai chip:"
 });
+</script>
+<script>
+/* ============================================================
+   WHAT IS TYPED IS WHAT IS SHOWN (Oct 2026)
+   The description and the progress note keep their writing as Markdown, and read it back as Markdown — so text typed
+   or pasted as text changed on the way: "5 * 3 * 2" came back with " 3 " in italics, "# Promo" as a heading, "- item"
+   and "1. item" as lists, "> kutipan" as a quote, `x` as code. Formatting chosen with the toolbar (bold, italic,
+   strike, a heading, a list, a quote, a link) is what Markdown is for; the characters a person typed are not.
+   So on the way in, a typed character that Markdown would read as formatting is written with a backslash before it,
+   the usual Markdown escape (\*, \_, \#, \>, \-, 1\.) — only where it would otherwise change something, so
+   "file_name_v2" and "C:\Users" stay as they are — and on the way out a backslash-escaped character is shown as itself.
+   Plain text pasted into either editor is taken the same way, and the description's paste is handled again (it was
+   lost when the editor became a WYSIWYG one). Readers of the plain text (search, AI Hub's brief) drop the backslashes.
+   Loaded after every other wrapper of the two (src/ref-chips.js above all): it marks what a person typed before any
+   chip is turned into its token, so a task or project chip is never taken for typing.
+   ============================================================ */
+var DL_CHARS="\\*_~`[]#>-+.)!|";
+var DL_IN={}, DL_OUT={};
+(function(){ for(var i=0;i<DL_CHARS.length;i++){ var c=DL_CHARS.charAt(i); DL_IN[c]=String.fromCharCode(0xE100+i); DL_OUT[String.fromCharCode(0xE100+i)]=c; } })();
+var DL_ANY=new RegExp("["+Object.keys(DL_OUT).join("")+"]","g");
+var DL_ESC_RE=/\\([\\*_~`\[\]#>\-+.)!|])/g;   /* a backslash before one of these is an escape */
+/* a typed text's special characters as placeholders, so the serializer passes them through untouched */
+function dlMark(text){ var out=""; for(var i=0;i<text.length;i++){ var c=text.charAt(i); out+=DL_IN[c]||c; } return out; }
+/* placeholders back to characters: escaped only where Markdown would otherwise read them */
+function dlFinish(md){
+  var lines=String(md).split("\n");
+  return lines.map(function(line){
+    var out="", started=false;
+    for(var i=0;i<line.length;i++){
+      var ch=line.charAt(i), c=DL_OUT[ch];
+      if(!c){ out+=ch; if(!/\s/.test(ch)) started=true; continue; }
+      var prev=i?(DL_OUT[line.charAt(i-1)]||line.charAt(i-1)):"", next=i+1<line.length?(DL_OUT[line.charAt(i+1)]||line.charAt(i+1)):"", lead=!started;
+      var esc=false;
+      if(c==="*"||c==="`") esc=true;
+      else if(c==="\\") esc=DL_CHARS.indexOf(next)>=0;
+      else if(c==="_") esc=!(/[\p{L}\p{N}]/u.test(prev)&&/[\p{L}\p{N}]/u.test(next));
+      else if(c==="~") esc=prev==="~"||next==="~";
+      else if(c==="[") esc=false;
+      else if(c==="]") esc=next==="(";
+      else if(c==="!") esc=next==="[";
+      else if(c==="#"||c===">") esc=lead;
+      else if(c==="-"||c==="+") esc=lead&&(next===" "||next==="-"&&c==="-");
+      else if(c==="."||c===")") esc=/^\s*\d+$/.test(out)&&(next===" "||next==="");
+      else if(c==="|") esc=false;
+      out+=(esc?"\\":"")+c; started=true;
+    }
+    return out;
+  }).join("\n");
+}
+/* text, as Markdown that reads back as exactly that text */
+function dlLiteral(text){ return dlFinish(dlMark(String(text==null?"":text))); }
+/* Markdown's escapes, dropped: what a reader of the plain text sees */
+function descPlainText(md){ return String(md==null?"":md).replace(DL_ESC_RE,"$1"); }
+
+/* the way in: the editor's writing, every typed character marked, then serialized */
+function dlMarkHtml(html){
+  if(!html||typeof document==="undefined") return html;
+  var d=document.createElement("div"); d.innerHTML=html; var n=0;
+  var walker=document.createTreeWalker(d,NodeFilter.SHOW_TEXT,null), nodes=[], t;
+  while((t=walker.nextNode())) nodes.push(t);
+  nodes.forEach(function(node){ var p=node.parentNode; if(p&&p.closest&&p.closest("code,pre")) return;
+    /* a link that reads as its own address: its words are the address, not typing */
+    if(p&&p.closest&&p.closest("a")&&/^(https?:|ftp:|www.)/i.test(String(node.nodeValue).trim())) return; var v=node.nodeValue, m=dlMark(v); if(m!==v){ node.nodeValue=m; n++; } });
+  return n?d.innerHTML:html;
+}
+/* the way out: each escaped character kept as itself through the reader, shown as itself */
+function dlProtect(md){ return String(md==null?"":md).replace(/\\\\|\\([*_~`\[\]#>\-+.)!|])/g,function(all,c){ return c?DL_IN[c]:DL_IN["\\"]; }); }
+function dlRestoreHtml(html){ return String(html).replace(DL_ANY,function(ch){ var c=DL_OUT[ch]; return c===">"?"&gt;":c; }); }
+
+(function(){
+  if(typeof descHtmlToMd==="function"){ var save=descHtmlToMd; descHtmlToMd=function(html,opts){ return dlFinish(save.call(this,dlMarkHtml(html),opts)); }; }
+  if(typeof descMdHtml==="function"){ var view=descMdHtml; descMdHtml=function(src){ return dlRestoreHtml(view.call(this,dlProtect(src))); }; }
+  /* Pasted text is text: the browser puts it where the caret is, and saving takes it as typed. Pasted HTML (a page,
+     Google Docs, Word) keeps its formatting, not its fonts and colours, and its characters as typed; one line of it
+     goes into the line, not onto a new one. */
+  function dlPasteHtml(e,after){ var cd=e.clipboardData; if(!cd) return; if(cd.files&&cd.files.length) return; var html=cd.getData("text/html"); if(!html) return;
+    var md=descHtmlToMd(html,{paste:true}); if(!md) return; e.preventDefault();
+    var h=descMdHtml(md); if(md.indexOf("\n")<0) h=h.replace(/^<div>([\s\S]*)<\/div>$/,"$1");
+    document.execCommand("insertHTML",false,h); if(typeof after==="function") after(); }
+  descPaste=function(e){ dlPasteHtml(e,typeof descWysiwygInput==="function"?descWysiwygInput:null); };
+  if(typeof pnPaste==="function") pnPaste=function(e){ dlPasteHtml(e,typeof pnInput==="function"?pnInput:null); };
+  /* the description's paste, handled again: the editor lost its onpaste when it became a WYSIWYG one */
+  if(typeof document!=="undefined") document.addEventListener("paste",function(e){ var el=e.target&&e.target.closest?e.target.closest("#descSrc"):null; if(!el||e.defaultPrevented) return; descPaste(e); });
+})();
 </script>
 <script>
 /* ============================================================

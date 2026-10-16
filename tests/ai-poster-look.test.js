@@ -307,3 +307,46 @@ test('a workspace that already wrote its Brand default prompt keeps it', { timeo
   s = await start(at);
   assert.equal((await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json()).ws.ai.image.defaultStyle, 'Our own words.');
 });
+
+/* The canvas's layout map (Oct 2026): sent with a generation so the picture is composed around the text. Mystic follows
+   it as the structure (the member's own Structure picture comes first); GPT Image and Gemini get it as the last picture
+   with what it is; a provider that takes no pictures simply goes without; a map that is not a small picture is left out. */
+test('the layout map reaches each provider its own way', async t => {
+  const { c, calls, cleanup } = providers([]); t.after(cleanup);
+  const PNGS = 'data:image/png;base64,' + Buffer.from('layout').toString('base64');
+  const layout = c.aiLayoutMapFrom({ layoutMap: PNGS });
+  assert.equal(layout.kind, 'layout'); assert.equal(layout.data.toString(), 'layout');
+  assert.equal(c.aiLayoutMapFrom({ layoutMap: 'https://evil.example/x.png' }), null, 'a picture, not a link');
+  assert.equal(c.aiLayoutMapFrom({ layoutMap: 'data:image/png;base64,' + Buffer.alloc(2_000_001).toString('base64') }), null, 'small');
+  assert.equal(c.aiLayoutMapFrom({}), null);
+  const body = extra => Object.assign({ prompt: 'P', negative_prompt: 'N', width: 1080, height: 1920, refs: [], layout }, extra);
+  /* Mystic: the structure to follow, at a moderate strength */
+  const mystic = { key: 'k', endpoint: 'https://api.magnific.ai/v1/mystic' }, own = [{ mime: 'image/png', data: Buffer.from('s'), kind: 'member' }];
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism' }));
+  let my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.structure_reference, Buffer.from('layout').toString('base64')); assert.equal(my.structure_strength, 35, "a moderate strength: the layout leads, its shapes are not copied");
+  assert.ok(my.prompt.indexOf('layout map') < 0, 'Mystic sees no attachment: nothing said about one');
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'style', refStrength: 50 }));
+  my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.style_reference, Buffer.from('s').toString('base64')); assert.equal(my.structure_reference, Buffer.from('layout').toString('base64'), 'a style picture and the layout together');
+  await c.aiImageCall(mystic, 'magnific', body({ model: 'realism', refs: own, refMode: 'structure', refStrength: 60 }));
+  my = JSON.parse(calls.pop().init.body);
+  assert.equal(my.structure_reference, Buffer.from('s').toString('base64'), 'the member\'s own Structure picture comes first'); assert.equal(my.structure_strength, 60);
+  /* GPT Image: the last picture, said what it is */
+  await c.aiImageCall({ key: 'k', endpoint: 'https://api.openai.com/v1/images/generations' }, 'openai', body({ model: 'gpt-image-1' }));
+  let last = calls.pop(); assert.equal(last.url, 'https://api.openai.com/v1/images/edits');
+  const imgs = last.init.body.getAll('image[]'); assert.equal(imgs.length, 1); assert.equal(imgs[0].name, 'layout-map.png');
+  assert.match(last.init.body.get('prompt'), /layout map of the finished poster/);
+  /* DALL·E and Imagen take no pictures: a plain generation, no refusal */
+  await c.aiImageCall({ key: 'k', endpoint: 'https://api.openai.com/v1/images/generations' }, 'openai', body({ model: 'dall-e-3' }));
+  assert.equal(calls.pop().url, 'https://api.openai.com/v1/images/generations');
+  await c.aiImageCall({ key: 'k', endpoint: 'https://generativelanguage.googleapis.com/v1beta' }, 'gemini', body({ model: 'imagen-4.0-generate-001' })).catch(e => assert.notEqual(e.status, 400, 'not refused for the map'));
+  assert.match(calls.pop().url, /:predict$/);
+  /* Gemini: after the text, said what it is */
+  await c.aiImageCall({ key: 'k', endpoint: 'https://generativelanguage.googleapis.com/v1beta' }, 'gemini', body({ model: 'gemini-3-pro-image' }));
+  const parts = JSON.parse(calls.pop().init.body).contents[0].parts;
+  assert.equal(parts.length, 2); assert.match(parts[0].text, /layout map/); assert.equal(parts[1].inlineData.data, Buffer.from('layout').toString('base64'));
+  /* a custom endpoint is not sent it */
+  await c.aiImageCall({ key: 'k', endpoint: 'https://images.example.com/v1/generate' }, 'custom', body({ model: 'x' }));
+  const sent = JSON.parse(calls.pop().init.body); assert.equal(JSON.stringify(sent).indexOf(Buffer.from('layout').toString('base64')), -1);
+});

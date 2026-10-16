@@ -28,25 +28,25 @@ function aiConfigured(which){ return !!(aiCfg()[which].keySet || aiKey(which)); 
    built-in template makes the workspace's own copy. */
 var AI_LIME = "#D4FA00", AI_INK = "#030603", AI_PILL = "#15180F";
 var AI_DISCLAIMER_HSB = "HSB Investasi, Pialang Berjangka Teregulasi BAPPEBTI, OJK, Dan BI.\nForex Trading Mengandung Resiko, High Risk High Return";
-var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, glossy reflections, crisp edges, high detail";
+var AI_RENDER_3D = "photoreal premium 3D render, studio product lighting, clean glossy reflections, tack-sharp focus, crisp edges, high detail, clean, flawless surfaces, smooth gradients";
 var AI_AVOID = "text, letters, numbers, logos, watermark, clutter, extra objects, cartoon, flat illustration, blue or purple colour cast";
 var AI_PROMPT_DEFAULT = [
   { id:"p_thumb_object", name:"Video thumbnail \u2014 3D object", size:"thumb", layout:"left", characterPrompt:"standing beside the hero object in the right half, half-turned to the camera, smiling, in a lime-green shirt",
-    brief:"One large premium 3D hero object in the right half of the frame: a polished silver coin with a soft green glass video-camera icon, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
+    brief:"One large premium 3D hero object in the right half of the frame: a sleek brushed-silver video-camera icon with a soft green glass lens, standing upright on a brushed-aluminium cylinder podium, with a big frosted-glass disc (pale green tint, thin bright rim) behind it. The object is big and confident and slightly cropped by the right edge. The left half is open dark background for the title.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"HSB INVESTASI WEBINAR", sub:"Insight Langsung dari Para Ahli", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
   { id:"p_thumb_people", name:"Video thumbnail \u2014 people", size:"thumb", layout:"left", people:2, characterPrompt:"the two people stand together in the right half, talking and holding smartphones, in lime-green overshirts over white T-shirts",
     brief:"Two friendly young Indonesian adults, a woman and a man, in lime-green linen overshirts over white T-shirts, talking to each other and holding smartphones, seen from the thighs up in the right half of the frame. A large frosted-glass circle with a pale green tint sits behind them. Natural, candid expressions. The left half is open dark background for the title.",
-    style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, sharp focus", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
+    style:"studio portrait photography, soft key light, electric-lime rim light, natural skin texture, tack-sharp focus, clean high-resolution image", negative:"text, letters, logos, watermark, extra people, distorted hands, extra fingers, cartoon, blue or purple colour cast",
     headline:"TESTIMONI NASABAH", sub:"Kata mereka tentang HSB Investasi", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"left", disclaimerText:"" },
   { id:"p_feed_edu", name:"Educational feed", size:"feed34", layout:"poster", characterPrompt:"standing beside the glass jar in the middle band, smiling at the camera and holding a smartphone",
-    brief:"A clear glass jar filled with stacked silver-and-gold coins and a cork lid, centred in the middle band of the frame, a few coins floating around it and one large coin leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
+    brief:"A clear glass jar with a cork lid, filled with neatly rolled rupiah and US dollar banknotes and two small polished gold bars, centred in the middle band of the frame, one more gold bar leaning at its base, with a glossy electric-lime ribbon sweeping in a wave behind the jar. The top third and the bottom quarter stay dark and empty.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Bisa Melek Finansial itu Privilege?", sub:"Makin paham kelola uang, makin cepet Financial Freedom!", cta:"", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_engage", name:"Comment-to-DM post", size:"feed34", layout:"poster", characterPrompt:"standing behind the duffel bag in the middle band, looking at the banknotes with a curious expression",
     brief:"A tan leather duffel bag stuffed with bundles of Indonesian rupiah banknotes, standing on a dark green felt table in the middle band of the frame, a few loose bundles around it, moody low-key light. The top third and the bottom quarter stay dark and empty.",
-    style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, sharp focus", negative:AI_AVOID,
+    style:"photoreal studio product photography, low-key lighting, rich leather and paper texture, tack-sharp focus, clean high-resolution image", negative:AI_AVOID,
     headline:"Penasaran gak, kenapa Rupiah termasuk mata uang terlemah?", sub:"Komen \u201cRupiah!\u201d & cek DM kamu buat tau alasannya!", cta:"HSB Investasi #JadiPilihan.", badge:"",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_promo", name:"Competition & promo", size:"feed34", layout:"poster", characterPrompt:"standing next to the trophy in the middle band, raising a fist in celebration, in a lime-green shirt",
@@ -54,16 +54,16 @@ var AI_PROMPT_DEFAULT = [
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"COMPETITION", sub:"Tanpa Modal & Tanpa Deposit!", cta:"HSB Investasi #JadiPilihan.", badge:"Demo trading",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_PILL, ctaStroke:true, ctaStrokeColor:"#4B5535", ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_feed_market", name:"Weekly market highlight", size:"feed34", layout:"bottom", characterPrompt:"standing beside the globe in the upper two-thirds, looking at a smartphone, calm and confident",
-    brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a large silver dollar coin leaning against it, placed in the upper two-thirds with a soft reflection beneath. The bottom third stays dark and empty for text.",
+    brief:"A brushed-silver 3D globe with embossed continents, circled by a thin glowing lime-and-chrome orbit ring, with a short stack of polished gold bars beside it, placed in the upper two-thirds with a clean reflection beneath. The bottom third stays dark and empty for text.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Market Highlight Minggu Ini", sub:"5\u20139 Oktober 2026", cta:"", badge:"",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_story_launch", name:"Product launch story", size:"story", layout:"poster", characterPrompt:"standing beside the safe on the podium, smiling with arms crossed, in a lime-green shirt",
-    brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; thin mist, and a few small curved glass panels showing rising candlestick charts around it. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
+    brief:"A steel safe with a combination dial, wrapped by a glossy electric-lime 3D shield, floating above a round black podium ringed with a glowing lime light line; clean dark air around it, and a few small curved glass panels showing rising lime candlestick charts. Centre it in the middle band; the top third and the bottom quarter stay dark and calm.",
     style:AI_RENDER_3D, negative:AI_AVOID, headline:"Asuransi Perlindungan Dana Nasabah", sub:"Tanpa Biaya Tambahan", cta:"", badge:"Telah hadir",
     background:AI_INK, textColor:"#FFFFFF", subColor:"#FFFFFF", accentColor:AI_LIME, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB },
   { id:"p_story_webinar", name:"Webinar story", size:"story", layout:"poster", characterPrompt:"shown waist-up in the middle band as the speakers, side by side, friendly and professional",
-    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft electric-lime glow made of fine halftone dots across the upper middle and a subtle grain. No objects; speaker photos are usually added later as layers.",
-    style:"minimal abstract backdrop, soft gradient light, fine halftone texture", negative:"text, letters, logos, watermark, objects, clutter, blue or purple colour cast",
+    brief:"An empty dark backdrop for a webinar poster: deep black fading into dark olive green, with a soft, perfectly smooth electric-lime glow across the upper middle. No objects; speaker photos are usually added later as layers.",
+    style:"minimal abstract backdrop, smooth clean gradient light, perfectly smooth surfaces, tack-sharp, high resolution", negative:"text, letters, logos, watermark, objects, clutter, blue or purple colour cast",
     headline:"Trading is More Than a Chart!", sub:"Kamis, 29 Oktober 2026 \u00b7 19:00\u201321:00 WIB", cta:"Daftar sekarang", badge:"Live webinar",
     background:AI_INK, textColor:AI_LIME, subColor:"#FFFFFF", accentColor:AI_LIME, ctaColor:AI_LIME, ctaRadius:50, textAlign:"center", disclaimerText:AI_DISCLAIMER_HSB }
 ];
@@ -439,6 +439,7 @@ function aiGenerate(){
                referenceMode:AIF.referenceMode==="structure"?"structure":"style", referenceStrength:AIF.referenceStrength==null?50:+AIF.referenceStrength,
                characters:(API.on&&typeof aiSelectedCharacters==="function"?aiSelectedCharacters().map(function(c){ return c.id; }):undefined),
                referenceImages:(!API.on&&typeof aiSelectedCharacters==="function"?[].concat.apply([],aiSelectedCharacters().map(function(c){ return c.photos||[]; })):undefined),
+               layoutMap:(API.on&&typeof aiLayoutMap==="function"?aiLayoutMap():null)||undefined,   /* where the text sits, for the AI to compose around (src/ai-layout-map.js) */
                brief:(typeof aiBriefSnapshotForRun==="function"?aiBriefSnapshotForRun():null)||undefined };
   AI_BUSY = true; renderScreen(false);
   var call = API.on
