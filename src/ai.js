@@ -401,7 +401,7 @@ function aiInlineLook(id,hit){
   /* the layer's scale works around the middle of its box */
   return { x:cx+(left-cx)*s, y:cy+(top-cy)*s, w:w*s, h:base.h, cx:cx, cy:cy, size:(sp.size||16)*s, weight:sp.weight||400, family:id==="headline"?aiTextFont(AIF.headlineFont,brandFontStack()):id==="sub"?aiTextFont(AIF.subFont,brandBodyStack()):brandBodyStack(), line:sp.lineHeight||1.2, align:sp.align||"left", color:fill, bg:st.bg?st.fill:"", opacity:id==="sub"?.86:1 };
 }
-function aiInlineRepaint(cv){ aiCompose(function(fresh){ if(!cv||!cv.isConnected||fresh.width!==cv.width||fresh.height!==cv.height) return; var g=cv.getContext("2d"); g.clearRect(0,0,cv.width,cv.height); g.drawImage(fresh,0,0); },true); }
+function aiInlineRepaint(cv){ aiCompose(function(fresh){ if(!cv||!cv.isConnected||fresh.width!==cv.width||fresh.height!==cv.height) return; var g=cv.getContext("2d"); g.clearRect(0,0,cv.width,cv.height); g.drawImage(fresh,0,0); if(typeof aiViewSharpen==="function") aiViewSharpen(cv.parentNode,cv); },true); }
 function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var id=hit.id,value=aiTextValue(id);if(value===null)return;var wrap=cv.parentNode,old=wrap.querySelector(".ai-inline-editor");if(old)old.remove();aiHistoryBefore();
   var ratio=cv.getBoundingClientRect().width/cv.width, L=aiInlineLook(id,hit), rot=Number(aiLayerMeta(id).rotation)||0, ed=document.createElement("div");
   ed.className="ai-inline-editor";ed.contentEditable="true";ed.spellcheck=false;ed.setAttribute("role","textbox");ed.setAttribute("aria-label",tr("Edit text"));ed.textContent=value;

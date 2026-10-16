@@ -1557,3 +1557,6 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .dd-confirm dt{font-weight:700;color:var(--color-text-secondary)}
 .dd-confirm dd{margin:0;overflow-wrap:anywhere}
 .dd-status{margin-left:6px}
+/* AI Hub: the preview drawn at the size it is shown, over the full-size canvas, which still takes every click (src/canvas-sharpen.js) */
+.ai-zoom-stage{position:relative}
+.ai-view-canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}

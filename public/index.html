@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="71210226e994">
+<meta name="zc-build" content="919f063c0da0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5741,6 +5741,9 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .dd-confirm dt{font-weight:700;color:var(--color-text-secondary)}
 .dd-confirm dd{margin:0;overflow-wrap:anywhere}
 .dd-status{margin-left:6px}
+/* AI Hub: the preview drawn at the size it is shown, over the full-size canvas, which still takes every click (src/canvas-sharpen.js) */
+.ai-zoom-stage{position:relative}
+.ai-view-canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none}
 
 </style>
 </head>
@@ -9344,7 +9347,7 @@ function aiInlineLook(id,hit){
   /* the layer's scale works around the middle of its box */
   return { x:cx+(left-cx)*s, y:cy+(top-cy)*s, w:w*s, h:base.h, cx:cx, cy:cy, size:(sp.size||16)*s, weight:sp.weight||400, family:id==="headline"?aiTextFont(AIF.headlineFont,brandFontStack()):id==="sub"?aiTextFont(AIF.subFont,brandBodyStack()):brandBodyStack(), line:sp.lineHeight||1.2, align:sp.align||"left", color:fill, bg:st.bg?st.fill:"", opacity:id==="sub"?.86:1 };
 }
-function aiInlineRepaint(cv){ aiCompose(function(fresh){ if(!cv||!cv.isConnected||fresh.width!==cv.width||fresh.height!==cv.height) return; var g=cv.getContext("2d"); g.clearRect(0,0,cv.width,cv.height); g.drawImage(fresh,0,0); },true); }
+function aiInlineRepaint(cv){ aiCompose(function(fresh){ if(!cv||!cv.isConnected||fresh.width!==cv.width||fresh.height!==cv.height) return; var g=cv.getContext("2d"); g.clearRect(0,0,cv.width,cv.height); g.drawImage(fresh,0,0); if(typeof aiViewSharpen==="function") aiViewSharpen(cv.parentNode,cv); },true); }
 function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var id=hit.id,value=aiTextValue(id);if(value===null)return;var wrap=cv.parentNode,old=wrap.querySelector(".ai-inline-editor");if(old)old.remove();aiHistoryBefore();
   var ratio=cv.getBoundingClientRect().width/cv.width, L=aiInlineLook(id,hit), rot=Number(aiLayerMeta(id).rotation)||0, ed=document.createElement("div");
   ed.className="ai-inline-editor";ed.contentEditable="true";ed.spellcheck=false;ed.setAttribute("role","textbox");ed.setAttribute("aria-label",tr("Edit text"));ed.textContent=value;
@@ -16133,7 +16136,7 @@ function aiViewZoom(value){var el=document.getElementById('aiCanvas');if(!el)ret
 var _aiZoomInputT;function aiZoomInput(value){clearTimeout(_aiZoomInputT);_aiZoomInputT=setTimeout(function(){aiViewZoom(value);},250);}
 function aiCanvasZoomUI(percent){var bar=document.querySelector('.ai-canvas-toolbar');if(!bar)return;var old=bar.querySelector('.ai-zoom-tools');if(old){var input=old.querySelector('input');if(document.activeElement!==input)input.value=percent;return;}var ui=document.createElement('div');ui.className='ai-zoom-tools';ui.innerHTML='<button class="iconbtn" title="'+attr(tr('Zoom out'))+'" aria-label="'+attr(tr('Zoom out'))+'" onclick="aiViewZoom(\'out\')">−</button><label><input id="aiZoomValue" aria-label="'+attr(tr('Canvas zoom (%)'))+'" type="number" min="10" max="400" value="'+percent+'" oninput="aiZoomInput(this.value)" onchange="aiViewZoom(this.value)"><span>%</span></label><button class="iconbtn" title="'+attr(tr('Zoom in'))+'" aria-label="'+attr(tr('Zoom in'))+'" onclick="aiViewZoom(\'in\')">+</button><button class="btn xs" onclick="aiViewZoom(\'fit\')">'+esc(tr('Fit'))+'</button><button class="iconbtn" title="'+attr(tr('Keyboard shortcuts'))+'" aria-label="'+attr(tr('Keyboard shortcuts'))+'" onclick="aiShortcutHelp()">?</button>';bar.prepend(ui);}
 aiPreview=function(){var el=document.getElementById('aiCanvas');if(!el)return;clearTimeout(_aiPreviewT);_aiPreviewT=null;if(AI_VIEW.recentre){AI_VIEW.recentre=false;AI_VIEW.center=null;}else if(typeof aiCaptureView==='function')aiCaptureView();var seq=++AI_VIEW.sequence,sx=el.scrollLeft,sy=el.scrollTop;
- aiCompose(function(cv){var el=document.getElementById('aiCanvas');if(!el||seq!==AI_VIEW.sequence)return;el.innerHTML='';el.classList.add('ai-zoom-viewport');var wrap=document.createElement('div');wrap.className='ai-zoom-stage';var fit=Math.min((el.clientWidth-48)/cv.width,((typeof aiCanvasFitH==='function'?aiCanvasFitH(el):Math.min(innerHeight*.62,620))-48)/cv.height),zoom=AI_VIEW.zoom?AI_VIEW.zoom/100:Math.max(.01,fit);wrap.style.width=Math.round(cv.width*zoom)+'px';wrap.style.height=Math.round(cv.height*zoom)+'px';wrap.style.marginTop=Math.max(0,(el.clientHeight-48-cv.height*zoom)/2)+'px';cv.style.cssText='display:block;width:100%;height:100%;border-radius:0;touch-action:none';cv.tabIndex=0;cv.setAttribute('aria-label',tr('Design canvas'));cv.style.cursor=AIF.editMode===false?'default':'grab';if(AIF.editMode!==false){cv.addEventListener('pointerdown',function(e){cv.focus({preventScroll:true});aiTextDragStart(e,cv);});cv.addEventListener('click',function(e){aiCanvasEditAt(e,cv);});cv.addEventListener('dblclick',function(e){var h=aiHitAt(e,cv);if(h){aiSetSelection([h.id]);aiShowSelectionHandle(cv.parentNode,cv);aiOpenInlineEditor(cv,h);aiRefreshProperties();}});}wrap.append(cv);el.append(wrap);if(typeof aiMountNavigation==='function')aiMountNavigation(el,wrap,cv,zoom);else{el.scrollLeft=sx;el.scrollTop=sy;}aiCanvasZoomUI(Math.round(zoom*100));requestAnimationFrame(function(){aiShowSelectionHandle(wrap,cv);});
+ aiCompose(function(cv){var el=document.getElementById('aiCanvas');if(!el||seq!==AI_VIEW.sequence)return;el.innerHTML='';el.classList.add('ai-zoom-viewport');var wrap=document.createElement('div');wrap.className='ai-zoom-stage';var fit=Math.min((el.clientWidth-48)/cv.width,((typeof aiCanvasFitH==='function'?aiCanvasFitH(el):Math.min(innerHeight*.62,620))-48)/cv.height),zoom=AI_VIEW.zoom?AI_VIEW.zoom/100:Math.max(.01,fit);wrap.style.width=Math.round(cv.width*zoom)+'px';wrap.style.height=Math.round(cv.height*zoom)+'px';wrap.style.marginTop=Math.max(0,(el.clientHeight-48-cv.height*zoom)/2)+'px';cv.style.cssText='display:block;width:100%;height:100%;border-radius:0;touch-action:none';cv.tabIndex=0;cv.setAttribute('aria-label',tr('Design canvas'));cv.style.cursor=AIF.editMode===false?'default':'grab';if(AIF.editMode!==false){cv.addEventListener('pointerdown',function(e){cv.focus({preventScroll:true});aiTextDragStart(e,cv);});cv.addEventListener('click',function(e){aiCanvasEditAt(e,cv);});cv.addEventListener('dblclick',function(e){var h=aiHitAt(e,cv);if(h){aiSetSelection([h.id]);aiShowSelectionHandle(cv.parentNode,cv);aiOpenInlineEditor(cv,h);aiRefreshProperties();}});}wrap.append(cv);el.append(wrap);if(typeof aiViewSharpen==="function")aiViewSharpen(wrap,cv);if(typeof aiMountNavigation==='function')aiMountNavigation(el,wrap,cv,zoom);else{el.scrollLeft=sx;el.scrollTop=sy;}aiCanvasZoomUI(Math.round(zoom*100));requestAnimationFrame(function(){aiShowSelectionHandle(wrap,cv);});
  },true);
 };
 function aiTransformShape(start,dx,dy,edge,sz,unit){var r=start.rotation*Math.PI/180,lx=dx*Math.cos(r)+dy*Math.sin(r),ly=-dx*Math.sin(r)+dy*Math.cos(r),ex=edge.includes('e')?1:edge.includes('w')?-1:0,ey=edge.includes('s')?1:edge.includes('n')?-1:0,w=Math.max(8,Math.min(sz.w*2*start.scale,start.w+ex*lx)),h=Math.max(8,Math.min(sz.h*2*start.scale,start.h+ey*ly)),mx=ex*(w-start.w)/2,my=ey*(h-start.h)/2;return {w:w/sz.w*100/start.scale,h:h/sz.h*100/start.scale,x:start.x+(mx*Math.cos(r)-my*Math.sin(r))*(unit==='px'?1:100/sz.w),y:start.y+(mx*Math.sin(r)+my*Math.cos(r))*(unit==='px'?1:100/sz.h)};}
@@ -16161,6 +16164,44 @@ function aiEditorKeydown(e){var target=e.target;if(!document.getElementById('aiC
 document.addEventListener('keydown',aiEditorKeydown,true);
 var _aiViewResizeT;window.addEventListener('resize',function(){clearTimeout(_aiViewResizeT);_aiViewResizeT=setTimeout(function(){if(!AI_VIEW.zoom){AI_VIEW.recentre=true;aiPreview();}},120);   /* at Fit, a new window size fits again, in the middle */});
 Object.assign(UI_ID,{'Duplicate custom layer':'Duplikat layer tambahan','Lock / unlock layer':'Kunci / buka kunci layer','Rounded rectangle':'Persegi membulat','Zoom out':'Perkecil','Zoom in':'Perbesar','Canvas zoom (%)':'Zoom kanvas (%)','Fit':'Pas layar','Keyboard shortcuts':'Pintasan keyboard','Design canvas':'Kanvas desain','Rotate layer':'Putar layer','Resize width':'Ubah lebar','Resize height':'Ubah tinggi','Resize layer':'Ubah ukuran layer','Delete / Backspace: delete layer':'Delete / Backspace: hapus layer','Arrow keys: move 1 px · Shift: 10 px':'Tombol panah: geser 1 px · Shift: 10 px','Deselect':'Batalkan pilihan'});
+</script>
+<script>
+/* ============================================================
+   THE PREVIEW, SHRUNK PROPERLY (Oct 2026)
+   AI Hub draws a design at its full size (a story is 1080×1920) and the page showed that canvas shrunk by CSS — about
+   six times smaller at Fit. A browser shrinks a canvas that much roughly, by sampling, so a picture's fine detail
+   turned to noise and small text broke up ("burik"), although the file it downloads was sharp.
+   Now a copy is laid over it, drawn at the size it is shown (times the screen's pixel density) in halving steps, each
+   smoothed. The full-size canvas stays underneath, untouched: every click, drag and edit still reads it, and the
+   export never uses the copy. The copy is drawn again whenever the canvas is (aiPreview, aiInlineRepaint) and when the
+   zoom changes its size; zoomed in close enough, there is no copy.
+   ============================================================ */
+function aiViewSharpen(wrap,cv){
+  if(!wrap||!cv||!cv.width) return;
+  var view=wrap.querySelector(":scope > canvas.ai-view-canvas");
+  var r=wrap.getBoundingClientRect(), dpr=Math.max(1,Math.min(3,window.devicePixelRatio||1));
+  var tw=Math.round(r.width*dpr), th=Math.round(r.height*dpr);
+  /* close to full size: the canvas itself is sharp enough */
+  if(!tw||!th||tw>=cv.width*0.7){ if(view) view.remove(); return; }
+  if(!view){ view=document.createElement("canvas"); view.className="ai-view-canvas"; view.setAttribute("aria-hidden","true"); wrap.insertBefore(view,cv.nextSibling); aiViewWatch(wrap); }
+  view._src=cv;
+  if(view.width!==tw) view.width=tw; if(view.height!==th) view.height=th;
+  var src=cv, w=cv.width, h=cv.height;
+  /* halve until within twice the size shown: each step averages its four pixels, so nothing is skipped */
+  while(w/2>=tw*1.0&&h/2>=th*1.0){
+    var nw=Math.max(tw,Math.round(w/2)), nh=Math.max(th,Math.round(h/2)), step=document.createElement("canvas"); step.width=nw; step.height=nh;
+    var sg=step.getContext("2d"); sg.imageSmoothingEnabled=true; sg.imageSmoothingQuality="high"; sg.drawImage(src,0,0,w,h,0,0,nw,nh);
+    src=step; w=nw; h=nh;
+  }
+  var g=view.getContext("2d"); g.imageSmoothingEnabled=true; g.imageSmoothingQuality="high"; g.clearRect(0,0,tw,th); g.drawImage(src,0,0,w,h,0,0,tw,th);
+}
+/* the zoom changes the stage's size without drawing again: the copy follows, once a frame */
+function aiViewWatch(wrap){
+  if(wrap._sharpenWatch||typeof ResizeObserver==="undefined") return;
+  var queued=false;
+  wrap._sharpenWatch=new ResizeObserver(function(){ if(queued) return; queued=true; requestAnimationFrame(function(){ queued=false; var view=wrap.querySelector(":scope > canvas.ai-view-canvas"), cv=view&&view._src; if(cv&&cv.isConnected) aiViewSharpen(wrap,cv); else if(!view){ var c=wrap.querySelector(":scope > canvas:not(.ai-view-canvas)"); if(c) aiViewSharpen(wrap,c); } }); });
+  wrap._sharpenWatch.observe(wrap);
+}
 </script>
 <script>
 /* ============================================================
