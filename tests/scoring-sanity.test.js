@@ -233,3 +233,30 @@ test('Calculate, as the server works it out, gives sensible hours for real tasks
   }
   assert.ok(sp <= 5, 'a big set of simple, certain, independent work is not a 13-point task: ' + sp);
 });
+
+/* the time log (server/scoring-time.js): Actual is the work and revision logged, near enough to the minutes to be
+   trusted, never below zero, never from blocked time, never less for more work */
+test('the time log\'s Actual is the work and revision logged, to the quarter hour, and never counts blocked time', () => {
+  const T = require('../server/scoring-time.js').math;
+  let last = 0;
+  for (let m = 0; m <= 3000; m++) {
+    const h = T.actualHours(m);
+    assert.ok(h >= 0, 'never negative'); assert.ok(h >= last, 'more minutes never give less (' + m + ')'); last = h;
+    assert.equal(Math.round(h * 4), h * 4, 'quarter hours');
+    if (m > 0) assert.ok(h > 0, 'a minute logged is never shown as nothing');
+    if (m >= 8) assert.ok(Math.abs(h * 60 - m) <= 7.5, m + ' minutes shown as ' + h + ' h');
+  }
+  assert.equal(T.actualHours(-30), 0); assert.equal(T.actualHours(480), 8, 'a working day is 8 h');
+  const e = (userId, kind, minutes, deletedAt) => ({ userId, kind, minutes, deletedAt });
+  const base = [e('a', 'work', 90), e('a', 'revision', 30), e('b', 'work', 45)];
+  const t = T.totals(base);
+  assert.deepEqual(t.minutes, { work: 135, revision: 30, blocked: 0 });
+  assert.equal(t.actualHours, T.actualHours(165), 'Actual is the sum of work and revision');
+  for (const blocked of [1, 30, 480, 1440]) assert.equal(T.totals(base.concat([e('a', 'blocked', blocked), e('b', 'blocked', blocked)])).actualHours, t.actualHours, 'blocked time never counts');
+  assert.equal(T.totals(base.concat([e('a', 'work', 600, '2026-10-01')])).actualHours, t.actualHours, 'a deleted entry never counts');
+  assert.ok(T.totals(base.concat([e('b', 'revision', 60)])).actualHours > t.actualHours, 'revision is work');
+  assert.equal(t.byPerson.a.work + t.byPerson.b.work, t.minutes.work, 'the people add up to the task');
+  /* the limits a creative team would call reasonable */
+  assert.equal(T.LIMITS.maxMinutes, 1440); assert.equal(T.LIMITS.maxDayMinutes, 1440); assert.equal(T.LIMITS.daysBack, 60); assert.equal(T.LIMITS.longDayFactor, 1.5);
+  assert.deepEqual(T.dayWindow(Date.parse('2026-10-16T12:00:00Z')), { latest: '2026-10-17', earliest: '2026-08-17' }, 'today anywhere on Earth, 60 days back');
+});

@@ -1337,6 +1337,7 @@ const scoring = require("./scoring")(db, WS_ID, { route, HttpError, forbid, can,
   /* forViewer is declared further down: called, not captured */ forViewer: (u, t) => forViewer(u, t),
   /* the sweep changes tasks outside a request: the shared task list is read again, open copies refetch the task */
   bumpData: () => { DATA_VERSION++; }, announce: id => announceTaskChange("PUT", "/api/tasks/" + id, null, { id: null }) });
+require("./scoring-time")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, act, bumpData: () => { DATA_VERSION++; }, announceTask: (id, u) => announceTaskChange("PUT", "/api/tasks/" + id, null, u) });   /* time worked on a task, day by day (server/scoring-time.js) */
 require("./scoring-assets")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* points for assets produced: GET /api/scoring/assets */
 const outcomes = require("./outcomes")(db, WS_ID, { route, HttpError, forbid, can, uid, now, tx, act, scoring, readTask: id => sz.readTask(db, id), bumpData: () => { DATA_VERSION++; } });   /* KPIs and OKRs (server/outcomes.js) */
 /* a task's KPI and key-result links in its Smart Scoring view, and outcome changes reaching open tabs (Oct 2026) */
