@@ -85,6 +85,11 @@ test('a role with the permission saves templates for everyone; the maker and an 
   assert.equal(saved.owner, ids[0]); assert.equal(saved.textColor, '#D4FA00'); assert.equal(saved.ctaColor, undefined, 'not a colour: left out');
   assert.match(saved.editorFields.extraLayers[0].src, /^\/files\/[a-f0-9]{64}\.png$/); assert.match(saved.editorFields.logoImg, /^\/files\//);
   assert.equal(saved.editorFields.reference, undefined);
+  /* a template keeps its fonts' weights (Oct 2026), kept within 100–900 */
+  { const w = await s.req('POST', '/api/ai/templates', tpl({ name: 'Weights', headlineFont: 'Stolzl Book', headlineWeight: 350, subWeight: 5000 }), m1); assert.equal(w.status, 200, await w.clone().text());
+    const wid = (await w.json()).id, kept = (await stored()).find(x => x.id === wid);
+    assert.deepEqual([kept.headlineFont, kept.headlineWeight, kept.subWeight], ['Stolzl Book', 350, 900]);
+    assert.equal((await s.req('DELETE', '/api/ai/templates/' + wid, undefined, m1)).status, 200); }
   /* the maker changes it; someone else may not; nobody but an admin touches a built-in */
   assert.equal((await s.req('PUT', '/api/ai/templates/' + made, tpl({ name: 'Testimonial v2' }), m1)).status, 200);
   assert.equal((await s.req('PUT', '/api/ai/templates/' + made, tpl({ name: 'Taken over' }), m2)).status, 403);

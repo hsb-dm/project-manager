@@ -26,7 +26,7 @@ function aiTemplateFromCanvas(name){
     size:AIF.size, customW:+AIF.customW||undefined, customH:+AIF.customH||undefined, layout:AIF.layout,
     background:hex((AIF.canvasBg||{}).color||AIF.background), textColor:hex(aiLayerStyle("headline").textFill), subColor:hex(aiLayerStyle("sub").textFill),
     accentColor:hex(AIF.accentColor), badgeColor:hex(AIF.badgeColor), ctaColor:hex(AIF.ctaColor), ctaStroke:!!AIF.ctaStroke, ctaStrokeColor:hex(AIF.ctaStrokeColor), ctaRadius:+AIF.ctaRadius||0,
-    textAlign:AIF.textAlign||"auto", disclaimerText:AIF.disclaimer?String(AIF.disclaimerText||""):"", headlineFont:AIF.headlineFont||"", subFont:AIF.subFont||"",
+    textAlign:AIF.textAlign||"auto", disclaimerText:AIF.disclaimer?String(AIF.disclaimerText||""):"", headlineFont:AIF.headlineFont||"", subFont:AIF.subFont||"", headlineWeight:+AIF.headlineWeight||0, subWeight:+AIF.subWeight||0,
     people:typeof aiCharactersOn==="function"&&aiCharactersOn()?Math.min(2,(AIF.characters||[]).length):0, characterPrompt:String(AIF.characterRole||""), logoPosition:AIF.logoPosition, safeUnit:AIF.safeUnit, safeLocked:AIF.safeLocked!==false,
     safeMargin:+AIF.safeTop||0, safeTop:+AIF.safeTop||0, safeRight:+AIF.safeRight||0, safeBottom:+AIF.safeBottom||0, safeLeft:+AIF.safeLeft||0, editorFields:f };
 }

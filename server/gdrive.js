@@ -161,4 +161,6 @@ async function upload(db, wsId, req, meta) {
     size: (Number(file.size || bytes) / 1048576).toFixed(1) + " MB"
   };
 }
-module.exports = { ensureTable, status, config, authUrl, exchangeCode, accessToken, upload, disconnect, forget, redirectUri, readState, MAX_UPLOAD_BYTES, _row: row, _upsert: upsert };
+/* an access token Google has since refused (a 401): the next call asks for a new one */
+function dropAccessToken(wsId) { cache.delete(wsId); }
+module.exports = { ensureTable, status, config, authUrl, exchangeCode, accessToken, dropAccessToken, upload, disconnect, forget, redirectUri, readState, MAX_UPLOAD_BYTES, _row: row, _upsert: upsert };

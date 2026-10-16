@@ -497,6 +497,8 @@ Studio untuk membuat visual berlabel brand.
   (mis. GPT Image, Nano Banana); Magnific Mystic tidak bisa mempertahankan wajah.
 - **Font brand** — font yang di-upload admin (Pengaturan → AI → Providers → Brand fonts)
   muncul di semua pilihan font AI Hub dan di editor template.
+- **Font lalu Gaya** — pilih keluarga font dulu (mis. Stolzl, atau font Google seperti Poppins), lalu
+  gayanya (Thin, Light, Regular, Medium, Bold …). File font brand dikelompokkan otomatis dari namanya.
 - **Simpan sebagai template** (ikon bintang, untuk role yang diizinkan) — kanvas menjadi template
   untuk semua orang. Template yang dibuka bisa diubah di kanvas lalu di-**Update**, disimpan
   sebagai template baru, atau dihapus (pembuatnya dan admin).

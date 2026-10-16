@@ -378,19 +378,23 @@ function aipLogoSource(){
 function aipTypography(id){
   if(!aipIsTextish(id)) return "";
   var x=aipExtraOf(id), locked=!!aiLayerMeta(id).locked, range=aipFontRange(id), px=aipFontPx(id);
-  var fontVal, fontSet, weight, lineH, align, alignSet;
+  var fontVal, weight, lineH, align, alignSet;
   if(x){
-    fontVal=x.font||""; fontSet="aiExtraSet('"+x.id+"','font',this.value);aiPreviewSoon()";
+    fontVal=x.font||"";
     weight=x.weight==null?700:x.weight;
     lineH=x.lineHeight==null?1.3:x.lineHeight;
     align=x.align||"center"; alignSet="aiExtraSet('"+x.id+"','align',ALIGN);aiRefreshProperties()";
   } else if(id==="headline"||id==="sub"){
     var fk=id==="headline"?"headlineFont":"subFont";
-    fontVal=AIF[fk]||""; fontSet="AIF."+fk+"=this.value;aiPreviewSoon()";
+    fontVal=AIF[fk]||"";
   }
   var body="";
-  if(fontVal!==undefined)
-    body+=aipRow("Font",aipSelect(fontVal,[["",tr("Workspace font")]].concat(aiWorkspaceFonts().map(function(f){ return [f,f]; })),fontSet,{label:"Font",disabled:locked}),{stack:true});
+  /* the family, then its style — a brand font's files, a Google font's weights (src/font-families.js) */
+  if(fontVal!==undefined){
+    var brandF=WS.brand||{}, fp=fontPickerParts({font:fontVal,weight:x?weight:(id==="headline"?aiHeadlineWeight():aiSubWeight()),target:x?"x:"+x.id:id,
+      defaultFamily:id==="sub"?(brandF.bodyFont||"Poppins"):(brandF.headlineFont||"Poppins"),placeholder:"Workspace font",disabled:locked});
+    body+=aipRow("Font",fp.family,{stack:true})+aipRow("Style",fp.style,{stack:true});
+  }
 
   /* the requirement the old panel never met: a real px size, not a % scale */
   body+=aipRow("Size",
@@ -399,8 +403,7 @@ function aipTypography(id){
     + (x?"":aipIconBtn("reset","Reset to the default size for this canvas","aiHistoryBefore();aiSetLayerScale('"+id+"',100);aiRefreshProperties()",{disabled:locked})));
 
   if(x&&x.type==="text"){
-    body+=aipRow("Weight",aipSelect(weight,[[400,"Regular"],[500,"Medium"],[700,"Bold"],[900,"Black"]],
-        "aiExtraSet('"+x.id+"','weight',Number(this.value));aiPreviewSoon()",{label:"Font weight",disabled:locked}));
+    /* the weight is the Style above */
     body+=aipRow("Line height",
       aipNum({value:lineH,step:0.05,min:0.7,max:3,unit:"×",label:"Line height",disabled:locked,
               oninput:"aiExtraSet('"+x.id+"','lineHeight',Number(this.value)||1.3);aiPreviewSoon()"}));

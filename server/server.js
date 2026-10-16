@@ -167,6 +167,7 @@ try { db.prepare("SELECT id FROM users WHERE id NOT IN (SELECT user_id FROM work
 /* v39: images move out of the database into COS_DATA_DIR/uploads (once; see server/uploads.js) */
 const uploads = require("./uploads");
 const gdrive = require("./gdrive");
+const driveTrash = require("./drive-trash");
 const legal = require("./legal");
 const filestore = require("./filestore");
 try { const moved = uploads.migrate(db); if (moved) console.log("[uploads] moved images out of the database:", JSON.stringify(moved)); } catch (e) { console.error("[uploads] migration failed — images stay in the database for now:", e.message); }
@@ -190,6 +191,16 @@ mailer.setBrand(() => { const w = db.prepare("SELECT name, logo, logo_img, theme
 })();
 const swept = sz.sweepArchive(db, WS_ID); if (swept) console.log("Auto-archived " + swept + " project(s) completed in a previous month");
 setInterval(() => { try { sz.sweepArchive(db, WS_ID); } catch (e) { console.error(e); } }, 6 * 3600 * 1000);
+/* Google Drive deletion sync: the files waiting to be moved to Drive's Trash, a few at a time (server/drive-trash.js).
+   A file deleted now is taken at once; one Drive asked to wait for is taken again when its time comes. */
+function runDriveTrash() {
+  driveTrash.tick(db, WS_ID, { token: () => gdrive.accessToken(db, WS_ID), drive: () => gdrive.status(db, WS_ID), dropToken: () => gdrive.dropAccessToken(WS_ID),
+    onDone: (r, outcome, why) => { security.log("drive_trash_" + outcome, { driveId: r.drive_id, error: why || undefined });
+      const what = outcome === "trashed" ? "moved “" + r.name + "” to Google Drive's Trash" : outcome === "failed" ? "could not move “" + r.name + "” to Google Drive's Trash: " + (why || "") : outcome === "missing" ? "found “" + r.name + "” no longer in Google Drive" : outcome === "back_in_use" ? "kept “" + r.name + "” — it was used again before Drive was reached" : "";
+      if (what) try { sz.appendActivity(db, WS_ID, { who: null, k: "edited", a: { what } }, "workspace", WS_ID); } catch (e) {} } })
+    .catch(e => console.error("[drive] trash: " + e.message));
+}
+setTimeout(runDriveTrash, 20000).unref(); setInterval(runDriveTrash, 30000).unref();
 
 /* ---------- email notifications (§52) ---------- */
 const MAIL_TEXT = { completed: "{who} finished “{t}”.", blocker: "“{t}” can start — {who} finished the task it was waiting on.", assigned: "{who} assigned you “{t}”.", reviewer: "{who} asked you to review “{t}”.", review: "{who} sent “{t}” for your review.", progress: "{who} updated the progress note on “{t}”.", mention: "{who} mentioned you in a comment on “{t}”.", comment: "{who} commented on “{t}”.", revision: "{who} requested a revision on “{t}”.", approved: "{who} approved “{t}”.", upload: "{who} uploaded a new version of “{t}”.", status: "{who} moved “{t}” to a new stage.", file: "{who} attached a file to “{t}”.", deadline: "“{t}” is due today.", missed: "“{t}” missed its deadline.", request: "{who} submitted a creative request: “{t}”.", request_status: "{who} updated the status of your request “{t}”." };
@@ -1180,7 +1191,7 @@ function tplFrom(b, userId) {
   ["brief", "style", "negative"].forEach(k => str(k, 4000)); ["headline", "sub", "cta", "badge"].forEach(k => str(k, 400));
   str("size", 24); str("layout", 24); str("disclaimerText", 600); str("headlineFont", 60); str("subFont", 60); str("characterPrompt", 400);
   ["background", "textColor", "subColor", "accentColor", "badgeColor", "ctaColor", "ctaStrokeColor"].forEach(color);
-  num("customW", 64, 4096); num("customH", 64, 4096); num("ctaRadius", 0, 50); num("ctaStrokeWidth", 0, 20); num("people", 0, 2); num("safeMargin", 0, 25);
+  num("customW", 64, 4096); num("customH", 64, 4096); num("headlineWeight", 100, 900); num("subWeight", 100, 900); num("ctaRadius", 0, 50); num("ctaStrokeWidth", 0, 20); num("people", 0, 2); num("safeMargin", 0, 25);
   ["safeTop", "safeRight", "safeBottom", "safeLeft"].forEach(k => num(k, 0, 4096));
   if (t.private === true) out.private = true;   /* only its maker sees it (Oct 2026) */
   if (typeof t.ctaStroke === "boolean") out.ctaStroke = t.ctaStroke; if (typeof t.safeLocked === "boolean") out.safeLocked = t.safeLocked;
@@ -1360,7 +1371,40 @@ route("GET", "/api/cloud/gdrive/callback", async (u, p, q, b, ctx) => {
 route("DELETE", "/api/cloud/gdrive/shared", (u, p, q, b, ctx) => { forbid(can.manageCloudStorage(u), "disconnect cloud storage"); gdrive.disconnect(db, WS_ID); security.log("drive_shared_account_disconnected", { userId: u.id, ip: ctx.ip }); act(u, "edited", "workspace", WS_ID, { what: "disconnected the shared Google Drive account" }); return gdrive.status(db, WS_ID); });
 /* Any signed-in member may upload -- that is the point of a shared account. The bytes stream
    straight through to Drive (RAW_BODY keeps readBody away from this path). */
-route("POST", "/api/cloud/gdrive/upload", async (u, p, q, b, ctx) => { const out = await gdrive.upload(db, WS_ID, ctx.req, { name: q.name, mime: q.mime || ctx.req.headers["content-type"] }); security.log("drive_upload", { userId: u.id, ip: ctx.ip, driveId: out.driveId, bytes: +(ctx.req.headers["content-length"] || 0) }); return Object.assign(out, { uploadedBy: u.id }); });
+route("POST", "/api/cloud/gdrive/upload", async (u, p, q, b, ctx) => { const out = await gdrive.upload(db, WS_ID, ctx.req, { name: q.name, mime: q.mime || ctx.req.headers["content-type"] }); security.log("drive_upload", { userId: u.id, ip: ctx.ip, driveId: out.driveId, bytes: +(ctx.req.headers["content-length"] || 0) });
+  /* the record that this Drive file is ZenCrevia's — the only files deletion sync may ever move to the Trash */
+  try { driveTrash.record(db, WS_ID, out, u.id, gdrive.status(db, WS_ID).sharedAccount); } catch (e) { console.error("[drive] upload record: " + e.message); }
+  return Object.assign(out, { uploadedBy: u.id }); });
+/* ---------- Google Drive deletion sync (Oct 2026, server/drive-trash.js) ----------
+   Who manages cloud storage turns it on, sees the files ZenCrevia put in Drive and where each is used, and deletes
+   one everywhere — refused while it is used anywhere. With sync on, the job moves it to Drive's Trash. */
+function driveDeletionView() { const st = gdrive.status(db, WS_ID); return { settings: driveTrash.settings(db, WS_ID), drive: { shared: st.shared, account: st.sharedAccount }, summary: driveTrash.summary(db, WS_ID), files: driveTrash.list(db, WS_ID, 200) }; }
+route("GET", "/api/cloud/gdrive/deletion", (u) => { forbid(can.manageCloudStorage(u), "manage cloud storage"); return driveDeletionView(); });
+route("PUT", "/api/cloud/gdrive/deletion", (u, p, q, b, ctx) => {
+  forbid(can.manageCloudStorage(u), "manage cloud storage");
+  const was = driveTrash.settings(db, WS_ID);
+  if (b.deletionSync === true && !was.deletionSync && !gdrive.status(db, WS_ID).shared) throw new HttpError(409, "Connect the shared Google Drive account first: deleted files can only be moved to its Trash.");
+  const s = driveTrash.saveSettings(db, WS_ID, { deletionSync: b.deletionSync, showErrors: b.showErrors }, u.id);
+  if (s.deletionSync !== was.deletionSync) { security.log("drive_deletion_sync_" + (s.deletionSync ? "on" : "off"), { userId: u.id, ip: ctx.ip }); act(u, "edited", "workspace", WS_ID, { what: (s.deletionSync ? "turned on" : "turned off") + " moving deleted files to Google Drive's Trash" }); }
+  return driveDeletionView(); });
+route("GET", "/api/cloud/gdrive/files/:id/usage", (u, p) => { forbid(can.manageCloudStorage(u), "manage cloud storage"); if (!driveTrash.get(db, WS_ID, p.id)) throw new HttpError(404, "This file is not one ZenCrevia put in Google Drive."); return { usage: driveTrash.references(db, WS_ID, p.id) }; });
+route("POST", "/api/cloud/gdrive/files/:id/delete", (u, p, q, b, ctx) => {
+  forbid(can.manageCloudStorage(u), "delete files everywhere");
+  let out; try { out = driveTrash.requestDelete(db, WS_ID, p.id, u, gdrive.status(db, WS_ID)); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  security.log("drive_file_delete_requested", { userId: u.id, ip: ctx.ip, driveId: p.id, outcome: out.status });
+  act(u, "edited", "workspace", WS_ID, { what: "deleted “" + out.name + "” from ZenCrevia" + (out.status === "trash_pending" ? " — moving it to Google Drive's Trash" : "") });
+  if (out.status === "trash_pending") setImmediate(runDriveTrash);
+  return out; });
+route("POST", "/api/cloud/gdrive/files/:id/restore", (u, p, q, b, ctx) => {
+  forbid(can.manageCloudStorage(u), "manage cloud storage");
+  let out; try { out = driveTrash.restore(db, WS_ID, p.id); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  security.log("drive_file_delete_undone", { userId: u.id, ip: ctx.ip, driveId: p.id }); act(u, "edited", "workspace", WS_ID, { what: "kept “" + out.name + "” after all" });
+  return out; });
+route("POST", "/api/cloud/gdrive/files/:id/retry", (u, p, q, b, ctx) => {
+  forbid(can.manageCloudStorage(u), "manage cloud storage");
+  let out; try { out = driveTrash.retry(db, WS_ID, p.id); } catch (e) { throw new HttpError(e.status || 400, e.message); }
+  security.log("drive_trash_retry", { userId: u.id, ip: ctx.ip, driveId: p.id }); setImmediate(runDriveTrash);
+  return out; });
 route("GET", "/api/admin/demo-data", (u) => { forbid(can.manageWorkspace(u) && can.manageMembers(u), "remove demo data"); return demoPurge.preview(db, WS_ID, u.id); });
 route("POST", "/api/admin/demo-data/remove", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u) && can.manageMembers(u), "remove demo data"); const out = demoPurge.purge(db, WS_ID, u.id, { people: b.people !== false, content: b.content !== false }, releaseAccount); DATA_VERSION++; security.log("demo_data_removed", Object.assign({ adminId: u.id, ip: ctx.ip }, out)); return out; });
 /* teams */

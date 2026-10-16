@@ -34,7 +34,9 @@ test("an uploaded font is stored, loaded and drawn, and listed wherever a font i
     await page.waitForFunction(n => document.fonts.check('700 20px "' + n + '"') && [...document.fonts].some(f => f.family.replace(/"/g, "") === n && f.status === "loaded"), font.name);
     /* in the template editor */
     await page.evaluate(() => promptTplModal("p_feed_edu"));
-    await expect(page.locator("#pt_head_font option", { hasText: font.name })).toHaveCount(1);
+    /* a family first, then its style (src/font-families.js): the font is a family, its file a style */
+    const family = await page.evaluate(n => fontFaceParts(n).family, font.name);
+    await expect(page.locator("#modal .fp-family").first().locator("option", { hasText: family })).toHaveCount(1);
     await page.evaluate(() => closeModal());
     /* in AI Hub: the headline drawn in it */
     await page.evaluate(() => go("aihub"));

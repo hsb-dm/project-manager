@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="3381732422ef">
+<meta name="zc-build" content="71210226e994">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5716,6 +5716,31 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the task list's due date on two lines — the date, then how far off — so the column stays narrow */
 .due.due-2{display:inline-flex;flex-direction:column;gap:1px;line-height:1.25;white-space:nowrap}
 .due.due-2 .due-rel{font-size:.92em}
+/* Settings → Integrations → Storage & Deletion (Google Drive deletion sync) */
+.dd-group{margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border)}
+.dd-group>.eyebrow{margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.dd-sub{margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--color-text-secondary)}
+.dd-radio{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--color-primary);border-radius:10px;background:var(--color-primary-soft)}
+.dd-radio>span{display:flex;flex-direction:column;gap:2px}
+.dd-radio .hint{font-weight:500}
+.dd-lock{margin-left:6px}
+.dd-why{margin:-4px 0 6px}
+.dd-errors{margin:10px 0 0}
+.dd-save{display:flex;justify-content:flex-end;margin-top:10px}
+.dd-files{display:flex;flex-direction:column}
+.dd-file{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-border)}
+.dd-file:last-child{border-bottom:0}
+.dd-file-main{flex:1;min-width:0}
+.dd-name{overflow-wrap:anywhere}
+.dd-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--color-text-secondary)}
+.dd-meta .btn{padding:0 6px}
+.dd-error{margin-top:4px;font-size:12px;color:var(--color-danger,#B91C1C)}
+.dd-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.dd-usage{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--color-text-secondary)}
+.dd-confirm{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 10px}
+.dd-confirm dt{font-weight:700;color:var(--color-text-secondary)}
+.dd-confirm dd{margin:0;overflow-wrap:anywhere}
+.dd-status{margin-left:6px}
 
 </style>
 </head>
@@ -9010,6 +9035,7 @@ function aiTemplateLook(t){
   AIF.ctaRadius=t.ctaRadius!=null&&t.ctaRadius!==""?+t.ctaRadius:28; AIF.ctaStroke=!!t.ctaStroke; AIF.ctaStrokeColor=t.ctaStrokeColor||"#FFFFFF"; AIF.ctaStrokeWidth=+t.ctaStrokeWidth||1;
   AIF.textAlign=t.textAlign||"auto";
   AIF.headlineFont=t.headlineFont||""; AIF.subFont=t.subFont||"";   /* empty: the workspace font */
+  AIF.headlineWeight=+t.headlineWeight||null; AIF.subWeight=+t.subWeight||null;   /* empty: Bold and Regular (src/font-families.js) */
   if(t.disclaimerText!==undefined){ AIF.disclaimerText=String(t.disclaimerText||""); AIF.disclaimer=!!String(t.disclaimerText||"").trim(); }
   AIF.characters=typeof aiCharactersFor==="function"?aiCharactersFor(t.people):[];
   /* characters are in when the template has people; the template says what they do, for when they are put in */
@@ -9431,8 +9457,8 @@ function aiCompose(cb,previewOnly){
       var hSize = Math.round(unit*(sz.w>sz.h?0.085:0.072));
       var sSize = Math.round(hSize*0.4), cSize = Math.round(hSize*0.34);
       var hFont=aiTextFont(AIF.headlineFont,brandFontStack()), subFont=aiTextFont(AIF.subFont,brandBodyStack());
-      var lines = head ? wrapText(g, head, boxW, hSize, "700 "+hSize+"px "+hFont) : [];
-      var subL  = sub  ? wrapText(g, sub,  boxW, sSize, "400 "+sSize+"px "+subFont) : [];
+      var lines = head ? wrapText(g, head, boxW, hSize, aiHeadlineWeight()+" "+hSize+"px "+hFont) : [];
+      var subL  = sub  ? wrapText(g, sub,  boxW, sSize, aiSubWeight()+" "+sSize+"px "+subFont) : [];
       /* the copy stops above the disclaimer, never on it */
       var floor = sz.h-safe.bottom-(AIF.disclaimer?aiDisclaimerLayout(g,sz,safe).reserve:0);
       var footH = (subL.length?subL.length*sSize*1.4+sSize*0.7:0) + (cta?cSize*(aiLayerScale("cta")/100)*3.5:0);
@@ -9463,10 +9489,10 @@ function aiCompose(cb,previewOnly){
       }
       g.textBaseline = "top";
       layer("headline");
-      var hs=aiLayerStyle("headline"), hp=aiLayerPosition("headline"), hdx=aiOffset(hp.x,sz.w), hdy=aiOffset(hp.y,sz.h), maxHead=0; g.font = "700 "+hSize+"px "+hFont; lines.forEach(function(ln){maxHead=Math.max(maxHead,g.measureText(ln).width);});
+      var hs=aiLayerStyle("headline"), hp=aiLayerPosition("headline"), hdx=aiOffset(hp.x,sz.w), hdy=aiOffset(hp.y,sz.h), maxHead=0; g.font = aiHeadlineWeight()+" "+hSize+"px "+hFont; lines.forEach(function(ln){maxHead=Math.max(maxHead,g.measureText(ln).width);});
       var hx=(align==="center"?tx-maxHead/2:align==="right"?tx-maxHead:tx)+hdx, hy=y+hdy, hPadX=+hs.padX||0, hPadY=+hs.padY||0;
       aiPaintBox(g,hx-hPadX,hy-hPadY,maxHead+hPadX*2,lines.length*hSize*1.06+hPadY*2,hs);
-      AI_TEXT_SPECS.headline={content:lines.join("\n"),size:hSize,weight:700,font:AIF.headlineFont||b.headlineFont||"Poppins",lineHeight:1.06,align:align,wrap:boxW,anchorX:tx+hdx,top:hy};
+      AI_TEXT_SPECS.headline={content:lines.join("\n"),size:hSize,weight:aiHeadlineWeight(),font:AIF.headlineFont||b.headlineFont||"Poppins",lineHeight:1.06,align:align,wrap:boxW,anchorX:tx+hdx,top:hy};
       if(lines.length) aiAddHit("headline",hx-hPadX,hy-hPadY,maxHead+hPadX*2,lines.length*hSize*1.06+hPadY*2);
       g.fillStyle = aiLayerTextPaint(g,sz,hs,"#FFFFFF",{x:hx,y:hy,w:maxHead,h:lines.length*hSize*1.06}); g.globalAlpha=Math.max(0,Math.min(100,+hs.textOpacity||100))/100;
       aiShadowOn(g,hs); var drawHY=hy; lines.forEach(function(ln){ if(hs.textStroke){g.lineWidth=Math.max(1,+hs.textStrokeWidth||1);g.strokeStyle=hs.textStrokeColor||"#111214";g.strokeText(ln,tx+hdx,drawHY);} g.fillText(ln, tx+hdx, drawHY); drawHY += hSize*1.06; }); aiShadowOff(g); y += lines.length*hSize*1.06; g.globalAlpha=1;
@@ -9475,10 +9501,10 @@ function aiCompose(cb,previewOnly){
       if (subL.length){
         layer("sub");
         y += sSize*0.7;
-        g.font = "400 "+sSize+"px "+subFont;
+        g.font = aiSubWeight()+" "+sSize+"px "+subFont;
         var ss=aiLayerStyle("sub"), sp=aiLayerPosition("sub"), sdx=aiOffset(sp.x,sz.w), sdy=aiOffset(sp.y,sz.h), maxSub=0; subL.forEach(function(ln){maxSub=Math.max(maxSub,g.measureText(ln).width);}); var sx=(align==="center"?tx-maxSub/2:align==="right"?tx-maxSub:tx)+sdx, sy=y+sdy, sPadX=+ss.padX||0,sPadY=+ss.padY||0;
         aiPaintBox(g,sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2,ss); g.fillStyle = aiLayerTextPaint(g,sz,ss,"#FFFFFF",{x:sx,y:sy,w:maxSub,h:subL.length*sSize*1.4}); g.globalAlpha=.86*Math.max(0,Math.min(100,+ss.textOpacity||100))/100;
-        AI_TEXT_SPECS.sub={content:subL.join("\n"),size:sSize,weight:400,font:AIF.subFont||b.bodyFont||"Poppins",lineHeight:1.4,align:align,wrap:boxW,anchorX:tx+sdx,top:sy}; aiAddHit("sub",sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2); aiShadowOn(g,ss); var drawSY=sy; subL.forEach(function(ln){ if(ss.textStroke){g.lineWidth=Math.max(1,+ss.textStrokeWidth||1);g.strokeStyle=ss.textStrokeColor||"#111214";g.strokeText(ln,tx+sdx,drawSY);} g.fillText(ln, tx+sdx, drawSY); drawSY += sSize*1.4; }); aiShadowOff(g); y += subL.length*sSize*1.4;
+        AI_TEXT_SPECS.sub={content:subL.join("\n"),size:sSize,weight:aiSubWeight(),font:AIF.subFont||b.bodyFont||"Poppins",lineHeight:1.4,align:align,wrap:boxW,anchorX:tx+sdx,top:sy}; aiAddHit("sub",sx-sPadX,sy-sPadY,maxSub+sPadX*2,subL.length*sSize*1.4+sPadY*2); aiShadowOn(g,ss); var drawSY=sy; subL.forEach(function(ln){ if(ss.textStroke){g.lineWidth=Math.max(1,+ss.textStrokeWidth||1);g.strokeStyle=ss.textStrokeColor||"#111214";g.strokeText(ln,tx+sdx,drawSY);} g.fillText(ln, tx+sdx, drawSY); drawSY += sSize*1.4; }); aiShadowOff(g); y += subL.length*sSize*1.4;
         g.globalAlpha=1;
       }
       if (cta){
@@ -11472,7 +11498,7 @@ function aiTemplateFromCanvas(name){
     size:AIF.size, customW:+AIF.customW||undefined, customH:+AIF.customH||undefined, layout:AIF.layout,
     background:hex((AIF.canvasBg||{}).color||AIF.background), textColor:hex(aiLayerStyle("headline").textFill), subColor:hex(aiLayerStyle("sub").textFill),
     accentColor:hex(AIF.accentColor), badgeColor:hex(AIF.badgeColor), ctaColor:hex(AIF.ctaColor), ctaStroke:!!AIF.ctaStroke, ctaStrokeColor:hex(AIF.ctaStrokeColor), ctaRadius:+AIF.ctaRadius||0,
-    textAlign:AIF.textAlign||"auto", disclaimerText:AIF.disclaimer?String(AIF.disclaimerText||""):"", headlineFont:AIF.headlineFont||"", subFont:AIF.subFont||"",
+    textAlign:AIF.textAlign||"auto", disclaimerText:AIF.disclaimer?String(AIF.disclaimerText||""):"", headlineFont:AIF.headlineFont||"", subFont:AIF.subFont||"", headlineWeight:+AIF.headlineWeight||0, subWeight:+AIF.subWeight||0,
     people:typeof aiCharactersOn==="function"&&aiCharactersOn()?Math.min(2,(AIF.characters||[]).length):0, characterPrompt:String(AIF.characterRole||""), logoPosition:AIF.logoPosition, safeUnit:AIF.safeUnit, safeLocked:AIF.safeLocked!==false,
     safeMargin:+AIF.safeTop||0, safeTop:+AIF.safeTop||0, safeRight:+AIF.safeRight||0, safeBottom:+AIF.safeBottom||0, safeLeft:+AIF.safeLeft||0, editorFields:f };
 }
@@ -12621,8 +12647,9 @@ function promptTplModal(id){
     + '<div class="field-row">'+fieldHtml("pt_cta_color","Button color",'<input id="pt_cta_color" type="color" value="'+attr(t.ctaColor||t.accentColor||"#C6F24E")+'">')+fieldHtml("pt_cta_shape","Button shape",selectHtml("pt_cta_shape",[["0","Square"],["28","Rounded"],["50","Pill"]].concat([0,28,50].indexOf(t.ctaRadius==null?28:+t.ctaRadius)<0?[[String(t.ctaRadius),tr("Custom")+" ("+t.ctaRadius+")"]]:[]),String(t.ctaRadius==null?28:t.ctaRadius),""))+'</div>'
     + '<div class="field-row"><div class="field"><label for="pt_cta_stroke_color">'+tr("Button outline")+'</label><div class="pt-outline"><input id="pt_cta_stroke" type="checkbox"'+(t.ctaStroke?' checked':'')+' aria-label="'+attr(tr("Button outline"))+'"><input id="pt_cta_stroke_color" type="color" value="'+attr(t.ctaStrokeColor||"#FFFFFF")+'"></div></div>'+fieldHtml("pt_align","Text alignment",selectHtml("pt_align",[["auto","Follow layout"],["left","Left"],["center","Center"],["right","Right"]],t.textAlign||"auto",""))+'</div>'
     /* fonts: the workspace's, or one uploaded under Brand fonts */
-    + (function(){ var fonts=[["",tr("Workspace font")]].concat((typeof aiWorkspaceFonts==="function"?aiWorkspaceFonts():[]).map(function(f){ return [f,f]; })), keep=function(v){ return v&&!fonts.some(function(x){ return x[0]===v; })?[[v,v]]:[]; };
-        return '<div class="field-row">'+fieldHtml("pt_head_font","Headline font",selectHtml("pt_head_font",fonts.concat(keep(t.headlineFont)),t.headlineFont||"",""))+fieldHtml("pt_sub_font","Subheadline font",selectHtml("pt_sub_font",fonts.concat(keep(t.subFont)),t.subFont||"",""))+'</div>'; })()
+    /* each a family, then its style (src/font-families.js): read on Save from pt_head_font / pt_head_weight and pt_sub_… */
+    + (function(){ var b=WS.brand||{}, pick=function(id,label,font,weight,fam,dw){ return typeof fontPickerHtml==="function"?fieldHtml(id+"_font",label,fontPickerHtml({id:id,font:font||"",weight:+weight||0,defaultFamily:fam,defaultWeight:dw,label:label,placeholder:"Workspace font"})):""; };
+        return '<div class="field-row">'+pick("pt_head","Headline font",t.headlineFont,t.headlineWeight,b.headlineFont||"Poppins",700)+pick("pt_sub","Subheadline font",t.subFont,t.subWeight,b.bodyFont||"Poppins",400)+'</div>'; })()
     + '<div class="field-row">'+fieldHtml("pt_logo","Logo position",selectHtml("pt_logo",[["top_left","Top left"],["top_right","Top right"],["bottom_left","Bottom left"],["bottom_right","Bottom right"]],t.logoPosition||"top_left",""))+fieldHtml("pt_people","Brand characters",selectHtml("pt_people",[["0","None"],["1","Choose 1 automatically"],["2","Choose 2 automatically"]],String(+t.people||0),""))+'</div>'
     + fieldHtml("pt_char_prompt","Character prompt",'<textarea id="pt_char_prompt" rows="2" maxlength="400" placeholder="'+attr(tr("e.g. standing to the right of the trophy, smiling, holding a phone"))+'">'+esc(t.characterPrompt||"")+'</textarea>')+'<div class="hint">'+tr("What the brand characters do in this template when they are included. Empty: they stand beside the main subject, clear of the text.")+'</div>'
     + fieldHtml("pt_disc","Disclaimer",'<textarea id="pt_disc" rows="2" placeholder="'+attr(tr("Legal line shown at the bottom"))+'">'+esc(t.disclaimerText||"")+'</textarea>')+'<div class="hint">'+tr("Each line stays on its own line. Leave empty for no disclaimer.")+'</div>'
@@ -12637,7 +12664,7 @@ function savePromptTpl(id){
           size:val("pt_size"), customW:Math.max(64,Math.min(4096,+val("pt_w")||1200)), customH:Math.max(64,Math.min(4096,+val("pt_h")||628)), layout:val("pt_layout"), background:val("pt_bg"), textColor:val("pt_text"), accentColor:val("pt_accent"), logoPosition:val("pt_logo"), safeMargin:Math.max(0,Math.min(25,+val("pt_safe")||8)) };
   /* the template's type; fields the modal does not show are kept from the template being edited */
   var box=function(id){ var el=typeof document!=="undefined"&&document.getElementById(id); return el||null; };
-  if (box("pt_sub_color")) Object.assign(t,{ subColor:val("pt_sub_color"), ctaColor:val("pt_cta_color"), ctaRadius:Math.max(0,Math.min(50,+val("pt_cta_shape")||0)), ctaStroke:!!(box("pt_cta_stroke")&&box("pt_cta_stroke").checked), ctaStrokeColor:val("pt_cta_stroke_color"), textAlign:val("pt_align")||"auto", headlineFont:val("pt_head_font"), subFont:val("pt_sub_font"), people:Math.max(0,Math.min(2,+val("pt_people")||0)), characterPrompt:val("pt_char_prompt"), disclaimerText:(box("pt_disc").value||"").replace(/\r/g,"").trim() });
+  if (box("pt_sub_color")) Object.assign(t,{ subColor:val("pt_sub_color"), ctaColor:val("pt_cta_color"), ctaRadius:Math.max(0,Math.min(50,+val("pt_cta_shape")||0)), ctaStroke:!!(box("pt_cta_stroke")&&box("pt_cta_stroke").checked), ctaStrokeColor:val("pt_cta_stroke_color"), textAlign:val("pt_align")||"auto", headlineFont:val("pt_head_font"), subFont:val("pt_sub_font"), headlineWeight:+val("pt_head_weight")||0, subWeight:+val("pt_sub_weight")||0, people:Math.max(0,Math.min(2,+val("pt_people")||0)), characterPrompt:val("pt_char_prompt"), disclaimerText:(box("pt_disc").value||"").replace(/\r/g,"").trim() });
   var found=false;
   list=list.map(function(x){ if (x.id===id){ found=true; t=Object.assign({},x,t); delete t.editorFields; if(x.editorFields){t.editorFields=clone(x.editorFields);Object.keys(t).forEach(function(k){if(k!=="editorFields"&&k!=="id"&&k!=="name")t.editorFields[k]=t[k];});if(t.editorFields.canvasBg)t.editorFields.canvasBg.color=t.background;if(t.editorFields.layerStyles&&t.editorFields.layerStyles.headline)t.editorFields.layerStyles.headline.textFill=t.textColor;if(t.subColor&&t.editorFields.layerStyles&&t.editorFields.layerStyles.sub)t.editorFields.layerStyles.sub.textFill=t.subColor;if(t.disclaimerText!==undefined)t.editorFields.disclaimer=!!t.disclaimerText;} return t; } return x; });
   if (!found) list.push(t);
@@ -16136,6 +16163,186 @@ var _aiViewResizeT;window.addEventListener('resize',function(){clearTimeout(_aiV
 Object.assign(UI_ID,{'Duplicate custom layer':'Duplikat layer tambahan','Lock / unlock layer':'Kunci / buka kunci layer','Rounded rectangle':'Persegi membulat','Zoom out':'Perkecil','Zoom in':'Perbesar','Canvas zoom (%)':'Zoom kanvas (%)','Fit':'Pas layar','Keyboard shortcuts':'Pintasan keyboard','Design canvas':'Kanvas desain','Rotate layer':'Putar layer','Resize width':'Ubah lebar','Resize height':'Ubah tinggi','Resize layer':'Ubah ukuran layer','Delete / Backspace: delete layer':'Delete / Backspace: hapus layer','Arrow keys: move 1 px · Shift: 10 px':'Tombol panah: geser 1 px · Shift: 10 px','Deselect':'Batalkan pilihan'});
 </script>
 <script>
+/* ============================================================
+   A FONT, THEN ITS STYLE (Oct 2026)
+   Choosing a font in AI Hub was one long list: every uploaded file its own entry (Stolzl Regular, Stolzl Bold,
+   Stolzl Book…) beside the workspace's Google fonts, with no way to ask for a Google font's Light or SemiBold. Now
+   the family comes first, then its style:
+   • a brand font's files are grouped by the family their names say ("Stolzl Bold" → Stolzl, Bold; "Gilroy Black
+     Italic" → Gilroy, Black Italic); a name that says no style is a family of its own, Regular. Each style is still
+     its own file (src/brand-fonts.js), so what is stored is unchanged: the file's name;
+   • a Google font offers the weights Google really has for it — asked for every weight, the list is what came
+     back (document.fonts); a font Google does not have (a system one) offers Regular and Bold.
+   What a design keeps is the same as before — a font name — plus the weight: AIF.headlineWeight, AIF.subWeight,
+   a text layer's weight, and a template's headlineWeight / subWeight.
+   ============================================================ */
+var FONT_STYLE_WORDS=[[/^(thin|hairline)$/i,100],[/^(extra|ultra)\s?light$/i,200],[/^light$/i,300],[/^book$/i,350],[/^(regular|normal|roman)$/i,400],[/^medium$/i,500],[/^(semi|demi)\s?bold$/i,600],[/^bold$/i,700],[/^(extra|ultra)\s?bold$/i,800],[/^(black|heavy)$/i,900]];
+var FONT_WEIGHT_NAMES={100:"Thin",200:"ExtraLight",300:"Light",400:"Regular",500:"Medium",600:"SemiBold",700:"Bold",800:"ExtraBold",900:"Black"};
+var FONT_ALL_WEIGHTS=[100,200,300,400,500,600,700,800,900];
+/* what a font file's name says: its family, its weight, italic or not, and the style as written */
+function fontFaceParts(name){
+  var t=String(name||"").trim().split(/\s+/), italic=false, weight=null, label="";
+  var match=function(s){ for(var i=0;i<FONT_STYLE_WORDS.length;i++) if(FONT_STYLE_WORDS[i][0].test(s)) return FONT_STYLE_WORDS[i][1]; return null; };
+  if(t.length>1&&/^(italic|oblique)$/i.test(t[t.length-1])){ italic=true; t.pop(); }
+  if(t.length>2){ var w2=match(t[t.length-2]+" "+t[t.length-1]); if(w2!==null){ weight=w2; label=t.splice(t.length-2,2).join(" "); } }
+  if(weight===null&&t.length>1){ var w1=match(t[t.length-1]); if(w1!==null){ weight=w1; label=t.pop(); } }
+  if(weight===null) weight=400;
+  return {family:t.join(" "),weight:weight,italic:italic,label:((label||(italic?"":"Regular"))+(italic?" Italic":"")).trim()};
+}
+
+/* ---------- a Google font's weights, as Google has them ---------- */
+var FONT_WEB={};
+function fontWebLoad(name){
+  if(!name||FONT_WEB[name]||typeof document==="undefined") return;
+  var rec=FONT_WEB[name]={state:"loading",weights:[]};
+  try{
+    var link=document.createElement("link"); link.rel="stylesheet"; link.setAttribute("data-font-family",name);
+    /* the first CSS API leaves out a weight a family does not have; the second refuses the whole request */
+    link.href="https://fonts.googleapis.com/css?family="+encodeURIComponent(name).replace(/%20/g,"+")+":"+FONT_ALL_WEIGHTS.join(",")+"&display=swap";
+    link.onload=function(){ rec.state="ok"; rec.weights=fontWeightsInDocument(name); fontWebChanged(); };
+    link.onerror=function(){ rec.state="none"; fontWebChanged(); };
+    document.head.appendChild(link);
+  }catch(e){ rec.state="none"; }
+}
+function fontWeightsInDocument(name){
+  var seen={}; try{ document.fonts.forEach(function(f){ if(String(f.family).replace(/^["']|["']$/g,"")!==name) return; String(f.weight).split(/\s+/).forEach(function(w){ w=+w; if(w>=1&&w<=1000) seen[Math.round(w/100)*100||100]=1; }); }); }catch(e){}
+  return Object.keys(seen).map(Number).sort(function(a,b){ return a-b; });
+}
+/* the style list follows the weights once they are known: the open panel is drawn again, nothing else */
+var FONT_WEB_T=null;
+function fontWebChanged(){ clearTimeout(FONT_WEB_T); FONT_WEB_T=setTimeout(function(){ if(typeof S!=="undefined"&&S.screen==="aihub"&&typeof aiRefreshProperties==="function"&&document.querySelector(".ai-props .fp-family")) aiRefreshProperties(); fontPickRefreshAll(); },60); }
+function fontWebWeights(name){
+  fontWebLoad(name);
+  var rec=FONT_WEB[name]||{}, w=rec.state==="ok"&&rec.weights.length?rec.weights:fontWeightsInDocument(name);
+  return w.length?w:rec.state==="loading"?[400,500,600,700]:[400,700];
+}
+
+/* ---------- the families on offer ---------- */
+function fontFamilies(){
+  var out=[], byKey={}, uploaded={};
+  (typeof aiUploadedFonts==="function"?aiUploadedFonts():[]).forEach(function(f){
+    uploaded[f.name]=1;
+    var p=fontFaceParts(f.name), key="u:"+p.family.toLowerCase(), fam=byKey[key];
+    if(!fam){ fam=byKey[key]={key:key,name:p.family,brand:true,styles:[]}; out.push(fam); }
+    fam.styles.push({value:f.name,label:p.label,weight:p.weight,italic:p.italic});
+  });
+  out.forEach(function(f){ f.styles.sort(function(a,b){ return a.weight-b.weight||(a.italic?1:0)-(b.italic?1:0); }); });
+  (typeof aiWorkspaceFonts==="function"?aiWorkspaceFonts():[]).forEach(function(n){
+    if(uploaded[n]||byKey["g:"+n.toLowerCase()]) return;
+    out.push(byKey["g:"+n.toLowerCase()]=fontWebFamily(n));
+  });
+  return out;
+}
+function fontWebFamily(n){ return {key:"g:"+n.toLowerCase(),name:n,brand:false,styles:fontWebWeights(n).map(function(w){ return {value:String(w),label:FONT_WEIGHT_NAMES[w]||String(w),weight:w}; })}; }
+/* the family a stored font name belongs to, and which of its styles it is */
+function fontFind(font,weight){
+  var fams=fontFamilies(), w=+weight||400;
+  if(font){
+    for(var i=0;i<fams.length;i++){ var f=fams[i];
+      if(f.brand){ for(var j=0;j<f.styles.length;j++) if(f.styles[j].value===font) return {fam:f,style:f.styles[j]}; }
+      else if(f.name===font) return {fam:f,style:fontNearest(f.styles,w)};
+    }
+    var gone=fontWebFamily(font); return {fam:gone,style:fontNearest(gone.styles,w),missing:true};
+  }
+  return {fam:null,style:null};
+}
+function fontNearest(styles,w,italic){
+  var best=null; (styles||[]).forEach(function(s){ var d=Math.abs(s.weight-w)+((!!s.italic)!==(!!italic)?1000:0); if(!best||d<best.d) best={s:s,d:d}; });
+  return best?best.s:null;
+}
+
+/* ---------- the picker: a family, then its style ----------
+   Two selects and the values they stand for, tied by data-fp. A target ("headline", "sub", "x:<id>") applies the
+   choice to the design at once; without one (the template editor) the hidden inputs are read on Save:
+   <id>_font and <id>_weight. The empty family is the workspace's font, whose styles are offered. */
+var FONT_PICK_N=0;
+function fontPickerParts(o){
+  var uid="fp"+(++FONT_PICK_N), found=fontFind(o.font,o.weight), fams=fontFamilies();
+  var cur=found.fam, base=cur||fontWebFamily(o.defaultFamily||"Poppins"), style=found.style||fontNearest(base.styles,+o.weight||o.defaultWeight||400);
+  var weight=style?style.weight:(+o.weight||o.defaultWeight||400);
+  var dis=o.disabled?" disabled":"", data=' data-fp="'+uid+'"'+(o.target?' data-target="'+attr(o.target)+'"':'')+' data-default="'+attr(o.defaultFamily||"Poppins")+'"';
+  var brand=fams.filter(function(f){ return f.brand; }), web=fams.filter(function(f){ return !f.brand; });
+  if(found.missing) web=web.concat([cur]);
+  var opt=function(f){ return '<option value="'+attr(f.key)+'"'+(cur&&cur.key===f.key?" selected":"")+'>'+esc(f.name)+'</option>'; };
+  var family='<select class="ai-prop-select fp-family"'+data+' aria-label="'+attr(tr(o.label||"Font"))+'" onchange="fontPickFamily(this)"'+dis+'>'
+    + '<option value=""'+(cur?"":" selected")+'>'+esc(tr(o.placeholder||"Workspace font"))+'</option>'
+    + (brand.length?'<optgroup label="'+attr(tr("Brand fonts"))+'">'+brand.map(opt).join("")+'</optgroup>':'')
+    + '<optgroup label="'+attr(tr("Fonts"))+'">'+web.map(opt).join("")+'</optgroup></select>';
+  var styles='<select class="ai-prop-select fp-style"'+data+' aria-label="'+attr(tr("Font style"))+'" onchange="fontPickStyle(this)"'+dis+'>'+fontStyleOptions(base,style)+'</select>';
+  var hidden=o.id?'<input type="hidden" id="'+attr(o.id)+'_font" data-fp-font="'+uid+'" value="'+attr(o.font||"")+'"><input type="hidden" id="'+attr(o.id)+'_weight" data-fp-weight="'+uid+'" value="'+attr(o.weight?String(weight):"")+'">':'';
+  return {family:family,style:styles,hidden:hidden,uid:uid};
+}
+function fontStyleOptions(fam,style){ return (fam?fam.styles:[]).map(function(s){ return '<option value="'+attr(s.value)+'"'+(style&&style.value===s.value?" selected":"")+'>'+esc(tr(s.label))+'</option>'; }).join(""); }
+/* one block: the family over its style, for a form */
+function fontPickerHtml(o){ var p=fontPickerParts(o); return '<div class="font-pick">'+p.family+p.style+p.hidden+'</div>'; }
+function fontPickEls(el){ var uid=el.getAttribute("data-fp"); return {family:document.querySelector('.fp-family[data-fp="'+uid+'"]'),style:document.querySelector('.fp-style[data-fp="'+uid+'"]')}; }
+function fontPickFamily(sel){
+  var els=fontPickEls(sel), key=sel.value, fams=fontFamilies(), fam=null;
+  for(var i=0;i<fams.length;i++) if(fams[i].key===key) fam=fams[i];
+  if(!fam&&key.indexOf("g:")===0) fam=fontWebFamily(sel.options[sel.selectedIndex].text);
+  var before=fontPickCurrent(els), base=fam||fontWebFamily(sel.getAttribute("data-default")||"Poppins");
+  var style=fontNearest(base.styles,before.weight,before.italic);
+  if(els.style) els.style.innerHTML=fontStyleOptions(base,style);
+  fontPickApply(sel,fam?(fam.brand?style.value:fam.name):"",style?style.weight:before.weight);
+}
+function fontPickStyle(sel){
+  var els=fontPickEls(sel), key=els.family?els.family.value:"", fams=fontFamilies(), fam=null;
+  for(var i=0;i<fams.length;i++) if(fams[i].key===key) fam=fams[i];
+  var base=fam||fontWebFamily(key?els.family.options[els.family.selectedIndex].text:(sel.getAttribute("data-default")||"Poppins")), style=null;
+  base.styles.forEach(function(s){ if(s.value===sel.value) style=s; });
+  if(!style) return;
+  fontPickApply(sel,fam?(fam.brand?style.value:fam.name):"",style.weight);
+}
+/* the weight and slant chosen now, to keep across a change of family */
+function fontPickCurrent(els){
+  var w=400, it=false, s=els.style;
+  if(s&&s.options.length){ var t=s.options[s.selectedIndex]; var p=fontFaceParts("X "+t.text); w=isFinite(+s.value)&&+s.value>0?+s.value:p.weight; it=p.italic; }
+  return {weight:w,italic:it};
+}
+function fontPickApply(el,font,weight){
+  var target=el.getAttribute("data-target")||"", uid=el.getAttribute("data-fp");
+  var hidF=document.querySelector('[data-fp-font="'+uid+'"]'), hidW=document.querySelector('[data-fp-weight="'+uid+'"]');
+  if(hidF) hidF.value=font; if(hidW) hidW.value=String(weight||"");
+  if(target&&typeof aiFontApply==="function") aiFontApply(target,font,weight);
+}
+/* a style list drawn while the weights were still on their way, put right in place (the template editor) */
+function fontPickRefreshAll(){
+  document.querySelectorAll(".fp-family").forEach(function(sel){
+    if(sel.closest&&sel.closest(".ai-props")) return;
+    var els=fontPickEls(sel); if(!els.style||sel.value.indexOf("u:")===0) return;
+    var name=sel.value?sel.options[sel.selectedIndex].text:(sel.getAttribute("data-default")||"Poppins"), base=fontWebFamily(name), cur=fontPickCurrent(els);
+    els.style.innerHTML=fontStyleOptions(base,fontNearest(base.styles,cur.weight,cur.italic));
+  });
+}
+
+/* ---------- AI Hub: the choice, applied ---------- */
+function aiFontApply(target,font,weight){
+  if(typeof aiHistoryBefore==="function") aiHistoryBefore();
+  weight=+weight||null;
+  if(target==="headline"){ AIF.headlineFont=font; AIF.headlineWeight=weight; }
+  else if(target==="sub"){ AIF.subFont=font; AIF.subWeight=weight; }
+  else if(target.indexOf("x:")===0&&typeof aiExtraSet==="function"){ var id=target.slice(2); aiExtraSet(id,"font",font); if(weight) aiExtraSet(id,"weight",weight); }
+  fontEnsure(font||null,weight);
+  if(typeof aiPreviewSoon==="function") aiPreviewSoon();
+}
+function aiHeadlineWeight(){ return +AIF.headlineWeight||700; }
+function aiSubWeight(){ return +AIF.subWeight||400; }
+/* a weight is drawn on the canvas only once the browser has it: asked for, then drawn again */
+var FONT_ENSURED={};
+function fontEnsure(font,weight){
+  var fam=font||(WS&&WS.brand&&WS.brand.headlineFont)||"Poppins", key=fam+"|"+(weight||400);
+  if(FONT_ENSURED[key]||typeof document==="undefined"||!document.fonts) return; FONT_ENSURED[key]=1;
+  if(!(typeof aiUploadedFontNames==="function"&&aiUploadedFontNames().indexOf(fam)>=0)) fontWebLoad(fam);
+  try{ document.fonts.load((weight||400)+' 32px "'+fam.replace(/"/g,"")+'"').then(function(){ if(typeof S!=="undefined"&&S.screen==="aihub"&&typeof aiPreviewSoon==="function") aiPreviewSoon(); }).catch(function(){}); }catch(e){}
+}
+/* what the design uses, made ready whenever it is drawn */
+(function(){ if(typeof aiPreview!=="function") return; var base=aiPreview; aiPreview=function(){ var r=base.apply(this,arguments);
+  try{ if(typeof AIF!=="undefined"){ fontEnsure(AIF.headlineFont,aiHeadlineWeight()); fontEnsure(AIF.subFont||(WS.brand&&WS.brand.bodyFont)||null,aiSubWeight()); (AIF.extraLayers||[]).forEach(function(x){ if(x&&x.type==="text") fontEnsure(x.font||null,x.weight||700); }); } }catch(e){}
+  return r; }; })();
+
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Font style":"Gaya huruf","Brand fonts":"Font brand","Fonts":"Font","Style":"Gaya"});
+</script>
+<script>
 /* One selection model drives the layer list, canvas, alignment and keyboard. */
 function aiSelectedIds(){var ids=(AIF.selectedLayers||[]).filter(function(id,i,a){return aiLayerIds().includes(id)&&a.indexOf(id)===i;});if(!ids.includes(AIF.selectedLayer))ids=AIF.selectedLayer&&AIF.selectedLayer!=='canvas'?[AIF.selectedLayer]:[];AIF.selectedLayers=ids;return ids;}
 function aiSetSelection(ids){AIF.selectedLayers=ids;AIF.selectedLayer=ids[ids.length-1]||'canvas';}
@@ -16795,19 +17002,23 @@ function aipLogoSource(){
 function aipTypography(id){
   if(!aipIsTextish(id)) return "";
   var x=aipExtraOf(id), locked=!!aiLayerMeta(id).locked, range=aipFontRange(id), px=aipFontPx(id);
-  var fontVal, fontSet, weight, lineH, align, alignSet;
+  var fontVal, weight, lineH, align, alignSet;
   if(x){
-    fontVal=x.font||""; fontSet="aiExtraSet('"+x.id+"','font',this.value);aiPreviewSoon()";
+    fontVal=x.font||"";
     weight=x.weight==null?700:x.weight;
     lineH=x.lineHeight==null?1.3:x.lineHeight;
     align=x.align||"center"; alignSet="aiExtraSet('"+x.id+"','align',ALIGN);aiRefreshProperties()";
   } else if(id==="headline"||id==="sub"){
     var fk=id==="headline"?"headlineFont":"subFont";
-    fontVal=AIF[fk]||""; fontSet="AIF."+fk+"=this.value;aiPreviewSoon()";
+    fontVal=AIF[fk]||"";
   }
   var body="";
-  if(fontVal!==undefined)
-    body+=aipRow("Font",aipSelect(fontVal,[["",tr("Workspace font")]].concat(aiWorkspaceFonts().map(function(f){ return [f,f]; })),fontSet,{label:"Font",disabled:locked}),{stack:true});
+  /* the family, then its style — a brand font's files, a Google font's weights (src/font-families.js) */
+  if(fontVal!==undefined){
+    var brandF=WS.brand||{}, fp=fontPickerParts({font:fontVal,weight:x?weight:(id==="headline"?aiHeadlineWeight():aiSubWeight()),target:x?"x:"+x.id:id,
+      defaultFamily:id==="sub"?(brandF.bodyFont||"Poppins"):(brandF.headlineFont||"Poppins"),placeholder:"Workspace font",disabled:locked});
+    body+=aipRow("Font",fp.family,{stack:true})+aipRow("Style",fp.style,{stack:true});
+  }
 
   /* the requirement the old panel never met: a real px size, not a % scale */
   body+=aipRow("Size",
@@ -16816,8 +17027,7 @@ function aipTypography(id){
     + (x?"":aipIconBtn("reset","Reset to the default size for this canvas","aiHistoryBefore();aiSetLayerScale('"+id+"',100);aiRefreshProperties()",{disabled:locked})));
 
   if(x&&x.type==="text"){
-    body+=aipRow("Weight",aipSelect(weight,[[400,"Regular"],[500,"Medium"],[700,"Bold"],[900,"Black"]],
-        "aiExtraSet('"+x.id+"','weight',Number(this.value));aiPreviewSoon()",{label:"Font weight",disabled:locked}));
+    /* the weight is the Style above */
     body+=aipRow("Line height",
       aipNum({value:lineH,step:0.05,min:0.7,max:3,unit:"×",label:"Line height",disabled:locked,
               oninput:"aiExtraSet('"+x.id+"','lineHeight',Number(this.value)||1.3);aiPreviewSoon()"}));
@@ -20981,6 +21191,139 @@ function restoreDo(type,id,actId){
   "Validated by":"Divalidasi oleh","Changed since":"Berubah sejak","validated it":"memvalidasinya","Validate the counts.":"Validasi jumlahnya.",
   "They count even before they are validated.":"Tetap dihitung walau belum divalidasi.","Approve counts":"Setujui jumlah","Approve again":"Setujui lagi",
   "Asset counts validated":"Jumlah aset divalidasi"});
+</script>
+<script>
+/* ============================================================
+   STORAGE & DELETION — Settings → Integrations (Oct 2026; server/drive-trash.js)
+   Whoever manages cloud storage turns on deletion sync, sees the files ZenCrevia itself put in Google Drive with where
+   each is used, and deletes one everywhere in ZenCrevia. With sync on, the server then moves that same Drive file to
+   Drive's Trash (never deletes it for good). A file used anywhere cannot be deleted — the dialog says where; links to
+   Drive files people already had are not listed and never touched. Removing a file from a task or a message is
+   unchanged: the file stays.
+   Painted from DD.view, which outlives a re-render, so switching language does not blink; while a file waits for
+   Drive the list asks again every few seconds, and says what Drive answered — never "done" before it is.
+   ============================================================ */
+var DD={view:null, draft:null, all:false, open:{}, poll:null, polls:0};
+function ddCan(){ return typeof canI!=="undefined"&&canI&&(canI.manageCloudStorage?canI.manageCloudStorage():canI.manageWorkspace&&canI.manageWorkspace()); }
+function ddPanel(){
+  if(!ddCan()) return "";
+  setTimeout(ddRefresh,0);
+  return sp("Storage & Deletion",'<div id="ddBody">'+(DD.view?ddMarkup(DD.view):'<p class="hint">'+tr("Checking…")+'</p>')+'</div>',"",I.trash);
+}
+function ddRefresh(){
+  if(!document.getElementById("ddBody")) return;
+  apiFetch("GET","/api/cloud/gdrive/deletion").then(function(v){ DD.view=v; ddPaint(); ddPollSoon(); },function(e){ var el=document.getElementById("ddBody"); if(el&&!DD.view) el.innerHTML='<p class="hint">'+esc(e.message)+'</p>'; });
+}
+function ddPaint(){ var el=document.getElementById("ddBody"); if(!el||!DD.view) return; var h=ddMarkup(DD.view); if(el.getAttribute("data-h")!==h){ el.innerHTML=h; el.setAttribute("data-h",h); } }
+/* a file waiting for Drive: asked again until Drive has answered (two minutes at most, then on the next visit) */
+function ddPollSoon(){ clearTimeout(DD.poll); var v=DD.view; if(!v||!v.summary||!v.summary.pending){ DD.polls=0; return; } if(DD.polls++>30) return; DD.poll=setTimeout(ddRefresh,4000); }
+
+function ddSettings(){ var s=(DD.view&&DD.view.settings)||{}; return DD.draft?Object.assign({},s,DD.draft):s; }
+function ddSwitch(on,label,onclick,disabled){ return '<button type="button" class="switch'+(on?" on":"")+'" role="switch" aria-checked="'+(on?"true":"false")+'" aria-label="'+attr(tr(label))+'"'+(disabled?' disabled':'')+(onclick&&!disabled?' onclick="'+onclick+'"':'')+'></button>'; }
+function ddRow(label,help,control,extra){ return '<div class="pref'+(extra?" "+extra:"")+'"><div class="pl"><b>'+tr(label)+'</b>'+(help?'<span>'+tr(help)+'</span>':'')+'</div>'+control+'</div>'; }
+function ddMarkup(v){
+  var s=ddSettings(), drive=v.drive||{}, sum=v.summary||{}, out="";
+  out+=ddRow("Google Drive",drive.shared?tr("Connected")+(drive.account?" · "+esc(drive.account):""):tr("Not connected — connect the shared account above first."),
+    '<span class="badge '+(drive.shared?"approved":"warn")+'">'+tr(drive.shared?"Connected":"Not connected")+'</span>');
+  /* failures, for the admins who asked to see them */
+  if(s.showErrors&&sum.failed){
+    var revoked=(v.files||[]).some(function(f){ return f.status==="trash_failed"&&/reconnect|revoked|not connected/i.test(f.lastError||""); });
+    out+='<div class="banner warn dd-errors" role="status">'+esc(UI_LANG==="id"?sum.failed+" file tidak bisa dipindah ke Sampah Google Drive.":sum.failed+(sum.failed===1?" file could not be moved to Google Drive's Trash.":" files could not be moved to Google Drive's Trash."))
+      +' '+tr(revoked?"Reconnect Google Drive above, then try again.":"Try again from the list below.")+'</div>';
+  }
+  out+='<div class="dd-group"><div class="eyebrow">'+tr("Deletion sync")+'</div>'
+    + ddRow("Sync deleted files","Move eligible ZenCrevia-managed files to Google Drive Trash when they are deleted globally from ZenCrevia.",
+        ddSwitch(!!s.deletionSync,"Sync deleted files","ddSet('deletionSync',"+(!s.deletionSync)+")",!s.deletionSync&&!drive.shared))
+    + (!s.deletionSync&&!drive.shared?'<p class="hint dd-why">'+tr("Connect the shared Google Drive account first: deleted files can only be moved to its Trash.")+'</p>':'')
+    + '<div class="dd-sub">'+tr("Deletion behavior")+'</div>'
+    + '<label class="dd-radio"><input type="radio" checked disabled> <span><b>'+tr("Move to Google Drive Trash (Recommended)")+'</b><span class="hint">'+tr("Files may be restored while retained in Drive Trash. Nothing is ever deleted for good.")+'</span></span></label>'
+    + '<div class="dd-sub">'+tr("Safety controls")+'</div>'
+    + ddRow("Protect files referenced elsewhere","A file used in a task, comment, message or elsewhere cannot be deleted.",ddSwitch(true,"Protect files referenced elsewhere","",true)+'<span class="badge dd-lock">'+tr("Always on")+'</span>')
+    + ddRow("Require confirmation for global deletion","",ddSwitch(true,"Require confirmation for global deletion","",true)+'<span class="badge dd-lock">'+tr("Always on")+'</span>')
+    + ddRow("Show Drive sync errors to workspace admins","",ddSwitch(!!s.showErrors,"Show Drive sync errors to workspace admins","ddSet('showErrors',"+(!s.showErrors)+")"))
+    + '<p class="hint">'+tr("Only files ZenCrevia uploaded to Google Drive are eligible. Links to Drive files people already had are never touched, and removing a file from a task or a message never deletes it.")+'</p>'
+    + '<div class="dd-save"><button type="button" class="btn primary sm"'+(DD.draft?'':' disabled')+' onclick="ddSave()">'+tr("Save changes")+'</button></div></div>';
+  out+=ddFilesHtml(v);
+  return out;
+}
+function ddSet(k,v){ DD.draft=Object.assign({},DD.draft||{}); DD.draft[k]=v; var s=(DD.view&&DD.view.settings)||{}; if(Object.keys(DD.draft).every(function(x){ return DD.draft[x]===s[x]; })) DD.draft=null; ddPaint(); }
+function ddSave(){ if(!DD.draft) return; var d=DD.draft;
+  apiFetch("PUT","/api/cloud/gdrive/deletion",d).then(function(v){ DD.view=v; DD.draft=null; ddPaint(); toast(tr("Storage & Deletion saved")); },function(e){ toast(e.message,"bad"); }); }
+
+/* ---------- the files ZenCrevia put in Drive ---------- */
+var DD_STATUS={active:["",""],deleted_local:["Deleted in ZenCrevia only",""],trash_pending:["Pending Drive sync","warn"],trashed:["Moved to Drive Trash","approved"],trash_failed:["Drive sync failed","bad"],provider_missing:["Not in Google Drive",""]};
+function ddFilesHtml(v){
+  var files=v.files||[], shown=DD.all?files:files.slice(0,12);
+  var h='<div class="dd-group"><div class="eyebrow">'+tr("Files ZenCrevia put in Google Drive")+' <span class="cnt">'+files.length+'</span></div>';
+  if(!files.length) return h+'<p class="hint">'+tr("None yet. Files uploaded through the shared Google Drive account appear here.")+'</p></div>';
+  h+='<div class="dd-files">'+shown.map(ddFileRow).join("")+'</div>';
+  if(files.length>shown.length) h+='<button type="button" class="btn xs ghost" onclick="DD.all=true;ddPaint()">'+tr("Show all")+' ('+files.length+')</button>';
+  return h+'</div>';
+}
+function ddFileRow(f){
+  var st=DD_STATUS[f.status]||["",""], who=f.uploadedBy?person(f.uploadedBy).name:"", used=f.usage||0, id=jsq(f.driveId);
+  var usage=f.status!=="active"?"":used?'<button type="button" class="btn xs ghost dd-used" aria-expanded="'+(DD.open[f.driveId]?"true":"false")+'" onclick="ddToggleUsage('+id+')">'+esc(UI_LANG==="id"?"Dipakai di "+used+" tempat":"Used in "+used+(used===1?" place":" places"))+'</button>':'<span class="hint">'+tr("Not used anywhere")+'</span>';
+  var acts="";
+  if(f.status==="active") acts='<button type="button" class="btn xs danger-soft dd-del"'+(used?' disabled title="'+attr(tr("Remove it where it is used first"))+'"':'')+' onclick="ddDelete('+id+')">'+I.trash+tr("Delete file")+'</button>';
+  if(f.status==="trash_failed") acts+='<button type="button" class="btn xs dd-retry" onclick="ddRetry('+id+')">'+tr("Try again")+'</button>';
+  if(["deleted_local","trash_pending","trash_failed"].indexOf(f.status)>=0) acts+='<button type="button" class="btn xs ghost dd-undo" onclick="ddRestore('+id+')">'+tr("Undo")+'</button>';
+  return '<div class="dd-file" data-drive="'+attr(f.driveId)+'"><div class="dd-file-main"><b class="dd-name">'+esc(f.name||f.driveId)+'</b>'+(st[0]?' <span class="badge '+st[1]+' dd-status">'+tr(st[0])+'</span>':'')
+    + '<div class="dd-meta">'+[who,f.size,f.createdAt?ago(null,f.createdAt):""].filter(Boolean).map(function(x){ return '<span>'+x+'</span>'; }).join('<span>·</span>')+(usage?'<span>·</span>'+usage:'')+'</div>'
+    + (f.status==="trash_failed"&&f.lastError?'<div class="dd-error">'+esc(f.lastError)+'</div>':f.status==="trash_pending"&&f.lastError?'<div class="dd-meta">'+esc(f.lastError)+' — '+tr("trying again soon")+'</div>':f.status==="deleted_local"&&f.lastError?'<div class="dd-meta">'+esc(f.lastError)+'</div>':'')
+    + (DD.open[f.driveId]&&f.usedIn&&f.usedIn.length?'<ul class="dd-usage">'+f.usedIn.map(function(r){ return '<li>'+esc(tr(r.where))+': <b>'+esc(r.label)+'</b></li>'; }).join("")+(used>f.usedIn.length?'<li class="hint">…</li>':'')+'</ul>':'')
+    + '</div><div class="dd-acts">'+acts+'</div></div>';
+}
+function ddToggleUsage(id){ DD.open[id]=!DD.open[id]; ddPaint(); }
+function ddFile(id){ return ((DD.view&&DD.view.files)||[]).filter(function(f){ return f.driveId===id; })[0]||null; }
+/* asked again right before deleting: used somewhere since the list was drawn, it is refused with where */
+function ddDelete(id){
+  var f=ddFile(id); if(!f) return;
+  apiFetch("GET","/api/cloud/gdrive/files/"+encodeURIComponent(id)+"/usage").then(function(r){
+    var used=r.usage||[], s=ddSettings(), drive=(DD.view&&DD.view.drive)||{};
+    if(used.length){ f.usage=used.length; f.usedIn=used.slice(0,12); DD.open[id]=true; ddPaint();
+      openModal(tr("This file is still in use"),'<p>'+esc(UI_LANG==="id"?"“"+f.name+"” masih dipakai di "+used.length+" tempat. Hapus dulu dari sana — menghapusnya dari task atau pesan tidak menghapus filenya.":"“"+f.name+"” is still used in "+used.length+(used.length===1?" place":" places")+". Remove it there first — removing it from a task or a message does not delete the file.")+'</p><ul class="dd-usage">'+used.slice(0,20).map(function(x){ return '<li>'+esc(tr(x.where))+': <b>'+esc(x.label)+'</b></li>'; }).join("")+'</ul>','<span class="spacer"></span><button class="btn primary" onclick="closeModal()">'+tr("OK")+'</button>');
+      return; }
+    var sameAccount=!f.account||!drive.account||f.account===drive.account, toTrash=s.deletionSync&&drive.shared&&sameAccount;
+    var driveLine=toTrash?tr("Will be moved to Trash (if sync succeeds)"):!s.deletionSync?tr("Stays in Google Drive — deletion sync is off"):!drive.shared?tr("Stays in Google Drive — Google Drive is not connected"):tr("Stays in Google Drive — uploaded under another Google account");
+    openModal(tr("Delete this file everywhere in ZenCrevia?"),
+      '<dl class="dd-confirm"><dt>'+tr("File")+'</dt><dd>'+esc(f.name)+'</dd><dt>'+tr("Used in")+'</dt><dd>'+tr("0 other locations")+'</dd><dt>Google Drive</dt><dd>'+driveLine+'</dd></dl><p class="hint">'+tr("This action removes the file from the ZenCrevia library.")+'</p>',
+      '<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><span class="spacer"></span><button class="btn danger" onclick="ddDeleteNow('+jsq(id)+')">'+I.trash+tr("Delete file")+'</button>');
+  },function(e){ toast(e.message,"bad"); });
+}
+function ddDeleteNow(id){ closeModal();
+  apiFetch("POST","/api/cloud/gdrive/files/"+encodeURIComponent(id)+"/delete",{}).then(function(f){
+    toast(tr(f.status==="trash_pending"?"File deleted in ZenCrevia. Google Drive sync pending.":"File deleted in ZenCrevia only.")); DD.polls=0; ddRefresh();
+  },function(e){ toast(e.message,"bad"); ddRefresh(); }); }
+function ddRestore(id){ apiFetch("POST","/api/cloud/gdrive/files/"+encodeURIComponent(id)+"/restore",{}).then(function(){ toast(tr("The file is kept")); ddRefresh(); },function(e){ toast(e.message,"bad"); ddRefresh(); }); }
+function ddRetry(id){ apiFetch("POST","/api/cloud/gdrive/files/"+encodeURIComponent(id)+"/retry",{}).then(function(){ toast(tr("Trying Google Drive again")); DD.polls=0; ddRefresh(); },function(e){ toast(e.message,"bad"); }); }
+
+(function(){ if(typeof setIntegrations!=="function") return; var base=setIntegrations;
+  setIntegrations=function(){ var h=base.apply(this,arguments); return typeof h==="string"?ddPanel()+h:h; }; })();
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Storage & Deletion":"Penyimpanan & Penghapusan","Google Drive":"Google Drive","Connected":"Terhubung","Not connected":"Belum terhubung",
+  "Not connected — connect the shared account above first.":"Belum terhubung — hubungkan akun bersama di atas dulu.",
+  "Reconnect Google Drive above, then try again.":"Hubungkan ulang Google Drive di atas, lalu coba lagi.","Try again from the list below.":"Coba lagi dari daftar di bawah.",
+  "Deletion sync":"Sinkronisasi penghapusan","Sync deleted files":"Sinkronkan file yang dihapus",
+  "Move eligible ZenCrevia-managed files to Google Drive Trash when they are deleted globally from ZenCrevia.":"Pindahkan file yang dikelola ZenCrevia ke Sampah Google Drive saat file dihapus dari seluruh ZenCrevia.",
+  "Connect the shared Google Drive account first: deleted files can only be moved to its Trash.":"Hubungkan akun Google Drive bersama dulu: file yang dihapus hanya bisa dipindah ke Sampah akun itu.",
+  "Deletion behavior":"Cara menghapus","Move to Google Drive Trash (Recommended)":"Pindahkan ke Sampah Google Drive (Disarankan)",
+  "Files may be restored while retained in Drive Trash. Nothing is ever deleted for good.":"File masih bisa dipulihkan selama ada di Sampah Drive. Tidak ada yang dihapus permanen.",
+  "Safety controls":"Pengaman","Protect files referenced elsewhere":"Lindungi file yang dipakai di tempat lain",
+  "A file used in a task, comment, message or elsewhere cannot be deleted.":"File yang dipakai di task, komentar, pesan, atau tempat lain tidak bisa dihapus.",
+  "Require confirmation for global deletion":"Wajib konfirmasi untuk penghapusan global","Show Drive sync errors to workspace admins":"Tampilkan error sinkronisasi Drive ke admin workspace",
+  "Always on":"Selalu aktif",
+  "Only files ZenCrevia uploaded to Google Drive are eligible. Links to Drive files people already had are never touched, and removing a file from a task or a message never deletes it.":"Hanya file yang diunggah ZenCrevia ke Google Drive yang bisa. Tautan ke file Drive milik orang tidak pernah disentuh, dan menghapus file dari task atau pesan tidak pernah menghapus filenya.",
+  "Save changes":"Simpan perubahan","Storage & Deletion saved":"Penyimpanan & Penghapusan disimpan",
+  "Files ZenCrevia put in Google Drive":"File yang diunggah ZenCrevia ke Google Drive","None yet. Files uploaded through the shared Google Drive account appear here.":"Belum ada. File yang diunggah lewat akun Google Drive bersama muncul di sini.",
+  "Show all":"Tampilkan semua","Deleted in ZenCrevia only":"Dihapus di ZenCrevia saja","Pending Drive sync":"Menunggu sinkronisasi Drive","Moved to Drive Trash":"Dipindah ke Sampah Drive","Drive sync failed":"Sinkronisasi Drive gagal","Not in Google Drive":"Tidak ada di Google Drive",
+  "Not used anywhere":"Tidak dipakai di mana pun","Remove it where it is used first":"Hapus dulu dari tempat file ini dipakai","Delete file":"Hapus file","Try again":"Coba lagi","Undo":"Urungkan","trying again soon":"segera dicoba lagi",
+  "This file is still in use":"File ini masih dipakai","Delete this file everywhere in ZenCrevia?":"Hapus file ini dari seluruh ZenCrevia?","File":"File","Used in":"Dipakai di","0 other locations":"0 tempat lain",
+  "Will be moved to Trash (if sync succeeds)":"Akan dipindah ke Sampah (jika sinkronisasi berhasil)","Stays in Google Drive — deletion sync is off":"Tetap di Google Drive — sinkronisasi penghapusan mati",
+  "Stays in Google Drive — Google Drive is not connected":"Tetap di Google Drive — Google Drive belum terhubung","Stays in Google Drive — uploaded under another Google account":"Tetap di Google Drive — diunggah dengan akun Google lain",
+  "This action removes the file from the ZenCrevia library.":"Tindakan ini menghapus file dari pustaka ZenCrevia.",
+  "File deleted in ZenCrevia. Google Drive sync pending.":"File dihapus di ZenCrevia. Sinkronisasi Google Drive menunggu.","File deleted in ZenCrevia only.":"File dihapus di ZenCrevia saja.",
+  "The file is kept":"File tetap disimpan","Trying Google Drive again":"Mencoba Google Drive lagi",
+  "Task file":"File task","Version":"Versi","Comment":"Komentar","Description":"Deskripsi","Progress note":"Catatan progres","Project discussion":"Diskusi project","Asset library":"Pustaka aset","Chat":"Chat","Creative request":"Creative request","Knowledge page":"Halaman knowledge"});
 </script>
 <script>
 /* SHARED GOOGLE DRIVE ACCOUNT — Settings → Integrations (admins only).

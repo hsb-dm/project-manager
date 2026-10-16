@@ -1532,3 +1532,28 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* the task list's due date on two lines — the date, then how far off — so the column stays narrow */
 .due.due-2{display:inline-flex;flex-direction:column;gap:1px;line-height:1.25;white-space:nowrap}
 .due.due-2 .due-rel{font-size:.92em}
+/* Settings → Integrations → Storage & Deletion (Google Drive deletion sync) */
+.dd-group{margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border)}
+.dd-group>.eyebrow{margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.dd-sub{margin:12px 0 6px;font-size:12px;font-weight:700;color:var(--color-text-secondary)}
+.dd-radio{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--color-primary);border-radius:10px;background:var(--color-primary-soft)}
+.dd-radio>span{display:flex;flex-direction:column;gap:2px}
+.dd-radio .hint{font-weight:500}
+.dd-lock{margin-left:6px}
+.dd-why{margin:-4px 0 6px}
+.dd-errors{margin:10px 0 0}
+.dd-save{display:flex;justify-content:flex-end;margin-top:10px}
+.dd-files{display:flex;flex-direction:column}
+.dd-file{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-border)}
+.dd-file:last-child{border-bottom:0}
+.dd-file-main{flex:1;min-width:0}
+.dd-name{overflow-wrap:anywhere}
+.dd-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:var(--color-text-secondary)}
+.dd-meta .btn{padding:0 6px}
+.dd-error{margin-top:4px;font-size:12px;color:var(--color-danger,#B91C1C)}
+.dd-acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.dd-usage{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--color-text-secondary)}
+.dd-confirm{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 10px}
+.dd-confirm dt{font-weight:700;color:var(--color-text-secondary)}
+.dd-confirm dd{margin:0;overflow-wrap:anywhere}
+.dd-status{margin-left:6px}

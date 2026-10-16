@@ -622,6 +622,33 @@ Ringkasan langkah (panduan sangat lengkap beserta contoh nilai ada di `GOOGLE_DR
 > bisa dibuka tanpa login. Jangan pakai untuk materi sensitif atau berlisensi.
 > Lebih baik bagikan folder ke Google Group yang dikelola, lalu tambah/kurangi orang lewat grup itu.
 
+### Penyimpanan & Penghapusan (Oktober 2026)
+
+Settings → Integrations → **Storage & Deletion**, untuk yang punya izin *manage cloud storage*
+(spesifikasi: `ZenCrevia_Google_Drive_Deletion_Sync_Spec.md`; kode: `server/drive-trash.js`).
+
+- **Sync deleted files** — mati secara default, dan hanya bisa dinyalakan saat akun Google Drive
+  bersama terhubung. Perilakunya hanya satu: **pindahkan ke Sampah Google Drive**
+  (`files.update {trashed:true}`); file tidak pernah dihapus permanen dan masih bisa dipulihkan dari
+  Sampah Drive selama Google menyimpannya.
+- Yang memenuhi syarat hanya **file yang diunggah ZenCrevia** lewat akun bersama: setiap unggahan
+  dicatat di tabel `drive_uploads` sejak Oktober 2026. Tautan ke file Drive milik orang, unggahan
+  lewat alur lama per-browser, dan unggahan di akun Google lain **tidak pernah** dipindah ke Sampah.
+- Daftar **Files ZenCrevia put in Google Drive** menunjukkan di mana tiap file dipakai (file task,
+  versi, komentar, deskripsi, catatan progres, diskusi project, pustaka aset, chat, request,
+  knowledge). File yang masih dipakai **tidak bisa dihapus**; hapus dulu dari tempatnya (menghapus file
+  dari task/pesan tidak pernah menghapus filenya).
+- **Delete file** meminta konfirmasi lalu menghapus file dari ZenCrevia. Status: *Pending Drive sync* →
+  *Moved to Drive Trash*, atau *Deleted in ZenCrevia only* (sync mati), *Drive sync failed* (dengan
+  **Try again** / sambungkan ulang Drive), *Not in Google Drive*. **Undo** tersedia sebelum Drive
+  memindahkannya ke Sampah.
+- Job berjalan di server tiap 30 detik: 429/5xx/timeout dicoba lagi dengan jeda yang makin panjang
+  (maks. 8 kali); 403, akses dicabut, atau Drive terputus menjadi *Drive sync failed*. Sebelum
+  memanggil Drive, job memeriksa lagi apakah file dipakai lagi atau di-Undo — kalau ya, file tetap.
+- Semuanya tercatat di riwayat workspace dan `security.log` (`drive_file_delete_requested`,
+  `drive_trash_trashed`, `drive_trash_failed`, …). Mengubah setelan hanya berlaku untuk penghapusan
+  baru; file lama tidak pernah dibersihkan otomatis.
+
 ---
 
 ## 9. Deployment
