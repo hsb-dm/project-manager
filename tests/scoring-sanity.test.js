@@ -267,7 +267,7 @@ test('the Scope suggested from the assets produced, and the hours previewed from
   const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), Settings = require('../shared/scoring-settings.js');
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'scoring-panel.js'), 'utf8');
   const c = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, ScoringEngine: S, I: {}, assetCount: t => Math.max(0, +(t && t.assetCount) || 0),
-    estKind: title => (/post|feed/i.test(title) ? ['feed'] : /resize/i.test(title) ? ['resize'] : /reel/i.test(title) ? ['reels'] : null),
+    estKindOf: tk => S.kindOfTask(tk),
     unresolvedDependencies: () => [], scoringSettings: () => Settings.normalizeSettings({}) };
   vm.createContext(c); vm.runInContext(src.slice(src.indexOf('<script>') + 8, src.indexOf('</script>')), c);
   const sug = c.scrScopeFromAssets;
@@ -527,4 +527,22 @@ test('the Teams screen bars make sense: done within planned, percentages 0–100
   assert.deepEqual(V('x', { mode: 'everyone' }), ['h', 'l', 'o', 'x', 'y'], 'the admin chose everyone');
   assert.deepEqual(V('s', { mode: 'everyone', stakeholder: true }), [], 'a stakeholder: nobody, in either mode');
   assert.deepEqual(V('s'), [], 'someone who is not one of the people (a stakeholder): nothing of their own either');
+});
+
+/* kinds of work of the workspace's own (Oct 2026): a new kind's hours are its own, grow with the deliverables like any
+   kind's, and detection is what an admin would expect — a switched-off kind never, a kind chosen by hand always, the
+   list's order, never a word inside another word */
+test('a kind of the workspace\'s own makes sense: its own hours, more for more deliverables, found as an admin expects', () => {
+  const Settings = require('../shared/scoring-settings.js'), { calculate } = require('../server/scoring.js');
+  const s = Settings.normalizeSettings({ kinds: Settings.defaults().kinds.concat([{ id: 'k_pod', name: 'Podcast', keywords: ['podcast', 'siniar'] }]), hours: { templates: { k_pod: { perUnit: 3 } } } });
+  const h = (title, assetCount, meta) => calculate(s, { title, assetCount, meta }, { module: 'hours' }, {}).value;
+  assert.equal(h('Siniar HSB eps 4', 1), 3, 'its own first-deliverable hours');
+  let last = 0;
+  for (let n = 1; n <= 20; n++) { const v = h('Podcast series', n); assert.ok(v > last, n + ' episodes: ' + v + ' h, never fewer than for ' + (n - 1)); if (n > 1) assert.ok(v - last <= 3, 'each next one costs no more than the first'); last = v; }
+  const t = s.hours.templates.k_pod; assert.ok(t.low <= t.perUnit && t.perUnit <= t.high && t.low > 0, 'a range around its hours');
+  assert.equal(S.kindOfTask({ title: 'Feed post Monday', meta: { kind: 'k_pod' } }, s.kinds), 'k_pod', 'a kind chosen by hand beats the keywords');
+  const off = s.kinds.map(k => (k.id === 'feed' ? Object.assign({}, k, { active: false }) : k));
+  for (const title of ['Feed post Monday', 'Konten Instagram', 'Posting harian']) assert.notEqual(S.kindOf(title, off), 'feed', 'a switched-off built-in is never found: ' + title);
+  assert.equal(S.kindOf('Instagram carousel', s.kinds), 'carousel', 'the list\'s order: a carousel before a feed post');
+  for (const [title, not] of [['Copywriter onboarding', 'copy'], ['Promotion plan', 'video'], ['Adalah rapat', 'banner'], ['Ppts', 'deck']]) assert.notEqual(S.kindOf(title, s.kinds), not, title + ': not found inside another word');
 });

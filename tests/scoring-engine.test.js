@@ -213,7 +213,7 @@ test('the hour templates are the kinds of src/effort-estimate.js, and give its n
   for (const k of kinds) {
     assert.deepEqual(Object.assign({}, D.hours.templates[k[0]]), { perUnit: k[4], low: k[5], high: k[6], nextUnitFactor: k[7] }, k[0]);
     const def = S.KINDS.find(x => x.id === k[0]);
-    assert.deepEqual([k[1], k[2], String(k[3])], [def.name, def.nameId, String(def.pattern)], k[0] + ': the names and the pattern are the engine\'s');
+    assert.deepEqual([k[1], k[2], String(k[3])], [def.name, def.nameId, String(def.keywords)], k[0] + ': the names and the keywords are the engine\'s');
     for (let items = 1; items <= 4; items++) {
       const f = items > 1 ? 1 + k[7] * (items - 1) : 1; /* estKindHours */
       assert.equal(S.hours(D.hours, { kind: k[0], units: items }).value, S.round2(k[4] * f), k[0] + ' × ' + items);
@@ -245,7 +245,7 @@ test('kindOf reads the kind of work from a title, English or Indonesian, the mor
   assert.deepEqual(S.KIND_IDS, Object.keys(D.hours.templates), 'one kind per hour template, in the same order');
   assert.deepEqual(S.KIND_IDS, Object.keys(D.assets.perKind), 'one kind per asset points value, in the same order');
   assert.ok(Object.isFrozen(S.KINDS) && Object.isFrozen(S.KINDS[0]), 'nobody changes the list in passing');
-  S.KINDS.forEach(k => assert.ok(k.name && k.nameId && k.pattern instanceof RegExp && !k.pattern.global, k.id));
+  S.KINDS.forEach(k => assert.ok(k.name && k.nameId && k.keywords.length && Object.isFrozen(k.keywords) && k.keywords.every(w => S.kindKeyword(w) === w), k.id));
 });
 
 /* ---------- points for the assets produced ---------- */

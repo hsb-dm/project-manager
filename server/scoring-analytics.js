@@ -195,11 +195,11 @@ module.exports = function scoringAnalytics(db, WS_ID, d) {
 
     /* the tasks (one query, with the Effort Hours row the status filter reads) */
     const tasks = P.where === "0" ? [] : db.prepare("SELECT t.id, t.title, t.team_id, t.project_id, t.assignee_id, t.assignees, t.asset_count, t.completed_at, t.estimated_minutes, hs.status AS h_status, hs.source AS h_source, hs.final_value AS h_final, hs.locked_value AS h_locked, "
-      + meta("actualEffort") + " AS typed_actual, " + meta("assetSplit") + " AS asset_split, " + meta("assetSplitOk") + " AS asset_ok FROM " + P.from + " WHERE " + P.where + " ORDER BY t.completed_at, t.id").all(...P.params)
+      + meta("actualEffort") + " AS typed_actual, " + meta("assetSplit") + " AS asset_split, " + meta("assetSplitOk") + " AS asset_ok, " + meta("kind") + " AS kind_pick FROM " + P.from + " WHERE " + P.where + " ORDER BY t.completed_at, t.id").all(...P.params)
       .map(r => {
         const a = J(r.assignees, []), assignees = Array.isArray(a) ? a.filter(x => typeof x === "string" && x) : [];
         if (r.assignee_id && assignees.indexOf(r.assignee_id) < 0) assignees.unshift(r.assignee_id);
-        return { id: r.id, title: r.title, assignees, assetCount: +r.asset_count || 0, week: weekIx.has(weekOf(r.completed_at)) ? weekIx.get(weekOf(r.completed_at)) : null,
+        return { id: r.id, title: r.title, meta: { kind: r.kind_pick }, assignees, assetCount: +r.asset_count || 0, week: weekIx.has(weekOf(r.completed_at)) ? weekIx.get(weekOf(r.completed_at)) : null,
           estimatedMinutes: +r.estimated_minutes || 0, typedActual: +r.typed_actual || 0, assetSplit: J(r.asset_split, null), assetOk: J(r.asset_ok, null),
           hours: r.h_status ? { status: r.h_status, source: r.h_source, final: r.h_final, locked: r.h_locked } : null };
       });
@@ -329,7 +329,7 @@ module.exports = function scoringAnalytics(db, WS_ID, d) {
       let assets = 0, counted = 0, validated = 0, attributed = false;
       withAssets.forEach(t => {
         const c = assetCredit({ assetCount: t.assetCount, meta: { assetSplit: t.assetSplit }, uploaders: ups.get(t.id) || [], assignees: t.assignees });
-        const r = engine.assetPoints(s.assets, { kind: engine.kindOf(t.title), split: c.by, validated: t.assetOk });
+        const r = engine.assetPoints(s.assets, { kind: engine.kindOfTask(t, s.kinds), split: c.by, validated: t.assetOk });
         let any = false;
         Object.keys(r.perPerson).forEach(id => {
           if (person && id !== person) return;

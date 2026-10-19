@@ -548,11 +548,48 @@ dimatikan lagi, semua angka, riwayat, dan audit tetap tersimpan.
 
 3. Untuk tiap modul, pilih mode: **Math only**, **AI-assisted**, atau **Hybrid**. Hitungan matematis selalu ada
    sebagai cadangan.
-4. Atur angka-angkanya: template jam per jenis pekerjaan, pengali kompleksitas dan dependency, ambang Story Points,
-   bobot faktor (harus total 100%), poin aset per jenis, dan kebijakan AI serta perubahan manual.
+4. Atur angka-angkanya: jenis pekerjaan (di bawah), pengali kompleksitas dan dependency, ambang Story Points,
+   bobot faktor (harus total 100%), dan kebijakan AI serta perubahan manual.
 
 Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpananmu ditolak dan tab dimuat ulang.
 Riwayat 20 perubahan terakhir ada di bawah tab.
+
+### Jenis pekerjaan (Oktober 2026)
+
+Bagian **Kinds of work / Jenis pekerjaan** di tab Smart Scoring berisi daftar jenis pekerjaan workspace. Jenis
+pekerjaan sebuah task menentukan jam estimasinya saat task dibuat (**juga saat Smart Scoring OFF**), hitungan Effort
+Hours, dan poin aset. Setiap baris berisi:
+
+| Kolom | Isinya |
+|---|---|
+| Name / Name in Indonesian | nama jenis dalam bahasa Inggris dan Indonesia |
+| Words in the title | kata kunci, dipisah koma, misalnya `podcast, siniar` |
+| First (h), Low (h), High (h) | jam untuk deliverable pertama dan rentang lazimnya |
+| Each next (× first) | porsi tiap deliverable berikutnya (resize 0,25; kebanyakan pekerjaan 0,5; 1 = dihitung penuh) |
+| Points per asset | poin per aset yang dihasilkan (0–20) |
+| switch | ON/OFF; jenis yang OFF tidak pernah dikenali dan tidak bisa dipilih |
+
+Cara jenis pekerjaan dikenali:
+- Daftar diperiksa **dari atas ke bawah**; jenis pertama yang kata kuncinya ada di judul yang dipakai. Urutan diubah
+  dengan tombol ↑ ↓ (yang lebih spesifik di atas, misalnya karosel sebelum post feed).
+- Kata kunci dicocokkan sebagai **kata utuh**, huruf besar atau kecil tidak berpengaruh, bahasa Inggris atau
+  Indonesia. `copy` tidak cocok dengan "copywriter". Akhiri kata dengan `*` agar bentuk yang lebih panjang ikut
+  cocok: `video*` cocok dengan "videos" dan "videografi" (minimal 3 huruf sebelum `*`).
+- Kata kunci adalah teks biasa, bukan regex. Maksimal 50 jenis, 40 kata kunci per jenis, 40 karakter per kata kunci.
+- Orang yang bisa mengedit task bisa **memilih jenisnya sendiri** di baris Effort task (dan di baris jam Scoring &
+  Intelligence). Pilihan itu selalu menang atas kata kunci.
+- Kotak **Try a title / Coba sebuah judul** di bawah daftar langsung menunjukkan jenis yang dikenali, misalnya
+  "Detected: Podcast (keyword "podcast")", memakai daftar yang sedang diedit (belum disimpan).
+
+14 jenis bawaan (carousel, story, reels, video, KV, resize, feed, poster, banner, copy, deck, logo, web, email) bisa
+diubah nama, kata kunci, dan angkanya, dan bisa dimatikan, tetapi **tidak bisa dihapus**. Jenis buatan sendiri
+(**Add kind of work**) bisa diubah dan dihapus. Jenis baru belum punya jam sampai **First (h)** diisi (Low/High
+otomatis ½× dan 1½× bila dikosongkan); poin asetnya mulai dari poin "jenis tidak dikenali". Menghapus jenis buatan
+sendiri juga menghapus jam dan poinnya; task yang memilihnya secara manual kembali dikenali dari judulnya, dan hal itu
+tercatat di riwayat skor task tersebut.
+
+Contoh: jenis "Podcast" dengan kata kunci `podcast, siniar`, First 3 jam, 2 poin per aset → task baru "Siniar HSB eps
+4" langsung mendapat estimasi 3 jam.
 
 ### Siapa boleh apa
 

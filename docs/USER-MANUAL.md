@@ -248,6 +248,16 @@ dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, s
 dan email 50%; poster, reels, dan video 60%; copy, deck, dan konsep logo 40%. Contoh: 12 resize ≈ 5 jam, 3 reels
 ≈ 13 jam. Ketik angka sendiri kapan saja; angka yang kamu ketik tidak ditimpa.
 
+**Jenis pekerjaan (Kind of work).** Jenis pekerjaan dikenali dari kata di judul task, memakai daftar yang diatur admin
+di Settings → Smart Scoring → Kinds of work (misalnya "Siniar HSB eps 4" dikenali sebagai Podcast kalau admin
+menambahkan jenis itu dengan kata kunci "siniar"). Kalau judulnya tidak menyebut jenis yang tepat, pilih sendiri di
+baris **Effort** pada tab Brief: **Kind of work: Auto (post feed)** berarti dikenali dari judul; pilih jenis lain dari
+daftar, atau kembali ke **Auto**. Pilihanmu selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
+Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat judul diubah — kecuali angka yang kamu
+ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Pilihan ini bisa dibuat oleh siapa pun yang
+bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali
+dari judulnya.
+
 ### Empat tab
 
 **Brief** — kolom **Description** bebas, bagian **Dependencies**, lalu **Creative brief**.
@@ -364,9 +374,9 @@ Kalau admin menyalakan **Smart Scoring**, tab Brief punya panel **Scoring & Inte
 Panel ini terlipat secara default, dan posisi buka/tutupnya diingat per orang. Satu baris untuk tiap modul yang
 dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
 
-- **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan dari judul, jumlah **Assets produced** sebagai
-  jumlah deliverable, rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat
-  langkah hitungannya.
+- **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan (yang dipilih di task, kalau tidak dari judul —
+  bisa dipilih juga di baris jam ini, **Kind of work**), jumlah **Assets produced** sebagai jumlah deliverable,
+  rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat langkah hitungannya.
 - **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
   jauh dari hitungan diberi peringatan.
 - **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,

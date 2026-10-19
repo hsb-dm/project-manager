@@ -15,7 +15,8 @@
    (completed_at), in a completed stage (Settings → Smart Scoring's completion stages; by default every closed stage
    but Declined: a declined task produced nothing anyone used). Work still open is not counted yet; it counts in the
    week it is completed. team and project choose tasks (the task's team; its project or one of the others it is in),
-   person chooses the row. The kind of work is read from the task's title, as the estimator reads it.
+   person chooses the row. The kind of work is the one chosen on the task, else its title's, as the estimator reads it
+   (the workspace's kinds of work).
 
    Whoever holds scoring_view_analytics sees everyone's rows; anyone else only their own (asking for someone else's
    is refused). People are listed in name order — never ranked. The module off (or Smart Scoring, or the server's
@@ -125,7 +126,7 @@ module.exports = function scoringAssets(db, WS_ID, d) {
     if (only) get(only);
     let counted = 0;
     tasks.forEach(t => {
-      const c = credit(t), kind = engine.kindOf(t.title), week = weekOf(t.completedAt);
+      const c = credit(t), kind = engine.kindOfTask(t, s.kinds), week = weekOf(t.completedAt);
       const r = engine.assetPoints(s.assets, { kind, split: c.by, validated: t.meta.assetSplitOk });
       let mine = false;
       Object.keys(r.perPerson).forEach(id => {

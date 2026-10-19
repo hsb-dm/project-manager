@@ -4,7 +4,8 @@
    Where an admin — or whoever is given scoring_manage_workspace — sets up Smart Scoring (docs/SMART-SCORING.md),
    right after Automation: the master switch; each module on or off with how it works (math only, AI-assisted, or
    both side by side), KPI and OKR as two separate switches under Outcomes; which metric capacity and velocity are
-   counted in; the Effort Hours templates (the kinds of work the estimator already knows), multipliers and bounds; the
+   counted in; the kinds of work with their keywords, hours and points (src/scoring-kinds.js); Effort Hours'
+   multipliers and bounds; the
    Story Points thresholds; the weights of the factors, which must add up to 100% before anything is saved; what the
    AI may do and how often; how manual changes are approved. The efficiency bonus has its own section, its policy
    (src/scoring-awards.js). Whoever manages roles also sees who holds each Smart Scoring permission (roles and
@@ -61,7 +62,9 @@ function setScoring(){
   var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
   scDraft(); var ed=canI.scoringConfigure(), ro=!ed;
   setTimeout(scLoadOnce,0); setTimeout(scTotalsPaint,0);
-  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)+scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
+  return scMainPanel(cur,ed,ro)+scModulesPanel(ro,ed)
+    +(typeof scoringKindsSettingsHtml==="function"?scoringKindsSettingsHtml(ro,ed):"")   /* kinds of work, their keywords, hours and points (src/scoring-kinds.js) */
+    +scHoursPanel(ro,ed)+scStoryPanel(ro,ed)+scWeightedPanel(ro,ed)
     +(typeof scoringAssetsSettingsHtml==="function"?scoringAssetsSettingsHtml(ro,ed):"")   /* src/scoring-assets.js */
     +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)
     +(typeof scoringBonusSettingsHtml==="function"?scoringBonusSettingsHtml(ro,ed):"")   /* the efficiency bonus policy (src/scoring-awards.js) */
@@ -93,16 +96,10 @@ function scModulesPanel(ro,ed){
     + '<div class="field-row scr-primary">'+fieldHtml("sc_primary","Primary capacity metric",scSelectHtml("sc_primary","primaryCapacity",[["hours","Hours"],["story_points","Story Points"],["weighted_points","Weighted Points"]],ro))+'<div class="hint scr-field-hint">'+tr("The one metric velocity is counted in, so nothing is counted twice. Workload and capacity stay in hours.")+'</div></div>',
     scSaveFoot(ed),I.sync); }
 function scHoursPanel(ro,ed){
-  var kinds=(typeof ScoringSettings!=="undefined"&&ScoringSettings.KINDS)||Object.keys(scGet("hours.templates")||{});
-  var name=function(id){ return typeof estKindName==="function"?estKindName(id):id; };
-  var cell=function(id,f,step){ return '<td><input type="number" class="scr-cell" aria-label="'+attr(name(id)+" · "+tr({perUnit:"First deliverable (h)",low:"Low (h)",high:"High (h)",nextUnitFactor:"Each next deliverable (× the first)"}[f]))+'" data-sc="hours.templates.'+id+'.'+f+'" data-k="num" min="0" step="'+step+'" value="'+attr(scGet("hours.templates."+id+"."+f))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
   var cx=[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]], dp=[[0,"No open dependencies"],[1,"1 open dependency"],[2,"2 open dependencies"],[3,"3 or more"]];
   return sp("Effort Hours",
     '<p class="hint" style="margin-bottom:10px">'+tr("Estimated hours = the hours of the first deliverable, plus each next one at its share, × the complexity multiplier × the dependency multiplier, kept within the bounds. An estimate a task already has is kept as it is: nothing is recalculated unless someone asks.")+'</p>'
-    + '<div class="tbl-wrap scr-tpl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("First (h)")+'</th><th>'+tr("Low (h)")+'</th><th>'+tr("High (h)")+'</th><th>'+tr("Each next (× first)")+'</th></tr></thead><tbody>'
-    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t">'+esc(name(id))+'</td>'+cell(id,"perUnit","0.25")+cell(id,"low","0.25")+cell(id,"high","0.25")+cell(id,"nextUnitFactor","0.05")+'</tr>'; }).join("")
-    + '</tbody></table></div>'
-    + '<p class="hint" style="margin:6px 0 12px">'+tr("Each next: the share of the first that every next deliverable adds — 0.25 for a resize, about 0.5 for most work, 1 counts every deliverable in full. Never more than 1: a next piece is not more work than the first.")+'</p>'
+    + '<p class="hint" style="margin:0 0 12px">'+tr("The hours of each kind of work are set under Kinds of work.")+'</p>'
     + '<div class="eyebrow">'+tr("Complexity multiplier")+'</div><div class="scr-grid">'+cx.map(function(c){ return scNumHtml("sc_cx_"+c[0],"hours.complexity."+c[0],c[1],{min:0.1,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
     + '<div class="eyebrow">'+tr("Dependency multiplier")+'</div><div class="scr-grid">'+dp.map(function(c){ return scNumHtml("sc_dp_"+c[0],"hours.dependency."+c[0],c[1],{min:0.5,max:10,step:0.05,unit:"×",ro:ro}); }).join("")+'</div>'
     + '<div class="scr-grid">'+scNumHtml("sc_bmin","hours.bounds.min","Fewest hours",{min:0.05,max:40,step:0.25,unit:"h",ro:ro})+scNumHtml("sc_bmax","hours.bounds.max","Most hours",{min:0.5,max:400,step:1,unit:"h",ro:ro})+'</div>'
@@ -243,8 +240,7 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "The one metric velocity is counted in, so nothing is counted twice. Workload and capacity stay in hours.":"Satu-satunya metrik untuk menghitung velocity, agar tidak ada yang terhitung dua kali. Beban kerja dan kapasitas tetap dalam jam.",
   "Estimated hours = the hours of the first deliverable, plus each next one at its share, × the complexity multiplier × the dependency multiplier, kept within the bounds. An estimate a task already has is kept as it is: nothing is recalculated unless someone asks.":"Jam estimasi = jam deliverable pertama, ditambah tiap deliverable berikutnya sesuai porsinya, × pengali kompleksitas × pengali ketergantungan, dijaga dalam batas. Estimasi yang sudah ada pada task tetap seperti adanya: tidak ada yang dihitung ulang kecuali diminta.",
   "Kind of work":"Jenis pekerjaan","First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
-  "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
-  "Each next: the share of the first that every next deliverable adds — 0.25 for a resize, about 0.5 for most work, 1 counts every deliverable in full. Never more than 1: a next piece is not more work than the first.":"Tiap berikutnya: porsi dari yang pertama yang ditambahkan setiap deliverable berikutnya — 0,25 untuk resize, sekitar 0,5 untuk kebanyakan pekerjaan, 1 menghitung setiap deliverable penuh. Tidak lebih dari 1: potongan berikutnya tidak lebih berat dari yang pertama.",
+  "The hours of each kind of work are set under Kinds of work.":"Jam tiap jenis pekerjaan diatur di Jenis pekerjaan.",
   "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali ketergantungan",
   "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
   "No open dependencies":"Tanpa ketergantungan terbuka","1 open dependency":"1 ketergantungan terbuka","2 open dependencies":"2 ketergantungan terbuka","3 or more":"3 atau lebih",

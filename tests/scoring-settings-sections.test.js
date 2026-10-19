@@ -48,13 +48,13 @@ function shell(c) {
 const paths = h => [...h.matchAll(/data-sc="([^"]+)"/g)].map(m => m[1]);
 const split = h => { const at = h.indexOf('<details'); assert.ok(at > 0, 'an Advanced fold'); return [h.slice(0, at), h.slice(at, h.indexOf('</details>', at))]; };
 
-test('Asset points: the "count before validation" switch and the points of every kind, with the hours beside them; no Save button', () => {
+test('Asset points: the "count before validation" switch and the points of a kind not recognised (each kind\'s own are under Kinds of work); no Save button', () => {
   const c = page();
   let h = c.scoringAssetsSettingsHtml(false, true);
-  for (const id of Engine.KIND_IDS) assert.ok(paths(h).includes('assets.perKind.' + id), id);
+  for (const id of Engine.KIND_IDS) assert.ok(!paths(h).includes('assets.perKind.' + id), id + ': its points are with its row under Kinds of work');
   for (const p of ['assets.unknownKind', 'assets.countUnvalidated']) assert.ok(paths(h).includes(p), p);
   assert.ok(paths(h).includes('modules.assets.on'), 'until the tab has an Overview, the module\'s switch is here');
-  assert.match(h, /tr data-kind="logo"[^]*?about 10 h a piece/);
+  assert.match(h, /under Kinds of work/);
   assert.match(h, /Example: with a logo at 5 points/);
   assert.doesNotMatch(h, /scSaveClick|<details/);
   /* with the tab's own pieces: the module's switch is the Overview's; off, the section says so and offers to turn it on */

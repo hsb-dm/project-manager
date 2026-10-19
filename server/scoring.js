@@ -14,6 +14,9 @@
    POST /api/scoring/delegate-leads is the one-click hand-over the owner asked for: the Team Lead and Creative Lead
    roles (where they exist) are given the permissions to approve estimates, approve finished work and see the team's
    scoring analytics. For whoever manages roles; nothing else about the roles changes; audited.
+   Kinds of work (settings.kinds) are used even while Smart Scoring is off — the estimator on Create reads them: a kind
+   added gets its id here; one removed sends the tasks that chose it by hand back to their title's kind, each audited;
+   a task keeps meta.kind (the kind chosen by hand) only as an active kind, or the one it already had.
 
    A TASK'S SCORES. Each task has at most one row per module in task_scoring — Effort Hours, Story Points, Weighted
    Points — with the math, the AI's suggestion (server/scoring-ai.js writes only that), the final value, where the final
@@ -71,9 +74,11 @@ const WORK_KINDS = new Set(["work", "review", "revision"]);
 const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = (v, dflt) => { if (v == null || v === "") return dflt; try { return JSON.parse(v); } catch (e) { return dflt; } };
 
-/* The kind of work a task's title names, from the one list of kinds the engine carries (ScoringEngine.kindOf — the
-   same patterns src/effort-estimate.js reads), the more specific first, English or Indonesian. */
-function kindOf(title) { const k = engine.kindOf(title); return typeof k === "string" ? k : null; }
+/* The kind of work a task's title names, from the workspace's kinds of work (settings.kinds; without them the engine's
+   built-ins) through the engine's one matcher (the page's too): keywords as whole words, the first kind in the list
+   that has one wins, English or Indonesian. */
+function kindOf(title, kinds) { const k = engine.kindOf(title, kinds); return typeof k === "string" ? k : null; }
+const kindsIn = s => (s && Array.isArray(s.kinds) ? s.kinds : engine.KINDS);
 /* the Scope rating the asset count suggests: 1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13 or more → 5 (no count: one deliverable) */
 function scopeFromAssets(count) {
   const n = Math.max(0, Math.round(+count || 0));
@@ -86,9 +91,10 @@ const numOr = v => { if (v === null || v === undefined || v === "") return null;
 const rating = (v, what) => { const n = numOr(v); if (n === null) return null; if (Number.isNaN(n) || n < 1 || n > 5) throw new CalcError("The " + what + " rating is a number from 1 to 5"); return n; };
 
 /* What "Calculate" works out — pure, so tests hold it to sensible numbers (tests/scoring-sanity.test.js).
-   settings: the normalized settings; task: {title, assetCount}; body: {module, inputs | ratings};
+   settings: the normalized settings; task: {title, assetCount, meta?}; body: {module, inputs | ratings};
    ctx: {openDeps, factors: {hours, story, weighted}} (the ratings stored on the task's rows).
-   Hours: the kind from the title (inputs.kind to correct it), the asset count as the deliverables (inputs.units to
+   Hours: the kind chosen on the task (meta.kind), else the title's (inputs.kind, an active kind, corrects it), the
+   asset count as the deliverables (inputs.units to
    correct it), the complexity given, else the one already rated on the task (its hours, then its story or weighted
    ratings), else unrated (3); the open dependencies are always the task's own. Story and Weighted Points: each rating
    given, else the one stored on this score, else on the other points score; Scope, when nobody rated it, from the
@@ -100,10 +106,10 @@ function calculate(settings, task, body, ctx) {
   const assetCount = Math.max(0, Math.round(+task.assetCount || 0)), scope = scopeFromAssets(assetCount), stored = ctx.factors || {};
   if (module === "hours") {
     const inp = isObj(body.inputs) ? body.inputs : {};
-    const detected = kindOf(task.title);
-    let kind = detected, kindSource = detected ? "title" : null;
+    const kinds = kindsIn(settings), picked = engine.kindPick(task, kinds), detected = picked || kindOf(task.title, kinds);
+    let kind = detected, kindSource = picked ? "picked" : detected ? "title" : null;
     if (inp.kind !== undefined && inp.kind !== null && inp.kind !== "") {
-      if (typeof inp.kind !== "string" || !Object.prototype.hasOwnProperty.call(settings.hours.templates, inp.kind)) throw new CalcError("Unknown kind of work: " + String(inp.kind).slice(0, 40));
+      if (typeof inp.kind !== "string" || !kinds.some(k => k.id === inp.kind && k.active !== false)) throw new CalcError("Unknown kind of work: " + String(inp.kind).slice(0, 40));
       kind = inp.kind; kindSource = "given";
     }
     let units = Math.max(1, assetCount), unitsSource = "assets";
@@ -164,13 +170,47 @@ module.exports = function scoring(db, WS_ID, d) {
       .run(id, WS_ID, e.taskId || null, e.module || null, String(e.action), e.actor || null, e.impersonatedBy || null, json(e.oldValue), json(e.newValue), e.reason ? String(e.reason).slice(0, 1000) : null, JSON.stringify(e.meta || {}), e.at || now());
     return id;
   }
-  const shape = r => { const m = parse(r.meta, {}) || {}; return { id: r.id, action: r.action, by: r.actor_id, impersonatedBy: r.impersonated_by || null, at: r.created_at, reason: r.reason || "", diff: Array.isArray(m.diff) ? m.diff : [], configVersion: m.configVersion || null, added: m.added || null }; };
+  const shape = r => { const m = parse(r.meta, {}) || {}; return { id: r.id, action: r.action, by: r.actor_id, impersonatedBy: r.impersonated_by || null, at: r.created_at, reason: r.reason || "", diff: Array.isArray(m.diff) ? m.diff : [], configVersion: m.configVersion || null, added: m.added || null, fallback: isObj(m.fallback) && Object.keys(m.fallback).length ? m.fallback : null }; };
   const settingsAudit = () => db.prepare("SELECT * FROM scoring_audit WHERE workspace_id=? AND module='settings' ORDER BY created_at DESC, rowid DESC LIMIT ?").all(WS_ID, SHOWN).map(shape);
   /* who sees the history of the settings: those who see the Settings tab */
   const seesAudit = u => can.scoringConfigure(u) || can.scoringViewAnalytics(u) || can.manageRoles(u);
   function on() { if (!featureOn()) throw new HttpError(409, "Smart Scoring is turned off on this server"); }
   const isOn = () => !!featureOn() && settings().enabled;
   const moduleOn = id => !!featureOn() && model.moduleOn(settings(), id);
+
+  /* Kinds of work. A kind the admin adds gets its id here ("k_" and a short id): any id the stored settings do not
+     have, its hours and points moved along with it. */
+  function newKindIds(raw, cur) {
+    if (!Array.isArray(raw.kinds)) return;
+    const known = new Set(cur.kinds.map(k => k.id).concat(engine.KIND_IDS));
+    raw.kinds.forEach(k => {
+      if (!isObj(k) || typeof k.id !== "string" || known.has(k.id)) return;
+      const was = k.id, id = uid("k"); k.id = id;
+      [isObj(raw.hours) && raw.hours.templates, isObj(raw.assets) && raw.assets.perKind].forEach(o => { if (isObj(o) && Object.prototype.hasOwnProperty.call(o, was)) { o[id] = o[was]; delete o[was]; } });
+    });
+  }
+  /* A kind removed: the tasks that chose it by hand go back to their title's kind — meta.kind taken off, each task
+     touched and audited (module "kinds", "kind_fallback"). → {kindId: [taskIds]} */
+  function kindsRemoved(cur, next, u) {
+    const left = new Set(next.kinds.map(k => k.id)), out = {};
+    cur.kinds.filter(k => !left.has(k.id)).forEach(k => {
+      db.prepare("SELECT id, meta FROM tasks WHERE workspace_id=? AND meta LIKE ?").all(WS_ID, "%" + k.id + "%").forEach(t => {
+        const m = parse(t.meta, null); if (!isObj(m) || m.kind !== k.id) return;
+        delete m.kind;
+        db.prepare("UPDATE tasks SET meta=?, updated_at=? WHERE id=?").run(JSON.stringify(m), now(), t.id);
+        audit({ taskId: t.id, module: "kinds", action: "kind_fallback", actor: u.id, impersonatedBy: u.impersonatedBy, oldValue: { kind: k.id, name: k.name }, meta: { kind: k.id, name: k.name } });
+        (out[k.id] = out[k.id] || []).push(t.id);
+      });
+    });
+    return out;
+  }
+  /* meta.kind on a task's create, save or restore: an active kind, or the one it already has (switched off since, it
+     stays chosen and counts again when switched back on); anything else is dropped */
+  function cleanKind(cur, b) {
+    if (!b || !isObj(b.meta) || !Object.prototype.hasOwnProperty.call(b.meta, "kind")) return;
+    const v = b.meta.kind, k = typeof v === "string" ? settings().kinds.find(x => x.id === v) : null;
+    if (!k || !(k.active || (cur && isObj(cur.meta) && cur.meta.kind === v))) delete b.meta.kind;
+  }
 
   route("GET", "/api/scoring/settings", (u) => { on(); return { settings: settings(), audit: seesAudit(u) ? settingsAudit() : [] }; });
 
@@ -184,6 +224,7 @@ module.exports = function scoring(db, WS_ID, d) {
     const out = tx(db, () => {
       const cur = settings();
       if (+b.configVersion !== cur.configVersion) throw new HttpError(409, "Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again.");
+      newKindIds(b.settings, cur);
       const next = model.normalizeSettings(b.settings);
       next.configVersion = cur.configVersion; next.updatedAt = cur.updatedAt; next.updatedBy = cur.updatedBy;
       if (!BONUS_READY) next.bonus.on = false;
@@ -194,7 +235,8 @@ module.exports = function scoring(db, WS_ID, d) {
       if (!diff.length) return { settings: cur, unchanged: true };
       next.configVersion = cur.configVersion + 1; next.updatedAt = now(); next.updatedBy = u.id;
       db.prepare("UPDATE workspaces SET scoring_settings=?, updated_at=? WHERE id=?").run(JSON.stringify(next), now(), WS_ID);
-      audit({ module: "settings", action: "settings_changed", actor: u.id, impersonatedBy: u.impersonatedBy, oldValue: cur, newValue: next, reason, meta: { diff, configVersion: next.configVersion } });
+      const fallback = kindsRemoved(cur, next, u);
+      audit({ module: "settings", action: "settings_changed", actor: u.id, impersonatedBy: u.impersonatedBy, oldValue: cur, newValue: next, reason, meta: { diff, configVersion: next.configVersion, fallback } });
       act(u, "edited", "workspace", WS_ID, { what: "Smart Scoring settings" });
       return { settings: next, diff };
     });
@@ -442,6 +484,7 @@ module.exports = function scoring(db, WS_ID, d) {
   const hoursLocked = id => { const r = db.prepare("SELECT status FROM task_scoring WHERE task_id=? AND module='hours'").get(id); return !!r && LOCKED.has(r.status); };
   /* PUT /api/tasks/:id — after the concurrent-edit merge (and a slim copy's), before the task is cleaned and saved */
   function guardTaskWrite(u, cur, b) {
+    cleanKind(cur, b);
     if (!timeLogMode() || !b || !cur) return;
     if (hoursLocked(cur.id)) {
       if (b.effort === undefined) b.effort = cur.effort;
@@ -450,9 +493,10 @@ module.exports = function scoring(db, WS_ID, d) {
     keepActual(cur, b);
   }
   /* POST /api/tasks: a new task has logged no time */
-  function guardNewTask(u, b) { if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
+  function guardNewTask(u, b) { cleanKind(null, b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
   /* POST /api/restore/task/:id: a locked estimate and the logged Actual stay as they are now */
   function guardRestore(u, cur, next) {
+    cleanKind(cur, next);
     if (!timeLogMode() || !cur || !next) return;
     if (hoursLocked(cur.id)) next.effort = cur.effort;
     keepActual(cur, next);
@@ -555,7 +599,7 @@ module.exports = function scoring(db, WS_ID, d) {
       rows: { hours: rowOut(rows.hours), story: rowOut(rows.story), weighted: rowOut(rows.weighted) },
       audit: db.prepare("SELECT * FROM scoring_audit WHERE workspace_id=? AND task_id=? AND (coalesce(module,'') <> 'efficiency' OR ?) ORDER BY created_at DESC, rowid DESC LIMIT ?").all(WS_ID, id, sees ? 1 : 0, TASK_AUDIT).map(auditOut),
       on: { feature: !!featureOn(), enabled: s.enabled, hours: model.moduleOn(s, "hours"), story: model.moduleOn(s, "story"), weighted: model.moduleOn(s, "weighted"), kpi: model.moduleOn(s, "kpi"), okr: model.moduleOn(s, "okr") },
-      context: { kind: kindOf(t.title), assetCount: t.assetCount, deliverables: Math.max(1, t.assetCount), openDeps: openDeps(id), dependencies: t.deps, scope: scopeFromAssets(t.assetCount), stage: t.status, stageKind: stage ? stage.kind : null, lockPolicy: s.hours.lockPolicy, requireReason: !!policy.requireReason, requireApproval: !!policy.requireApproval, configVersion: s.configVersion },
+      context: { kind: engine.kindOfTask(t, s.kinds), kindPicked: !!engine.kindPick(t, s.kinds), assetCount: t.assetCount, deliverables: Math.max(1, t.assetCount), openDeps: openDeps(id), dependencies: t.deps, scope: scopeFromAssets(t.assetCount), stage: t.status, stageKind: stage ? stage.kind : null, lockPolicy: s.hours.lockPolicy, requireReason: !!policy.requireReason, requireApproval: !!policy.requireApproval, configVersion: s.configVersion },
       can: {
         view: true, calculate: edit || propose, propose, edit, approve, rebaseline: approve, requestAi: can.scoringRequestAi(u, t), logTime: can.logTime(u, t),
         approveCompletion: can.scoringApproveCompletion(u, t, credited), viewEfficiency: sees, viewAnalytics: can.scoringViewAnalytics(u),
@@ -735,7 +779,9 @@ module.exports = function scoring(db, WS_ID, d) {
     extendView: fn => { if (typeof fn === "function") extenders.push(fn); },
     liveCollection: (kind, fn) => { if (typeof fn === "function") live[kind] = fn; },
     liveRead: (kind, u) => (Object.prototype.hasOwnProperty.call(live, kind) ? live[kind](u) : null),
-    sweep, backfill, kindOf, scopeFromAssets,
+    sweep, backfill, scopeFromAssets,
+    /* a task's kind of work with the workspace's kinds: the one chosen on it, else its title's */
+    kindOf: title => kindOf(title, settings().kinds), kindOfTask: t => engine.kindOfTask(t, settings().kinds),
     /* for server/scoring-ai.js: the checks and answers of the task scoring routes, the task as the scores read it, the
        suggestion write, and the check {use:"ai"} asks of it */
     ai: {

@@ -93,8 +93,9 @@ validateAi, inputHash); this file only records how the settings feed it.
     kpi: { on: false }, okr: { on: false },       // no mode: AI only ever suggests links
     assets: { on: false } },                      // points for assets produced (§11); no mode
   primaryCapacity: "hours",            // "hours" | "story_points" | "weighted_points" (velocity unit; workload stays hours)
+  kinds: [ { id, name, nameId, keywords: [..], builtIn, active, order } ],   // §11.1: the kinds of work, in detection order
   hours: {
-    templates: { <kindId>: { perUnit, low, high, nextUnitFactor } },  // exactly the 14 ids of src/effort-estimate.js EST_KINDS
+    templates: { <kindId>: { perUnit, low, high, nextUnitFactor } },  // every kind of `kinds` that has hours (built-ins always)
     complexity: { 1: .8, 2: .9, 3: 1, 4: 1.25, 5: 1.5 },              // rating 1–5 → multiplier
     dependency: { 0: 1, 1: 1.1, 2: 1.2, 3: 1.3 },                     // open dependencies; 3 = "3 or more"
     bounds: { min: .25, max: 80 },                                    // hours
@@ -123,7 +124,7 @@ validateAi, inputHash); this file only records how the settings feed it.
   assets: { on: false,                 // mirrors modules.assets.on (normalizeSettings writes it; diffSettings leaves it out)
             countUnvalidated: true,    // counts a lead has not validated yet count (marked); false: only validated ones
             perKind: { carousel: 2, story: .75, reels: 3, video: 4, kv: 3, resize: .25, feed: 1, poster: 1.5,
-                       banner: 1.5, copy: .75, deck: 3, logo: 5, web: 5, email: 1.5 },   // points per asset, 0–20
+                       banner: 1.5, copy: .75, deck: 3, logo: 5, web: 5, email: 1.5 },   // points per asset, 0–20; every kind
             unknownKind: 1 },          // a title no kind matches
   teams: { memberBars: "self_and_leads" } }   // who sees each person's bars on the Teams screen: "self_and_leads"
                                               // (the person, their team's lead, scoring_view_analytics) | "everyone"
@@ -150,13 +151,28 @@ Pure. `raw` may be an object, a JSON string (the DB column) or anything else (�
   listed values.
 - Ids (`updatedBy`, `completionStages`, `pilotTeams`) must match `/^[-\w]{1,40}$/`; an empty `completionStages` list
   is `null`; `updatedAt`/`enabledAt` must be ISO timestamps.
+- **Kinds** (§11.1): `kinds` not a list → the 14 built-ins (the engine's `KINDS`, names and keywords, active). A list:
+  sorted by `order` (then as given), each id once; a built-in id is `builtIn: true` (its empty name or nameId → its
+  own, keywords not a list or text → its own), a built-in left out comes back at the end; any other id must match
+  `CUSTOM_ID` `/^[a-z][a-z0-9_]{1,31}$/` and the kind needs a name (else its first keyword; neither → dropped); at
+  most 50 kinds (the 14 built-ins always among them); names ≤ 40 characters (spaces and control characters
+  collapsed); keywords a list or a comma-separated text, each through `ScoringEngine.kindKeyword`, each once, at most
+  40; `active` a boolean (default true); `order` = the index. **Hour templates** exist for every built-in and for
+  every kind of the admin's own whose `perUnit` was given (0.05–200; `low`/`high`/`nextUnitFactor` left out → ×0.5 and
+  ×1.5 of it to the quarter hour, and 0.5); a kind with no `perUnit` has no template (Calculate: `no_template`, like a
+  title no kind is found in). **`assets.perKind`** has every kind (a kind of the admin's own without a value takes
+  `unknownKind`). Templates and points of ids not in `kinds` are dropped, so removing a kind removes its numbers.
 - Idempotent: `normalizeSettings(normalizeSettings(x))` equals `normalizeSettings(x)`.
 
+The defaults' numbers are the engine's (`ScoringEngine.defaults()`): this module reads the engine (`require` in Node;
+in the page build.js inlines `shared/scoring-engine.js` **before** it).
+
 Other exports: `DEFAULTS` (deep-frozen, normalized), `defaults()` (fresh copy), `diffSettings(a, b)` →
-`[{path, from, to}]` per changed leaf (arrays compared whole, a side missing an object reports it whole;
+`[{path, from, to}]` per changed leaf (arrays compared whole, a side missing an object reports it whole; `kinds`
+compared by id — `kinds.<id>.keywords`, `kinds.<id>.order`, a kind added or removed whole as `kinds.<id>`;
 `configVersion`/`updatedAt`/`updatedBy` left out; callers pass normalized objects), `moduleOn(s, id)` (master switch
-and module), `MODES`, `PRIMARY_CAPACITY`, `FACTORS`, `SCALE`, `KINDS` (template ids in order), `LOCK_POLICIES`,
-`COMPARABLES`, `MEMBER_BARS` (`["self_and_leads", "everyone"]`), `ASSET_POINTS`.
+and module), `MODES`, `PRIMARY_CAPACITY`, `FACTORS`, `SCALE`, `KINDS` (the built-in ids in order), `CUSTOM_ID`,
+`LOCK_POLICIES`, `COMPARABLES`, `MEMBER_BARS` (`["self_and_leads", "everyone"]`), `ASSET_POINTS`.
 
 The engine keeps its own `ENGINE_DEFAULTS` fallback; `tests/scoring-settings.test.js` asserts the two agree
 sub-object by sub-object once `shared/scoring-engine.js` is present. Pass the engine the normalized sub-objects:
@@ -293,6 +309,12 @@ Body `{ settings: <object>, configVersion: <the version it was edited from>, rea
   `weighted.mappingVersion`, and keeps `bonus.on` false while `BONUS_READY` is false (it is true since Phase 3:
   `bonus.enabledAt` is stamped now whenever the bonus goes from off to on — turning it off and on again starts again
   from then, so estimates approved before that never earn an award).
+- **Kinds of work**: before normalizing, every kind whose id the stored settings do not have (built-ins aside) gets a
+  new id from the server, `uid("k")` (`k_` + a short id), its `hours.templates` and `assets.perKind` keys renamed with
+  it — the page's own `k_…` id is only a placeholder. A kind of the admin's own **removed**: every task of this
+  workspace with that `meta.kind` loses it (its title's kind counts again), is touched (`updated_at`) and gets an audit
+  row `{task_id, module "kinds", action "kind_fallback", old_value/meta {kind, name}}`; the settings row's `meta.fallback`
+  is `{kindId: [taskIds]}` (the history entries carry it as `fallback`, null when none).
 - No change → `{ settings, unchanged: true, audit }`, nothing written.
 - A change → version +1, column written, one `scoring_audit` row (`module 'settings'`, `action 'settings_changed'`,
   `old_value`/`new_value` = the whole settings, `meta {diff, configVersion}`, `impersonated_by` when acting as someone),
@@ -346,7 +368,8 @@ Catches up first (the same re-evaluation as after a write, §5.2.6; `bumpData()`
   rows: { hours: Row|null, story: Row|null, weighted: Row|null },
   audit: [Audit],                 // this task's last 50, newest first; module 'efficiency' rows only for viewEfficiency
   on: { feature, enabled, hours, story, weighted, kpi, okr },          // master switch && module
-  context: { kind,                // ScoringEngine.kindOf(title) (local copy of EST_KINDS' patterns until it exists) or null
+  context: { kind,                // ScoringEngine.kindOfTask(task, settings.kinds): meta.kind if active, else the title's; or null
+             kindPicked,          // true when kind is the one chosen on the task (meta.kind)
              assetCount, deliverables /* max(1, assetCount) */, openDeps /* dependencies on unfinished tasks */,
              dependencies /* all */, scope: {value, source:"assets", assetCount, assumed /* no count */},
              stage, stageKind, lockPolicy, requireReason, requireApproval, configVersion },
@@ -375,7 +398,9 @@ Award = { id, userId, share, estimate, actual, basePoints, bonusPoints, awardedP
 
 Body `{ module: "hours", inputs?: { kind?, units?, complexity? } }` or `{ module: "story"|"weighted", ratings?:
 {complexity, scope, uncertainty, dependencies} }` (each rating 1–5; 400 otherwise; unknown `kind` → 400).
-- **Hours**: kind from the title (`kindSource "title"`) unless `inputs.kind` (`"given"`); deliverables = the task's
+- **Hours**: kind = the one chosen on the task, `meta.kind`, when it is an active kind (`kindSource "picked"`), else the
+  title's (`"title"`, the workspace's kinds), unless `inputs.kind` (`"given"`; an active kind of `settings.kinds`, else
+  400 "Unknown kind of work"); deliverables = the task's
   `assetCount` (at least 1, `unitsSource "assets"`) unless `inputs.units` (1–999); complexity = `inputs.complexity`,
   else the one stored on the hours row (`"stored"`), else on the story/weighted row (`"story"`/`"weighted"`), else
   unrated (the engine takes 3); open dependencies = the task's dependencies on unfinished tasks (always the server's).
@@ -433,8 +458,9 @@ estimate." (admins too) unless `overrides.allowSelfApproveEstimate` (then audite
 (the hours row following the task's Estimate, `meta.via`), `frozen_at_work_start` (`meta {trigger: "stage"|"time",
 stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `scope_restored`, `scope_recorded`,
 `removed_with_task` (§4), `backfilled` (task NULL, `meta {counts}`), `ai_suggested` (§5.4: only the AI value
-changed, `meta {runId, far, confidence, trigger, cached?}`), and module `efficiency` `reopened` (`meta
-{awards, stage}`). `by` NULL = done by the server (a sweep, a catch-up).
+changed, `meta {runId, far, confidence, trigger, cached?}`), module `efficiency` `reopened` (`meta
+{awards, stage}`), and module `kinds` `kind_fallback` (the kind the task chose was deleted, `meta {kind, name}`; §5.1).
+`by` NULL = done by the server (a sweep, a catch-up).
 
 #### 5.2.6 The task's own writes (server.js hook points) and the re-evaluation
 
@@ -449,6 +475,10 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), and module `efficie
   `locked`, not approved — `locked_changed`, `meta.via "task"`). The drawer, the grid (`persistTask` → the merge), and
   a slim copy (`SLIM_FIELDS` has `effort`) all come through here.
 - **`guardRestore(u, cur, next)`** in `POST /api/restore/task/:id`: a locked estimate stays (for everyone).
+- **The kind chosen on a task** (`meta.kind`, §11.1), always — Smart Scoring on or off, the estimator reads it —: in
+  `guardNewTask`, `guardTaskWrite` and `guardRestore`, `meta.kind` stays only when it is an active kind of
+  `settings.kinds`, or (save, restore) the very kind the task already has (switched off since: it stays chosen and
+  counts again when switched back on); anything else is deleted from `meta` (the task is then "Auto").
 - **Time-log mode** = `scoring.timeLogMode()` = feature && master switch && Effort Hours on. Then `meta.actualEffort`
   is the time log's: `guardTaskWrite` and `guardRestore` keep the stored one, **`guardNewTask(u, b)`** (end of
   `sanitizeNewTask`) drops a sent one. Off: exactly as today.
@@ -484,8 +514,9 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), and module `efficie
 - **Other hooks for later modules**: `scoring.extendView(fn(u, task, out))` adds to the `GET`/write answers;
   `scoring.liveCollection(kind, fn(u))` serves `GET /api/live/:kind` for a kind server.js does not know (`LIVE_KINDS`
   maps `/api/outcomes…` to `"outcomes"`); `scoring.removeTaskRows`, `scoring.sweep()`, `scoring.backfill()`,
-  `scoring.kindOf(title)`, `scoring.scopeFromAssets(n)`; pure: `require("./scoring").calculate(settings, task, body,
-  ctx)` (what Calculate works out; `tests/scoring-sanity.test.js`).
+  `scoring.kindOf(title)` / `scoring.kindOfTask(task)` (with the workspace's kinds), `scoring.scopeFromAssets(n)`; pure:
+  `require("./scoring").calculate(settings, task, body, ctx)` (what Calculate works out; `task` is `{title, assetCount,
+  meta?}`; `tests/scoring-sanity.test.js`).
 - `TEXT_LIMITS`: `reason` ≤ 1000 on `/api/tasks/:id/(scoring|time|efficiency)…` (413).
 
 ### 5.3 Planned (plan §3.5). Permission → body → answer.
@@ -613,9 +644,11 @@ with `meta {use:"ai", aiRunId, far}`. Approving or re-baselining an AI proposal 
 The run's suggestion itself is audited as **`ai_suggested`** (`meta {runId, far, confidence, trigger, cached?}`).
 
 **What the AI is told** (built on the server, `buildPrompt`; `pure.cleanText` takes links → `[link]`, e-mail addresses →
-`[e-mail]`, markup and angle brackets out, spaces collapsed): the title (≤ 200), the kind the title names, the deliverable
+`[e-mail]`, markup and angle brackets out, spaces collapsed): the title (≤ 200), the task's kind ("Kind of work chosen on
+the task: …" for `meta.kind`, else "Kind of work the title names: …"), the deliverable
 count (`asset_count`), the team's name, the label names, the brief template's name and its fields by their labels (each
-≤ 300, ≤ 1 500 in all, ≤ 14), the description ≤ 800; the workspace's own hour templates as a yardstick, the rating scale,
+≤ 300, ≤ 1 500 in all, ≤ 14), the description ≤ 800; the hours of the workspace's **active** kinds as a yardstick (a kind
+with no hours is left out of it), the reply's `kind` asked as one of the active kinds' ids, the rating scale,
 the story scale and the weighted weights; finished tasks like it — `[id] "title": hours (logged, else the estimate),
 deliverables`, ≤ 5, only of this workspace, finished (`bonus.completionStages`, else closed but not Declined), of the
 task's team when `ai.comparables` is `"team"`, only while `workspaceContextEnabled` (and never when `"none"`). The task's
@@ -639,8 +672,9 @@ requestedBy, taskId, trigger, status, modules, ms, provider, model, tokensIn, to
 
 **Cache**: the latest `ok` run with the same `(task_id, input_hash, config_version, prompt_version)` answers (a `cached`
 row pointing at it, its values stored if missing); two asks at once wait for one call. `input_hash` =
-`ScoringEngine.inputHash({title, description, brief, deliverables, labels, team})` of what the AI is told (cleaned text,
-label and team names), so a link edited in the description or a change of case is not a change.
+`ScoringEngine.inputHash({title, description, brief, deliverables, labels, team, kind})` of what the AI is told (cleaned
+text, label and team names; `kind` only when chosen on the task — without it the hash is what it always was), so a link
+edited in the description or a change of case is not a change, and a kind chosen by hand is.
 
 **Quotas**: rolling 24 hours, counted from runs that asked the model (`ok|invalid|error|timeout` with `ms` set; cached
 runs and refusals never): `ai.perUserDaily` counts the person's `ask` and `brief_revision` asks, `ai.workspaceDaily`
@@ -752,7 +786,7 @@ scoringSeesEfficiency(u, t, credited)  !u.stakeholder && (credited.includes(u.id
   - Phase 1 A (§5.2.6): `timeLogMode()`, `guardTaskWrite(u, cur, b)`, `guardNewTask(u, b)`, `guardRestore(u, cur, next)`,
     `removeTaskRows(taskId, user)`, `afterTaskWrite(taskId, user, info?)` → whether its own re-evaluation changed
     something; **`onTaskWritten(fn)`** — `fn(taskId, user|null, info)`; `extendView(fn)`; `liveCollection(kind, fn)` /
-    `liveRead(kind, u)`; `sweep()`, `backfill()`, `kindOf(title)`, `scopeFromAssets(n)`.
+    `liveRead(kind, u)`; `sweep()`, `backfill()`, `kindOf(title)`, `kindOfTask(task)`, `scopeFromAssets(n)`.
 - Never call `bumpData` while a module loads. `afterTaskWrite` must be called **outside** a transaction (`tx` does not
   nest: called inside one, the re-evaluation fails, is logged, and the hooks still run).
 - **Later modules** register with `if (deps.scoring && deps.scoring.onTaskWritten) deps.scoring.onTaskWritten(fn)`. A
@@ -787,9 +821,14 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 | `src/scoring-analytics.js` | Phase 1 D / 3 D | empty — analytics sections (wrap `renderAnalytics`, `renderMember`; no ranking). |
 | `src/scoring-outcomes.js` | Phase 4 B | empty — KPI/OKR UI. |
 | `src/scoring-teams.js` | Oct 2026 (Teams bars) | the bars on the Teams screen (wraps `renderTeams` and `renderTeamDetail`): under each team card's utilization bar (`.tcard .wl .track` → `.scr-tb[data-scr-tb="team:<id>"]`), a team page's strip after `.kpis.team-kpis` (`.scr-tb-panel`), and under each person's workload bar (`.wl.click` → `.scr-tb[data-scr-tb="person:<id>"]`). From `GET /api/scoring/teams` (`SCR_TB.cache`, fetched at most every 30 s, at once when `WS.scoring.configVersion` changes), a block painted only when its markup changed; a person's bars only when the answer has them and the page's mirror `scrTbMaySee(id)` agrees. The Settings section `scoringTeamsSettingsHtml(ro, ed)` (called by `setScoring`; `teams.memberBars`) and its words in the history (`scPathLabel`, `scVal` wrapped). Off, or the offline demo: nothing. Tests: `tests/scoring-teams.test.js`, `e2e/scoring-teams.spec.js`. |
+| `src/scoring-kinds.js` | Oct 2026 (kinds of work, §11.1) | `kindPickHtml(tk, ed)` — "Kind of work: Auto (feed post) / …" (`.scr-kpick`, `data-scr-in="kind"`; disabled without `canI.editTask`) at the end of the Effort line (`src/enhance.js effortHtml`, Smart Scoring on or off) and in the panel's hours row; `kindPick(id, kindId)` saves `meta.kind` (empty: Auto) through `editTaskWith` and estimates again (`effortEstimate`/`effortApply`) only for an open task whose estimate is the estimator's or none — never `meta.effortManual`, never a locked estimate. `scoringKindsSettingsHtml(ro, ed)` — the Settings section (called by `setScoring` after Modules), one self-contained function writing only through the tab's draft (`scGet`/`scInput`/`scSwitch`, paths `kinds.<i>.name|nameId|keywords|active`, `hours.templates.<id>.*`, `assets.perKind.<id>`): rows `#skList [data-kind=<id>]` (↑ ↓ `skMove`, switch `skSwitch`, delete `skDel` for the admin's own with a confirm naming the tasks that chose it, Built-in badge), "Add kind of work" (`skAdd`, placeholder id `k_…`), the box `#skTest` → `#skTestOut` ("Detected: Podcast (keyword "podcast")" / "No kind recognised", on the list as edited). The history (`scPathLabel`, `scVal` wrapped) names kinds; `SCR_ACTIONS.kind_fallback`. The Effort Hours panel's template table and the Assets section's per-kind table moved here. Tests: `tests/scoring-kinds.test.js`, `e2e/kinds-of-work.spec.js`. |
 
-`build.js` inlines `shared/gallery-model.js`, `shared/scoring-settings.js` and — as soon as the file exists —
-`shared/scoring-engine.js` (`window.ScoringEngine`) right after the demo data, before any `src/` file.
+`build.js` inlines `shared/gallery-model.js`, `shared/scoring-engine.js` (`window.ScoringEngine`), then
+`shared/scoring-settings.js` (it reads the engine's built-in kinds and default numbers) right after the demo data,
+before any `src/` file. `src/effort-estimate.js`: `estKindList()` (the workspace's kinds, else the engine's),
+`estKinds()` (the active ones as `[id, name, nameId, keywords, typical, low, high, next]`, hours null when none),
+`estKindOf(tk)` (= `ScoringEngine.kindOfTask(tk, estKindList())`), `estKind(title, tk?)` (the row, only with hours),
+`estKindName(id)`; `EST_KINDS` is the engine's own 14 (used where there are no workspace settings).
 
 Rules: every file starts with `<script>` and a titled "(Oct 2026)" header; overrides as `var base=f; f=function(){…}`
 (no duplicate global function names — `tests/v37-code-health.test.js`); every string `tr("English")` with an
@@ -861,6 +900,14 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
 - `e2e/scoring-settings.spec.js` — admin toggles the master switch, a module and OKR and they persist; weights not
   totalling 100% cannot be saved; member has no tab; a role with `scoring_manage_workspace` has it; analytics-only is
   read-only; the role-modal warning; the one-click delegation. Everything put back.
+- `tests/scoring-kinds.test.js` (§11.1) — the matcher (whole words and phrases, Indonesian, case, `*`, order, switched
+  off, chosen by hand, no regex injection or runaway matching), the built-in keywords against the old title patterns on
+  real titles (the three deliberate differences named), normalization (ids, limits, numbers kept and dropped, diff by
+  id), Calculate / asset points / validateAi / the AI prompt with a kind of the workspace's own; on the real server: the
+  id given, `meta.kind` cleaned on create and save, Calculate "picked", asset points by kind, a deleted kind's tasks
+  sent back and audited. `e2e/kinds-of-work.spec.js` — the admin adds "Podcast", the box finds it, a new task gets its
+  3 h with Smart Scoring off, a kind chosen on the Effort line, a built-in switched off, the kind deleted; Indonesian,
+  a phone. `tests/scoring-sanity.test.js` has a kind of the workspace's own making sense.
 - Fragile tests to keep green: `e2e/settings-access.spec.js` (exact tab list and group list — now includes "scoring"
   and "Smart Scoring", 11 group icons), `e2e/mobile-settings.spec.js` (sweeps every tab at phone width, "scoring"
   included), `tests/v37-code-health.test.js`, `e2e/progress-note.spec.js` (`.enh-blocks` Brief only),
@@ -876,10 +923,42 @@ reports' crediting (`src/export.js taskAssetCredit` / `personAssetCredit`: typed
 proportion, else the assignees shared equally — an estimate). The module turns those counts into **output points per
 kind of work**; it is never hours, base points or the bonus, and never the bonus base.
 
-**Kinds of work — one list.** `ScoringEngine.KINDS` (`{id, name, nameId, pattern}`, frozen, the more specific first) and
-`ScoringEngine.kindOf(title) → id | null`. `src/effort-estimate.js` builds `EST_KINDS` (`[id, name, nameId, pattern,
-typical, low, high, next]`) from `KINDS` and `ENGINE_DEFAULTS.hours.templates`, and `estKind` calls `kindOf`; the numbers
-are the ones it always had (tests/scoring-engine.test.js holds the table). The server reads a task's kind with `kindOf`.
+**Kinds of work — one list, one matcher.** See §11.1. The engine's `KINDS` are the 14 built-ins; the workspace's list is
+`settings.kinds`; every reader (the estimator, Calculate, the panel, the asset points in the page and on the server,
+the analytics, the Teams bars, the AI) reads a task's kind with `ScoringEngine.kindOfTask(task, settings.kinds)`.
+
+### 11.1 Kinds of work, the workspace's own (Oct 2026)
+
+Owner's request: "kind of work bisa di custom? … kalau ada scope kerjaan baru bisa masukin estimate dan hitungan kita
+sendiri". Decisions: detection by keywords plus a manual pick on the task, which always wins; built-ins editable and
+switchable but never deleted; the admin's own added, edited, deleted.
+
+- **Engine** (`shared/scoring-engine.js`): `KINDS` `[{id, name, nameId, keywords}]` (frozen; the old title patterns as
+  plain keywords), `KIND_LIMITS {kinds: 50, keywords: 40, keyword: 40, name: 40}`, `kindKeyword(text)` (lower case,
+  NFC, spaces collapsed, a `*` only at the end and only after 3 characters, at least one letter or digit, ≤ 40
+  characters; else ""), `kindMatch(title, kinds) → {id, keyword} | null`, `kindOf(title, kinds) → id | null`,
+  `kindPick(task, kinds)` (`task.meta.kind` if an active kind), `kindOfTask(task, kinds)` (pick, else title). `kinds` is
+  a list, or a settings object (its `kinds`), else `KINDS`. **Matching**: the title lower-cased (NFC, spaces
+  collapsed); each active kind, in list order, is one expression built from its keywords escaped as text — a keyword
+  must start at the title's start or after a character that is not a letter or digit (Unicode `\p{L}\p{N}`) and end
+  before one (a final `*`: may go on). The first kind that matches wins. Never a pattern from the admin: `(a+)+` and
+  `.*` are text. Compiled once per list (`WeakMap`).
+- **Decided: whole words.** "copy" is not found in "copywriter", "motion" not in "promotion", "ad" not in "adalah";
+  a final `*` opts into longer forms (`video*` → "videografi", `posting*` → "postingan"). The built-in keywords give the
+  old patterns' answers on real titles (tested on the demo's and 120 of ours); the only differences are where a pattern
+  found a word inside another one: "Promotion banner" was a video (now a banner), "Emotional brand film" a video and
+  "Transcript webinar" a copy (now no kind).
+- **Settings** (§3.3): the list, the per-kind hours and points; new ids from the server (§5.1); a deleted kind's tasks
+  fall back, audited.
+- **The task** (`meta.kind`): cleaned on create, save and restore (§5.2.6); chosen on the Effort line or the hours row
+  (§8 `src/scoring-kinds.js`); re-estimated as a new title would be. Calculate's `kindSource` is `"picked"`.
+- **The AI**: told the kind ("chosen on the task" or "the title names"), the active kinds with hours as the yardstick,
+  `validateAi` accepts only active kind ids (`settings.kinds`; without that list, a template id); the hash includes a
+  chosen kind (§5.4).
+- **Readers**: `src/effort-estimate.js` (estimate on Create and the chat route's yardstick, with Smart Scoring off too),
+  `server/scoring.js` (Calculate, `context.kind`), `server/scoring-assets.js`, `server/scoring-analytics.js` and
+  `server/scoring-teams.js` (asset points; `meta.kind` read with `json_extract`), `server/scoring-ai.js`,
+  `src/scoring-panel.js`, `src/scoring-assets.js`.
 
 **Engine.** `ScoringEngine.assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})` →
 `{perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total, totalAssets,
@@ -899,8 +978,8 @@ or the module is off (each with its own message); 400 for a bad date, a period e
 for a non-holder asking for someone else. Counted: tasks with `completed_at` in the period, in a completion stage
 (`bonus.completionStages`, default every closed stage but Declined), `asset_count > 0`; open work counts in the week it
 is completed. `team` = the task's team; `project` = its project or one of `alsoIn`; `person` = the row. Hidden tasks and
-tasks of archived projects count (points earned do not disappear with a display choice). Kind from the title only — a
-kind picked in the hours calculation does not change asset points. Crediting = the reports' rule on the stored task
+tasks of archived projects count (points earned do not disappear with a display choice). Kind: the one chosen on the
+task (`meta.kind`), else the title's (§11.1) — a kind picked only in Calculate's dialog does not change asset points. Crediting = the reports' rule on the stored task
 (the uploads are the stored versions' `uploaded_by`; no linked asset records or `producedByUserId` exist server-side), so
 `assets` equals `personAssetCredit(id, sameTasks).count` (tested). `scoring_view_analytics` holders: every credited
 person (or `person`); anyone else: their own row only, zeros included. Answer:

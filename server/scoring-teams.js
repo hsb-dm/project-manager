@@ -74,7 +74,8 @@ function visible(o) {
 }
 /* every task's part in the bars, added up per team (the task's team) and per person. tasks: [{team, status,
    assignees, due, doneDay, story, weighted, title, assetCount, assetSplit, assetOk, uploaders, hours, estimatedMinutes,
-   typedActual, time:{manual, legacy}}]; o: {from, to, stages, on:{story, weighted, assets, hours}, assets (settings)} */
+   typedActual, time:{manual, legacy}, meta:{kind}}]; o: {from, to, stages, on:{story, weighted, assets, hours}, assets,
+   kinds (settings)} */
 function tally(tasks, o) {
   const teams = new Map(), people = new Map();
   const blank = () => ({ story: { done: 0, planned: 0, notScored: 0 }, weighted: { done: 0, planned: 0, notScored: 0 }, assets: { done: 0, planned: 0, notScored: 0 }, pairs: [] });
@@ -92,7 +93,7 @@ function tally(tasks, o) {
       });
       if (o.on.assets) {
         const c = assetCredit({ assetCount: t.assetCount, meta: { assetSplit: t.assetSplit }, uploaders: t.uploaders || [], assignees: who });
-        const r = engine.assetPoints(o.assets, { kind: engine.kindOf(t.title), split: c.by, validated: t.assetOk });
+        const r = engine.assetPoints(o.assets, { kind: engine.kindOfTask(t, o.kinds), split: c.by, validated: t.assetOk });
         const ids = Object.keys(r.perPerson);
         if (!(+t.assetCount > 0) || !ids.length) {
           if (team) team.assets.notScored++;
@@ -145,7 +146,7 @@ module.exports = function scoringTeams(db, WS_ID, d) {
     const logged = src => "(SELECT sum(e.minutes) FROM task_time_entries e WHERE e.task_id=t.id AND e.deleted_at IS NULL AND e.kind<>'blocked' AND e.source" + src + ")";
     const rows = db.prepare("SELECT t.id, t.title, t.team_id, t.status_id, t.assignee_id, t.assignees, t.asset_count, t.estimated_minutes, substr(t.due_date,1,10) AS due, substr(t.completed_at,1,10) AS done_day, "
       + "ss.final_value AS story, ws.final_value AS weighted, hs.status AS h_status, hs.source AS h_source, hs.final_value AS h_final, hs.locked_value AS h_locked, "
-      + meta("actualEffort") + " AS typed_actual, " + meta("assetSplit") + " AS asset_split, " + meta("assetSplitOk") + " AS asset_ok, "
+      + meta("actualEffort") + " AS typed_actual, " + meta("assetSplit") + " AS asset_split, " + meta("assetSplitOk") + " AS asset_ok, " + meta("kind") + " AS kind_pick, "
       + (on.hours ? logged("<>'legacy'") + " AS tm_manual, " + logged("='legacy'") + " AS tm_legacy " : "NULL AS tm_manual, NULL AS tm_legacy ")
       + "FROM tasks t LEFT JOIN task_scoring ss ON ss.task_id=t.id AND ss.module='story' LEFT JOIN task_scoring ws ON ws.task_id=t.id AND ws.module='weighted' "
       + "LEFT JOIN task_scoring hs ON hs.task_id=t.id AND hs.module='hours' WHERE " + where + " ORDER BY t.id").all(...params);
@@ -156,7 +157,7 @@ module.exports = function scoringTeams(db, WS_ID, d) {
     return rows.map(r => {
       const a = J(r.assignees, []), assignees = Array.isArray(a) ? a.filter(x => typeof x === "string" && x) : [];
       if (r.assignee_id && assignees.indexOf(r.assignee_id) < 0) assignees.unshift(r.assignee_id);
-      return { id: r.id, title: r.title, team: r.team_id, status: r.status_id, assignees, due: r.due, doneDay: r.done_day,
+      return { id: r.id, title: r.title, meta: { kind: r.kind_pick }, team: r.team_id, status: r.status_id, assignees, due: r.due, doneDay: r.done_day,
         story: r.story, weighted: r.weighted, assetCount: +r.asset_count || 0, assetSplit: J(r.asset_split, null), assetOk: J(r.asset_ok, null), uploaders: ups.get(r.id) || [],
         hours: r.h_status ? { status: r.h_status, source: r.h_source, final: r.h_final, locked: r.h_locked } : null,
         estimatedMinutes: +r.estimated_minutes || 0, typedActual: +r.typed_actual || 0, time: { manual: +r.tm_manual || 0, legacy: +r.tm_legacy || 0 } };
@@ -178,7 +179,7 @@ module.exports = function scoringTeams(db, WS_ID, d) {
       .forEach(r => { (membersOf[r.team_id] = membersOf[r.team_id] || []).push(r.user_id); });
     const people = db.prepare("SELECT user_id AS id FROM workspace_members WHERE workspace_id=? AND coalesce(pending,0)=0 AND coalesce(is_stakeholder,0)=0 ORDER BY user_id").all(WS_ID).map(r => r.id);
     const shown = visible({ me: u.id, mode, analytics: can.scoringViewAnalytics(u), people, membersOf, leads: teams.filter(t => t.lead === u.id).map(t => t.id) });
-    const sum = tally(tasksOf(f, on), { from: f.from, to: f.to, stages: f.stages, on, assets: s.assets });
+    const sum = tally(tasksOf(f, on), { from: f.from, to: f.to, stages: f.stages, on, assets: s.assets, kinds: s.kinds });
     const out = { from: f.from, to: f.to, weeks: WEEKS, memberBars: mode, modules: on, teams: teams.map(t => ({ id: t.id, bars: barsOf(sum.teams.get(t.id), on) })), people: {} };
     shown.forEach(id => { out.people[id] = { bars: barsOf(sum.people.get(id), on) }; });
     return out;

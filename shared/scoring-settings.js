@@ -7,9 +7,9 @@
    Story Points thresholds are sorted, the Fibonacci scale is always 1, 2, 3, 5, 8, 13, and a mode or a capacity
    metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
 
-   Off by default: the master switch is off, and inside it only Effort Hours is on. The hours templates are the kinds
-   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
-   (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
+   Off by default: the master switch is off, and inside it only Effort Hours is on. The default numbers are the
+   engine's (shared/scoring-engine.js ENGINE_DEFAULTS), the estimator's too: each next deliverable counts at the kind's
+   own share of the first, never more than it.
 
    Asset points (Oct 2026): modules.assets.on is their switch (off by default; assets.on mirrors it), and assets holds
    what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
@@ -19,13 +19,19 @@
    "self_and_leads" (the default: the person, the lead of their team and whoever holds scoring_view_analytics) or
    "everyone" (every member who is not a stakeholder). A team's own bars are everyone's either way.
 
-   diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
+   Kinds of work (Oct 2026): kinds [{id, name, nameId, keywords, builtIn, active, order}] in detection order, built-ins
+   never removed, the admin's own "k_…" (ids from the server); each has asset points (new: unknownKind's) and, once
+   typed, hours (low, high, next left out: ×0.5, ×1.5, 0.5).
+
+   diffSettings(a, b) lists what changed, one leaf at a time ({path, from, to}; kinds by id), for the audit.
 
    The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
-   (settings.hours, settings.story, settings.weighted, settings.bonus, settings.ai) and never reads this module.
+   (settings.hours, settings.story, settings.weighted, settings.bonus, settings.ai) and never reads this module (it is
+   inlined before it).
    Used by server/serialize.js, server/scoring.js and, inlined by build.js, the page (window.ScoringSettings). */
 (function(root){
 "use strict";
+const E = typeof module !== "undefined" && module.exports ? require("./scoring-engine") : root.ScoringEngine;
 const MODES = ["math_only", "ai_assisted", "hybrid"];
 const PRIMARY_CAPACITY = ["hours", "story_points", "weighted_points"];
 const FACTORS = ["complexity", "scope", "uncertainty", "dependencies"];
@@ -35,47 +41,23 @@ const COMPARABLES = ["team", "none"];
 const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
 /* who sees each person's bars on the Teams screen (server/scoring-teams.js) */
 const MEMBER_BARS = ["self_and_leads", "everyone"];
-/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, each next deliverable at] */
-const KINDS = [
-  ["carousel", 4, 3, 6, 0.5], ["story", 1.5, 1, 3, 0.5], ["reels", 6, 4, 10, 0.6], ["video", 8, 4, 16, 0.6],
-  ["kv", 6, 4, 10, 0.5], ["resize", 1.5, 0.5, 3, 0.25], ["feed", 2, 1, 3, 0.5], ["poster", 3, 2, 5, 0.6],
-  ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
-  ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
-const KIND_IDS = KINDS.map(k => k[0]);
-/* points for one asset produced, per kind of work (the same ids; the engine's ENGINE_DEFAULTS.assets.perKind): one feed
-   post = 1, about a piece's typical hours ÷ 2 — a resize 0.25, a logo 5 */
-const ASSET_POINTS = { carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5, banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5 };
+/* the built-in kinds of work and the points of one asset of each (the engine's) */
+const KIND_IDS = E.KIND_IDS, ASSET_POINTS = E.ENGINE_DEFAULTS.assets.perKind, BUILT_IN = E.KINDS, LIM = E.KIND_LIMITS, CUSTOM_ID = /^[a-z][a-z0-9_]{1,31}$/;
 /* written by the server, never by the person saving: left out of what diffSettings reports; assets.on is
    modules.assets.on mirrored, so turning the module on is reported once */
 const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy", "assets.on"]);
 
+/* the numbers are the engine's own (ENGINE_DEFAULTS: hours, story, weighted, ai, bonus, assets) — one set, never forked */
 function defaults() {
-  const templates = {};
-  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
+  const e = E.defaults();
   return {
     enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
     modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false }, assets: { on: false } },
     primaryCapacity: "hours",
-    hours: {
-      templates,
-      complexity: { 1: 0.8, 2: 0.9, 3: 1, 4: 1.25, 5: 1.5 },
-      dependency: { 0: 1, 1: 1.1, 2: 1.2, 3: 1.3 },
-      bounds: { min: 0.25, max: 80 },
-      lockPolicy: "approve_or_work_start"
-    },
-    story: { scale: SCALE.slice(), thresholds: [1.5, 2.5, 3.5, 4.25, 4.75], weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 } },
-    weighted: { weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 }, scaleMax: 10, mappingVersion: 1 },
-    ai: { minConfidence: 0.6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200, comparables: "team" },
+    kinds: kinds(),
+    hours: e.hours, story: { scale: SCALE.slice(), thresholds: e.story.thresholds, weights: e.story.weights }, weighted: e.weighted, ai: e.ai,
     overrides: { requireReason: true, requireApproval: false, allowSelfApproveEstimate: false },
-    bonus: {
-      on: false, enabledAt: null, grace: 0.1, rewardFactor: 0.5, maxRate: 0.2, minE: 1, minA: 0.25, reviewBelowRatio: 0.4,
-      materialChangeHours: 0.25, baseSource: "weighted_else_mapping",
-      hourMapping: { type: "bands", bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
-      completionStages: null, requireApprovedVersion: true, minQuality: null,
-      independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
-    },
-    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 },
-    teams: { memberBars: "self_and_leads" }
+    bonus: e.bonus, assets: e.assets, teams: { memberBars: "self_and_leads" }
   };
 }
 function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
@@ -123,6 +105,28 @@ function bands(v, d) {
   }
   return out.sort((a, b) => a[0] - b[0]);
 }
+/* ---------- the kinds of work ---------- */
+const text = (v, max) => typeof v === "string" ? Array.from(v.replace(/[\s\p{Cc}]+/gu, " ").trim()).slice(0, max).join("").trim() : "";
+/* a list or a comma-separated text, each keyword once, at most 40 */
+function keywords(v, d) {
+  const src = Array.isArray(v) ? v : typeof v === "string" ? v.split(",") : null;
+  if (!src) return d.slice();
+  const out = [];
+  src.forEach(x => { const k = E.kindKeyword(x); if (k && out.indexOf(k) < 0 && out.length < LIM.keywords) out.push(k); });
+  return out;
+}
+/* by order, each id once, a built-in left out back at the end; one's own needs a name (or a keyword) */
+function kinds(v) {
+  const list = [], seen = new Set();
+  (Array.isArray(v) ? v : []).map((x, i) => [x, i]).filter(p => isObj(p[0])).sort((a, b) => num(a[0].order, -1e9, 1e9, a[1]) - num(b[0].order, -1e9, 1e9, b[1]) || a[1] - b[1]).forEach(([x]) => {
+    const id = typeof x.id === "string" ? x.id : "", b = BUILT_IN.find(k => k.id === id), kw = keywords(x.keywords, b ? b.keywords : []), name = text(x.name, LIM.name) || (b ? b.name : (kw[0] || "").replace(/\*$/, ""));
+    if (!id || !name || seen.has(id) || (!b && (!CUSTOM_ID.test(id) || list.length - list.filter(k => k.builtIn).length >= LIM.kinds - BUILT_IN.length))) return;
+    seen.add(id); list.push({ id, name, nameId: text(x.nameId, LIM.name) || (b ? b.nameId : name), keywords: kw, builtIn: !!b, active: bool(x.active, true) });
+  });
+  BUILT_IN.forEach(k => { if (!seen.has(k.id)) list.push({ id: k.id, name: k.name, nameId: k.nameId, keywords: k.keywords.slice(), builtIn: true, active: true }); });
+  return list.map((k, i) => Object.assign(k, { order: i }));
+}
+const quarter = x => Math.max(0.05, Math.round(x * 4) / 4);
 function mod(v, d, withMode) { const m = isObj(v) ? v : {}; const o = { on: bool(m.on, d.on) }; if (withMode) o.mode = pick(m.mode, MODES, d.mode); return o; }
 
 function normalizeSettings(raw) {
@@ -140,12 +144,14 @@ function normalizeSettings(raw) {
     assets: mod(m.assets, { on: bool(ra.on, d.modules.assets.on) }) };
   o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
 
+  o.kinds = kinds(r.kinds);
   const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
   o.hours = { templates: {} };
-  KIND_IDS.forEach(id => {
-    const t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
-    const perUnit = num(t.perUnit, 0.05, 200, dt.perUnit);
-    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt.nextUnitFactor) };
+  o.kinds.forEach(k => {
+    const id = k.id, t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
+    const perUnit = num(t.perUnit, 0.05, 200, dt ? dt.perUnit : null);
+    if (perUnit === null) return;
+    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt ? dt.low : quarter(perUnit / 2))), high: Math.max(perUnit, num(t.high, 0.05, 200, dt ? dt.high : quarter(perUnit * 1.5))), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt ? dt.nextUnitFactor : 0.5) };
   });
   const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
   o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });
@@ -182,10 +188,10 @@ function normalizeSettings(raw) {
     pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
   };
 
-  /* asset points: each kind's points for one asset, 0–20, only the known kinds; on mirrors the module switch */
+  /* asset points: each kind's points for one asset, 0–20; on mirrors the module switch */
   const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
   o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
-  KIND_IDS.forEach(id => { o.assets.perKind[id] = num(pk[id], 0, 20, da2.perKind[id]); });
+  o.kinds.forEach(k => { o.assets.perKind[k.id] = num(pk[k.id], 0, 20, k.id in da2.perKind ? da2.perKind[k.id] : o.assets.unknownKind); });
   /* the Teams screen: who sees each person's bars — only the two known choices */
   const tm = isObj(r.teams) ? r.teams : {};
   o.teams = { memberBars: pick(tm.memberBars, MEMBER_BARS, d.teams.memberBars) };
@@ -196,15 +202,16 @@ function normalizeSettings(raw) {
 function diffSettings(a, b) {
   const out = [];
   const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
+  const byId = s => isObj(s) && Array.isArray(s.kinds) ? Object.assign({}, s, { kinds: s.kinds.reduce((m, k) => { if (isObj(k)) m[k.id] = k; return m; }, {}) }) : isObj(s) ? s : {};
   (function walk(x, y, p) {
     if (isObj(x) && isObj(y)) { [...new Set(Object.keys(x).concat(Object.keys(y)))].sort().forEach(k => walk(x[k], y[k], p ? p + "." + k : k)); return; }
     if (!same(x, y)) out.push({ path: p, from: x === undefined ? null : x, to: y === undefined ? null : y });
-  })(isObj(a) ? a : {}, isObj(b) ? b : {}, "");
+  })(byId(a), byId(b), "");
   return out.filter(c => !VOLATILE.has(c.path));
 }
 /* a module counts only with the master switch on */
 const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
 
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, CUSTOM_ID, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
 if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
 })(typeof window !== "undefined" ? window : this);
