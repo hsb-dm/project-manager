@@ -581,7 +581,15 @@ dan kamu diminta mengulang perubahan. Riwayat 20 perubahan terakhir ada di kelom
 
 Bagian **Kinds of work / Jenis pekerjaan** di tab Smart Scoring (kelompok **Estimasi**) berisi daftar jenis pekerjaan workspace. Jenis
 pekerjaan sebuah task menentukan jam estimasinya saat task dibuat (**juga saat Smart Scoring OFF**), hitungan Effort
-Hours, dan poin aset. Setiap baris berisi:
+Hours, dan poin aset.
+
+Tiap jenis tampil sebagai **satu baris ringkas**: nama (dengan nama Indonesianya kecil di samping), beberapa kata kunci
+(+N kalau lebih), jam pertama, poin per aset, tanda Built-in, switch, dan tombol **Edit**. Klik **Edit** (atau baris
+itu) untuk membuka isiannya di tempat. Low, High, dan Each next ada di lipatan **More**. Beberapa baris boleh terbuka
+sekaligus. Di atas daftar ada **Try a title** (ketik judul → jenis yang terdeteksi) dan **Find a kind**, yang muncul
+kalau jenisnya lebih dari 8 dan menyaring baris menurut nama atau kata kunci. Jenis yang dimatikan tetap di tempatnya
+dengan warna redup, karena urutan menentukan deteksi. Pemegang izin analytics melihat tombol **View** dengan semua
+isian terkunci. Isian yang ada di dalam satu baris:
 
 | Kolom | Isinya |
 |---|---|
