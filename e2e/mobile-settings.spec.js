@@ -43,6 +43,10 @@ test("settings, screens and the export dialog fit a phone", async ({ page }) => 
     for (const t of ["profile", "layout", "workspace", "theme", "workflow", "automation", "scoring", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "notifications", "integrations", "backup"]) {
       await page.evaluate(t => { S.settingsTab = t; go("settings"); renderScreen(); }, t); found["settings:" + t] = await scan(page);
     }
+    /* Smart Scoring: each of its groups, the chips row scrolling sideways */
+    for (const g of ["overview", "estimating", "output", "ai", "review", "access", "history"]) {
+      await page.evaluate(g => { go("settings", "scoring/" + g); document.querySelectorAll("#content details").forEach(d => { d.open = true; }); }, g); found["settings:scoring:" + g] = await scan(page);
+    }
     for (const sec of ["overview", "models", "limits", "prompts", "providers", "permissions", "privacy"]) {
       await page.evaluate(s => { S.settingsTab = "ai"; S.aiSettingsSection = s; go("settings"); renderScreen(); }, sec); found["settings:ai:" + sec] = await scan(page);
     }

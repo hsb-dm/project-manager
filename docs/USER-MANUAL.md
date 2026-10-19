@@ -455,7 +455,8 @@ bar beban kerja tiap orang, dan di halaman tim (di bawah kotak-kotak KPI) ada ba
 
 Arahkan kursor ke sebuah bar untuk melihat apa yang dihitung, atau ketuk bar / tombol **?** untuk membukanya. Bar tim
 terlihat oleh semua anggota. Bar per orang terlihat oleh orang itu sendiri, lead timnya, dan pemegang izin analitik —
-atau oleh semua orang kalau admin memilih **Semua orang di workspace** di Settings → Smart Scoring → **Teams screen**.
+atau oleh semua orang kalau admin memilih **Semua orang di workspace** di Settings → Smart Scoring → **Akses &
+visibilitas** → **Teams screen**.
 Stakeholder tidak melihat bar ini. Urutan orang tidak pernah diubah menurut angka ini: ini angka operasional untuk
 belajar, bukan peringkat.
 

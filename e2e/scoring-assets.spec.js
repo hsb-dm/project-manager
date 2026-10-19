@@ -92,7 +92,7 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(page.locator('#e2eAssets .scr-asum-row[data-person="' + o.zara + '"]')).toContainText("Changed since validation 2 · 10.00 pts");
 
     /* Settings → Smart Scoring: the section, with the hours a piece takes beside each value */
-    await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; go("settings", "scoring"); });
+    await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; go("settings", "scoring/output"); });
     const section = page.locator("#content section.panel").filter({ has: page.locator('[data-sc="modules.assets.on"]') });
     await expect(section.locator("h2")).toHaveText("Assets produced");
     await expect(section.locator('[data-sc="modules.assets.on"]')).toHaveClass(/\bon\b/);
@@ -101,10 +101,12 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(section.locator('tr[data-kind="resize"] input')).toHaveValue("0.25");
     await expect(section.locator("#sc_ap_unknown")).toHaveValue("1");
     await section.locator("#sc_ap_logo").fill("6");
-    await section.getByRole("button", { name: "Save" }).click();
+    await page.locator("#scrBar").getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     expect((await stored(page)).assets.perKind.logo).toBe(6);
+    await page.evaluate(() => go("settings", "scoring/history"));
     await expect(page.locator("#scAudit .scr-audit-row").first()).toContainText("Asset points · logo or brand identity");
+    await page.evaluate(() => go("settings", "scoring/output"));
     await draw();
     await expect(who(o.me).locator(".scr-ap-calc")).toHaveText("2 × 6.00 = 12.00 pts");
     /* Indonesian, and at phone width nothing runs off the page */

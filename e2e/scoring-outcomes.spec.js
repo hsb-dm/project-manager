@@ -17,7 +17,7 @@ async function signIn(page, who) {
 const settings = page => page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
 const putBack = (page, original) => page.evaluate(async o => { const cur = await apiFetch("GET", "/api/scoring/settings"); await apiFetch("PUT", "/api/scoring/settings", { settings: o, configVersion: cur.settings.configVersion }); WS.scoring = (await apiFetch("GET", "/api/scoring/settings")).settings; }, original);
 /* Settings → Smart Scoring, opened afresh (as someone coming back to it) */
-const openTab = page => page.evaluate(() => { go("home"); go("settings", "scoring"); });
+const openTab = page => page.evaluate(() => { go("home"); go("settings", "scoring/output"); });
 
 test("a KPI counted from approved assets moves when a lead-validated task is finished, and is taken back when it reopens", async ({ page }) => {
   await signIn(page, ADMIN);

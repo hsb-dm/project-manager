@@ -533,9 +533,31 @@ dimatikan lagi, semua angka, riwayat, dan audit tetap tersimpan.
 
 ### Menyalakan
 
-**Settings → Smart Scoring** (tepat setelah Automation):
+**Settings → Smart Scoring** (tepat setelah Automation). Tab ini dibagi menjadi tujuh kelompok di menu kiri (di HP
+menjadi deretan chip yang bisa digeser), dan hanya satu kelompok yang tampil sekaligus:
 
-1. Nyalakan **switch utama**.
+| Kelompok | Isinya |
+|---|---|
+| **Ringkasan** | switch utama dan statusnya, "Cara kerja Smart Scoring" (Estimasi → Setujui & kunci → Catat waktu → Review & poin), kartu tiap modul (switch, mode, apa fungsinya, apa yang dilihat orang, tombol **Atur →** ke kelompoknya), metrik kapasitas utama |
+| **Estimasi** | Effort Hours, Story Points, Weighted Points |
+| **Output & target** | poin aset (Assets produced), KPI dan OKR |
+| **AI** | kapan AI memberi saran, kuota, batas keyakinan, task serupa sebagai contoh; model yang menjawab dipilih di Settings → AI & integrations → Models → Chat models |
+| **Review & bonus** | kebijakan perubahan manual, bonus efisiensi |
+| **Akses & visibilitas** | siapa yang melihat bar di layar Teams, siapa memegang izin Smart Scoring, tombol delegasi ke lead |
+| **Riwayat** | 20 penyimpanan terakhir: siapa, kapan, dan tiap kolom dari → ke |
+
+Kelompok yang dipilih ada di alamat halaman (misalnya `/settings/scoring/estimating`), jadi link langsung membuka
+kelompok itu dan tombol Back/Forward browser berpindah antarkelompok; kelompok terakhir diingat per orang di perangkat
+itu. Angka teknis (pengali, batas, bobot, ambang, skala) ada di lipatan **Lanjutan** yang tertutup secara default;
+lipatan yang dibuka juga diingat per orang. Setiap bagian punya satu kalimat penjelasan dan satu **Contoh**. Kalau
+modulnya mati, bagiannya tetap bisa diisi (tampil redup) dengan tombol **Nyalakan**.
+
+Tidak ada lagi tombol Save per panel: begitu ada perubahan, muncul **satu bar di bawah layar** ("N perubahan belum
+disimpan · Buang · Simpan"). Perubahan tetap tersimpan sementara saat berpindah kelompok atau tab Settings; **Buang**
+mengembalikan nilai yang tersimpan; keluar dari Settings dengan perubahan yang belum disimpan memunculkan pertanyaan
+"Keluar tanpa menyimpan?". Pemegang `scoring_view_analytics` saja melihat semuanya dalam mode baca (tanpa bar Simpan).
+
+1. Di **Ringkasan**, nyalakan **switch utama**.
 2. Pilih modul yang dipakai. Masing-masing punya switch sendiri:
 
 | Modul | Isinya | Default |
@@ -548,11 +570,12 @@ dimatikan lagi, semua angka, riwayat, dan audit tetap tersimpan.
 
 3. Untuk tiap modul, pilih mode: **Math only**, **AI-assisted**, atau **Hybrid**. Hitungan matematis selalu ada
    sebagai cadangan.
-4. Atur angka-angkanya: template jam per jenis pekerjaan, pengali kompleksitas dan dependency, ambang Story Points,
-   bobot faktor (harus total 100%), poin aset per jenis, dan kebijakan AI serta perubahan manual.
+4. Atur angka-angkanya lewat **Atur →** di kartu modul atau menu kiri: template jam per jenis pekerjaan, pengali
+   kompleksitas dan dependency, ambang Story Points, bobot faktor (harus total 100% — kalau tidak, Simpan membawamu
+   ke bobot yang salah), poin aset per jenis, dan kebijakan AI serta perubahan manual. Lalu **Simpan** di bar bawah.
 
-Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpananmu ditolak dan tab dimuat ulang.
-Riwayat 20 perubahan terakhir ada di bawah tab.
+Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpananmu ditolak, versi mereka dimuat,
+dan kamu diminta mengulang perubahan. Riwayat 20 perubahan terakhir ada di kelompok **Riwayat**.
 
 ### Siapa boleh apa
 
@@ -569,7 +592,8 @@ Ada delapan izin di **Roles & permissions → Smart Scoring**, dan juga di izin 
 | `scoring_manage_outcomes` | membuat KPI/OKR dan mengisi nilai manual (wajib alasan) |
 | `scoring_view_analytics` | melihat angka seluruh tim di Analytics |
 
-Default-nya hanya Admin. Tombol **Beri izin ini ke Team Lead dan Creative Lead** di tab Smart Scoring menambahkan tiga izin itu
+Default-nya hanya Admin. Tombol **Beri izin ini ke Team Lead dan Creative Lead** di tab Smart Scoring (kelompok
+**Akses & visibilitas**) menambahkan tiga izin itu
 (approve estimasi, approve bonus, analytics) ke kedua role tersebut dalam satu klik.
 
 Pemisahan tugas berlaku untuk semua orang, admin juga:
@@ -627,7 +651,7 @@ Task yang dibuka ulang atau validasi yang dicabut membatalkan hitungannya. AI ti
 
 Saran AI memakai koneksi chat AI yang sama dengan AI Intelligence, dan mengikuti switch **external processing**
 serta **workspace context** di Settings → AI. Kuota harian per orang dan per workspace diatur di tab Smart Scoring,
-begitu juga AI saat task dibuat dan AI saat brief direvisi besar.
+kelompok **AI**, begitu juga AI saat task dibuat dan AI saat brief direvisi besar.
 
 Saran yang jauh dari hitungan diberi peringatan dan butuh alasan untuk dipakai. AI tidak pernah mengunci,
 meng-approve, atau memberi bonus.
@@ -637,7 +661,7 @@ meng-approve, atau memberi bonus.
 Selama Smart Scoring ON, layar Teams menampilkan bar kecil di bawah bar utilisasi (4 minggu terakhir): poin selesai
 dibanding poin yang direncanakan untuk tiap modul poin yang ON, dan akurasi estimasi. Bar tim terlihat oleh semua
 anggota (bukan stakeholder). Siapa yang melihat **bar per orang** diatur di bagian **Teams screen** pada tab yang
-sama: **Dirinya sendiri, lead timnya, dan pemegang analitik** (default, `teams.memberBars: "self_and_leads"`) atau
+sama, kelompok **Akses & visibilitas**: **Dirinya sendiri, lead timnya, dan pemegang analitik** (default, `teams.memberBars: "self_and_leads"`) atau
 **Semua orang di workspace** (`"everyone"`) — lebih terbuka, tapi orang bisa saling membandingkan. Bisa diubah kapan
 saja; tercatat di riwayat seperti perubahan lain, dan tab yang sedang terbuka ikut menyesuaikan.
 

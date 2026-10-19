@@ -107,7 +107,7 @@ test("the efficiency bonus: the line with 1.10 and 9.10, approved by someone ind
     await mp.evaluate(() => { UI_LANG = "en"; renderDrawer(); });
 
     /* Settings → Smart Scoring → Efficiency bonus: the worked example follows the fields */
-    await page.evaluate(() => { closeDrawer(); go("settings", "scoring"); });
+    await page.evaluate(() => { closeDrawer(); go("settings", "scoring/review"); });
     const example = page.locator("#sceExample");
     await expect(example).toContainText("E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10");
     await page.locator("#sc_b_grace").fill("20");

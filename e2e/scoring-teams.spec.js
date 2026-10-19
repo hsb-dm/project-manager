@@ -107,20 +107,21 @@ test("the Teams bars sit under the utilization bars, explain themselves, follow 
     await expect(mp.locator('[data-scr-tb="person:' + o.colleague + '"]'), "but not their bars").toHaveCount(0);
 
     /* the admin lets everyone see everyone's bars, in Settings → Smart Scoring: the member's open tab follows */
-    await page.evaluate(() => go("settings", "scoring"));
+    await page.evaluate(() => go("settings", "scoring/access"));
     const section = page.locator("#content section.panel", { has: page.locator("h2", { hasText: "Teams screen" }) });
     await expect(section.locator("#sc_tm_bars")).toHaveValue("self_and_leads");
     await expect(section).toContainText("people may compare and rank one another");
     await section.locator("#sc_tm_bars").selectOption("everyone");
-    await section.getByRole("button", { name: "Save" }).click();
+    await page.locator("#scrBar").getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     await expect(mp.locator('[data-scr-tb="person:' + o.colleague + '"] [data-bar="story"] .scr-tb-n')).toHaveText("0 / 3 pts · 0%", { timeout: 15000 });
+    await page.evaluate(() => go("settings", "scoring/history"));
     await expect(page.locator("#scAudit")).toContainText("Who sees each person's bars on Teams");
     await expect(page.locator("#scAudit")).toContainText("Everyone in the workspace");
     /* and back: the colleague's bars go again */
-    await page.evaluate(() => go("settings", "scoring"));
+    await page.evaluate(() => go("settings", "scoring/access"));
     await section.locator("#sc_tm_bars").selectOption("self_and_leads");
-    await section.getByRole("button", { name: "Save" }).click();
+    await page.locator("#scrBar").getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     await expect(mp.locator('[data-scr-tb="person:' + o.colleague + '"]')).toHaveCount(0, { timeout: 15000 });
     await expect(mp.locator('[data-scr-tb="person:' + o.member + '"] [data-bar="story"]')).toHaveCount(1);
