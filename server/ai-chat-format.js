@@ -21,9 +21,9 @@ function chatCompletionsUrl(endpoint) {
   return endpoint;
 }
 const isAzure = host => /\.(openai\.azure\.com|services\.ai\.azure\.com|cognitiveservices\.azure\.com)$/.test(host);
-/* o-series and GPT-5 think before they answer: they need the newer token field and room to think, or the
-   visible answer comes back empty */
-const isReasoning = model => /^(o[1-9]|gpt-5)/i.test(String(model || ""));
+/* o-series, GPT-5 and every GPT after it (GPT-6 Astra, Sol, Luna — Oct 2026) think before they answer: they need the
+   newer token field and room to think, or the official API refuses max_tokens / the visible answer comes back empty */
+const isReasoning = model => /^(o[1-9]|gpt-([5-9]|[1-9]\d))/i.test(String(model || ""));
 
 /* c: { provider, endpoint, key, model }; system: the instructions; msgs: [{ role: user|assistant, content }] */
 function chatRequest(c, system, msgs) {

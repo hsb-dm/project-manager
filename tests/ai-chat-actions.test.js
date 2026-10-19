@@ -33,13 +33,15 @@ test("summaries get room, and reasoning models get the field they accept", () =>
   const ep = "https://api.openai.com/v1/chat/completions", msgs = [{ role: "user", content: "hi" }];
   const plain = chatRequest({ endpoint: ep, key: "k", model: "gpt-4.1-mini" }, "sys", msgs).body;
   assert.equal(plain.max_tokens, 1500, "500 truncated summaries mid-sentence");
-  for (const model of ["o3", "o4-mini", "gpt-5", "gpt-5-mini"]) {
+  for (const model of ["o3", "o4-mini", "gpt-5", "gpt-5-mini", "gpt-6.1-sol", "gpt-6-luna", "gpt-6-astra", "gpt-10"]) {
     const b = chatRequest({ endpoint: ep, key: "k", model }, "sys", msgs).body;
     assert.equal(b.max_completion_tokens, 4000, model + ": reasoning models get the field they require, and room to think");
     /* both must never be sent together: the official API rejects that */
     assert.ok(!("max_tokens" in b), model + ": never both");
   }
   assert.ok(!("max_completion_tokens" in plain));
+  /* models from before GPT-5 keep the field they take */
+  for (const model of ["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-3.5-turbo"]) assert.equal(chatRequest({ endpoint: ep, key: "k", model }, "sys", msgs).body.max_tokens, 1500, model);
 });
 
 /* ---------- what the browser sends ---------- */
