@@ -86,7 +86,9 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 20000 }
      2.8 → 3.0 MB (October 2026): the AI Hub work above took it 9 KB past 2.8 MB; compressed it is about 702 KB. */
   /* 3.0 → 3.4 MB (October 2026): Smart Scoring and pasted writing that keeps its format, as above (about 3.02 MB; with
      all of Smart Scoring in, about 3.32 MB). */
-  assert.ok(html.length < 3.4 * 1024 * 1024, 'uncompressed shell under 3.4 MB, got ' + html.length);
+  /* 3.4 → 3.5 MB (October 2026): the Tasks List's columns, moved and sized by each person (src/list-columns.js), took
+     it 8 KB past 3.4 MB (about 3.41 MB); compressed it grew 4 KB, to about 800 KB, the 860 KB limit unchanged. */
+  assert.ok(html.length < 3.5 * 1024 * 1024, 'uncompressed shell under 3.5 MB, got ' + html.length);
   const again = await fetch(s.base + '/', { headers: { 'if-none-match': etag } });
   assert.equal(again.status, 304);
   const gz = await new Promise((res, rej) => require('node:http').get(s.base + '/', { headers: { 'accept-encoding': 'gzip' } }, m => { const c = []; m.on('data', d => c.push(d)); m.on('end', () => res({ enc: m.headers['content-encoding'], body: Buffer.concat(c) })); m.on('error', rej); }));

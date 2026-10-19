@@ -153,6 +153,21 @@ Start, Due, Est., Tags. Klik header untuk mengurutkan. Klik sel **Status** atau 
 untuk mengubahnya langsung. Seret baris ke baris lain untuk mengurutkan, atau ke
 **header grup** untuk mengubah status/tim/assignee/project/prioritas sekaligus.
 
+*Kolom bisa digeser dan diubah lebarnya:*
+- **Pindah kolom** — seret judul kolom ke kiri/kanan; garis biru menunjukkan tempat jatuhnya.
+  **Esc** membatalkan. Kolom Task ikut bisa dipindah; kotak centang dan pegangan seret baris
+  tetap di depan. Klik biasa (tanpa digeser) tetap mengurutkan.
+- **Ubah lebar** — seret tepi kanan judul kolom (garis tipis saat kursor di atasnya). Lebar
+  minimum: Task 160 px, Est. 44 px, lainnya 60 px. **Klik dua kali** tepinya untuk lebar semula.
+  Setelah kamu mengubah lebar, kolom Task mengisi sisa ruang.
+- **Keyboard** — fokuskan judul kolom dengan Tab: **Alt+←/→** memindahkan, **Alt+Shift+←/→**
+  mengubah lebar 16 px, **Enter** mengurutkan.
+- Di layar sentuh (tablet), **tahan** judul kolom sebentar lalu geser; usapan biasa tetap
+  menggulir tabel ke samping. Di ponsel List tampil sebagai kartu, jadi kolom tidak digeser di sana.
+- Urutan dan lebar disimpan **per orang** (ikut ke perangkat lain) dan berlaku juga di tab List
+  sebuah project. Tombol **Reset columns** (*Atur ulang kolom*) di sebelah **Group** (muncul bila ada yang berubah)
+  mengembalikan urutan dan lebar bawaan.
+
 **Grid** — seperti spreadsheet. Setiap sel menulis langsung ke task: judul, status, tim,
 assignee, reviewer, project, prioritas, tanggal mulai & jatuh tempo, estimasi, tag, dan
 setiap custom field. Tombol **Fields** memilih kolom mana yang tampil.
@@ -169,6 +184,7 @@ Seret bar untuk menggeser kedua tanggal; seret ujung kiri/kanannya untuk menguba
 - **Filters** — membuka modal filter; setiap filter aktif juga jadi chip yang bisa dilepas
 - **Sort** — Manual, Due date, Priority, Created, A → Z, Status, Team, Assignee, plus tombol balik urutan
 - **Group** — None, Status, Team, Assignee, Project, Priority, Due date (List & Grid)
+- **Reset columns** — urutan dan lebar kolom List kembali ke bawaan (List, hanya bila sudah diubah)
 - **Fields** — kolom yang tampil (Grid)
 - Chip **n checked** — lihat di bawah
 - **Views** — view tersimpan
