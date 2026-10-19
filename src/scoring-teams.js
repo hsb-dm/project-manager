@@ -67,7 +67,7 @@ function scrTbRow(k,b,ctx){
   if(n) why+=" "+scrTbFill(n===1?"{n} task without a score is left out.":"{n} tasks without a score are left out.",{n:n});
   if(k==="accuracy"){ if(b.tasks>0&&b.share!=null){ w=b.share; text=scrTbFill(b.tasks===1?"{within} of {tasks} task within ±20% · {pct}%":"{within} of {tasks} tasks within ±20% · {pct}%",{within:b.within,tasks:b.tasks,pct:b.share}); } else text=tr("no data yet"); }
   else if(b.planned>0&&b.pct!=null){ var p=scrTbPts(b.done,b.planned); w=b.pct; text=scrTbFill("{done} / {planned} pts · {pct}%",{done:p[0],planned:p[1],pct:b.pct}); }
-  else text=tr("nothing planned in the last 4 weeks");
+  else text=tr("nothing planned yet"); /* the period is in the heading: the card is narrow */
   return '<button type="button" class="scr-tb-row'+(w===null?' nd':'')+'" data-bar="'+k+'" title="'+attr(why)+'" onclick="event.stopPropagation();scrTbToggle(this)"><span class="scr-tb-g"><span class="scr-tb-k">'+esc(tr(SCR_TB_LABEL[k]))+'</span>'
     + (w===null?'':'<span class="track scr-tb-track" role="img" aria-label="'+attr(tr(SCR_TB_LABEL[k])+": "+text)+'"><i style="width:'+Math.max(0,Math.min(100,w))+'%"></i></span>')
     + '<span class="scr-tb-n">'+esc(text)+'</span></span></button>'; }
@@ -123,7 +123,7 @@ function scoringTeamsSettingsHtml(ro,ed){
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Story Points":"Story Point","Weighted Points":"Poin Berbobot","Asset points":"Poin aset","Estimate accuracy":"Akurasi estimasi",
   "Smart Scoring · last 4 weeks":"Smart Scoring · 4 minggu terakhir","What these bars count":"Apa yang dihitung bar ini",
-  "{done} / {planned} pts · {pct}%":"{done} / {planned} poin · {pct}%","nothing planned in the last 4 weeks":"tidak ada yang direncanakan dalam 4 minggu terakhir",
+  "{done} / {planned} pts · {pct}%":"{done} / {planned} poin · {pct}%","nothing planned yet":"belum ada yang direncanakan",
   "{within} of {tasks} task within ±20% · {pct}%":"{within} dari {tasks} task dalam ±20% · {pct}%","{within} of {tasks} tasks within ±20% · {pct}%":"{within} dari {tasks} task dalam ±20% · {pct}%",
   "no data yet":"belum ada data",
   "{n} task without a score is left out.":"{n} task tanpa skor tidak dihitung.","{n} tasks without a score are left out.":"{n} task tanpa skor tidak dihitung.",
