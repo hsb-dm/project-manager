@@ -142,6 +142,21 @@ test('the asset points settings are held to their shape, and their switch is the
   assert.deepEqual(Object.assign({}, S.ASSET_POINTS), d.assets.perKind);
 });
 
+test('who sees each person\'s bars on the Teams screen: themselves and their lead by default, or everyone; nothing else is kept', () => {
+  const d = S.normalizeSettings({});
+  assert.deepEqual(d.teams, { memberBars: 'self_and_leads' }, 'the default: the person, their lead and the analytics holders');
+  assert.deepEqual(S.DEFAULTS.teams, { memberBars: 'self_and_leads' });
+  assert.deepEqual(S.MEMBER_BARS, ['self_and_leads', 'everyone']);
+  assert.equal(S.normalizeSettings({ teams: { memberBars: 'everyone' } }).teams.memberBars, 'everyone');
+  for (const bad of ['all', 'EVERYONE', '', null, 1, true, { a: 1 }]) assert.equal(S.normalizeSettings({ teams: { memberBars: bad } }).teams.memberBars, 'self_and_leads', JSON.stringify(bad) + ' is not a choice: the default');
+  assert.deepEqual(S.normalizeSettings({ teams: 'everyone' }).teams, { memberBars: 'self_and_leads' }, 'not an object: the default');
+  assert.deepEqual(S.normalizeSettings({ teams: { memberBars: 'everyone', extra: 1 } }).teams, { memberBars: 'everyone' }, 'unknown keys dropped');
+  const every = S.normalizeSettings({ teams: { memberBars: 'everyone' } });
+  assert.deepEqual(S.normalizeSettings(every), every, 'normalizing twice changes nothing');
+  assert.deepEqual(S.diffSettings(d, every), [{ path: 'teams.memberBars', from: 'self_and_leads', to: 'everyone' }], 'one change in the history');
+  assert.deepEqual(S.diffSettings(every, d), [{ path: 'teams.memberBars', from: 'everyone', to: 'self_and_leads' }]);
+});
+
 test('in the page the module is window.ScoringSettings', () => {
   const ctx = { window: {} }; vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(root, 'shared', 'scoring-settings.js'), 'utf8'), ctx);

@@ -15,6 +15,10 @@
    what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
    whether counts a lead has not validated yet count (they do by default, marked as such).
 
+   The Teams screen (Oct 2026): teams.memberBars says who sees each person's Smart Scoring bars there —
+   "self_and_leads" (the default: the person, the lead of their team and whoever holds scoring_view_analytics) or
+   "everyone" (every member who is not a stakeholder). A team's own bars are everyone's either way.
+
    diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
 
    The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
@@ -29,6 +33,8 @@ const SCALE = [1, 2, 3, 5, 8, 13];
 const LOCK_POLICIES = ["approve", "approve_or_work_start"];
 const COMPARABLES = ["team", "none"];
 const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
+/* who sees each person's bars on the Teams screen (server/scoring-teams.js) */
+const MEMBER_BARS = ["self_and_leads", "everyone"];
 /* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, each next deliverable at] */
 const KINDS = [
   ["carousel", 4, 3, 6, 0.5], ["story", 1.5, 1, 3, 0.5], ["reels", 6, 4, 10, 0.6], ["video", 8, 4, 16, 0.6],
@@ -68,7 +74,8 @@ function defaults() {
       completionStages: null, requireApprovedVersion: true, minQuality: null,
       independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
     },
-    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 }
+    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 },
+    teams: { memberBars: "self_and_leads" }
   };
 }
 function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
@@ -179,6 +186,9 @@ function normalizeSettings(raw) {
   const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
   o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
   KIND_IDS.forEach(id => { o.assets.perKind[id] = num(pk[id], 0, 20, da2.perKind[id]); });
+  /* the Teams screen: who sees each person's bars — only the two known choices */
+  const tm = isObj(r.teams) ? r.teams : {};
+  o.teams = { memberBars: pick(tm.memberBars, MEMBER_BARS, d.teams.memberBars) };
   return o;
 }
 
@@ -195,6 +205,6 @@ function diffSettings(a, b) {
 /* a module counts only with the master switch on */
 const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
 
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
 if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
 })(typeof window !== "undefined" ? window : this);

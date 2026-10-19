@@ -124,7 +124,9 @@ validateAi, inputHash); this file only records how the settings feed it.
             countUnvalidated: true,    // counts a lead has not validated yet count (marked); false: only validated ones
             perKind: { carousel: 2, story: .75, reels: 3, video: 4, kv: 3, resize: .25, feed: 1, poster: 1.5,
                        banner: 1.5, copy: .75, deck: 3, logo: 5, web: 5, email: 1.5 },   // points per asset, 0–20
-            unknownKind: 1 } }         // a title no kind matches
+            unknownKind: 1 },          // a title no kind matches
+  teams: { memberBars: "self_and_leads" } }   // who sees each person's bars on the Teams screen: "self_and_leads"
+                                              // (the person, their team's lead, scoring_view_analytics) | "everyone"
 ```
 
 ### 3.3 normalizeSettings(raw) → settings
@@ -144,7 +146,8 @@ Pure. `raw` may be an object, a JSON string (the DB column) or anything else (�
   (as `ScoringEngine.storyPoints` reads them): the story value is `scale[i]` for the first `i` with
   `index ≤ thresholds[i]`, and 13 above the last.
 - `scale` is always `[1,2,3,5,8,13]`. Modes only `math_only|ai_assisted|hybrid` (invalid → that module's default);
-  `primaryCapacity` only the three values; `lockPolicy`, `comparables`, `baseSource` only their listed values.
+  `primaryCapacity` only the three values; `lockPolicy`, `comparables`, `baseSource`, `teams.memberBars` only their
+  listed values.
 - Ids (`updatedBy`, `completionStages`, `pilotTeams`) must match `/^[-\w]{1,40}$/`; an empty `completionStages` list
   is `null`; `updatedAt`/`enabledAt` must be ISO timestamps.
 - Idempotent: `normalizeSettings(normalizeSettings(x))` equals `normalizeSettings(x)`.
@@ -153,7 +156,7 @@ Other exports: `DEFAULTS` (deep-frozen, normalized), `defaults()` (fresh copy), 
 `[{path, from, to}]` per changed leaf (arrays compared whole, a side missing an object reports it whole;
 `configVersion`/`updatedAt`/`updatedBy` left out; callers pass normalized objects), `moduleOn(s, id)` (master switch
 and module), `MODES`, `PRIMARY_CAPACITY`, `FACTORS`, `SCALE`, `KINDS` (template ids in order), `LOCK_POLICIES`,
-`COMPARABLES`.
+`COMPARABLES`, `MEMBER_BARS` (`["self_and_leads", "everyone"]`), `ASSET_POINTS`.
 
 The engine keeps its own `ENGINE_DEFAULTS` fallback; `tests/scoring-settings.test.js` asserts the two agree
 sub-object by sub-object once `shared/scoring-engine.js` is present. Pass the engine the normalized sub-objects:
@@ -519,6 +522,29 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), and module `efficie
   A verified pair is a locked estimate (approved or locked) with Actual from the time log and no legacy entries; the
   rest is counted under `unverified` with its reasons. Time and points are never combined into one score, and people
   are never ranked. The pure helpers are `require('./server/scoring-analytics').pure`.
+- `GET /api/scoring/teams` — **built** (Oct 2026, server/scoring-teams.js, src/scoring-teams.js): the bars on the Teams
+  screen, over the last 4 weeks (today and the 28 days before it, UTC). Checks in order: `COS_SCORING=0` → 409 "Smart
+  Scoring is turned off on this server"; signed out → 401; stakeholder → 403; master switch off → 409 "Smart Scoring
+  is turned off in this workspace". No query parameters. Answer:
+  ```
+  { from, to, weeks: 4, memberBars: "self_and_leads"|"everyone", modules: {story, weighted, assets, hours},
+    teams: [{ id, bars }],                 // every active team, in its order — for every member who is not a stakeholder
+    people: { userId: { bars } } }         // only the people this caller may see (below)
+  bars = { story?, weighted?, assets?: {done, planned, pct, notScored},   // a points module that is on
+           accuracy?: {tasks, within, share} }                            // only while Effort Hours is on
+  ```
+  Planned = the final points of the tasks whose due date falls in the period, Declined left out; done = those of the
+  same tasks in a completed stage (`bonus.completionStages`, else every closed stage but Declined), so done ≤ planned;
+  a task without a value in that module counts in neither (`notScored`). A team = its tasks (`team_id`); a person = the
+  tasks they are assigned to, a shared task's story/weighted points split equally; asset points as
+  `server/scoring-assets.js` `credit()` and `ScoringEngine.assetPoints` credit them. Accuracy: the analytics' own
+  `estimateOf`/`actualOf`/`accuracy` over the tasks completed in the period with a verified pair (±20 %). `pct` and
+  `share` are whole percentages, 100 only when all of it is done and 0 only when none is, `null` with nothing to divide
+  (planned 0 → "nothing planned", no verified pair → "no data yet"); points to 2 decimals. `people`: the caller's own,
+  plus every member of the active teams they lead (`teams.team_lead_id`), or everyone who is not a stakeholder for
+  `scoring_view_analytics` holders — or for everyone with `teams.memberBars: "everyone"`. Never sorted by the numbers.
+  One query for the tasks with their scores and logged time, one for the uploads; pure helpers
+  `require('./server/scoring-teams').pure` (`period, pct, bar, accuracyBar, visible, tally, barsOf`).
 - `GET|POST|PUT|DELETE /api/outcomes[/:id]`, `POST /api/outcomes/:id/value`, `POST /api/tasks/:id/outcomes`,
   `DELETE /api/tasks/:id/outcomes/:linkId` (Phase 4 B) — `scoringManageOutcomes` for definitions and manual values.
 
@@ -760,6 +786,7 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 | `src/scoring-time.js` | Phase 3a D | empty — the time log. |
 | `src/scoring-analytics.js` | Phase 1 D / 3 D | empty — analytics sections (wrap `renderAnalytics`, `renderMember`; no ranking). |
 | `src/scoring-outcomes.js` | Phase 4 B | empty — KPI/OKR UI. |
+| `src/scoring-teams.js` | Oct 2026 (Teams bars) | the bars on the Teams screen (wraps `renderTeams` and `renderTeamDetail`): under each team card's utilization bar (`.tcard .wl .track` → `.scr-tb[data-scr-tb="team:<id>"]`), a team page's strip after `.kpis.team-kpis` (`.scr-tb-panel`), and under each person's workload bar (`.wl.click` → `.scr-tb[data-scr-tb="person:<id>"]`). From `GET /api/scoring/teams` (`SCR_TB.cache`, fetched at most every 30 s, at once when `WS.scoring.configVersion` changes), a block painted only when its markup changed; a person's bars only when the answer has them and the page's mirror `scrTbMaySee(id)` agrees. The Settings section `scoringTeamsSettingsHtml(ro, ed)` (called by `setScoring`; `teams.memberBars`) and its words in the history (`scPathLabel`, `scVal` wrapped). Off, or the offline demo: nothing. Tests: `tests/scoring-teams.test.js`, `e2e/scoring-teams.spec.js`. |
 
 `build.js` inlines `shared/gallery-model.js`, `shared/scoring-settings.js` and — as soon as the file exists —
 `shared/scoring-engine.js` (`window.ScoringEngine`) right after the demo data, before any `src/` file.

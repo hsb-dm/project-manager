@@ -517,6 +517,15 @@ begitu juga AI saat task dibuat dan AI saat brief direvisi besar.
 Saran yang jauh dari hitungan diberi peringatan dan butuh alasan untuk dipakai. AI tidak pernah mengunci,
 meng-approve, atau memberi bonus.
 
+### Bar di layar Teams
+
+Selama Smart Scoring ON, layar Teams menampilkan bar kecil di bawah bar utilisasi (4 minggu terakhir): poin selesai
+dibanding poin yang direncanakan untuk tiap modul poin yang ON, dan akurasi estimasi. Bar tim terlihat oleh semua
+anggota (bukan stakeholder). Siapa yang melihat **bar per orang** diatur di bagian **Teams screen** pada tab yang
+sama: **Dirinya sendiri, lead timnya, dan pemegang analitik** (default, `teams.memberBars: "self_and_leads"`) atau
+**Semua orang di workspace** (`"everyone"`) — lebih terbuka, tapi orang bisa saling membandingkan. Bisa diubah kapan
+saja; tercatat di riwayat seperti perubahan lain, dan tab yang sedang terbuka ikut menyesuaikan.
+
 ### Di server
 
 - `COS_SCORING=0` di `.env` mematikan seluruh fitur di server itu: route menjawab 409 dan tampilannya hilang, tapi

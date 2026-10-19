@@ -66,6 +66,7 @@ function setScoring(){
     +scAiPanel(ro,ed)+scOverridesPanel(ro,ed)
     +(typeof scoringBonusSettingsHtml==="function"?scoringBonusSettingsHtml(ro,ed):"")   /* the efficiency bonus policy (src/scoring-awards.js) */
     +(typeof scoringOutcomesSettingsHtml==="function"?scoringOutcomesSettingsHtml():"")   /* KPIs and OKRs (src/scoring-outcomes.js) */
+    +(typeof scoringTeamsSettingsHtml==="function"?scoringTeamsSettingsHtml(ro,ed):"")   /* who sees each person's bars on the Teams screen (src/scoring-teams.js) */
     +(canI.manageRoles()?scHoldersPanel():"")+scAuditPanel(); }
 function scMainPanel(cur,ed,ro){
   var by=cur.updatedBy?person(cur.updatedBy).name:"";

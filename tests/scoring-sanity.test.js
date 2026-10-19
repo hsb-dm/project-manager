@@ -441,3 +441,90 @@ test('an AI value is never applied to a locked score, whatever it says, and the 
   assert.ok(v.ai.quota.user.used > v.ai.quota.user.limit, 'more used than the limit now allows');
   assert.equal(v.ai.quota.user.left, 0); assert.equal(v.ai.quota.workspace.left, 0);
 });
+
+/* the Teams screen's bars (server/scoring-teams.js): done is never more than planned, every percentage 0–100 or no data,
+   100 % only when all of it is done and 0 % only when none of it is, nothing planned is no bar at all, a declined task is
+   never planned, a task without a score is told apart and never counted, a shared task splits its points, accuracy only
+   over verified pairs; finishing one more task never makes a bar look worse; and each person's bars reach only the
+   people allowed to see them */
+test('the Teams screen bars make sense: done within planned, percentages 0–100 or no data, declined and unscored left out, finishing never looks worse', () => {
+  const T = require('../server/scoring-teams.js').pure;
+  const assets = require('../shared/scoring-settings.js').defaults().assets;
+  assert.deepEqual(T.period('2026-10-19'), { from: '2026-09-21', to: '2026-10-19', weeks: 4 }, 'the last 4 weeks: today and the 28 days before it');
+  /* whole percentages */
+  assert.equal(T.pct(0, 0), null, 'nothing planned: no percentage'); assert.equal(T.pct(5, 0), null);
+  assert.deepEqual([T.pct(0, 40), T.pct(34, 40), T.pct(40, 40), T.pct(50, 40)], [0, 85, 100, 100]);
+  assert.equal(T.pct(39.9, 40), 99, '99.75 % is not all of it'); assert.equal(T.pct(0.1, 40), 1, '0.25 % is not nothing');
+  assert.deepEqual(T.bar(7, 10, 1), { done: 7, planned: 10, pct: 70, notScored: 1 });
+  assert.deepEqual(T.bar(1 / 3, 2 / 3, 0), { done: 0.33, planned: 0.67, pct: 49, notScored: 0 }, 'points to 2 decimals');
+  assert.deepEqual(T.bar(0, 0, 3), { done: 0, planned: 0, pct: null, notScored: 3 });
+  assert.deepEqual(T.accuracyBar([]), { tasks: 0, within: 0, share: null }, 'no verified pair: no data, never 0 %');
+  const nine = Array.from({ length: 9 }, (_, i) => ({ estimate: 4, actual: i < 7 ? 4.5 : 8 }));
+  assert.deepEqual(T.accuracyBar(nine), { tasks: 9, within: 7, share: 78 }, '7 of 9 within ±20 %');
+  assert.deepEqual(T.accuracyBar([{ estimate: 5, actual: 6 }]), { tasks: 1, within: 1, share: 100 }, 'the 20 % edge is within');
+  for (let done = 0; done <= 50; done += 0.25) for (const planned of [0.25, 1, 3, 13, 40]) {
+    const p = T.pct(Math.min(done, planned), planned);
+    assert.ok(p >= 0 && p <= 100 && Number.isInteger(p), done + '/' + planned + ': ' + p);
+    assert.ok(p <= T.pct(Math.min(done + 0.25, planned), planned), 'more done never shows less');
+  }
+
+  /* a small set worked out by hand: team a's and b's tasks, people x and y */
+  const o = { from: '2026-09-21', to: '2026-10-19', stages: ['approved', 'delivered', 'done'], on: { story: true, weighted: true, assets: true, hours: true }, assets };
+  const task = f => Object.assign({ team: 'a', status: 'todo', assignees: [], due: '2026-10-10', doneDay: null, story: null, weighted: null, title: 'Something', assetCount: 0, assetSplit: null, assetOk: null, uploaders: [], hours: null, estimatedMinutes: 0, typedActual: 0, time: { manual: 0, legacy: 0 } }, f);
+  const set = [
+    task({ id: 't1', status: 'done', assignees: ['x', 'y'], due: '2026-10-01', doneDay: '2026-10-02', story: 5, weighted: 4, title: 'Feed post launch', assetCount: 2, assetSplit: { x: 2 }, hours: { status: 'approved', locked: 4, final: 4 }, time: { manual: 270, legacy: 0 } }),
+    task({ id: 't2', status: 'progress', assignees: ['x'], story: 3, title: 'Logo concept', assetCount: 1 }),
+    task({ id: 't3', status: 'declined', assignees: ['y'], story: 8, weighted: 8, title: 'Logo concept', assetCount: 3 }),
+    task({ id: 't4', team: 'b', status: 'done', assignees: ['y'], due: '2026-08-01', doneDay: '2026-10-05', story: 2, hours: { status: 'approved', locked: 2, final: 2 }, time: { manual: 180, legacy: 0 } }),
+    task({ id: 't5', status: 'done', assignees: ['y'], due: '2026-10-12', doneDay: '2026-10-12', weighted: 6, hours: { status: 'draft', source: 'manual', final: 2 }, time: { manual: 120, legacy: 0 } }),
+    task({ id: 't6', status: 'done', assignees: ['x'], doneDay: '2026-10-11', story: 2, hours: { status: 'approved', locked: 2, final: 2 }, time: { manual: 60, legacy: 60 } })
+  ];
+  const sum = T.tally(set, o), bars = (m, id) => T.barsOf(sum[m].get(id), o.on);
+  /* team a: t3 declined is never planned; t4 is team b's; t5 has no story points, t2 none weighted, t5 and t6 no assets */
+  assert.deepEqual(bars('teams', 'a'), {
+    story: { done: 7, planned: 10, pct: 70, notScored: 1 },
+    weighted: { done: 10, planned: 10, pct: 100, notScored: 2 },
+    assets: { done: 2, planned: 7, pct: 29, notScored: 2 },     /* two feed posts (1 each, typed for x), one logo (5, x assigned) */
+    accuracy: { tasks: 1, within: 1, share: 100 } });           /* t1 4 h → 4.5 h; t5 never locked; t6 has time from before */
+  /* team b: t4 was due before the period (no bar), but finished in it: 2 h → 3 h is not within */
+  assert.deepEqual(bars('teams', 'b'), { story: { done: 0, planned: 0, pct: null, notScored: 0 }, weighted: { done: 0, planned: 0, pct: null, notScored: 0 }, assets: { done: 0, planned: 0, pct: null, notScored: 0 }, accuracy: { tasks: 1, within: 0, share: 0 } });
+  /* x: half of t1's points, t2, t6 */
+  assert.deepEqual(bars('people', 'x'), { story: { done: 4.5, planned: 7.5, pct: 60, notScored: 0 }, weighted: { done: 2, planned: 2, pct: 100, notScored: 2 }, assets: { done: 2, planned: 7, pct: 29, notScored: 1 }, accuracy: { tasks: 1, within: 1, share: 100 } });
+  /* y: half of t1's points and t5's; no assets credited (t1's are typed for x); t1 and t4 measured */
+  assert.deepEqual(bars('people', 'y'), { story: { done: 2.5, planned: 2.5, pct: 100, notScored: 1 }, weighted: { done: 8, planned: 8, pct: 100, notScored: 0 }, assets: { done: 0, planned: 0, pct: null, notScored: 1 }, accuracy: { tasks: 2, within: 1, share: 50 } });
+  assert.equal(sum.people.has('nobody'), false); assert.deepEqual(T.barsOf(undefined, o.on).story, { done: 0, planned: 0, pct: null, notScored: 0 }, 'no tasks: nothing planned');
+  /* a module off: its bar is not there */
+  assert.deepEqual(Object.keys(T.barsOf(sum.teams.get('a'), { story: true, weighted: false, assets: false, hours: false })), ['story']);
+  assert.deepEqual(Object.keys(T.barsOf(sum.teams.get('a'), { story: false, weighted: false, assets: false, hours: true })), ['accuracy']);
+
+  /* many random sets: done never more than planned, percentages in range, and finishing one more task never looks worse */
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const titles = ['Feed post', 'Logo concept', 'Resize banner', 'Carousel promo', 'Video teaser', 'Something else'], who = ['p', 'q', 'r'];
+  for (let i = 0; i < 150; i++) {
+    const list = Array.from({ length: 1 + Math.floor(rnd() * 14) }, (_, j) => task({ id: 'r' + j, team: rnd() < 0.7 ? 'a' : 'b', status: ['todo', 'progress', 'done', 'delivered', 'declined'][Math.floor(rnd() * 5)],
+      assignees: who.filter(() => rnd() < 0.5), due: rnd() < 0.85 ? '2026-10-0' + (1 + Math.floor(rnd() * 9)) : '2026-08-15', story: rnd() < 0.8 ? [1, 2, 3, 5, 8, 13][Math.floor(rnd() * 6)] : null,
+      weighted: rnd() < 0.8 ? Math.round(rnd() * 900 + 100) / 100 : null, title: titles[Math.floor(rnd() * titles.length)], assetCount: Math.floor(rnd() * 4), uploaders: rnd() < 0.3 ? ['p', 'p', 'q'] : [] }));
+    const check = (s, what) => ['teams', 'people'].forEach(m => s[m].forEach((x, id) => { const b = T.barsOf(x, o.on);
+      ['story', 'weighted', 'assets'].forEach(k => { const v = b[k];
+        assert.ok(v.done >= 0 && v.done <= v.planned + 1e-9, what + ' ' + m + ' ' + id + ' ' + k + ': ' + JSON.stringify(v));
+        assert.ok(v.pct === null ? v.planned === 0 : v.pct >= 0 && v.pct <= 100, what + ' ' + k + ' pct ' + v.pct);
+        assert.ok(v.notScored >= 0); }); }));
+    const before = T.tally(list, o); check(before, 'set ' + i);
+    const open = list.findIndex(t => t.status === 'todo' || t.status === 'progress'); if (open < 0) continue;
+    const after = T.tally(list.map((t, j) => j === open ? Object.assign({}, t, { status: 'done', doneDay: '2026-10-15' }) : t), o); check(after, 'set ' + i + ' after');
+    ['teams', 'people'].forEach(m => before[m].forEach((x, id) => { const a = T.barsOf(after[m].get(id), o.on), b = T.barsOf(x, o.on);
+      ['story', 'weighted', 'assets'].forEach(k => {
+        assert.equal(a[k].planned, b[k].planned, 'finishing a task never changes what was planned');
+        assert.ok(a[k].done >= b[k].done - 1e-9 && (a[k].pct === null || a[k].pct >= b[k].pct), 'finishing a task never looks worse: ' + m + ' ' + id + ' ' + k); }); }));
+  }
+
+  /* each person's bars: who may see them */
+  const V = (me, extra) => T.visible(Object.assign({ me, mode: 'self_and_leads', analytics: false, people: ['l', 'x', 'y', 'o', 'h'], membersOf: { a: ['l', 'x', 'y', 's'], b: ['o', 'h'] }, leads: [] }, extra || {})).sort();
+  assert.deepEqual(V('x'), ['x'], 'a member: their own only');
+  assert.deepEqual(V('l', { leads: ['a'] }), ['l', 'x', 'y'], 'a team\'s lead: the team\'s members — never a stakeholder (s)');
+  assert.deepEqual(V('o', { leads: ['a'] }), ['l', 'o', 'x', 'y'], 'a lead not in the team they lead: the team and themselves');
+  assert.deepEqual(V('h', { analytics: true }), ['h', 'l', 'o', 'x', 'y'], 'an analytics holder: everyone who is not a stakeholder');
+  assert.deepEqual(V('x', { mode: 'everyone' }), ['h', 'l', 'o', 'x', 'y'], 'the admin chose everyone');
+  assert.deepEqual(V('s', { mode: 'everyone', stakeholder: true }), [], 'a stakeholder: nobody, in either mode');
+  assert.deepEqual(V('s'), [], 'someone who is not one of the people (a stakeholder): nothing of their own either');
+});

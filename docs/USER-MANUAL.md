@@ -442,6 +442,23 @@ ada jumlah **aset yang dihasilkan** (total; arahkan kursor untuk yang sudah terk
 dikreditkan ke orang yang mengunggah versinya; kalau sebuah task tidak punya versi, aset
 diperkirakan dari assignee dan angkanya diberi tanda \*.
 
+**Bar Smart Scoring.** Kalau admin menyalakan Smart Scoring, di bawah bar utilisasi (jam) setiap kartu tim, di bawah
+bar beban kerja tiap orang, dan di halaman tim (di bawah kotak-kotak KPI) ada bar kecil untuk **4 minggu terakhir**:
+- **Story Points / Weighted Points / Poin aset** (hanya modul yang ON) — poin task yang jatuh tempo dalam 4 minggu
+  terakhir (kecuali Declined) dibanding yang sudah selesai, misalnya `34 / 40 poin · 85%`. Task tanpa skor tidak
+  dihitung dan disebut di keterangannya. Task yang dikerjakan beberapa orang dibagi rata per orang; poin aset
+  mengikuti kredit aset masing-masing. Kalau tidak ada yang direncanakan, tertulis *tidak ada yang direncanakan dalam
+  4 minggu terakhir*.
+- **Akurasi estimasi** (kalau Effort Hours ON) — dari task yang selesai dalam 4 minggu terakhir dengan estimasi
+  terkunci dan waktu tercatat di log waktu, berapa yang selesai dalam selisih ±20%, misalnya `7 dari 9 task dalam
+  ±20% · 78%`. Tanpa task seperti itu: *belum ada data* (bukan 0%).
+
+Arahkan kursor ke sebuah bar untuk melihat apa yang dihitung, atau ketuk bar / tombol **?** untuk membukanya. Bar tim
+terlihat oleh semua anggota. Bar per orang terlihat oleh orang itu sendiri, lead timnya, dan pemegang izin analitik —
+atau oleh semua orang kalau admin memilih **Semua orang di workspace** di Settings → Smart Scoring → **Teams screen**.
+Stakeholder tidak melihat bar ini. Urutan orang tidak pernah diubah menurut angka ini: ini angka operasional untuk
+belajar, bukan peringkat.
+
 ### Halaman tim
 
 KPI Utilization / Open tasks / In review / Overdue, lalu panel **Members** (dengan badge

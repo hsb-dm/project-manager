@@ -1346,6 +1346,7 @@ scoring.liveCollection("outcomes", u => outcomes.state(u));
 require("./scoring-analytics")(db, WS_ID, { route, HttpError, forbid, can, scoring, outcomes });   /* Smart Scoring's figures over a period: GET /api/scoring/analytics (server/scoring-analytics.js) */
 require("./scoring-awards")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, userContext, forViewer: (u, t) => forViewer(u, t), bumpData: () => { DATA_VERSION++; }, notify: (list, o) => deliverNotifs(list, o), texts: { mail: MAIL_TEXT, pushId: PUSH_TEXT_ID } });   /* the efficiency bonus: awards, their review and safeguards (server/scoring-awards.js) */
 require("./scoring-ai")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, aiConf, aiFetch, bumpData: () => { DATA_VERSION++; }, announce: id => announceTaskChange("PUT", "/api/tasks/" + id, null, { id: null }) });   /* the AI's suggestions for a task's scores: POST /api/tasks/:id/scoring/ai (server/scoring-ai.js) */
+require("./scoring-teams")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* the Teams screen's bars: GET /api/scoring/teams (server/scoring-teams.js) */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */
