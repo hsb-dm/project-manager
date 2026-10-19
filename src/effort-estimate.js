@@ -15,24 +15,24 @@
    says where the number came from — on hover, or a tap on phones.
    ============================================================ */
 var EST_MIN=0.4, EST_ENOUGH=3, EST_BASE={}, EST_T=null;
-/* What a kind of work usually takes — hands-on hours for one person, not calendar time or waiting for approval.
-   It is the number when the workspace has nothing finished like it yet, it is weighed in when there are only one or
-   two, and it is the yardstick the AI is given: a single feed post is not a ten-hour job. A task's deliverables are
-   its assets produced: the first counts in full and each next one at the kind's own share (Oct 2026) — a resize is
-   quick once the first is done (25%), posts, stories and banners take about half, a poster, a reel or a video more,
-   and a deck, a copy or a logo concept less than half. It used to be 60% for work made in sets and nothing for the
-   rest, so twelve resizes came to ten hours and three reels to the hours of one. Matched on the title, English or
-   Indonesian, the more specific kinds first.
-   One list for all of it (Oct 2026): the kinds, their names and the title patterns are Smart Scoring's engine's
-   (ScoringEngine.KINDS and kindOf, shared/scoring-engine.js, inlined before this file), and so are the hours (its hour
-   templates) — the estimator, the scoring and the points for assets produced always agree on what a title is.
-   [id, English name, Indonesian name, title pattern, typical, low, high, each next deliverable at] */
-var EST_KINDS=(typeof ScoringEngine!=="undefined"?ScoringEngine.KINDS:[]).map(function(k){ var t=ScoringEngine.ENGINE_DEFAULTS.hours.templates[k.id];
-  return [k.id,k.name,k.nameId,k.pattern,t.perUnit,t.low,t.high,t.nextUnitFactor]; });
-function estKind(title){ var id=typeof ScoringEngine!=="undefined"?ScoringEngine.kindOf(String(title||"")):null; for(var i=0;id&&i<EST_KINDS.length;i++) if(EST_KINDS[i][0]===id) return EST_KINDS[i]; return null; }
+/* What a kind of work usually takes — hands-on hours for one person, not calendar time or waiting for approval: the
+   number with nothing finished like it yet, weighed in with one or two, the AI's yardstick. The first deliverable
+   counts in full, each next one at the kind's own share (a resize 25%, most work about half). The kinds and their
+   hours are the workspace's (Settings → Smart Scoring → Kinds of work, used even while it is off), read through the
+   engine's matcher, a kind chosen on the task first; EST_KINDS is the engine's own 14.
+   [id, English name, Indonesian name, keywords, typical, low, high, each next deliverable at] */
+function estTable(kinds,t){ return kinds.filter(function(k){ return k.active!==false; }).map(function(k){ var h=t[k.id]||{}; return [k.id,k.name,k.nameId,k.keywords,h.perUnit,h.low,h.high,h.nextUnitFactor]; }); }
+var EST_KINDS=typeof ScoringEngine!=="undefined"?estTable(ScoringEngine.KINDS,ScoringEngine.ENGINE_DEFAULTS.hours.templates):[];
+function estSettings(){ return typeof scoringSettings==="function"&&scoringSettings(); }
+function estKindList(){ var s=estSettings(); return s?s.kinds:ScoringEngine.KINDS; }
+/* the workspace's active kinds as the table above (no hours typed yet: none) */
+function estKinds(){ var s=estSettings(); return s?estTable(s.kinds,s.hours.templates):EST_KINDS; }
+function estKindOf(tk){ return tk?ScoringEngine.kindOfTask(tk,estKindList()):null; }
+/* the kind, with its hours, of a title (and the task, which may have a kind chosen by hand) */
+function estKind(title,tk){ var id=estKindOf(Object.assign({},tk,{title:String(title||"")})), k=estKinds().filter(function(x){ return x[0]===id; })[0]; return k&&k[4]>0?k:null; }
 /* the kind's hours for this many deliverables: the first in full, each next one at the kind's share */
 function estKindHours(k,items){ var f=items>1?1+k[7]*(items-1):1; return {h:k[4]*f,low:k[5]*f,high:k[6]*f}; }
-function estKindName(id){ var k=EST_KINDS.filter(function(x){ return x[0]===id; })[0]; return k?(UI_LANG==="id"?k[2]:k[1]):id; }
+function estKindName(id){ var k=estKindList().filter(function(x){ return x.id===id; })[0]; return k?(UI_LANG==="id"?k.nameId:k.name):id; }
 function estHours(t){ var a=+((t.meta||{}).actualEffort)||0; return a>0?a:(+t.effort||0); }
 function estRound(h){ return Math.max(0.5,Math.round(h*2)/2); }
 function estPool(){ return TASKS.filter(function(t){ return !t._draft&&!t._creating&&t.title&&isSuccessfulTask(t)&&estHours(t)>0; }); }
@@ -45,7 +45,7 @@ function effortEstimate(tk){ var title=String(tk.title||"").trim(); if(!title||t
   var alike=pool.map(function(t){ var s=simScore(title,tk.description||"",t); if(s<EST_MIN) return null;
       if(tpl&&t.brief&&t.brief.tpl===tpl) s+=0.1; if(tk.team&&t.team===tk.team) s+=0.05; if(labels.some(function(l){ return (t.labels||[]).indexOf(l)>=0; })) s+=0.05;
       return {t:t,h:estHours(t),w:s}; }).filter(Boolean).sort(function(a,b){ return b.w-a.w; }).slice(0,8);
-  var k=estKind(title), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
+  var k=estKind(title,tk), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
   /* enough finished work like it: that is the answer */
   if(alike.length>=EST_ENOUGH||(alike.length&&!k)) return estFrom(alike,"alike");
   /* one or two like it: weighed with what the kind usually takes (the kind counts as two) */
@@ -82,7 +82,7 @@ document.addEventListener("input",function(e){ var el=e.target; if(!el||!el.clos
 function effortAiOk(){ if(typeof aiCfg!=="function"||typeof API==="undefined"||!API.on) return false; var c=aiCfg(); return !!(c.processing.externalEnabled&&(typeof aiChatReady==="function"?aiChatReady("estimate"):(typeof aiConfigured!=="function"||aiConfigured("chat")))); }
 function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTemplates||[],tk.brief.tpl), tm=tk.team&&team(tk.team);
   return ["Estimate the hands-on working hours one experienced person needs to do this task — the time spent working on it, not calendar time and not time waiting for feedback or approval.",
-    "Typical hands-on hours: "+EST_KINDS.map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+" (each next at "+Math.round(k[7]*100)+"%)"; }).join("; ")+". A small task gets a small number.",
+    "Typical hands-on hours: "+estKinds().filter(function(k){ return k[4]>0; }).map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+" (each next at "+Math.round(k[7]*100)+"%)"; }).join("; ")+". A small task gets a small number.",
     "Task title: "+tk.title,
     tk.description?"Description: "+String(tk.description).slice(0,800):"",
     tpl?"Brief template: "+tpl.name:"", tm?"Team: "+tm.name:"", "Priority: "+(tk.prio||"medium"),

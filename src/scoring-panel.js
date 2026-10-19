@@ -134,7 +134,7 @@ function scrRated(mi){ if(!mi||mi.complexityRated===false||mi.complexitySource==
 
 /* ---------- the engine, in the page ---------- */
 function scrEngine(){ return typeof ScoringEngine!=="undefined"?ScoringEngine:null; }
-function scrKind(tk){ var k=typeof estKind==="function"?estKind(tk&&tk.title):null; if(!k) return null; return typeof k==="string"?k:Array.isArray(k)?k[0]:(k.id||null); }
+function scrKind(tk){ return typeof estKindOf==="function"?estKindOf(tk):null; }
 function scrKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("not recognised"); }
 function scrUnits(tk){ return Math.max(1,Math.round(assetCount(tk))); }
 function scrOpenDeps(tk){ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }
@@ -214,8 +214,8 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
     +'<div class="scr-val" data-scr-v="ai">'+scrAiCell(tk,m,aiOn)+'</div>'
     +'<div class="scr-val" data-scr-v="final"><span class="scr-k">'+tr(lk?"Locked value":"Final value")+'</span><b>'+scrFmt(m,fin)+'</b>'+scrSrcChip(r.source)+'</div></div>';
   var info=[];
-  if(m==="hours"){ var mi=r.mathInputs||{}, kind=mi.kind||scrCtxKind(tk), cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
-    info.push(tr("Kind of work")+': <span data-scr-in="kind">'+esc(scrKindName(kind))+'</span>');
+  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
+    info.push(kindPickHtml(tk,canI.editTask(tk)));
     info.push(cx?fmt(tr("Complexity {n} of 5"),{n:cx}):tr("Complexity not rated"));
     info.push('<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
     info.push(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}));
@@ -286,7 +286,7 @@ function scrCalc(id,m){ var tk=task(id); if(!tk) return; var r=scrView(tk,m), s=
   if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null;
     if(!cx){ var st=scrRow(tk,"story")||scrRow(tk,"weighted"); cx=st&&scrNum(st.factors&&st.factors.complexity); }
     SCR.rate={id:id,m:m,kind:mi.kind||scrCtxKind(tk)||"",r:{complexity:cx||null}};
-    var kinds=Object.keys(s.hours.templates), n=assetCount(tk), deps=scrCtxDeps(tk);
+    var kinds=s.kinds.filter(function(k){ return k.active; }).map(function(k){ return k.id; }), n=assetCount(tk), deps=scrCtxDeps(tk);
     body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label><select id="scrKind" onchange="SCR.rate.kind=this.value;scrPreview()"><option value="">'+tr("Choose the kind of work")+'</option>'
       +kinds.map(function(k){ return '<option value="'+attr(k)+'"'+(k===SCR.rate.kind?' selected':'')+'>'+esc(scrKindName(k))+'</option>'; }).join("")+'</select>'
       +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>'

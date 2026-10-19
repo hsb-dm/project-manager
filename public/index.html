@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="b74cba14113f">
+<meta name="zc-build" content="766a5e89e1b6">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -3184,44 +3184,62 @@ body.auth .nav-messages{display:none!important}
   .tbl:has(td.tcheck-col) td.t .mono {
     display: none;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(n+4 of :not(.bulk-check-cell)) {
+  /* Each cell is found by its column class (lcol-<key>, src/tasks.js), not by its place: a person can move the
+     List's columns (src/list-columns.js), and the card keeps its own order whatever that order is —
+     the title, then status, dependency, team and due; assignee at the right, the priority bar at the left. */
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td {
+    order: 5;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-title {
+    order: 0;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-status {
     order: 1;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(8 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(10 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(12 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(13 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-dependency {
+    order: 2;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-team {
+    order: 3;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due {
+    order: 4;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-proj,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-start,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-effort,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-tags {
     display: none !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee {
     position: absolute;
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) .cell-flex {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .cell-flex {
     font-size: 0;
     gap: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) .av {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .av {
     width: 22px;
     height: 22px;
     font-size: 8px;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio {
     position: absolute;
     left: 8px;
     top: 10px;
     bottom: 10px;
     font-size: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) .cell-flex {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .cell-flex {
     height: 100%;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) .prio {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .prio {
     height: 100% !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(11 of :not(.bulk-check-cell)) .due {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due .due {
     font-size: 10.5px;
     white-space: nowrap;
   }
@@ -5518,11 +5536,6 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .scr-total{font-size:var(--fs-sm);font-weight:650;margin:-4px 0 6px}
 .scr-total.ok{color:var(--color-success)}
 .scr-total.bad{color:var(--color-danger)}
-.scr-tpl{margin-bottom:4px}
-.scr-tpl .tbl th{cursor:default}
-.scr-tpl input.scr-cell{width:84px;border:1px solid var(--color-border);border-radius:10px;padding:6px 8px;background:var(--color-surface);outline:none;font-size:var(--fs-base)}
-.scr-tpl input.scr-cell:focus{border-color:var(--color-primary)}
-.scr-tpl input.scr-cell:disabled{opacity:.7}
 .scr-bands{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
 .scr-holder-who,.scr-au-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
 .scr-audit-row{padding:10px 0;border-bottom:1px solid var(--color-border)}
@@ -6120,216 +6133,6 @@ const roleLimit=(user,table)=>{const roles=[user.role||'member'].concat(user.ext
 const usage=(used,lim)=>({used,limit:lim.unlimited?null:lim.limit,unlimited:lim.unlimited,remaining:lim.unlimited?null:Math.max(0,lim.limit-used),percentage:lim.unlimited?0:lim.limit===0?100:Math.round(used/lim.limit*100),over:!lim.unlimited&&used>lim.limit});
 const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,usage,DEFAULT_ROLE_QUOTA};if(typeof module!=='undefined'&&module.exports)module.exports=model;else root.GalleryModel=model;
 })(typeof window!=='undefined'?window:this);
-</script><script>/* SMART SCORING SETTINGS (Oct 2026) — one shape for the server, the browser and the tests (docs/SMART-SCORING.md).
-
-   The workspace's Smart Scoring settings are one JSON object, kept in workspaces.scoring_settings and written only by
-   PUT /api/scoring/settings. Whatever arrives — from the database, from the Settings tab, from an older version or a
-   hand-made request — goes through normalizeSettings first: every key the shape does not know is dropped, a missing
-   one takes its default, every number is held to its range, the factor weights are made to add up to exactly 1, the
-   Story Points thresholds are sorted, the Fibonacci scale is always 1, 2, 3, 5, 8, 13, and a mode or a capacity
-   metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
-
-   Off by default: the master switch is off, and inside it only Effort Hours is on. The hours templates are the kinds
-   of work src/effort-estimate.js already knows (EST_KINDS), with its numbers and its ids, and the same as the engine's
-   (shared/scoring-engine.js): each next deliverable counts at the kind's own share of the first, never more than it.
-
-   Asset points (Oct 2026): modules.assets.on is their switch (off by default; assets.on mirrors it), and assets holds
-   what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
-   whether counts a lead has not validated yet count (they do by default, marked as such).
-
-   The Teams screen (Oct 2026): teams.memberBars says who sees each person's Smart Scoring bars there —
-   "self_and_leads" (the default: the person, the lead of their team and whoever holds scoring_view_analytics) or
-   "everyone" (every member who is not a stakeholder). A team's own bars are everyone's either way.
-
-   diffSettings(a, b) lists what changed between two settings, one leaf at a time ({path, from, to}), for the audit.
-
-   The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
-   (settings.hours, settings.story, settings.weighted, settings.bonus, settings.ai) and never reads this module.
-   Used by server/serialize.js, server/scoring.js and, inlined by build.js, the page (window.ScoringSettings). */
-(function(root){
-"use strict";
-const MODES = ["math_only", "ai_assisted", "hybrid"];
-const PRIMARY_CAPACITY = ["hours", "story_points", "weighted_points"];
-const FACTORS = ["complexity", "scope", "uncertainty", "dependencies"];
-const SCALE = [1, 2, 3, 5, 8, 13];
-const LOCK_POLICIES = ["approve", "approve_or_work_start"];
-const COMPARABLES = ["team", "none"];
-const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
-/* who sees each person's bars on the Teams screen (server/scoring-teams.js) */
-const MEMBER_BARS = ["self_and_leads", "everyone"];
-/* the kinds of work, as src/effort-estimate.js EST_KINDS has them: [id, typical hours, low, high, each next deliverable at] */
-const KINDS = [
-  ["carousel", 4, 3, 6, 0.5], ["story", 1.5, 1, 3, 0.5], ["reels", 6, 4, 10, 0.6], ["video", 8, 4, 16, 0.6],
-  ["kv", 6, 4, 10, 0.5], ["resize", 1.5, 0.5, 3, 0.25], ["feed", 2, 1, 3, 0.5], ["poster", 3, 2, 5, 0.6],
-  ["banner", 3, 2, 5, 0.5], ["copy", 1.5, 0.5, 3, 0.4], ["deck", 6, 3, 10, 0.4], ["logo", 10, 6, 16, 0.4],
-  ["web", 10, 6, 20, 0.5], ["email", 3, 2, 5, 0.5]];
-const KIND_IDS = KINDS.map(k => k[0]);
-/* points for one asset produced, per kind of work (the same ids; the engine's ENGINE_DEFAULTS.assets.perKind): one feed
-   post = 1, about a piece's typical hours ÷ 2 — a resize 0.25, a logo 5 */
-const ASSET_POINTS = { carousel: 2, story: 0.75, reels: 3, video: 4, kv: 3, resize: 0.25, feed: 1, poster: 1.5, banner: 1.5, copy: 0.75, deck: 3, logo: 5, web: 5, email: 1.5 };
-/* written by the server, never by the person saving: left out of what diffSettings reports; assets.on is
-   modules.assets.on mirrored, so turning the module on is reported once */
-const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy", "assets.on"]);
-
-function defaults() {
-  const templates = {};
-  KINDS.forEach(k => { templates[k[0]] = { perUnit: k[1], low: k[2], high: k[3], nextUnitFactor: k[4] }; });
-  return {
-    enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
-    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false }, assets: { on: false } },
-    primaryCapacity: "hours",
-    hours: {
-      templates,
-      complexity: { 1: 0.8, 2: 0.9, 3: 1, 4: 1.25, 5: 1.5 },
-      dependency: { 0: 1, 1: 1.1, 2: 1.2, 3: 1.3 },
-      bounds: { min: 0.25, max: 80 },
-      lockPolicy: "approve_or_work_start"
-    },
-    story: { scale: SCALE.slice(), thresholds: [1.5, 2.5, 3.5, 4.25, 4.75], weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 } },
-    weighted: { weights: { complexity: 0.4, scope: 0.3, uncertainty: 0.2, dependencies: 0.1 }, scaleMax: 10, mappingVersion: 1 },
-    ai: { minConfidence: 0.6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200, comparables: "team" },
-    overrides: { requireReason: true, requireApproval: false, allowSelfApproveEstimate: false },
-    bonus: {
-      on: false, enabledAt: null, grace: 0.1, rewardFactor: 0.5, maxRate: 0.2, minE: 1, minA: 0.25, reviewBelowRatio: 0.4,
-      materialChangeHours: 0.25, baseSource: "weighted_else_mapping",
-      hourMapping: { type: "bands", bands: [[1, 1], [2, 2], [4, 3], [8, 5], [16, 8], [999, 13]] },
-      completionStages: null, requireApprovedVersion: true, minQuality: null,
-      independentApproval: true, allowSelfApproval: false, perPeriodCap: null, pilotTeams: [], negative: false, retroactive: false
-    },
-    assets: { on: false, countUnvalidated: true, perKind: Object.assign({}, ASSET_POINTS), unknownKind: 1 },
-    teams: { memberBars: "self_and_leads" }
-  };
-}
-function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
-const DEFAULTS = freeze(defaults());
-
-const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
-const round4 = x => Math.round(x * 1e4) / 1e4;
-/* a number (or a numeric string) held to [lo, hi]; anything else is the default */
-function num(v, lo, hi, d) { const x = typeof v === "string" && v.trim() !== "" ? +v : v; if (typeof x !== "number" || !isFinite(x)) return d; return round4(Math.min(hi, Math.max(lo, x))); }
-function int(v, lo, hi, d) { const x = num(v, lo, hi, null); return x === null ? d : Math.round(x); }
-const bool = (v, d) => typeof v === "boolean" ? v : d;
-const pick = (v, list, d) => list.indexOf(v) >= 0 ? v : d;
-const ID = /^[-\w]{1,40}$/;
-const idOrNull = v => typeof v === "string" && ID.test(v) ? v : null;
-const isoOrNull = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/.test(v) ? v : null;
-const ids = (v, max) => Array.isArray(v) ? [...new Set(v.filter(x => typeof x === "string" && ID.test(x)))].slice(0, max) : [];
-
-/* the factor weights, made to add up to exactly 1 (in steps of 0.0001, any remainder on the largest); all zero or
-   not a set of weights: the defaults. Weights given as percentages (40, 30, 20, 10) come out the same. */
-function weights(v, d) {
-  if (!isObj(v)) return Object.assign({}, d);
-  const w = {}; let sum = 0;
-  FACTORS.forEach(f => { w[f] = num(v[f], 0, 1e6, 0); sum += w[f]; });
-  if (!(sum > 0)) return Object.assign({}, d);
-  const units = {}; let total = 0, big = FACTORS[0];
-  FACTORS.forEach(f => { units[f] = Math.round(w[f] / sum * 1e4); total += units[f]; if (units[f] > units[big]) big = f; });
-  units[big] += 1e4 - total;
-  const out = {}; FACTORS.forEach(f => { out[f] = units[f] / 1e4; }); return out;
-}
-/* the five cut points on the 1–5 index, lowest first: an index at most thresholds[i] (and above the one before) is
-   SCALE[i]; above the last it is 13 — as shared/scoring-engine.js storyPoints reads them */
-function thresholds(v, d) {
-  if (!Array.isArray(v) || v.length !== d.length || v.some(x => num(x, -1e9, 1e9, null) === null)) return d.slice();
-  return v.map(x => num(x, 1, 5, 1)).sort((a, b) => a - b);
-}
-/* hours → base points: [up to this many hours, points] pairs, fewest hours first, each number of hours once */
-function bands(v, d) {
-  if (!Array.isArray(v) || !v.length || v.length > 12) return d.map(b => b.slice());
-  const out = [], seen = new Set();
-  for (const b of v) {
-    if (!Array.isArray(b) || b.length !== 2) return d.map(x => x.slice());
-    const h = num(b[0], 0.05, 10000, null), p = num(b[1], 0.01, 1000, null);
-    if (h === null || p === null) return d.map(x => x.slice());
-    if (!seen.has(h)) { seen.add(h); out.push([h, p]); }
-  }
-  return out.sort((a, b) => a[0] - b[0]);
-}
-function mod(v, d, withMode) { const m = isObj(v) ? v : {}; const o = { on: bool(m.on, d.on) }; if (withMode) o.mode = pick(m.mode, MODES, d.mode); return o; }
-
-function normalizeSettings(raw) {
-  let r = raw;
-  if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = null; } }
-  if (!isObj(r)) r = {};
-  const d = defaults(), o = {};
-  o.enabled = bool(r.enabled, d.enabled);
-  o.configVersion = int(r.configVersion, 1, 1e9, d.configVersion);
-  o.updatedAt = isoOrNull(r.updatedAt); o.updatedBy = idOrNull(r.updatedBy);
-  const m = isObj(r.modules) ? r.modules : {};
-  const ra = isObj(r.assets) ? r.assets : {};
-  /* the asset points switch is modules.assets.on; an older or hand-made object with only assets.on is read too */
-  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr),
-    assets: mod(m.assets, { on: bool(ra.on, d.modules.assets.on) }) };
-  o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
-
-  const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
-  o.hours = { templates: {} };
-  KIND_IDS.forEach(id => {
-    const t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
-    const perUnit = num(t.perUnit, 0.05, 200, dt.perUnit);
-    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt.low)), high: Math.max(perUnit, num(t.high, 0.05, 200, dt.high)), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt.nextUnitFactor) };
-  });
-  const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
-  o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });
-  o.hours.dependency = {}; [0, 1, 2, 3].forEach(k => { o.hours.dependency[k] = num(dp[k], 0.5, 10, dh.dependency[k]); });
-  const min = num(bd.min, 0.05, 40, dh.bounds.min);
-  o.hours.bounds = { min, max: Math.max(min, num(bd.max, 0.5, 400, dh.bounds.max)) };
-  o.hours.lockPolicy = pick(h.lockPolicy, LOCK_POLICIES, dh.lockPolicy);
-
-  const s = isObj(r.story) ? r.story : {};
-  o.story = { scale: SCALE.slice(), thresholds: thresholds(s.thresholds, d.story.thresholds), weights: weights(s.weights, d.story.weights) };
-  const w = isObj(r.weighted) ? r.weighted : {};
-  o.weighted = { weights: weights(w.weights, d.weighted.weights), scaleMax: int(w.scaleMax, 2, 100, d.weighted.scaleMax), mappingVersion: int(w.mappingVersion, 1, 1e6, d.weighted.mappingVersion) };
-
-  const a = isObj(r.ai) ? r.ai : {}, da = d.ai;
-  o.ai = { minConfidence: num(a.minConfidence, 0, 1, da.minConfidence), onCreate: bool(a.onCreate, da.onCreate), onBriefRevision: bool(a.onBriefRevision, da.onBriefRevision),
-    perUserDaily: int(a.perUserDaily, 0, 1000, da.perUserDaily), workspaceDaily: int(a.workspaceDaily, 0, 100000, da.workspaceDaily), comparables: pick(a.comparables, COMPARABLES, da.comparables) };
-  const v = isObj(r.overrides) ? r.overrides : {}, dv = d.overrides;
-  o.overrides = { requireReason: bool(v.requireReason, dv.requireReason), requireApproval: bool(v.requireApproval, dv.requireApproval), allowSelfApproveEstimate: bool(v.allowSelfApproveEstimate, dv.allowSelfApproveEstimate) };
-
-  const b = isObj(r.bonus) ? r.bonus : {}, db = d.bonus, hm = isObj(b.hourMapping) ? b.hourMapping : {};
-  const stages = ids(b.completionStages, 30);
-  o.bonus = {
-    on: bool(b.on, db.on), enabledAt: isoOrNull(b.enabledAt),
-    grace: num(b.grace, 0, 0.9, db.grace), rewardFactor: num(b.rewardFactor, 0, 5, db.rewardFactor), maxRate: num(b.maxRate, 0, 1, db.maxRate),
-    minE: num(b.minE, 0, 1000, db.minE), minA: num(b.minA, 0, 1000, db.minA), reviewBelowRatio: num(b.reviewBelowRatio, 0, 1, db.reviewBelowRatio),
-    materialChangeHours: num(b.materialChangeHours, 0, 100, db.materialChangeHours), baseSource: pick(b.baseSource, BASE_SOURCES, db.baseSource),
-    hourMapping: { type: "bands", bands: bands(hm.bands, db.hourMapping.bands) },
-    completionStages: Array.isArray(b.completionStages) && stages.length ? stages : null,
-    requireApprovedVersion: bool(b.requireApprovedVersion, db.requireApprovedVersion),
-    minQuality: b.minQuality === null || b.minQuality === undefined ? null : num(b.minQuality, 1, 5, null),
-    /* owner decisions: an independent reviewer always, admins included; no per-period cap in v1; never negative;
-       never retroactive — held here so no request can change them */
-    independentApproval: true, allowSelfApproval: false, perPeriodCap: null,
-    pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
-  };
-
-  /* asset points: each kind's points for one asset, 0–20, only the known kinds; on mirrors the module switch */
-  const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
-  o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
-  KIND_IDS.forEach(id => { o.assets.perKind[id] = num(pk[id], 0, 20, da2.perKind[id]); });
-  /* the Teams screen: who sees each person's bars — only the two known choices */
-  const tm = isObj(r.teams) ? r.teams : {};
-  o.teams = { memberBars: pick(tm.memberBars, MEMBER_BARS, d.teams.memberBars) };
-  return o;
-}
-
-/* what changed from a to b, leaf by leaf (lists compared whole), the server's own bookkeeping left out */
-function diffSettings(a, b) {
-  const out = [];
-  const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
-  (function walk(x, y, p) {
-    if (isObj(x) && isObj(y)) { [...new Set(Object.keys(x).concat(Object.keys(y)))].sort().forEach(k => walk(x[k], y[k], p ? p + "." + k : k)); return; }
-    if (!same(x, y)) out.push({ path: p, from: x === undefined ? null : x, to: y === undefined ? null : y });
-  })(isObj(a) ? a : {}, isObj(b) ? b : {}, "");
-  return out.filter(c => !VOLATILE.has(c.path));
-}
-/* a module counts only with the master switch on */
-const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
-
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
-if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
-})(typeof window !== "undefined" ? window : this);
 </script><script>/* ============================================================
    SMART SCORING ENGINE (Oct 2026) — the arithmetic of Smart Scoring, worked out the same way everywhere.
    One file, used three ways: the server and the tests require() it, and build.js inlines it into the page, where it
@@ -6419,7 +6222,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
      many were. Nothing left: value null, reason no_progress (or zero_weight when the rest all weigh 0).
 
    validateAi(reply, settings) → {ok, value, errors}
-     Cleans an AI reply already parsed from JSON. Kept: kind (a template id), deliverables (a whole number 1–500),
+     Cleans an AI reply already parsed from JSON. Kept: kind (an active one of settings.kinds, else a template id), deliverables (a whole number 1–500),
      factors (the four ratings, whole numbers 1–5), hours (above 0, kept within settings.hours.bounds), storyPoints
      (only 1, 2, 3, 5, 8 or 13), weightedPoints (kept within 1–settings.weighted.scaleMax), confidence (0–1; above 1
      up to 100 is read as a percentage, above 100 dropped), explanation (600 characters at most), assumptions and
@@ -6430,17 +6233,15 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
 
    inputHash(task) → 16 hexadecimal characters
      FNV-1a (two 32-bit passes) over the task as the AI is told about it: title, description, brief fields (the
-     template id with them), deliverable count (deliverables, else assetCount), labels and team. Text in Unicode NFC,
+     template id with them), deliverable count (deliverables, else assetCount), labels, team and kind (only if given). Text in Unicode NFC,
      spaces collapsed, lower case; brief keys and labels sorted; an empty field is the same as a missing one. The same
      task gives the same hash in the browser and on the server, whatever the key order or spacing — the AI cache key,
      with the settings' configVersion.
 
-   KINDS → [{id, name, nameId, pattern}], frozen; kindOf(title) → a kind id or null
-     The kinds of work, with their English and Indonesian names and the title pattern each is recognised by, the more
-     specific first (a "carousel" before a "feed post", "reels" before "video", a "resize" before anything it
-     resizes). kindOf lower-cases the title and gives the first kind whose pattern matches it, English or Indonesian;
-     nothing matches: null. The one list there is: src/effort-estimate.js (today's estimator, EST_KINDS) is built
-     from it, the hour templates and the asset points have its ids, and the server reads a task's kind with it.
+   KINDS (built-ins), KIND_LIMITS, kindMatch(title, kinds) → {id, keyword}|null, kindOf(title, kinds), kindPick(task, kinds)
+   (an active meta.kind), kindOfTask = kindPick || kindOf(title), kindKeyword. The first active kind of the list (else
+   KINDS) with a keyword in the title: text, never a pattern, whole words ("copy" is not "copywriter"), any case; a final
+   * takes longer words (video* → videografi).
 
    assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})
      → {perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total,
@@ -6516,30 +6317,51 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
   });
   const defaults = () => JSON.parse(JSON.stringify(ENGINE_DEFAULTS));
 
-  /* ---------- the kinds of work, and how a title says which (the one list: src/effort-estimate.js is built on it) ---------- */
-  const kindDef = (id, name, nameId, pattern) => Object.freeze({ id, name, nameId, pattern });
+  /* ---------- the kinds of work, and how a title says which (the one matcher: page and server) ---------- */
+  const kindDef = (id, name, nameId, kw) => Object.freeze({ id, name, nameId: nameId || name, keywords: Object.freeze(kw.split(',')) });
   const KINDS = Object.freeze([
-    kindDef('carousel', 'carousel', 'karosel', /carousel|karosel/),
-    kindDef('story', 'story', 'story', /\bstor(y|ies)\b|insta ?story|ig ?story/),
-    kindDef('reels', 'reels or short video', 'reels atau video pendek', /\breels?\b|tiktok|\bshorts\b|short video|video pendek/),
-    kindDef('video', 'video', 'video', /video|motion|animation|animasi/),
-    kindDef('kv', 'key visual', 'key visual', /\bkv\b|key ?visual/),
-    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', /resize|adaptasi|adaptation|turunan/),
-    kindDef('feed', 'feed post', 'post feed', /\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/),
-    kindDef('poster', 'poster or flyer', 'poster atau flyer', /poster|flyer|leaflet|brosur|brochure|pamflet/),
-    kindDef('banner', 'banner or ad', 'banner atau iklan', /banner|\bads?\b|iklan|billboard|baliho|spanduk/),
-    kindDef('copy', 'copywriting', 'copywriting', /copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/),
-    kindDef('deck', 'presentation', 'presentasi', /\bdeck\b|presentation|presentasi|\bppt\b|pitch/),
-    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', /\blogo\b|branding|brand identity|identitas brand/),
-    kindDef('web', 'web page', 'halaman web', /landing ?page|website|web ?page|halaman web/),
-    kindDef('email', 'email or newsletter', 'email atau newsletter', /\bemail\b|newsletter|\bedm\b/)
+    kindDef('carousel', 'carousel', 'karosel', 'carousel*,karosel*'),
+    kindDef('story', 'story', '', 'story,stories,insta story*,instastory*,ig story*,igstory*'),
+    kindDef('reels', 'reels or short video', 'reels atau video pendek', 'reel,reels,tiktok*,shorts,short video*,video pendek*'),
+    kindDef('video', 'video', '', 'video*,motion*,animation*,animasi*'),
+    kindDef('kv', 'key visual', '', 'kv,key visual*,keyvisual*'),
+    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', 'resize*,adaptasi*,adaptation*,turunan*'),
+    kindDef('feed', 'feed post', 'post feed', 'feed,feeds,post,posts,posting*,konten,instagram*,facebook*,linkedin*,social media*,sosmed*,media sosial*'),
+    kindDef('poster', 'poster or flyer', 'poster atau flyer', 'poster*,flyer*,leaflet*,brosur*,brochure*,pamflet*'),
+    kindDef('banner', 'banner or ad', 'banner atau iklan', 'banner*,ad,ads,iklan*,periklanan*,billboard*,baliho*,spanduk*'),
+    kindDef('copy', 'copywriting', '', 'copywriting*,copy,caption*,naskah*,script*,artikel*,article*,blog'),
+    kindDef('deck', 'presentation', 'presentasi', 'deck,presentation*,presentasi*,ppt,pitch*'),
+    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', 'logo,branding*,rebranding*,brand identity*,identitas brand*'),
+    kindDef('web', 'web page', 'halaman web', 'landing page*,landingpage*,website*,web page*,webpage*,halaman web*'),
+    kindDef('email', 'email or newsletter', 'email atau newsletter', 'email,newsletter*,edm')
   ]);
-  const KIND_IDS = KINDS.map(k => k.id);
-  function kindOf(title) {
-    const s = String(title === null || title === undefined ? '' : title).toLowerCase();
-    for (const k of KINDS) if (k.pattern.test(s)) return k.id;
-    return null;
+  const KIND_IDS = KINDS.map(k => k.id), KIND_LIMITS = Object.freeze({ kinds: 50, keywords: 40, keyword: 40, name: 40 });
+  const EDGE = '(?:^|[^\\p{L}\\p{N}])', END = '(?![\\p{L}\\p{N}])';
+  const textOf = v => String(v == null ? '' : v).normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  function kindKeyword(v) {
+    if (typeof v !== 'string') return '';
+    const s = textOf(v), k = s.replace(/\*/g, '').trim(), n = Array.from(k).length;
+    return !n || n > KIND_LIMITS.keyword || !/[\p{L}\p{N}]/u.test(k) ? '' : k + (s.endsWith('*') && n > 2 ? '*' : '');
   }
+  const kindsOf = x => (Array.isArray(x) ? x : isObj(x) && Array.isArray(x.kinds) ? x.kinds : KINDS);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const reOf = w => (w.endsWith('*') ? esc(w.slice(0, -1)) : esc(w) + END);
+  /* per list, each active kind's keywords as escaped text between word edges: one expression a kind */
+  const compiled = new WeakMap();
+  function compile(list) {
+    if (!compiled.has(list)) compiled.set(list, list.filter(k => isObj(k) && k.active !== false).map(k => {
+      const kws = (Array.isArray(k.keywords) ? k.keywords : []).map(kindKeyword).filter(Boolean);
+      return { id: k.id, kws, re: kws.length ? new RegExp(EDGE + '(?:' + kws.map(reOf).join('|') + ')', 'u') : null };
+    }));
+    return compiled.get(list);
+  }
+  function kindMatch(title, kinds, idOnly) {
+    const s = textOf(title), k = s ? compile(kindsOf(kinds)).find(x => x.re && x.re.test(s)) : null;
+    return !k ? null : idOnly ? k.id : { id: k.id, keyword: k.kws.find(w => new RegExp(EDGE + reOf(w), 'u').test(s)) };
+  }
+  const kindOf = (title, kinds) => kindMatch(title, kinds, true);
+  const kindPick = (task, kinds) => { const id = isObj(task) && isObj(task.meta) ? task.meta.kind : null; return kindsOf(kinds).some(k => isObj(k) && k.id === id && k.active !== false) ? id : null; };
+  const kindOfTask = (task, kinds) => kindPick(task, kinds) || kindOf(isObj(task) ? task.title : '', kinds);
 
   /* ---------- the sentences (keys of `steps`; the page translates them with tr()) ---------- */
   const SENTENCES = {
@@ -7026,7 +6848,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
     if (unknown.length) errors.push('Ignored unknown fields: ' + unknown.slice(0, 10).map(short).join(', ') + (unknown.length > 10 ? ' and ' + (unknown.length - 10) + ' more' : '') + '.');
     if (has('kind')) {
       const k = typeof reply.kind === 'string' ? reply.kind.trim() : '';
-      if (k && hasOwn(templates, k)) v.kind = k; else errors.push('kind ' + short(reply.kind) + ' is not a known kind of work; dropped.');
+      const known = Array.isArray(settings.kinds) ? settings.kinds.some(x => isObj(x) && x.id === k && x.active !== false) : hasOwn(templates, k);
+      if (k && known) v.kind = k; else errors.push('kind ' + short(reply.kind) + ' is not a known kind of work; dropped.');
     }
     if (has('deliverables')) {
       const n = num(reply.deliverables);
@@ -7132,17 +6955,234 @@ if (typeof module !== "undefined" && module.exports) module.exports = model; els
     const text = v => (v === null || v === undefined ? '' : norm(v));
     const labels = Array.isArray(t.labels) ? Array.from(new Set(t.labels.map(text).filter(Boolean))).sort() : [];
     const d = num(t.deliverables !== undefined && t.deliverables !== null ? t.deliverables : t.assetCount);
-    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)]);
+    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)].concat(t.kind ? [text(t.kind)] : []));
     return fnv1a(payload, 0x811c9dc5) + fnv1a(payload, 0x9747b28c);
   }
 
   const engine = {
     round2, hours, storyPoints, weightedPoints, basePoints, efficiency, allocate, progress, rollup, validateAi, inputHash,
-    assetPoints, kindOf, KINDS, KIND_IDS,
+    assetPoints, kindOf, kindMatch, kindPick, kindOfTask, kindKeyword, KINDS, KIND_IDS, KIND_LIMITS,
     fill, defaults, ENGINE_DEFAULTS, SENTENCES, REASONS, FACTORS, STORY_SCALE, ENGINE_VERSION, INPUT_HASH_VERSION
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = engine; else root.ScoringEngine = engine;
 })(typeof window !== 'undefined' ? window : this);
+</script><script>/* SMART SCORING SETTINGS (Oct 2026) — one shape for the server, the browser and the tests (docs/SMART-SCORING.md).
+
+   The workspace's Smart Scoring settings are one JSON object, kept in workspaces.scoring_settings and written only by
+   PUT /api/scoring/settings. Whatever arrives — from the database, from the Settings tab, from an older version or a
+   hand-made request — goes through normalizeSettings first: every key the shape does not know is dropped, a missing
+   one takes its default, every number is held to its range, the factor weights are made to add up to exactly 1, the
+   Story Points thresholds are sorted, the Fibonacci scale is always 1, 2, 3, 5, 8, 13, and a mode or a capacity
+   metric that is not one of the known ones goes back to its default. So every reader can trust what it gets.
+
+   Off by default: the master switch is off, and inside it only Effort Hours is on. The default numbers are the
+   engine's (shared/scoring-engine.js ENGINE_DEFAULTS), the estimator's too: each next deliverable counts at the kind's
+   own share of the first, never more than it.
+
+   Asset points (Oct 2026): modules.assets.on is their switch (off by default; assets.on mirrors it), and assets holds
+   what one asset produced is worth per kind of work — the same kind ids, one feed post = 1 point, each 0–20 — with
+   whether counts a lead has not validated yet count (they do by default, marked as such).
+
+   The Teams screen (Oct 2026): teams.memberBars says who sees each person's Smart Scoring bars there —
+   "self_and_leads" (the default: the person, the lead of their team and whoever holds scoring_view_analytics) or
+   "everyone" (every member who is not a stakeholder). A team's own bars are everyone's either way.
+
+   Kinds of work (Oct 2026): kinds [{id, name, nameId, keywords, builtIn, active, order}] in detection order, built-ins
+   never removed, the admin's own "k_…" (ids from the server); each has asset points (new: unknownKind's) and, once
+   typed, hours (low, high, next left out: ×0.5, ×1.5, 0.5).
+
+   diffSettings(a, b) lists what changed, one leaf at a time ({path, from, to}; kinds by id), for the audit.
+
+   The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
+   (settings.hours, settings.story, settings.weighted, settings.bonus, settings.ai) and never reads this module (it is
+   inlined before it).
+   Used by server/serialize.js, server/scoring.js and, inlined by build.js, the page (window.ScoringSettings). */
+(function(root){
+"use strict";
+const E = typeof module !== "undefined" && module.exports ? require("./scoring-engine") : root.ScoringEngine;
+const MODES = ["math_only", "ai_assisted", "hybrid"];
+const PRIMARY_CAPACITY = ["hours", "story_points", "weighted_points"];
+const FACTORS = ["complexity", "scope", "uncertainty", "dependencies"];
+const SCALE = [1, 2, 3, 5, 8, 13];
+const LOCK_POLICIES = ["approve", "approve_or_work_start"];
+const COMPARABLES = ["team", "none"];
+const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
+/* who sees each person's bars on the Teams screen (server/scoring-teams.js) */
+const MEMBER_BARS = ["self_and_leads", "everyone"];
+/* the built-in kinds of work and the points of one asset of each (the engine's) */
+const KIND_IDS = E.KIND_IDS, ASSET_POINTS = E.ENGINE_DEFAULTS.assets.perKind, BUILT_IN = E.KINDS, LIM = E.KIND_LIMITS, CUSTOM_ID = /^[a-z][a-z0-9_]{1,31}$/;
+/* written by the server, never by the person saving: left out of what diffSettings reports; assets.on is
+   modules.assets.on mirrored, so turning the module on is reported once */
+const VOLATILE = new Set(["configVersion", "updatedAt", "updatedBy", "assets.on"]);
+
+/* the numbers are the engine's own (ENGINE_DEFAULTS: hours, story, weighted, ai, bonus, assets) — one set, never forked */
+function defaults() {
+  const e = E.defaults();
+  return {
+    enabled: false, configVersion: 1, updatedAt: null, updatedBy: null,
+    modules: { hours: { on: true, mode: "hybrid" }, story: { on: false, mode: "math_only" }, weighted: { on: false, mode: "math_only" }, kpi: { on: false }, okr: { on: false }, assets: { on: false } },
+    primaryCapacity: "hours",
+    kinds: kinds(),
+    hours: e.hours, story: { scale: SCALE.slice(), thresholds: e.story.thresholds, weights: e.story.weights }, weighted: e.weighted, ai: e.ai,
+    overrides: { requireReason: true, requireApproval: false, allowSelfApproveEstimate: false },
+    bonus: e.bonus, assets: e.assets, teams: { memberBars: "self_and_leads" }
+  };
+}
+function freeze(o) { if (o && typeof o === "object") { Object.values(o).forEach(freeze); Object.freeze(o); } return o; }
+const DEFAULTS = freeze(defaults());
+
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+const round4 = x => Math.round(x * 1e4) / 1e4;
+/* a number (or a numeric string) held to [lo, hi]; anything else is the default */
+function num(v, lo, hi, d) { const x = typeof v === "string" && v.trim() !== "" ? +v : v; if (typeof x !== "number" || !isFinite(x)) return d; return round4(Math.min(hi, Math.max(lo, x))); }
+function int(v, lo, hi, d) { const x = num(v, lo, hi, null); return x === null ? d : Math.round(x); }
+const bool = (v, d) => typeof v === "boolean" ? v : d;
+const pick = (v, list, d) => list.indexOf(v) >= 0 ? v : d;
+const ID = /^[-\w]{1,40}$/;
+const idOrNull = v => typeof v === "string" && ID.test(v) ? v : null;
+const isoOrNull = v => typeof v === "string" && /^\d{4}-\d{2}-\d{2}T[\d:.]+Z?$/.test(v) ? v : null;
+const ids = (v, max) => Array.isArray(v) ? [...new Set(v.filter(x => typeof x === "string" && ID.test(x)))].slice(0, max) : [];
+
+/* the factor weights, made to add up to exactly 1 (in steps of 0.0001, any remainder on the largest); all zero or
+   not a set of weights: the defaults. Weights given as percentages (40, 30, 20, 10) come out the same. */
+function weights(v, d) {
+  if (!isObj(v)) return Object.assign({}, d);
+  const w = {}; let sum = 0;
+  FACTORS.forEach(f => { w[f] = num(v[f], 0, 1e6, 0); sum += w[f]; });
+  if (!(sum > 0)) return Object.assign({}, d);
+  const units = {}; let total = 0, big = FACTORS[0];
+  FACTORS.forEach(f => { units[f] = Math.round(w[f] / sum * 1e4); total += units[f]; if (units[f] > units[big]) big = f; });
+  units[big] += 1e4 - total;
+  const out = {}; FACTORS.forEach(f => { out[f] = units[f] / 1e4; }); return out;
+}
+/* the five cut points on the 1–5 index, lowest first: an index at most thresholds[i] (and above the one before) is
+   SCALE[i]; above the last it is 13 — as shared/scoring-engine.js storyPoints reads them */
+function thresholds(v, d) {
+  if (!Array.isArray(v) || v.length !== d.length || v.some(x => num(x, -1e9, 1e9, null) === null)) return d.slice();
+  return v.map(x => num(x, 1, 5, 1)).sort((a, b) => a - b);
+}
+/* hours → base points: [up to this many hours, points] pairs, fewest hours first, each number of hours once */
+function bands(v, d) {
+  if (!Array.isArray(v) || !v.length || v.length > 12) return d.map(b => b.slice());
+  const out = [], seen = new Set();
+  for (const b of v) {
+    if (!Array.isArray(b) || b.length !== 2) return d.map(x => x.slice());
+    const h = num(b[0], 0.05, 10000, null), p = num(b[1], 0.01, 1000, null);
+    if (h === null || p === null) return d.map(x => x.slice());
+    if (!seen.has(h)) { seen.add(h); out.push([h, p]); }
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+/* ---------- the kinds of work ---------- */
+const text = (v, max) => typeof v === "string" ? Array.from(v.replace(/[\s\p{Cc}]+/gu, " ").trim()).slice(0, max).join("").trim() : "";
+/* a list or a comma-separated text, each keyword once, at most 40 */
+function keywords(v, d) {
+  const src = Array.isArray(v) ? v : typeof v === "string" ? v.split(",") : null;
+  if (!src) return d.slice();
+  const out = [];
+  src.forEach(x => { const k = E.kindKeyword(x); if (k && out.indexOf(k) < 0 && out.length < LIM.keywords) out.push(k); });
+  return out;
+}
+/* by order, each id once, a built-in left out back at the end; one's own needs a name (or a keyword) */
+function kinds(v) {
+  const list = [], seen = new Set();
+  (Array.isArray(v) ? v : []).map((x, i) => [x, i]).filter(p => isObj(p[0])).sort((a, b) => num(a[0].order, -1e9, 1e9, a[1]) - num(b[0].order, -1e9, 1e9, b[1]) || a[1] - b[1]).forEach(([x]) => {
+    const id = typeof x.id === "string" ? x.id : "", b = BUILT_IN.find(k => k.id === id), kw = keywords(x.keywords, b ? b.keywords : []), name = text(x.name, LIM.name) || (b ? b.name : (kw[0] || "").replace(/\*$/, ""));
+    if (!id || !name || seen.has(id) || (!b && (!CUSTOM_ID.test(id) || list.length - list.filter(k => k.builtIn).length >= LIM.kinds - BUILT_IN.length))) return;
+    seen.add(id); list.push({ id, name, nameId: text(x.nameId, LIM.name) || (b ? b.nameId : name), keywords: kw, builtIn: !!b, active: bool(x.active, true) });
+  });
+  BUILT_IN.forEach(k => { if (!seen.has(k.id)) list.push({ id: k.id, name: k.name, nameId: k.nameId, keywords: k.keywords.slice(), builtIn: true, active: true }); });
+  return list.map((k, i) => Object.assign(k, { order: i }));
+}
+const quarter = x => Math.max(0.05, Math.round(x * 4) / 4);
+function mod(v, d, withMode) { const m = isObj(v) ? v : {}; const o = { on: bool(m.on, d.on) }; if (withMode) o.mode = pick(m.mode, MODES, d.mode); return o; }
+
+function normalizeSettings(raw) {
+  let r = raw;
+  if (typeof r === "string") { try { r = JSON.parse(r); } catch (e) { r = null; } }
+  if (!isObj(r)) r = {};
+  const d = defaults(), o = {};
+  o.enabled = bool(r.enabled, d.enabled);
+  o.configVersion = int(r.configVersion, 1, 1e9, d.configVersion);
+  o.updatedAt = isoOrNull(r.updatedAt); o.updatedBy = idOrNull(r.updatedBy);
+  const m = isObj(r.modules) ? r.modules : {};
+  const ra = isObj(r.assets) ? r.assets : {};
+  /* the asset points switch is modules.assets.on; an older or hand-made object with only assets.on is read too */
+  o.modules = { hours: mod(m.hours, d.modules.hours, true), story: mod(m.story, d.modules.story, true), weighted: mod(m.weighted, d.modules.weighted, true), kpi: mod(m.kpi, d.modules.kpi), okr: mod(m.okr, d.modules.okr),
+    assets: mod(m.assets, { on: bool(ra.on, d.modules.assets.on) }) };
+  o.primaryCapacity = pick(r.primaryCapacity, PRIMARY_CAPACITY, d.primaryCapacity);
+
+  o.kinds = kinds(r.kinds);
+  const h = isObj(r.hours) ? r.hours : {}, dh = d.hours, tpl = isObj(h.templates) ? h.templates : {};
+  o.hours = { templates: {} };
+  o.kinds.forEach(k => {
+    const id = k.id, t = isObj(tpl[id]) ? tpl[id] : {}, dt = dh.templates[id];
+    const perUnit = num(t.perUnit, 0.05, 200, dt ? dt.perUnit : null);
+    if (perUnit === null) return;
+    o.hours.templates[id] = { perUnit, low: Math.min(perUnit, num(t.low, 0.05, 200, dt ? dt.low : quarter(perUnit / 2))), high: Math.max(perUnit, num(t.high, 0.05, 200, dt ? dt.high : quarter(perUnit * 1.5))), nextUnitFactor: num(t.nextUnitFactor, 0, 1, dt ? dt.nextUnitFactor : 0.5) };
+  });
+  const cx = isObj(h.complexity) ? h.complexity : {}, dp = isObj(h.dependency) ? h.dependency : {}, bd = isObj(h.bounds) ? h.bounds : {};
+  o.hours.complexity = {}; [1, 2, 3, 4, 5].forEach(k => { o.hours.complexity[k] = num(cx[k], 0.1, 10, dh.complexity[k]); });
+  o.hours.dependency = {}; [0, 1, 2, 3].forEach(k => { o.hours.dependency[k] = num(dp[k], 0.5, 10, dh.dependency[k]); });
+  const min = num(bd.min, 0.05, 40, dh.bounds.min);
+  o.hours.bounds = { min, max: Math.max(min, num(bd.max, 0.5, 400, dh.bounds.max)) };
+  o.hours.lockPolicy = pick(h.lockPolicy, LOCK_POLICIES, dh.lockPolicy);
+
+  const s = isObj(r.story) ? r.story : {};
+  o.story = { scale: SCALE.slice(), thresholds: thresholds(s.thresholds, d.story.thresholds), weights: weights(s.weights, d.story.weights) };
+  const w = isObj(r.weighted) ? r.weighted : {};
+  o.weighted = { weights: weights(w.weights, d.weighted.weights), scaleMax: int(w.scaleMax, 2, 100, d.weighted.scaleMax), mappingVersion: int(w.mappingVersion, 1, 1e6, d.weighted.mappingVersion) };
+
+  const a = isObj(r.ai) ? r.ai : {}, da = d.ai;
+  o.ai = { minConfidence: num(a.minConfidence, 0, 1, da.minConfidence), onCreate: bool(a.onCreate, da.onCreate), onBriefRevision: bool(a.onBriefRevision, da.onBriefRevision),
+    perUserDaily: int(a.perUserDaily, 0, 1000, da.perUserDaily), workspaceDaily: int(a.workspaceDaily, 0, 100000, da.workspaceDaily), comparables: pick(a.comparables, COMPARABLES, da.comparables) };
+  const v = isObj(r.overrides) ? r.overrides : {}, dv = d.overrides;
+  o.overrides = { requireReason: bool(v.requireReason, dv.requireReason), requireApproval: bool(v.requireApproval, dv.requireApproval), allowSelfApproveEstimate: bool(v.allowSelfApproveEstimate, dv.allowSelfApproveEstimate) };
+
+  const b = isObj(r.bonus) ? r.bonus : {}, db = d.bonus, hm = isObj(b.hourMapping) ? b.hourMapping : {};
+  const stages = ids(b.completionStages, 30);
+  o.bonus = {
+    on: bool(b.on, db.on), enabledAt: isoOrNull(b.enabledAt),
+    grace: num(b.grace, 0, 0.9, db.grace), rewardFactor: num(b.rewardFactor, 0, 5, db.rewardFactor), maxRate: num(b.maxRate, 0, 1, db.maxRate),
+    minE: num(b.minE, 0, 1000, db.minE), minA: num(b.minA, 0, 1000, db.minA), reviewBelowRatio: num(b.reviewBelowRatio, 0, 1, db.reviewBelowRatio),
+    materialChangeHours: num(b.materialChangeHours, 0, 100, db.materialChangeHours), baseSource: pick(b.baseSource, BASE_SOURCES, db.baseSource),
+    hourMapping: { type: "bands", bands: bands(hm.bands, db.hourMapping.bands) },
+    completionStages: Array.isArray(b.completionStages) && stages.length ? stages : null,
+    requireApprovedVersion: bool(b.requireApprovedVersion, db.requireApprovedVersion),
+    minQuality: b.minQuality === null || b.minQuality === undefined ? null : num(b.minQuality, 1, 5, null),
+    /* owner decisions: an independent reviewer always, admins included; no per-period cap in v1; never negative;
+       never retroactive — held here so no request can change them */
+    independentApproval: true, allowSelfApproval: false, perPeriodCap: null,
+    pilotTeams: ids(b.pilotTeams, 50), negative: false, retroactive: false
+  };
+
+  /* asset points: each kind's points for one asset, 0–20; on mirrors the module switch */
+  const pk = isObj(ra.perKind) ? ra.perKind : {}, da2 = d.assets;
+  o.assets = { on: o.modules.assets.on, countUnvalidated: bool(ra.countUnvalidated, da2.countUnvalidated), perKind: {}, unknownKind: num(ra.unknownKind, 0, 20, da2.unknownKind) };
+  o.kinds.forEach(k => { o.assets.perKind[k.id] = num(pk[k.id], 0, 20, k.id in da2.perKind ? da2.perKind[k.id] : o.assets.unknownKind); });
+  /* the Teams screen: who sees each person's bars — only the two known choices */
+  const tm = isObj(r.teams) ? r.teams : {};
+  o.teams = { memberBars: pick(tm.memberBars, MEMBER_BARS, d.teams.memberBars) };
+  return o;
+}
+
+/* what changed from a to b, leaf by leaf (lists compared whole), the server's own bookkeeping left out */
+function diffSettings(a, b) {
+  const out = [];
+  const same = (x, y) => JSON.stringify(x === undefined ? null : x) === JSON.stringify(y === undefined ? null : y);
+  const byId = s => isObj(s) && Array.isArray(s.kinds) ? Object.assign({}, s, { kinds: s.kinds.reduce((m, k) => { if (isObj(k)) m[k.id] = k; return m; }, {}) }) : isObj(s) ? s : {};
+  (function walk(x, y, p) {
+    if (isObj(x) && isObj(y)) { [...new Set(Object.keys(x).concat(Object.keys(y)))].sort().forEach(k => walk(x[k], y[k], p ? p + "." + k : k)); return; }
+    if (!same(x, y)) out.push({ path: p, from: x === undefined ? null : x, to: y === undefined ? null : y });
+  })(byId(a), byId(b), "");
+  return out.filter(c => !VOLATILE.has(c.path));
+}
+/* a module counts only with the master switch on */
+const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
+
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, CUSTOM_ID, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
+if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
+})(typeof window !== "undefined" ? window : this);
 </script><script>/* CHAT MODELS — THE SHAPE THE SERVER AND THE PAGE SHARE (Oct 2026). server/ai-chat-models.js, src/ai-chat-models.js
 
    An admin plugs in another chat model from Settings → AI → Models → Chat models without anyone writing code: a
@@ -8968,6 +9008,7 @@ function filterBar(opts){ opts=opts||{};
   h=h.replace('<span class="spacer"></span>','<span class="spacer task-toolbar-spacer"></span><div class="task-toolbar-sort">');
   if (S.taskView!=="calendar"&&S.taskView!=="timeline") h+=pillSel("Sort",S.sort,[["manual","Manual"],["due","Due date"],["prio","Priority"],["created","Created"],["title","A → Z"],["status","Status"],["team","Team"],["assignee","Assignee"]],"S.sort=this.value;S.sortDir=1;renderScreen(false)")+'<button class="iconbtn task-sort-direction" title="Reverse sort" aria-label="Reverse sort" onclick="S.sortDir=-S.sortDir;renderScreen(false)">'+(S.sortDir>0?I.arrowdn:I.arrowup)+'</button>';
   if (S.taskView==="list"||S.taskView==="grid") h+=pillSel("Group",S.group,[["","None"],["status","Status"],["team","Team"],["assignee","Assignee"],["proj","Project"],["prio","Priority"],["due","Due date"]],"S.group=this.value;renderScreen(false)");
+  if (S.taskView==="list") h+=listColResetBtn();
   if (S.taskView==="grid") h+='<button class="btn sm" onclick="fieldsMenu(this)" data-menu>'+I.grid+'Fields</button>';
   h+='</div><div class="task-toolbar-tail">'+taskCheckChip()+viewsMenuBtn(); return h+'</div></div>'; }
 function filterModal(){ var f=S.filters; var defs=FILTER_DEFS({noProject:S.screen==="projects"&&S.projectId}); openModal("Filters",'<div class="fgrid">'+defs.map(function(d){ return fieldHtml("fm_"+d[0],d[1],selectHtml("fm_"+d[0],d[2],f[d[0]]||"",d[0]==="due"?'onchange="document.getElementById(\'fm_range\').style.display=this.value===\'custom\'?\'grid\':\'none\'"':'')); }).join("")+'</div><div id="fm_range" class="field-row" style="display:'+(f.due==="custom"?"grid":"none")+'">'+fieldHtml("fm_from","From",'<input id="fm_from" type="date" value="'+(f.dueFrom||iso(0))+'">')+fieldHtml("fm_to","To",'<input id="fm_to" type="date" value="'+(f.dueTo||iso(14))+'">')+'</div><p class="hint">Filters combine with AND. Save the result as a view to reuse it.</p>','<button class="btn ghost" onclick="closeModal();clearFilters()">Clear all</button><span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="applyFilterModal()">Apply</button>',true); }
@@ -9006,15 +9047,38 @@ function kDrop(e,status,col,beforeId){ e.preventDefault(); e.stopPropagation(); 
 /* ---------- LIST (grouping, drag reorder, drag between groups) ---------- */
 function setSort(k){ if (S.sort===k) S.sortDir=-S.sortDir; else { S.sort=k; S.sortDir=1; } renderScreen(false); }
 /* v38 fixed column widths (px) by column type: the table no longer re-measures itself from its content, so switching Mine/All or filters can't shift columns.
-   Due is two lines (Oct 2026) — the date, then how far off — so its room went to the narrow ones: dependency, team, project. */
+   Due is two lines (Oct 2026) — the date, then how far off — so its room went to the narrow ones: dependency, team, project.
+   Since the List's columns can be moved and sized (Oct 2026, src/list-columns.js) these are the List's defaults. */
 var LIST_COL_W={check:40,drag:28,title:164,status:116,dependency:96,team:132,assignee:124,proj:130,prio:80,start:66,due:92,effort:48,tags:76};
 var GRID_COL_W={drag:32,title:230,status:130,team:150,assignee:160,reviewer:160,proj:170,prio:100,start:130,due:130,effort:90,tags:200};
 function colW(map,k){ return map[k]||(String(k).indexOf("cf:")===0?140:120); }
-function taskTable(list){ var k=S.sort; var th=function(key,label){ return '<th style="width:'+colW(LIST_COL_W,key)+'px" class="'+(k===key?"on":"")+'" onclick="setSort(\''+key+'\')">'+label+(k===key?(S.sortDir>0?" ↑":" ↓"):"")+'</th>'; };
+/* The List's columns (Oct 2026): this ONE ordered list draws the header, each row's cells and the group rows' span,
+   so they cannot disagree. Check and drag stay first; the rest come in the person's order and widths
+   (src/list-columns.js). Once the person has sized a column Task has no width of its own on the page: it takes the
+   room left, at least its width (before that, spare room is shared by all, as it always was).
+   Cells carry lcol-<key> for the phone's cards. sort: a click on the header sorts by the same key. */
+var LIST_COLS=[
+  {k:"title",l:"Task",sort:true,td:function(x){ return '<td class="t lcol-title"><div>'+esc(x.title)+'</div><div class="mono tiny muted">'+esc(x.id)+'</div></td>'; }},
+  {k:"status",l:"Status",sort:true,td:function(x){ return '<td class="lcol-status" onclick="event.stopPropagation();statusMenu(this,taskIdFrom(this))">'+statusBadge(x.status)+'</td>'; }},
+  {k:"dependency",l:"Dependency",td:function(x){ return '<td class="lcol-dependency">'+dependencyBadge(x,false)+'</td>'; }},
+  {k:"team",l:"Team",sort:true,td:function(x){ return '<td class="lcol-team">'+teamBadge(x.team)+'</td>'; }},
+  {k:"assignee",l:"Assignee",sort:true,td:function(x){ return '<td class="lcol-assignee"><span class="cell-flex">'+avStack(assigneesOf(x))+esc(assigneesOf(x).map(first).join(", "))+'</span></td>'; }},
+  {k:"proj",l:"Project",sort:true,td:function(x){ return '<td class="lcol-proj">'+esc(projName(x))+'</td>'; }},
+  {k:"prio",l:"Priority",sort:true,td:function(x){ return '<td class="lcol-prio" onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td>'; }},
+  {k:"start",l:"Start",td:function(x){ return '<td class="mono lcol-start">'+dueDate(x.due-x.span)+'</td>'; }},
+  {k:"due",l:"Due",sort:true,td:function(x){ return '<td class="lcol-due"><span class="due due-2 '+dueCls(x.due,x)+'"><span>'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td>'; }},
+  {k:"effort",l:"Est.",sort:true,td:function(x){ return '<td class="mono lcol-effort">'+(x.effort||"—")+'h</td>'; }},
+  {k:"tags",l:"Tags",td:function(x){ return '<td class="lcol-tags">'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td>'; }}
+];
+var LIST_COL_BY={}; LIST_COLS.forEach(function(c){ LIST_COL_BY[c.k]=c; });
+function taskTable(list){ var k=S.sort;
   if (!list.length) return '<div class="panel">'+emptyBox("No tasks match these filters","Clear a filter or switch to All tasks.")+'</div>';
-  var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" onclick="openTask(taskIdFrom(this))" class="'+(taskChecked(x.id)?'checked':'')+'"><td class="tcheck-col" onclick="event.stopPropagation()">'+taskCheckBtn(x.id)+'</td><td class="drag-h">'+I.drag+'</td><td class="t"><div>'+esc(x.title)+'</div><div class="mono tiny muted">'+esc(x.id)+'</div></td><td onclick="event.stopPropagation();statusMenu(this,taskIdFrom(this))">'+statusBadge(x.status)+'</td><td>'+dependencyBadge(x,false)+'</td><td>'+teamBadge(x.team)+'</td><td><span class="cell-flex">'+avStack(assigneesOf(x))+esc(assigneesOf(x).map(first).join(", "))+'</span></td><td>'+esc(projName(x))+'</td><td onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td><td class="mono">'+dueDate(x.due-x.span)+'</td><td><span class="due due-2 '+dueCls(x.due,x)+'"><span>'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td><td class="mono">'+(x.effort||"—")+'h</td><td>'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td></tr>'; };
-  var body=""; if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="13"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span>'+(S.group==="assignee"&&g.key?'<span class="hint mono">'+assigned(g.key)+'h / '+person(g.key).cap+'h</span>':'')+'</span></td></tr>'+g.tasks.map(row).join(""); }); } else body=sortedTasks(list).map(row).join("");
-  return '<div class="panel"><div class="tbl-wrap"><table class="tbl tbl-fixed" style="--tbl-min:'+Object.keys(LIST_COL_W).reduce(function(s,x){return s+LIST_COL_W[x];},0)+'px"><thead><tr><th class="tcheck-col" style="width:'+LIST_COL_W.check+'px"></th><th style="width:'+LIST_COL_W.drag+'px"></th>'+th("title","Task")+th("status","Status")+'<th style="width:'+LIST_COL_W.dependency+'px">Dependency</th>'+th("team","Team")+th("assignee","Assignee")+th("proj","Project")+th("prio","Priority")+'<th style="width:'+LIST_COL_W.start+'px">Start</th>'+th("due","Due")+th("effort","Est.")+'<th style="width:'+LIST_COL_W.tags+'px">Tags</th></tr></thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Drag rows to reorder (Manual sort) or drop them on a group header to change status, team, assignee, project or priority. Click a status or priority to change it.</div></div>'; }
+  var cols=listColOrder().map(function(c){ return LIST_COL_BY[c]; }), min=LIST_COL_W.check+LIST_COL_W.drag, sized=listColSized(), tip=attr(tr("Drag to move · drag the edge to resize"));
+  var head=cols.map(function(c){ var w=listColWidth(c.k), on=!!c.sort&&k===c.k; min+=w;
+    return '<th data-col="'+c.k+'" class="lcol-th'+(c.sort?" lcol-sortable":"")+(on?" on":"")+'"'+(c.k==="title"&&sized?"":' style="width:'+w+'px"')+' tabindex="0" aria-describedby="lcolHelp" title="'+tip+'"'+(on?' aria-sort="'+(S.sortDir>0?"ascending":"descending")+'"':"")+(c.sort?' onclick="lcolSort(event,'+jsq(c.k)+')"':"")+' onpointerdown="lcolDown(event,this)" onkeydown="lcolKey(event,this)"><span class="lcol-lbl">'+esc(tr(c.l))+'</span>'+(on?'<span class="lcol-dir" aria-hidden="true">'+(S.sortDir>0?" ↑":" ↓")+'</span>':"")+'<span class="lcol-rz" aria-hidden="true" onpointerdown="lcolRzDown(event,this)" ondblclick="lcolRzReset(event,this)" onclick="event.stopPropagation()"></span></th>'; }).join("");
+  var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" onclick="openTask(taskIdFrom(this))" class="'+(taskChecked(x.id)?'checked':'')+'"><td class="tcheck-col" onclick="event.stopPropagation()">'+taskCheckBtn(x.id)+'</td><td class="drag-h">'+I.drag+'</td>'+cols.map(function(c){ return c.td(x); }).join("")+'</tr>'; };
+  var body=""; if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="'+(2+cols.length)+'"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span>'+(S.group==="assignee"&&g.key?'<span class="hint mono">'+assigned(g.key)+'h / '+person(g.key).cap+'h</span>':'')+'</span></td></tr>'+g.tasks.map(row).join(""); }); } else body=sortedTasks(list).map(row).join("");
+  return '<div class="panel"><div class="tbl-wrap"><table class="tbl tbl-fixed lcol-tbl'+(sized?" lcol-sized":"")+'" style="--tbl-min:'+min+'px"><thead ontouchmove="lcolTouch(event)" oncontextmenu="lcolMenu(event)"><tr><th class="tcheck-col" style="width:'+LIST_COL_W.check+'px"></th><th style="width:'+LIST_COL_W.drag+'px"></th>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Drag rows to reorder (Manual sort) or drop them on a group header to change status, team, assignee, project or priority. Click a status or priority to change it.</div><span id="lcolHelp" class="zc-sr">'+esc(tr("Drag a header to move its column, or its right edge to size it; double-click the edge for the usual width. On a focused header: Alt+Left/Right moves it, Alt+Shift+Left/Right sizes it, Enter sorts."))+'</span></div>'; }
 function lEnd(el){ el.classList.remove("dragging"); document.querySelectorAll(".drop-before,.grp.over").forEach(function(x){ x.classList.remove("drop-before","over"); }); }
 function lRowOver(e,tr){ e.preventDefault(); e.stopPropagation(); tr.classList.add("drop-before"); }
 function lDrop(e,tr){ e.preventDefault(); e.stopPropagation(); tr.classList.remove("drop-before"); var id=DRAG||e.dataTransfer.getData("text/plain"); DRAG=null; var tk=task(id), target=task(tr.getAttribute("data-id")); if (!tk||!target||tk===target) return;
@@ -18779,7 +18843,7 @@ function chkFocusRestore(k){ if(!k) return; var f=document.querySelector('#drawe
 /* o (Smart Scoring, src/scoring-panel.js; left out, the line is as it always was): o.lock — the hour estimate is locked,
    so the Estimate is greyed out and says who locked it (o.lockIcon beside it); o.actualRo — time is logged per entry,
    so Actual is their sum, shown, not typed */
-function effortHtml(tk,ed,o){ o=o||{}; var m=taskMeta(tk), est=tk.effort||0, act=m.actualEffort||0, over=est&&act>est, lk=o.lock; return '<div class="effort"><b>'+tr("Effort")+'</b><span>'+tr("Estimated")+' '+(ed?'<input type="number" min="0" step="0.5"'+(lk?' disabled data-scr-lock="1" title="'+attr(lk.title)+'" aria-label="'+attr(tr("Estimate")+" — "+lk.title)+'"':'')+' value="'+est+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){t.effort=+this.value||0;if(window.effortManual)effortManual(t)}.bind(this))">':'<b>'+est+'</b>')+' h'+(lk?o.lockIcon||'':'')+(typeof effortBadge==="function"?effortBadge(tk):'')+'</span><span'+(over?' class="over"':'')+'>'+tr("Actual")+' '+(ed&&!o.actualRo?'<input type="number" min="0" step="0.5" value="'+act+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){taskMeta(t).actualEffort=+this.value||0}.bind(this))">':'<b>'+act+'</b>')+' h</span>'+(est&&act?'<span class="hint">'+(over?"+":"")+Math.round((act-est)/est*100)+'%</span>':'')+'</div>'; }
+function effortHtml(tk,ed,o){ o=o||{}; var m=taskMeta(tk), est=tk.effort||0, act=m.actualEffort||0, over=est&&act>est, lk=o.lock; return '<div class="effort"><b>'+tr("Effort")+'</b><span>'+tr("Estimated")+' '+(ed?'<input type="number" min="0" step="0.5"'+(lk?' disabled data-scr-lock="1" title="'+attr(lk.title)+'" aria-label="'+attr(tr("Estimate")+" — "+lk.title)+'"':'')+' value="'+est+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){t.effort=+this.value||0;if(window.effortManual)effortManual(t)}.bind(this))">':'<b>'+est+'</b>')+' h'+(lk?o.lockIcon||'':'')+(typeof effortBadge==="function"?effortBadge(tk):'')+'</span><span'+(over?' class="over"':'')+'>'+tr("Actual")+' '+(ed&&!o.actualRo?'<input type="number" min="0" step="0.5" value="'+act+'" onchange="editTaskWith(task(\''+tk.id+'\'),function(t){taskMeta(t).actualEffort=+this.value||0}.bind(this))">':'<b>'+act+'</b>')+' h</span>'+(est&&act?'<span class="hint">'+(over?"+":"")+Math.round((act-est)/est*100)+'%</span>':'')+(typeof kindPickHtml==="function"?kindPickHtml(tk,ed):'')+'</div>'; }
 /* =============== 7.8 PROJECT ACTIVITY DIGEST (deterministic, from ACTIVITY) =============== */
 function digestHtml(list){ var today=list.filter(function(a){ return a.ago<1440; }); if(!today.length) return ""; var c={done:0,review:0,upload:0,approved:0,comment:0,assigned:0,created:0}; today.forEach(function(a){ if(a.k==="upload") c.upload++; else if(a.k==="approved") c.approved++; else if(a.k==="comment") c.comment++; else if(a.k==="assigned") c.assigned++; else if(a.k==="created") c.created++; else if(a.k==="moved"){ var to=a.a.to?stage(a.a.to):null; if(to&&to.kind==="done") c.done++; else if(to&&/review/.test(to.kind||"")) c.review++; } }); var rows=[[c.done,"tasks completed"],[c.review,"tasks entered review"],[c.upload,"files uploaded"],[c.approved,"approvals completed"],[c.comment,"comments"],[c.assigned,"assignments"],[c.created,"tasks created"]].filter(function(r){ return r[0]; }); if(!rows.length) return ""; return '<div class="digest"><div class="mh">'+tr("Today")+'</div>'+rows.map(function(r){ return '<span><b>'+r[0]+'</b> '+tr(r[1])+'</span>'; }).join("")+'</div>'; }
 /* =============== 7.11 FOCUS STRIP (Home, presentation only — §6.2 "what needs my attention") =============== */
@@ -23673,24 +23737,24 @@ function createDraftChecked(){ var tk=task("T-new"); if(!tk) return createDraft(
    says where the number came from — on hover, or a tap on phones.
    ============================================================ */
 var EST_MIN=0.4, EST_ENOUGH=3, EST_BASE={}, EST_T=null;
-/* What a kind of work usually takes — hands-on hours for one person, not calendar time or waiting for approval.
-   It is the number when the workspace has nothing finished like it yet, it is weighed in when there are only one or
-   two, and it is the yardstick the AI is given: a single feed post is not a ten-hour job. A task's deliverables are
-   its assets produced: the first counts in full and each next one at the kind's own share (Oct 2026) — a resize is
-   quick once the first is done (25%), posts, stories and banners take about half, a poster, a reel or a video more,
-   and a deck, a copy or a logo concept less than half. It used to be 60% for work made in sets and nothing for the
-   rest, so twelve resizes came to ten hours and three reels to the hours of one. Matched on the title, English or
-   Indonesian, the more specific kinds first.
-   One list for all of it (Oct 2026): the kinds, their names and the title patterns are Smart Scoring's engine's
-   (ScoringEngine.KINDS and kindOf, shared/scoring-engine.js, inlined before this file), and so are the hours (its hour
-   templates) — the estimator, the scoring and the points for assets produced always agree on what a title is.
-   [id, English name, Indonesian name, title pattern, typical, low, high, each next deliverable at] */
-var EST_KINDS=(typeof ScoringEngine!=="undefined"?ScoringEngine.KINDS:[]).map(function(k){ var t=ScoringEngine.ENGINE_DEFAULTS.hours.templates[k.id];
-  return [k.id,k.name,k.nameId,k.pattern,t.perUnit,t.low,t.high,t.nextUnitFactor]; });
-function estKind(title){ var id=typeof ScoringEngine!=="undefined"?ScoringEngine.kindOf(String(title||"")):null; for(var i=0;id&&i<EST_KINDS.length;i++) if(EST_KINDS[i][0]===id) return EST_KINDS[i]; return null; }
+/* What a kind of work usually takes — hands-on hours for one person, not calendar time or waiting for approval: the
+   number with nothing finished like it yet, weighed in with one or two, the AI's yardstick. The first deliverable
+   counts in full, each next one at the kind's own share (a resize 25%, most work about half). The kinds and their
+   hours are the workspace's (Settings → Smart Scoring → Kinds of work, used even while it is off), read through the
+   engine's matcher, a kind chosen on the task first; EST_KINDS is the engine's own 14.
+   [id, English name, Indonesian name, keywords, typical, low, high, each next deliverable at] */
+function estTable(kinds,t){ return kinds.filter(function(k){ return k.active!==false; }).map(function(k){ var h=t[k.id]||{}; return [k.id,k.name,k.nameId,k.keywords,h.perUnit,h.low,h.high,h.nextUnitFactor]; }); }
+var EST_KINDS=typeof ScoringEngine!=="undefined"?estTable(ScoringEngine.KINDS,ScoringEngine.ENGINE_DEFAULTS.hours.templates):[];
+function estSettings(){ return typeof scoringSettings==="function"&&scoringSettings(); }
+function estKindList(){ var s=estSettings(); return s?s.kinds:ScoringEngine.KINDS; }
+/* the workspace's active kinds as the table above (no hours typed yet: none) */
+function estKinds(){ var s=estSettings(); return s?estTable(s.kinds,s.hours.templates):EST_KINDS; }
+function estKindOf(tk){ return tk?ScoringEngine.kindOfTask(tk,estKindList()):null; }
+/* the kind, with its hours, of a title (and the task, which may have a kind chosen by hand) */
+function estKind(title,tk){ var id=estKindOf(Object.assign({},tk,{title:String(title||"")})), k=estKinds().filter(function(x){ return x[0]===id; })[0]; return k&&k[4]>0?k:null; }
 /* the kind's hours for this many deliverables: the first in full, each next one at the kind's share */
 function estKindHours(k,items){ var f=items>1?1+k[7]*(items-1):1; return {h:k[4]*f,low:k[5]*f,high:k[6]*f}; }
-function estKindName(id){ var k=EST_KINDS.filter(function(x){ return x[0]===id; })[0]; return k?(UI_LANG==="id"?k[2]:k[1]):id; }
+function estKindName(id){ var k=estKindList().filter(function(x){ return x.id===id; })[0]; return k?(UI_LANG==="id"?k.nameId:k.name):id; }
 function estHours(t){ var a=+((t.meta||{}).actualEffort)||0; return a>0?a:(+t.effort||0); }
 function estRound(h){ return Math.max(0.5,Math.round(h*2)/2); }
 function estPool(){ return TASKS.filter(function(t){ return !t._draft&&!t._creating&&t.title&&isSuccessfulTask(t)&&estHours(t)>0; }); }
@@ -23703,7 +23767,7 @@ function effortEstimate(tk){ var title=String(tk.title||"").trim(); if(!title||t
   var alike=pool.map(function(t){ var s=simScore(title,tk.description||"",t); if(s<EST_MIN) return null;
       if(tpl&&t.brief&&t.brief.tpl===tpl) s+=0.1; if(tk.team&&t.team===tk.team) s+=0.05; if(labels.some(function(l){ return (t.labels||[]).indexOf(l)>=0; })) s+=0.05;
       return {t:t,h:estHours(t),w:s}; }).filter(Boolean).sort(function(a,b){ return b.w-a.w; }).slice(0,8);
-  var k=estKind(title), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
+  var k=estKind(title,tk), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
   /* enough finished work like it: that is the answer */
   if(alike.length>=EST_ENOUGH||(alike.length&&!k)) return estFrom(alike,"alike");
   /* one or two like it: weighed with what the kind usually takes (the kind counts as two) */
@@ -23740,7 +23804,7 @@ document.addEventListener("input",function(e){ var el=e.target; if(!el||!el.clos
 function effortAiOk(){ if(typeof aiCfg!=="function"||typeof API==="undefined"||!API.on) return false; var c=aiCfg(); return !!(c.processing.externalEnabled&&(typeof aiChatReady==="function"?aiChatReady("estimate"):(typeof aiConfigured!=="function"||aiConfigured("chat")))); }
 function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTemplates||[],tk.brief.tpl), tm=tk.team&&team(tk.team);
   return ["Estimate the hands-on working hours one experienced person needs to do this task — the time spent working on it, not calendar time and not time waiting for feedback or approval.",
-    "Typical hands-on hours: "+EST_KINDS.map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+" (each next at "+Math.round(k[7]*100)+"%)"; }).join("; ")+". A small task gets a small number.",
+    "Typical hands-on hours: "+estKinds().filter(function(k){ return k[4]>0; }).map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+" (each next at "+Math.round(k[7]*100)+"%)"; }).join("; ")+". A small task gets a small number.",
     "Task title: "+tk.title,
     tk.description?"Description: "+String(tk.description).slice(0,800):"",
     tpl?"Brief template: "+tpl.name:"", tm?"Team: "+tm.name:"", "Priority: "+(tk.prio||"medium"),
@@ -24749,7 +24813,7 @@ function scoringLeadsMissing(){ return SCORING_LEAD_ROLES.some(function(id){ var
    is drawn from the edits kept in memory. One Save bar shows while they differ from what is saved (Discard, Save with
    the version they were made on; someone saved in between: theirs is loaded and the person is told); leaving Settings
    with changes asks first. scoring_view_analytics alone: read-only, no Save bar.
-   For the sections other files add (called with (ro, ed) from their group when defined: scKindsPanel in Estimating,
+   For the sections other files add (called with (ro, ed) from their group when defined: scoringKindsSettingsHtml in Estimating,
    scoringAssetsSettingsHtml and scoringOutcomesSettingsHtml in Output, scoringBonusSettingsHtml in Review,
    scoringTeamsSettingsHtml in Access):
    - scSection(id, title, intro, body, opts) → section.panel[data-scr-sec=id]: h2, one-line intro, opts.example as
@@ -24913,7 +24977,7 @@ function setScoring(){
     + '</div></div>'; }
 function scHook(name,ro,ed){ var f=window[name]; return typeof f==="function"?f(ro,ed)||"":""; }
 function scGroupHtml(g,ro,ed){ var x=SC_GROUPS.filter(function(x){ return x[0]===g; })[0], h;
-  if(g==="estimating") h=scHook("scKindsPanel",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
+  if(g==="estimating") h=scHook("scoringKindsSettingsHtml",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
   else if(g==="output") h=scHook("scoringAssetsSettingsHtml",ro,ed)+scHook("scoringOutcomesSettingsHtml",ro,ed);   /* src/scoring-assets.js, src/scoring-outcomes.js */
   else if(g==="ai") h=scAiPanel(ro);
   else if(g==="review") h=scOverridesPanel(ro)+scHook("scoringBonusSettingsHtml",ro,ed);   /* src/scoring-awards.js */
@@ -24957,19 +25021,12 @@ function scModulesPanel(ro){ var modes=[["math_only","Math only"],["ai_assisted"
     {icon:I.sync}); }
 
 /* ---------- Estimating ---------- */
+/* the hours of each kind of work are its row under Kinds of work (src/scoring-kinds.js), above Effort Hours */
 function scHoursPanel(ro){
-  var kinds=(typeof ScoringSettings!=="undefined"&&ScoringSettings.KINDS)||Object.keys(scGet("hours.templates")||{});
-  var name=function(id){ return typeof estKindName==="function"?estKindName(id):id; };
-  var cell=function(id,f,step){ return '<td><input type="number" class="scr-cell" aria-label="'+attr(name(id)+" · "+tr({perUnit:"First deliverable (h)",low:"Low (h)",high:"High (h)",nextUnitFactor:"Each next deliverable (× the first)"}[f]))+'" data-sc="hours.templates.'+id+'.'+f+'" data-k="num" min="0" step="'+step+'" value="'+attr(scGet("hours.templates."+id+"."+f))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
   var grid=function(key,list,o){ return '<div class="scr-grid">'+list.map(function(c){ return scNumHtml("sc_"+key+"_"+c[0],"hours."+(key==="cx"?"complexity":"dependency")+"."+c[0],c[1],o); }).join("")+'</div>'; };
-  /* the hours per kind of work move to "Kinds of work" once it is there */
-  var tpl=typeof scKindsPanel==="function"?"":'<div class="eyebrow">'+tr("Hours per kind of work")+'</div><div class="tbl-wrap scr-tpl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("First (h)")+'</th><th>'+tr("Low (h)")+'</th><th>'+tr("High (h)")+'</th><th>'+tr("Each next (× first)")+'</th></tr></thead><tbody>'
-    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t">'+esc(name(id))+'</td>'+cell(id,"perUnit","0.25")+cell(id,"low","0.25")+cell(id,"high","0.25")+cell(id,"nextUnitFactor","0.05")+'</tr>'; }).join("")
-    + '</tbody></table></div>'+scHelp(SC_T.next,SC_T.nextEx);
   return scSection("hours","Effort Hours",SC_T.hours,
     fieldHtml("sc_lock","An estimate is locked",scSelectHtml("sc_lock","hours.lockPolicy",[["approve","When it is approved"],["approve_or_work_start",SC_T.lockWork]],ro))+scHelp(SC_T.lock)
-    + scAdvanced(tpl
-      + '<div class="eyebrow">'+tr("Complexity multiplier")+'</div>'+grid("cx",[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]],{min:0.1,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.cx,SC_T.cxEx)
+    + scAdvanced('<div class="eyebrow">'+tr("Complexity multiplier")+'</div>'+grid("cx",[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]],{min:0.1,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.cx,SC_T.cxEx)
       + '<div class="eyebrow">'+tr("Dependency multiplier")+'</div>'+grid("dp",[[0,"No open dependencies"],[1,"1 open dependency"],[2,"2 open dependencies"],[3,"3 or more"]],{min:0.5,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.dp,SC_T.dpEx)
       + '<div class="eyebrow">'+tr("Limits")+'</div><div class="scr-grid">'+scNumHtml("sc_bmin","hours.bounds.min","Fewest hours",{min:0.05,max:40,step:0.25,unit:"h",ro:ro})+scNumHtml("sc_bmax","hours.bounds.max","Most hours",{min:0.5,max:400,step:1,unit:"h",ro:ro})+'</div>'+scHelp(SC_T.bounds),
       {id:"hours",hint:"Multipliers and limits"}),
@@ -25094,9 +25151,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Example:":"Contoh:","Turn on":"Nyalakan","Set up":"Atur","Leave without saving?":"Keluar tanpa menyimpan?","Keep editing":"Lanjut mengedit","Leave without saving":"Keluar tanpa menyimpan",
   "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini","How Smart Scoring works":"Cara kerja Smart Scoring","Log the time":"Catat waktu","Review & points":"Review & poin",
   "Settings version":"Versi pengaturan","last saved by":"terakhir disimpan oleh","Modules":"Modul","Primary capacity metric":"Metrik kapasitas utama",
-  "Multipliers and limits":"Pengali dan batas","Hours per kind of work":"Jam per jenis pekerjaan","Limits":"Batas",
+  "Multipliers and limits":"Pengali dan batas","Limits":"Batas",
   "First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
-  "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
   "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali dependensi",
   "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
   "No open dependencies":"Tanpa dependensi terbuka","2 open dependencies":"2 dependensi terbuka","3 or more":"3 atau lebih",
@@ -25122,7 +25178,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
    POINTS FOR THE ASSETS PEOPLE PRODUCE (Oct 2026)
    Smart Scoring's "assets" module (docs/SMART-SCORING.md §11): the assets each person produced on a task — their
    own count typed under Assets & versions, or as the reports credit them (taskAssetCredit in src/export.js) — earn
-   output points by the kind of work, read from the title as the estimator reads it (ScoringEngine.kindOf): one feed
+   output points by the kind of work, the task's as the estimator reads it (estKindOf: chosen by hand, else from
+   the title): one feed
    post is 1 point, a resize 0.25, a logo 5, as the workspace sets it in Settings → Smart Scoring. A count a team's
    lead has not validated yet counts all the same and says so; one changed since it was validated says that too —
    to those who see validation on the Assets tab (whoever may validate the task's counts) and to those who see Smart
@@ -25132,8 +25189,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
    For the other scoring files to call when they are there:
    - scoringAssetsRowHtml(tk): the task panel's row — each person's count, points and validation mark.
    - scoringAssetsSettingsHtml(ro, ed): the Settings tab's "Asset points" section — whether counts not validated yet
-     count, and the points per asset of each kind of work with the hours a piece typically takes beside it (the
-     module's own switch is in the tab's Overview).
+     count, and the points of a title no kind is recognised in (each kind's own points are with its row under Kinds of
+     work, src/scoring-kinds.js; the module's own switch is in the tab's Overview).
    - scoringAssetsSummaryHtml(data): the "Assets produced" points view for Analytics, from scoringAssetsLoad(q)
      (GET /api/scoring/assets; worked out in the page in the offline demo), cached so it draws at once.
    ============================================================ */
@@ -25144,7 +25201,7 @@ function scaNum(x){ var n=Math.round((+x||0)*100)/100; return String(n); }
 function scaPts(x){ return (Math.round((+x||0)*100)/100).toFixed(2); }
 function scaKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("Kind not recognised"); }
 /* one task's points: who is credited with how many (as the reports credit them), at the kind's points per asset */
-function scoringAssetsTask(tk){ var c=typeof taskAssetCredit==="function"?taskAssetCredit(tk):{by:{},exact:true,how:""}, kind=ScoringEngine.kindOf(tk&&tk.title);
+function scoringAssetsTask(tk){ var c=typeof taskAssetCredit==="function"?taskAssetCredit(tk):{by:{},exact:true,how:""}, kind=typeof estKindOf==="function"?estKindOf(tk):ScoringEngine.kindOf(tk&&tk.title);
   var r=ScoringEngine.assetPoints(scaSettings(),{kind:kind,split:c.by,validated:tk&&tk.meta&&tk.meta.assetSplitOk});
   return {credit:c,kind:kind,r:r}; }
 /* the engine's steps in the person's language, with names for the ids */
@@ -25174,16 +25231,11 @@ function scoringAssetsRowHtml(tk){
 function scoringAssetsSettingsHtml(ro,ed){
   if(typeof scGet!=="function"||typeof sp!=="function") return "";
   if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
-  var kinds=ScoringEngine.KIND_IDS, sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+desc+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
-  var cell=function(id,path,label){ return '<td><input type="number" class="scr-cell" id="'+id+'" aria-label="'+attr(label)+'" data-sc="'+attr(path)+'" data-k="num" min="0" max="20" step="0.25" value="'+attr(scGet(path))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
-  var hours=function(id){ var h=scGet("hours.templates."+id+".perUnit"); return h==null?"":'<span class="hint scr-ap-h">'+esc(tr("about {h} h a piece").replace("{h}",scaNum(h)))+'</span>'; };
+  var sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+desc+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
   return scSection("assets",tr("Asset points"),tr("Each asset someone makes earns points by its kind of work, read from the task's title."),
     sw("assets.countUnvalidated",tr("Count assets before a lead validates them"),tr("On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated."))
-    + '<div class="tbl-wrap scr-tpl scr-ap-tbl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("Points per asset")+'</th></tr></thead><tbody>'
-    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t"><span class="scr-ap-k">'+esc(scaKindName(id))+'</span>'+hours(id)+'</td>'+cell("sc_ap_"+id,"assets.perKind."+id,scaKindName(id)+" · "+tr("Points per asset"))+'</tr>'; }).join("")
-    + '<tr data-kind=""><td class="t"><span class="scr-ap-k">'+tr("Kind not recognised")+'</span><span class="hint scr-ap-h">'+tr("from the title")+'</span></td>'+cell("sc_ap_unknown","assets.unknownKind",tr("Kind not recognised")+" · "+tr("Points per asset"))+'</tr>'
-    + '</tbody></table></div>'
-    + scHelp(tr("A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.")),
+    + '<div class="scr-grid">'+scNumHtml("sc_ap_unknown","assets.unknownKind","Kind not recognised",{min:0,max:20,step:0.25,unit:"pts",ro:ro})+'</div>'
+    + scHelp(tr("Each kind's own points are under Kinds of work (about its hours ÷ 2, 0–20). A title with no kind recognised earns the points above.")),
     {icon:I.assets,example:tr("with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points, and 4 resizes 4 × 0.25 = 1 point."),
      off:!scGet("modules.assets.on")?tr("Asset points are off. Turn them on in Overview — the points can be set up first."):null,onModule:"assets"});
 }
@@ -25248,8 +25300,7 @@ function scoringAssetsSummaryHtml(data){
   "Asset points are off. Turn them on in Overview — the points can be set up first.":"Poin aset sedang mati. Nyalakan di Ringkasan — poinnya bisa diatur lebih dulu.",
   "Count assets before a lead validates them":"Hitung aset sebelum divalidasi lead",
   "On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated.":"Nyala: langsung mendapat poin, ditandai “belum divalidasi”. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
-  "Kind of work":"Jenis pekerjaan","Points per asset":"Poin per aset","about {h} h a piece":"sekitar {h} jam per karya","from the title":"dari judul",
-  "A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.":"Patokannya: kira-kira setengah dari jam yang biasa dibutuhkan satu karya, dibulatkan ke 0,25, dari 0 sampai 20. Dihitung saat task selesai (Declined tidak pernah dihitung), terpisah dari jam dan bonus — bukan peringkat.",
+  "Each kind's own points are under Kinds of work (about its hours ÷ 2, 0–20). A title with no kind recognised earns the points above.":"Poin tiap jenis ada di Jenis pekerjaan (kira-kira jamnya ÷ 2, 0–20). Judul yang jenisnya tidak dikenali mendapat poin di atas.",
   "Asset points":"Poin aset","asset":"aset","assets":"aset","task completed":"task selesai","tasks completed":"task selesai",
   "No assets produced in this period.":"Tidak ada aset yang dihasilkan pada periode ini.",
   "Tasks completed in the period, by the day they were completed; declined tasks and work still open are not counted. * shared among the people assigned, until each person's count is typed. People in name order — not a ranking.":"Task yang selesai dalam periode ini, menurut tanggal selesainya; task yang ditolak dan pekerjaan yang masih berjalan tidak dihitung. * dibagi rata di antara orang yang ditugaskan, sampai jumlah tiap orang diisi. Orang diurutkan menurut nama — bukan peringkat.",
@@ -25278,10 +25329,6 @@ function scoringAssetsSummaryHtml(data){
 .scr-ap-calc,.scr-asum-n{font-size:var(--fs-sm);color:var(--color-text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
 .scr-ap-calc b,.scr-asum-n b{color:var(--color-text-primary)}
 .scr-ap-mark .i{width:11px;height:11px}
-.scr-ap-tbl td.t{white-space:normal}
-.scr-ap-k{display:block}
-.scr-ap-h{display:block;font-size:var(--fs-sm);font-weight:400}
-.scr-ap-tbl input.scr-cell{width:84px}
 .scr-asum{display:flex;flex-direction:column;gap:8px}
 .scr-asum-total{font-size:var(--fs-sm);color:var(--color-text-secondary)}
 .scr-asum-total b{color:var(--color-text-primary)}
@@ -25425,7 +25472,7 @@ function scrRated(mi){ if(!mi||mi.complexityRated===false||mi.complexitySource==
 
 /* ---------- the engine, in the page ---------- */
 function scrEngine(){ return typeof ScoringEngine!=="undefined"?ScoringEngine:null; }
-function scrKind(tk){ var k=typeof estKind==="function"?estKind(tk&&tk.title):null; if(!k) return null; return typeof k==="string"?k:Array.isArray(k)?k[0]:(k.id||null); }
+function scrKind(tk){ return typeof estKindOf==="function"?estKindOf(tk):null; }
 function scrKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("not recognised"); }
 function scrUnits(tk){ return Math.max(1,Math.round(assetCount(tk))); }
 function scrOpenDeps(tk){ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }
@@ -25505,8 +25552,8 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
     +'<div class="scr-val" data-scr-v="ai">'+scrAiCell(tk,m,aiOn)+'</div>'
     +'<div class="scr-val" data-scr-v="final"><span class="scr-k">'+tr(lk?"Locked value":"Final value")+'</span><b>'+scrFmt(m,fin)+'</b>'+scrSrcChip(r.source)+'</div></div>';
   var info=[];
-  if(m==="hours"){ var mi=r.mathInputs||{}, kind=mi.kind||scrCtxKind(tk), cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
-    info.push(tr("Kind of work")+': <span data-scr-in="kind">'+esc(scrKindName(kind))+'</span>');
+  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
+    info.push(kindPickHtml(tk,canI.editTask(tk)));
     info.push(cx?fmt(tr("Complexity {n} of 5"),{n:cx}):tr("Complexity not rated"));
     info.push('<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
     info.push(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}));
@@ -25577,7 +25624,7 @@ function scrCalc(id,m){ var tk=task(id); if(!tk) return; var r=scrView(tk,m), s=
   if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null;
     if(!cx){ var st=scrRow(tk,"story")||scrRow(tk,"weighted"); cx=st&&scrNum(st.factors&&st.factors.complexity); }
     SCR.rate={id:id,m:m,kind:mi.kind||scrCtxKind(tk)||"",r:{complexity:cx||null}};
-    var kinds=Object.keys(s.hours.templates), n=assetCount(tk), deps=scrCtxDeps(tk);
+    var kinds=s.kinds.filter(function(k){ return k.active; }).map(function(k){ return k.id; }), n=assetCount(tk), deps=scrCtxDeps(tk);
     body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label><select id="scrKind" onchange="SCR.rate.kind=this.value;scrPreview()"><option value="">'+tr("Choose the kind of work")+'</option>'
       +kinds.map(function(k){ return '<option value="'+attr(k)+'"'+(k===SCR.rate.kind?' selected':'')+'>'+esc(scrKindName(k))+'</option>'; }).join("")+'</select>'
       +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>'
@@ -27580,6 +27627,90 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 </style>
 <script>
 /* ============================================================
+   KINDS OF WORK, THE WORKSPACE'S OWN (Oct 2026): a task's kind chosen by hand (kindPickHtml, meta.kind) and the
+   Settings section (scoringKindsSettingsHtml, through the tab's draft).
+   ============================================================ */
+var SK={test:""}, SK_FIELD={name:"Name",nameId:"Name in Indonesian",keywords:"Words in the title",active:"On"};
+var SK_INTRO="Read from whole words of the title, top of the list first (\"copy\" is not \"copywriter\"; video* also finds videografi). A kind chosen on a task wins. Also used by the estimate on Create, even with Smart Scoring off.";
+var SK_EG="add Podcast with the words podcast, siniar — a task titled “Siniar eps 4” is then estimated with Podcast's hours.";
+var SK_LINE="The kinds of work a task can be, each with the words its titles use, its hours and its points per asset.";
+function skName(k){ return k?(UI_LANG==="id"?k.nameId:k.name)||k.name||"":""; }
+
+/* ---------- on the task ---------- */
+function kindPickHtml(tk,ed){ if(!tk||tk._draft) return "";
+  var list=estKindList(), pick=ScoringEngine.kindPick(tk,list), auto=ScoringEngine.kindOf(tk.title,list), lab=tr("Kind of work"), nm=function(id){ return id?estKindName(id):tr("none recognised"); };
+  return '<label class="scr-kpick" data-scr-in="kind">'+lab+' <select'+(ed?' onchange="kindPick('+jsq(tk.id)+',this.value)"':' disabled')+'><option value="">'+esc(tr("Auto")+" ("+nm(auto)+")")+'</option>'
+    +list.filter(function(k){ return k.active!==false; }).map(function(k){ return '<option value="'+attr(k.id)+'"'+(k.id===pick?' selected':'')+'>'+esc(nm(k.id))+'</option>'; }).join("")+'</select></label>'; }
+function kindPick(id,v){ var t=task(id); if(!t||!canI.editTask(t)) return;
+  editTaskWith(t,function(x){ var m=taskMeta(x), e; if(v) m.kind=v; else delete m.kind;
+    if(!m.effortManual&&(m.effortAuto||!(+x.effort>0))&&!isClosed(x)&&!scoringEstimateLock(x)&&(e=effortEstimate(x))) effortApply(x,e); }); }
+
+/* ---------- Settings → Smart Scoring → Kinds of work ---------- */
+function skKinds(){ return scGet("kinds")||[]; }
+function scoringKindsSettingsHtml(ro,ed){ if(!SC.draft) return "";
+  return scSection("kinds","Kinds of work",SK_LINE,scHelp(SK_INTRO)+'<div id="skList">'+skListHtml(ro)+'</div>'+scHelp(SC_T.next,SC_T.nextEx)
+    +'<div class="field scr-ktest"><label for="skTest">'+tr("Try a title")+'</label><input id="skTest" value="'+attr(SK.test)+'" placeholder="Podcast episode 12" oninput="SK.test=this.value;skTestPaint()"><div id="skTestOut" class="scr-kout" aria-live="polite">'+esc(skTestText())+'</div></div>',
+    {icon:I.tiles,example:SK_EG}); }
+function skListHtml(ro){ var l=skKinds();
+  return l.map(function(k,i){ return skRowHtml(k,i,l.length,ro); }).join("")+(ro?'':'<button type="button" class="btn sm" onclick="skAdd()"'+(l.length>=ScoringEngine.KIND_LIMITS.kinds?' disabled':'')+'>'+I.plus+tr("Add kind of work")+'</button>'); }
+function skRowHtml(k,i,n,ro){ var p="kinds."+i, h="hours.templates."+k.id, kw=Array.isArray(k.keywords)?k.keywords.join(", "):String(k.keywords||"");
+  var txt=function(f,label,v){ var id="sk"+i+"_"+f; return '<div class="field"><label for="'+id+'">'+tr(label)+'</label><input id="'+id+'" data-sc="'+p+'.'+f+'" data-k="str" value="'+attr(v)+'"'+(ro?' disabled':' oninput="scInput(this);skTestPaint()"')+'></div>'; };
+  var num=function(path,label,o){ return scNumHtml("sk"+i+"_"+path.split(".").pop(),path,label,Object.assign({ro:ro,min:0.05,max:200,step:0.25},o)); };
+  var btn=function(fn,ico,label,off){ return '<button type="button" class="iconbtn" onclick="'+fn+'" title="'+attr(tr(label))+'"'+(off?' disabled':'')+'>'+ico+'</button>'; };
+  return '<div class="scr-ap scr-krow'+(k.active===false?' off':'')+'" data-kind="'+attr(k.id)+'"><div class="scr-ktop">'
+    +(ro?'':btn("skMove("+i+",-1)",I.arrowup,"Move up",!i)+btn("skMove("+i+",1)",I.arrowdn,"Move down",i>=n-1))
+    +txt("name","Name",k.name)+txt("nameId","Name in Indonesian",k.nameId)
+    +scSwitchHtml(p+".active",tr("On")+" "+skName(k),ro).replace("scSwitch(this)","skSwitch(this)")
+    +(k.builtIn?'<span class="badge">'+tr("Built-in")+'</span>':ro?'':btn("skDel("+i+")",I.trash,"Delete"))+'</div>'
+    +txt("keywords","Words in the title",kw)
+    +'<div class="scr-grid scr-knums">'+num(h+".perUnit","First (h)")+num(h+".low","Low (h)")+num(h+".high","High (h)")
+    +num(h+".nextUnitFactor","Each next (× first)",{min:0,max:1,step:0.05})+num("assets.perKind."+k.id,"Points per asset",{min:0,max:20})+'</div></div>'; }
+function skPaint(id,d){ var el=document.getElementById("skList"); if(!el) return; el.innerHTML=skListHtml(!canI.scoringConfigure()); skTestPaint(); scBarPaint();
+  var r=id&&el.querySelector('[data-kind="'+id+'"]'), b=r&&r.querySelectorAll(".scr-ktop .iconbtn")[d<0?0:1]; if(r&&(!b||b.disabled)) b=r.querySelector(".scr-ktop button:not([disabled])"); if(b) b.focus(); }
+function skSwitch(b){ scSwitch(b); b.closest(".scr-krow").classList.toggle("off",!b.classList.contains("on")); skTestPaint(); }
+function skMove(i,d){ var l=skKinds(), j=i+d; if(j<0||j>=l.length) return; var x=l[i]; l[i]=l[j]; l[j]=x; l.forEach(function(k,n){ k.order=n; }); SC.dirty=true; skPaint(x.id,d); }
+function skAdd(){ var l=skKinds(); if(l.length>=ScoringEngine.KIND_LIMITS.kinds) return;
+  l.push({id:"k_"+Math.random().toString(36).slice(2,10),name:"",nameId:"",keywords:[],builtIn:false,active:true,order:l.length}); SC.dirty=true; skPaint(); document.getElementById("sk"+(l.length-1)+"_name").focus(); }
+function skDel(i){ var l=skKinds(), k=l[i]; if(!k||k.builtIn) return; var n=TASKS.filter(function(t){ return (t.meta||{}).kind===k.id; }).length;
+  confirmModal(fmt(tr("Delete {kind}?"),{kind:skName(k)}),esc(fmt(tr("Gone when you save. Tasks that chose it ({n}) go back to their title's kind."),{n:n})),function(){
+    l.splice(i,1); l.forEach(function(x,j){ x.order=j; }); [scGet("hours.templates"),scGet("assets.perKind")].forEach(function(o){ if(o) delete o[k.id]; }); SC.dirty=true; skPaint(); },true); }
+function skTestText(){ var t=String(SK.test||"").trim(); if(!t) return tr("Type a title to see its kind of work.");
+  var l=ScoringSettings.normalizeSettings(SC.draft||{}).kinds, m=ScoringEngine.kindMatch(t,l), k=m&&l.filter(function(x){ return x.id===m.id; })[0];
+  return k?fmt(tr("Detected: {kind} (keyword \"{word}\")"),{kind:skName(k),word:m.keyword}):tr("No kind recognised"); }
+function skTestPaint(){ var el=document.getElementById("skTestOut"); if(el) el.textContent=skTestText(); }
+(function(){ var base=scPathLabel; scPathLabel=function(p){ var s=String(p).split(".");
+  if(s[0]==="kinds") return tr("Kinds of work")+(s[2]?" · "+estKindName(s[1])+" · "+tr(SK_FIELD[s[2]]||s[2]):"");
+  if(s[0]==="hours"&&s[1]==="templates"&&!s[3]) return tr("Effort Hours")+" · "+estKindName(s[2]);
+  return base.apply(this,arguments); }; })();
+(function(){ var base=scVal; scVal=function(p,v){ var o=v&&typeof v==="object"&&!Array.isArray(v);
+  return o&&/^kinds/.test(p)?skName(v)||v.id:o&&/^hours\.templates/.test(p)?v.perUnit+" h ("+v.low+"–"+v.high+" h)":base.apply(this,arguments); }; })();
+SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
+
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  [SK_INTRO]:"Dibaca dari kata utuh di judul, dari atas daftar dulu (\"copy\" bukan \"copywriter\"; video* juga menemukan videografi). Jenis yang dipilih di task menang. Juga dipakai estimasi saat Create, meski Smart Scoring mati.",
+  [SK_EG]:"tambahkan Podcast dengan kata podcast, siniar — task berjudul “Siniar eps 4” lalu diestimasi dengan jam Podcast.",
+  [SK_LINE]:"Jenis pekerjaan yang bisa dimiliki sebuah task, masing-masing dengan kata yang dipakai judulnya, jamnya, dan poin per asetnya.","Points per asset":"Poin per aset",
+  "Kinds of work":"Jenis pekerjaan","none recognised":"tidak dikenali","Name in Indonesian":"Nama (Indonesia)","Words in the title":"Kata di judul","On":"Nyala","Delete":"Hapus",
+  "Add kind of work":"Tambah jenis pekerjaan","Try a title":"Coba sebuah judul",
+  "Type a title to see its kind of work.":"Ketik judul untuk melihat jenis pekerjaannya.","Detected: {kind} (keyword \"{word}\")":"Terdeteksi: {kind} (kata kunci \"{word}\")","No kind recognised":"Tidak ada jenis yang dikenali",
+  "Delete {kind}?":"Hapus {kind}?","Gone when you save. Tasks that chose it ({n}) go back to their title's kind.":"Terhapus saat disimpan. Task yang memilihnya ({n}) kembali ke jenis dari judulnya.",
+  "Kind of work removed: read from the title again":"Jenis pekerjaan dihapus: dibaca dari judul lagi"
+});
+</script>
+<style>
+.scr-kpick{display:inline-flex;align-items:center;gap:6px}
+.scr-kpick select{font-size:12px;max-width:200px;border-radius:6px}
+.scr-krow{margin-bottom:8px}
+.scr-krow.off{opacity:.65}
+.scr-ktop{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 10px}
+.scr-ktop .field{flex:1 1 150px;min-width:0}
+.scr-ktop .switch,.scr-ktop .badge{align-self:center}
+.scr-krow .field,.scr-knums{margin:0}.scr-ktest{margin-top:12px}
+.scr-knums{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));align-items:end}
+.scr-kout{margin-top:6px;font-weight:600}
+</style>
+<script>
+/* ============================================================
    A REDRAW FROM ELSEWHERE KEEPS WHAT YOU ARE DOING (Oct 2026)
    The screen is drawn again when the workspace changes under it — a colleague saves a task (the live board,
    src/v34.js), a server event arrives, a list finishes loading — and each redraw rebuilt the page from what is
@@ -27774,6 +27905,144 @@ function pageAiSoon(){ clearTimeout(PAGE_AI_T); PAGE_AI_T=setTimeout(pageAiSave,
     return pre.then(function(){ return base.apply(self,args); }).then(function(v){ try{ pageAfterRoute(); }catch(e){} return v; }); };
 })();
 </script>
+<script>
+/* ============================================================
+   THE LIST'S COLUMNS, MOVED AND SIZED (Oct 2026)
+   The owner: "buat list view tablenya bisa digeser2". A List header (Tasks, a project's List tab) is dragged left or
+   right to move its column — a line shows where it lands, Esc puts it back, the table is drawn again once, on the
+   drop; a press that does not travel is still a click that sorts. Its right edge is dragged to size it, live, only
+   the headers' widths changing; a double-click there gives the usual width back. Until a person sizes a column the
+   table looks as before (spare room shared by every column); the first sizing keeps each column at the width it was
+   drawn at, so nothing jumps, and from then on widths are exact and Task takes the room the others leave (never
+   less than its own width). Keys on a focused header: Alt+Left/Right moves it, Alt+Shift+Left/Right
+   sizes it, Enter sorts; each change is read out. Pointer events (mouse, touch, pen) — the rows keep their HTML5
+   drag-and-drop (kStart, lDrop, lGroupDrop in src/tasks.js) untouched; on touch a header is held LCOL_HOLD ms
+   before it moves, so a swipe still scrolls the table. Check and drag stay first.
+   Kept per person in myPrefs().listCols = {order, w} (what differs from the usual; saved to the server, so every
+   device draws the same table); unknown keys are ignored, a new column appears at its usual place, "Reset columns"
+   (next to Group, while something differs) brings the usual back. Phones draw the List as cards with no header
+   (src/responsive.css finds each cell by its lcol-<key> class), so nothing moves there.
+   ============================================================ */
+var LCOL_MIN={title:160,effort:44}, LCOL_STEP=16, LCOL_HOLD=350;
+var LCOL={mv:null,rz:null,noClick:false};
+function listColKeys(){ return LIST_COLS.map(function(c){ return c.k; }); }
+function listColPrefs(){ var p=PEOPLE[ME]?myPrefs().listCols:null; return p&&typeof p==="object"&&!Array.isArray(p)?p:{}; }
+/* known keys once each; a missing one goes after the nearest column before it by default */
+function listColOrder(){ var def=listColKeys(), raw=listColPrefs().order, out=[];
+  if (Array.isArray(raw)) raw.forEach(function(k){ if (def.indexOf(k)>=0&&out.indexOf(k)<0) out.push(k); });
+  def.forEach(function(k,i){ if (out.indexOf(k)>=0) return; var at=0; for (var j=i-1;j>=0;j--){ var p=out.indexOf(def[j]); if (p>=0){ at=p+1; break; } } out.splice(at,0,k); });
+  return out; }
+function listColClamp(k,w){ return Math.max(LCOL_MIN[k]||60,Math.min(800,Math.round(w))); }
+function listColWidth(k){ if (LCOL.rz&&LCOL.rz.k===k) return LCOL.rz.w; var w=(listColPrefs().w||{})[k]; return typeof w==="number"&&isFinite(w)?listColClamp(k,w):colW(LIST_COL_W,k); }
+function listColWidths(){ var w={}; listColKeys().forEach(function(k){ w[k]=listColWidth(k); }); return w; }
+/* sized: the person has sized a column, so widths are exact and Task has no width of its own on the page */
+function listColSized(){ var w=listColPrefs().w; return !!w&&typeof w==="object"&&!Array.isArray(w); }
+function listColCustom(){ return listColSized()||listColOrder().join()!==listColKeys().join(); }
+/* widths null = not sized. {} rather than no key, so an older copy in this browser cannot bring a layout back
+   (myPrefs fills in keys the server copy lacks) */
+function listColStore(order,widths){ var d=listColKeys(), o={};
+  if (order&&order.join()!==d.join()) o.order=order.slice();
+  if (widths){ o.w={}; Object.keys(widths).forEach(function(k){ var v=widths[k]; if (d.indexOf(k)>=0&&typeof v==="number"&&listColClamp(k,v)!==colW(LIST_COL_W,k)) o.w[k]=listColClamp(k,v); }); }
+  myPrefs().listCols=o; saveMyPrefs(); var b=document.querySelector("#content .lcol-reset"); if (b) b.hidden=!listColCustom(); }
+function listColResetBtn(){ return '<button type="button" class="btn sm ghost lcol-reset desktop-only" onclick="listColReset()"'+(listColCustom()?"":" hidden")+'>'+esc(tr("Reset columns"))+'</button>'; }
+function listColReset(){ lcolEnd(); LCOL.rz=null; listColStore(null,null); renderScreen(false); toast(tr("Columns back to their usual order and widths")); }
+function lcolTable(){ return document.querySelector("#content table.lcol-tbl"); }
+function lcolTh(k){ var t=lcolTable(); return t?t.querySelector('thead th[data-col="'+k+'"]'):null; }
+/* widths shown at once, on the headers only (a fixed table takes its column widths from them) */
+function lcolApply(){ var t=lcolTable(), sized=listColSized(); if (!t) return; t.classList.toggle("lcol-sized",sized);
+  t.querySelectorAll("thead th[data-col]").forEach(function(th){ var k=th.getAttribute("data-col"); th.style.width=k==="title"&&sized?"":listColWidth(k)+"px"; });
+  t.style.setProperty("--tbl-min",listColOrder().reduce(function(s,c){ return s+listColWidth(c); },LIST_COL_W.check+LIST_COL_W.drag)+"px"); }
+/* the first sizing: every column keeps the width it is drawn at (Task keeps its own as its least) */
+function lcolFreeze(){ var t=lcolTable(), w={}; if (listColSized()||!t) return;
+  t.querySelectorAll("thead th[data-col]").forEach(function(th){ var k=th.getAttribute("data-col"); if (k!=="title") w[k]=listColClamp(k,th.getBoundingClientRect().width); });
+  myPrefs().listCols=Object.assign({},listColPrefs(),{w:w}); lcolApply(); }
+function lcolListen(on){ var f=on?"addEventListener":"removeEventListener"; window[f]("pointermove",lcolMove,true); window[f]("pointerup",lcolUp,true); window[f]("pointercancel",lcolCancel,true); window[f]("keydown",lcolEsc,true); window[f]("blur",lcolCancel); }
+function lcolSort(e,k){ if (LCOL.noClick){ LCOL.noClick=false; return; } setSort(k); }
+/* moving */
+function lcolDown(e,th){ LCOL.noClick=false; var k=th.getAttribute("data-col"); if (e.button!==0||LCOL.mv||LCOL.rz||!LIST_COL_BY[k]) return;
+  var d=LCOL.mv={k:k,id:e.pointerId,touch:e.pointerType==="touch",x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY}; lcolListen(true);
+  if (d.touch) d.hold=setTimeout(function(){ if (LCOL.mv===d) lcolStart(d); },LCOL_HOLD); }
+function lcolStart(d){ var th=lcolTh(d.k); if (!th) return lcolEnd(); d.on=true; LCOL.noClick=true; try { th.setPointerCapture(d.id); } catch(x){}
+  th.classList.add("lcol-src"); document.body.classList.add("lcol-moving");
+  d.ghost=document.createElement("div"); d.ghost.className="lcol-ghost"; d.ghost.textContent=th.querySelector(".lcol-lbl").textContent;
+  d.line=document.createElement("div"); d.line.className="lcol-drop"; document.body.append(d.ghost,d.line);
+  d.from=listColOrder().indexOf(d.k); lcolPaint(); d.raf=requestAnimationFrame(lcolAuto); }
+function lcolMove(e){ var r=LCOL.rz, d=LCOL.mv;
+  if (r){ if (e.pointerId===r.id&&(r.moved||e.clientX!==r.x0)){ e.preventDefault(); if (!r.moved){ r.moved=true; lcolFreeze(); } r.w=listColClamp(r.k,r.w0+e.clientX-r.x0); lcolApply(); } return; }
+  if (!d||e.pointerId!==d.id) return; d.x=e.clientX; d.y=e.clientY;
+  if (!d.on){ var far=Math.max(Math.abs(d.x-d.x0),Math.abs(d.y-d.y0)); if (d.touch){ if (far>8) lcolEnd(); return; } if (far<=5) return; lcolStart(d); }
+  e.preventDefault(); lcolPaint(); }
+/* lands before the first header whose middle is right of the pointer; the line marks that edge */
+function lcolPaint(){ var d=LCOL.mv, t=lcolTable(); if (!d||!d.on) return; if (!t) return lcolEnd();
+  var hs=[].slice.call(t.querySelectorAll("thead th[data-col]")), wr=t.parentNode.getBoundingClientRect(), i=0, b;
+  for (;i<hs.length;i++){ b=hs[i].getBoundingClientRect(); if (d.x<b.left+b.width/2) break; }
+  var x=i<hs.length?hs[i].getBoundingClientRect().left:hs[hs.length-1].getBoundingClientRect().right, top=Math.max(t.tHead.getBoundingClientRect().top,wr.top,0), s=d.line.style;
+  d.to=i; s.left=Math.round(Math.max(wr.left+1,Math.min(wr.right-2,x))-1)+"px"; s.top=Math.round(top)+"px"; s.height=Math.max(0,Math.round(Math.min(wr.bottom,innerHeight)-top))+"px";
+  d.line.classList.toggle("same",i===d.from||i===d.from+1); d.ghost.style.transform="translate("+(d.x+12)+"px,"+(d.y+14)+"px)"; }
+/* near an edge of a table that scrolls sideways, it scrolls */
+function lcolAuto(){ var d=LCOL.mv, t=lcolTable(), w=t&&t.parentNode; if (!d||!d.on) return;
+  if (w&&w.scrollWidth>w.clientWidth){ var r=w.getBoundingClientRect(), v=d.x<r.left+40?(d.x-r.left-40)/3:d.x>r.right-40?(d.x-r.right+40)/3:0;
+    if (v){ var was=w.scrollLeft; w.scrollLeft=was+Math.max(-24,Math.min(24,Math.round(v)||(v<0?-1:1))); if (w.scrollLeft!==was) lcolPaint(); } }
+  d.raf=requestAnimationFrame(lcolAuto); }
+function lcolUp(e){ var r=LCOL.rz, d=LCOL.mv;
+  if (r){ if (e.pointerId===r.id) lcolRzDone(true); return; }
+  if (!d||e.pointerId!==d.id) return; var on=d.on, order=listColOrder(), from=order.indexOf(d.k), to=d.to; lcolEnd();
+  if (!on||to==null) return; if (to>from) to--; if (to===from) return;   /* not moved: the header's own click sorts */
+  order.splice(from,1); order.splice(to,0,d.k); listColStore(order,listColSized()?listColWidths():null); renderScreen(false); lcolSayPlace(d.k); }
+function lcolEnd(){ var d=LCOL.mv; LCOL.mv=null; if (d){ clearTimeout(d.hold); cancelAnimationFrame(d.raf); if (d.ghost) d.ghost.remove(); if (d.line) d.line.remove(); }
+  document.querySelectorAll(".lcol-src").forEach(function(x){ x.classList.remove("lcol-src"); }); document.body.classList.remove("lcol-moving"); if (!LCOL.rz) lcolListen(false); }
+function lcolCancel(e){ var x=LCOL.rz||LCOL.mv; if (!x||(e.type==="pointercancel"&&e.pointerId!==x.id)) return; if (LCOL.rz) lcolRzDone(false); else lcolEnd(); }
+function lcolEsc(e){ if (e.key!=="Escape"||!((LCOL.mv&&LCOL.mv.on)||LCOL.rz)) return; e.preventDefault(); e.stopImmediatePropagation(); LCOL.noClick=true;
+  if (LCOL.rz) lcolRzDone(false); else { lcolEnd(); lcolSay(tr("Column move cancelled")); } }
+/* a held header must not scroll the page: a listener on the header row can stop it (one on the document is passive) */
+function lcolTouch(e){ if ((LCOL.mv&&LCOL.mv.on)||LCOL.rz) e.preventDefault(); }
+function lcolMenu(e){ if (LCOL.mv||LCOL.rz) e.preventDefault(); }
+/* sizing */
+function lcolRzDown(e,h){ e.stopPropagation(); LCOL.noClick=true; var th=h.parentNode, k=th.getAttribute("data-col"); if (e.button!==0||LCOL.mv||LCOL.rz||!LIST_COL_BY[k]) return; e.preventDefault();
+  LCOL.rz={k:k,id:e.pointerId,x0:e.clientX,w0:listColClamp(k,th.getBoundingClientRect().width),w:listColWidth(k),h:h,was:myPrefs().listCols};
+  try { h.setPointerCapture(e.pointerId); } catch(x){} h.classList.add("on"); document.body.classList.add("lcol-sizing"); lcolListen(true); }
+/* kept on a release that moved; Esc, a lost pointer or a press that did not move puts back what was there */
+function lcolRzDone(keep){ var r=LCOL.rz; LCOL.rz=null; r.h.classList.remove("on"); document.body.classList.remove("lcol-sizing"); if (!LCOL.mv) lcolListen(false);
+  if (keep&&r.moved){ var w=listColWidths(); w[r.k]=r.w; listColStore(listColOrder(),w); lcolSayWidth(r.k); } else myPrefs().listCols=r.was;
+  lcolApply(); }
+function lcolRzReset(e,h){ e.preventDefault(); e.stopPropagation(); var k=h.parentNode.getAttribute("data-col"), w=listColWidths(); if (!LIST_COL_BY[k]||!listColSized()) return; delete w[k]; listColStore(listColOrder(),w); lcolApply(); lcolSayWidth(k); }
+/* keys */
+function lcolKey(e,th){ var k=th.getAttribute("data-col"), c=LIST_COL_BY[k]; if (!c||LCOL.mv||LCOL.rz) return;
+  if (e.altKey&&!e.ctrlKey&&!e.metaKey&&(e.key==="ArrowLeft"||e.key==="ArrowRight")){ e.preventDefault(); e.stopPropagation(); var dir=e.key==="ArrowLeft"?-1:1, order=listColOrder(), i=order.indexOf(k);
+    if (e.shiftKey){ var from=th.getBoundingClientRect().width; lcolFreeze(); var w=listColWidths(); w[k]=listColClamp(k,from+dir*LCOL_STEP); listColStore(order,w); lcolApply(); return lcolSayWidth(k); }
+    if (order[i+dir]){ order.splice(i,1); order.splice(i+dir,0,k); listColStore(order,listColSized()?listColWidths():null); renderScreen(false); var f=lcolTh(k); if (f) f.focus(); }
+    return lcolSayPlace(k); }
+  if ((e.key==="Enter"||e.key===" ")&&!e.altKey&&!e.ctrlKey&&!e.metaKey&&c.sort){ e.preventDefault(); setSort(k); var g=lcolTh(k); if (g) g.focus(); } }
+/* read out */
+function lcolSay(text){ var el=document.getElementById("lcolLive"); if (!el){ el=document.createElement("div"); el.id="lcolLive"; el.className="zc-sr"; el.setAttribute("role","status"); el.setAttribute("aria-live","polite"); document.body.appendChild(el); } el.textContent=""; setTimeout(function(){ el.textContent=text; },40); }
+function lcolSayPlace(k){ var o=listColOrder(); lcolSay(tr("{column}: column {n} of {total}").replace("{column}",tr(LIST_COL_BY[k].l)).replace("{n}",o.indexOf(k)+1).replace("{total}",o.length)); }
+function lcolSayWidth(k){ var th=lcolTh(k); lcolSay(tr("{column}: {px} px wide").replace("{column}",tr(LIST_COL_BY[k].l)).replace("{px}",th?Math.round(th.getBoundingClientRect().width):listColWidth(k))); }
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Drag to move · drag the edge to resize":"Seret untuk memindahkan · seret tepinya untuk mengubah lebar",
+  "Reset columns":"Atur ulang kolom", "Columns back to their usual order and widths":"Kolom kembali ke urutan dan lebar semula",
+  "Column move cancelled":"Pemindahan kolom dibatalkan", "{column}: column {n} of {total}":"{column}: kolom {n} dari {total}", "{column}: {px} px wide":"{column}: lebar {px} px",
+  "Drag a header to move its column, or its right edge to size it; double-click the edge for the usual width. On a focused header: Alt+Left/Right moves it, Alt+Shift+Left/Right sizes it, Enter sorts.":"Seret judul kolom untuk memindahkannya, atau tepi kanannya untuk mengubah lebarnya; klik dua kali tepinya untuk lebar semula. Pada judul yang terfokus: Alt+Kiri/Kanan memindahkannya, Alt+Shift+Kiri/Kanan mengubah lebarnya, Enter mengurutkan."
+});
+</script>
+<style>
+.lcol-tbl th.lcol-th{position:relative;-webkit-touch-callout:none}
+.lcol-tbl th.lcol-th:not(.lcol-sortable){cursor:grab}
+.lcol-tbl th.lcol-th:focus-visible{outline:2px solid var(--color-primary);outline-offset:-2px}
+.lcol-tbl th.lcol-src{opacity:.4}
+.lcol-rz{position:absolute;top:0;right:0;bottom:0;width:10px;cursor:col-resize;touch-action:none;z-index:1}
+.lcol-rz::after{content:"";position:absolute;top:24%;bottom:24%;right:4px;width:2px;border-radius:2px;background:var(--color-border-strong);opacity:0}
+.lcol-th:hover .lcol-rz::after{opacity:1}
+.lcol-rz:hover::after,.lcol-rz.on::after{opacity:1;background:var(--color-primary);top:0;bottom:0}
+.lcol-ghost{position:fixed;left:0;top:0;z-index:10000;pointer-events:none;padding:7px 12px;border-radius:var(--radius-sm);background:var(--color-surface);border:1px solid var(--color-primary);box-shadow:var(--shadow-lg);color:var(--color-primary);font-size:10.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.lcol-drop{position:fixed;z-index:9999;pointer-events:none;width:3px;border-radius:2px;background:var(--color-primary)}
+.lcol-drop::before{content:"";position:absolute;top:-3px;left:-3px;width:9px;height:9px;border-radius:50%;background:inherit}
+.lcol-drop.same{opacity:.35}
+body.lcol-moving,body.lcol-moving *{cursor:grabbing!important;user-select:none!important}
+body.lcol-sizing,body.lcol-sizing *{cursor:col-resize!important;user-select:none!important}
+.lcol-reset[hidden]{display:none!important}
+@media (min-width:761px){ .lcol-sized th.lcol-th{overflow:hidden;text-overflow:ellipsis} .lcol-sized tbody tr:not(.grp)>td[class*="lcol-"]{overflow:hidden} }
+@media (pointer:coarse){ .lcol-rz{width:16px} }
+</style>
 <script>
 /* ============================================================
    A NEW VERSION, OFFERED (Oct 2026)

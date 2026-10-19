@@ -231,7 +231,8 @@ test("the Advanced folds stay as each person left them; on a phone the groups ar
   expect(await ul.evaluate(u => u.scrollWidth > u.clientWidth)).toBe(true);   /* a row that scrolls sideways */
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.evaluate(() => go("settings", "scoring/history"));
-  await expect(page.locator('.scr-nav a[data-g="history"]')).toBeInViewport();   /* the chosen chip is in sight */
+  /* the chosen chip is scrolled into sight within the row */
+  await expect.poll(() => page.evaluate(() => { const u = document.querySelector(".scr-nav ul").getBoundingClientRect(), a = document.querySelector('.scr-nav a[data-g="history"]').getBoundingClientRect(); return a.left >= u.left - 1 && a.right <= u.right + 1; })).toBe(true);
   await page.locator('.scr-nav a[data-g="overview"]').click();
   await expect(page).toHaveURL(/\/settings\/scoring\/overview$/);
   await page.locator('[data-sc="modules.story.on"]').click();

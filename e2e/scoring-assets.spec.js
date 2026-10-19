@@ -1,9 +1,9 @@
 /* Points for the assets people produce (Oct 2026, src/scoring-assets.js, docs/SMART-SCORING.md §11). With Smart Scoring
    and its "assets" module on, a task's row shows each person's count, the points it earns by the kind of work (a logo
    concept: 5 points an asset) and whether a lead has validated it — not validated yet, validated, changed since. The
-   Settings tab has the "Asset points" section, with an example: whether counts not validated yet count, and the points
-   per asset of each kind beside the hours a piece typically takes, and no Save button of its own; a value changed
-   there is saved (as the tab's Save bar saves) and used. The figures over a period
+   Settings tab has the "Asset points" section, with an example: whether counts not validated yet count and the points
+   of a title no kind is recognised in (each kind's own points sit beside its hours under Kinds of work), and no Save
+   button of its own; a value changed there is saved (as the tab's Save bar saves) and used. The figures over a period
    come from GET /api/scoring/assets, people in name order. Off, nothing shows. Everything is put back as it was. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
@@ -96,7 +96,7 @@ test("a task's asset points per person with their validation mark, the Settings 
     expect(names).toEqual(names.slice().sort((a, b) => a.localeCompare(b)));
     await expect(page.locator('#e2eAssets .scr-asum-row[data-person="' + o.zara + '"]')).toContainText("Changed since validation 2 · 10.00 pts");
 
-    /* Settings → Smart Scoring: the section, with the hours a piece takes beside each value */
+    /* Settings → Smart Scoring: the section; each kind's points per asset sit beside its hours under Kinds of work */
     await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; go("settings", "scoring"); });
     await group(page, /^Output/);
     const section = page.locator("#content section").filter({ has: page.locator('[data-sc="assets.countUnvalidated"]') }).last();
@@ -104,12 +104,15 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(section).toContainText("Example: with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points");
     expect(await page.evaluate(() => scGet("modules.assets.on")), "the module is on (its switch is the tab's Overview's once it has one)").toBe(true);
     await expect(section).not.toContainText("Asset points are off");
+    const kind = id => page.locator('#skList [data-kind="' + id + '"]');
     await expect(section.locator('[data-sc="assets.countUnvalidated"]')).toHaveClass(/\bon\b/);
-    await expect(section.locator('tr[data-kind="logo"]')).toContainText("10 h");
-    await expect(section.locator('tr[data-kind="resize"] input')).toHaveValue("0.25");
     await expect(section.locator("#sc_ap_unknown")).toHaveValue("1");
     await expect(section.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
-    await section.locator("#sc_ap_logo").fill("6");
+    /* each kind's points sit beside its hours, in its row under Kinds of work (the Estimating group) */
+    await group(page, /^Estimating/);
+    await expect(kind("logo").locator('[data-sc="hours.templates.logo.perUnit"]')).toHaveValue("10");
+    await expect(kind("resize").locator('[data-sc="assets.perKind.resize"]')).toHaveValue("0.25");
+    await kind("logo").locator('[data-sc="assets.perKind.logo"]').fill("6");
     await save(page);
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     expect((await stored(page)).assets.perKind.logo).toBe(6);

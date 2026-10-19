@@ -49,13 +49,13 @@ function shell(c) {
 const paths = h => [...h.matchAll(/data-sc="([^"]+)"/g)].map(m => m[1]);
 const split = h => { const at = h.indexOf('<details'); assert.ok(at > 0, 'an Advanced fold'); return [h.slice(0, at), h.slice(at, h.indexOf('</details>', at))]; };
 
-test('Asset points: the "count before validation" switch and the points of every kind, with the hours beside them; no Save button', () => {
+test('Asset points: the "count before validation" switch and the points of a kind not recognised (each kind\'s own are under Kinds of work); no Save button', () => {
   const c = page();
   let h = c.scoringAssetsSettingsHtml(false, true);
-  for (const id of Engine.KIND_IDS) assert.ok(paths(h).includes('assets.perKind.' + id), id);
+  for (const id of Engine.KIND_IDS) assert.ok(!paths(h).includes('assets.perKind.' + id), id + ': its points are with its row under Kinds of work');
   for (const p of ['assets.unknownKind', 'assets.countUnvalidated']) assert.ok(paths(h).includes(p), p);
   assert.ok(!paths(h).includes('modules.assets.on'), 'the module\'s switch is its card in the tab\'s Overview');
-  assert.match(h, /tr data-kind="logo"[^]*?about 10 h a piece/);
+  assert.match(h, /under Kinds of work/);
   assert.match(h, /Example: with a logo at 5 points/);
   assert.doesNotMatch(h, /scSaveClick|<details/);
   /* what the section asks of the tab's pieces: off, it says so and offers to turn the module on */
@@ -179,7 +179,7 @@ for (const file of ['scoring-assets.js', 'scoring-outcomes.js']) {
     vm.createContext(c); earlierIndonesian(c); vm.runInContext(js, c);
     const words = literals(js);
     if (file === 'scoring-outcomes.js') for (const map of ['SCO_RULE_LABEL', 'SCO_STATUS_LABEL', 'SCO_WHY', 'SCO_ACTION']) Object.values(vm.runInContext(map, c)).forEach(v => words.add(v));
-    assert.ok(words.size > (file === 'scoring-assets.js' ? 25 : 120), 'the words were found (' + words.size + ')');
+    assert.ok(words.size > (file === 'scoring-assets.js' ? 20 : 120), 'the words were found (' + words.size + ')');
     const missing = [...words].filter(x => !(x in c.UI_ID));
     assert.deepEqual(missing, [], 'no Indonesian for: ' + missing.join(' | '));
     const marks = x => (String(x).match(/\{\w+\}/g) || []).sort().join(' ');

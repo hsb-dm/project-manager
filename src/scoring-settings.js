@@ -7,7 +7,7 @@
    is drawn from the edits kept in memory. One Save bar shows while they differ from what is saved (Discard, Save with
    the version they were made on; someone saved in between: theirs is loaded and the person is told); leaving Settings
    with changes asks first. scoring_view_analytics alone: read-only, no Save bar.
-   For the sections other files add (called with (ro, ed) from their group when defined: scKindsPanel in Estimating,
+   For the sections other files add (called with (ro, ed) from their group when defined: scoringKindsSettingsHtml in Estimating,
    scoringAssetsSettingsHtml and scoringOutcomesSettingsHtml in Output, scoringBonusSettingsHtml in Review,
    scoringTeamsSettingsHtml in Access):
    - scSection(id, title, intro, body, opts) → section.panel[data-scr-sec=id]: h2, one-line intro, opts.example as
@@ -171,7 +171,7 @@ function setScoring(){
     + '</div></div>'; }
 function scHook(name,ro,ed){ var f=window[name]; return typeof f==="function"?f(ro,ed)||"":""; }
 function scGroupHtml(g,ro,ed){ var x=SC_GROUPS.filter(function(x){ return x[0]===g; })[0], h;
-  if(g==="estimating") h=scHook("scKindsPanel",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
+  if(g==="estimating") h=scHook("scoringKindsSettingsHtml",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
   else if(g==="output") h=scHook("scoringAssetsSettingsHtml",ro,ed)+scHook("scoringOutcomesSettingsHtml",ro,ed);   /* src/scoring-assets.js, src/scoring-outcomes.js */
   else if(g==="ai") h=scAiPanel(ro);
   else if(g==="review") h=scOverridesPanel(ro)+scHook("scoringBonusSettingsHtml",ro,ed);   /* src/scoring-awards.js */
@@ -215,19 +215,12 @@ function scModulesPanel(ro){ var modes=[["math_only","Math only"],["ai_assisted"
     {icon:I.sync}); }
 
 /* ---------- Estimating ---------- */
+/* the hours of each kind of work are its row under Kinds of work (src/scoring-kinds.js), above Effort Hours */
 function scHoursPanel(ro){
-  var kinds=(typeof ScoringSettings!=="undefined"&&ScoringSettings.KINDS)||Object.keys(scGet("hours.templates")||{});
-  var name=function(id){ return typeof estKindName==="function"?estKindName(id):id; };
-  var cell=function(id,f,step){ return '<td><input type="number" class="scr-cell" aria-label="'+attr(name(id)+" · "+tr({perUnit:"First deliverable (h)",low:"Low (h)",high:"High (h)",nextUnitFactor:"Each next deliverable (× the first)"}[f]))+'" data-sc="hours.templates.'+id+'.'+f+'" data-k="num" min="0" step="'+step+'" value="'+attr(scGet("hours.templates."+id+"."+f))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
   var grid=function(key,list,o){ return '<div class="scr-grid">'+list.map(function(c){ return scNumHtml("sc_"+key+"_"+c[0],"hours."+(key==="cx"?"complexity":"dependency")+"."+c[0],c[1],o); }).join("")+'</div>'; };
-  /* the hours per kind of work move to "Kinds of work" once it is there */
-  var tpl=typeof scKindsPanel==="function"?"":'<div class="eyebrow">'+tr("Hours per kind of work")+'</div><div class="tbl-wrap scr-tpl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("First (h)")+'</th><th>'+tr("Low (h)")+'</th><th>'+tr("High (h)")+'</th><th>'+tr("Each next (× first)")+'</th></tr></thead><tbody>'
-    + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t">'+esc(name(id))+'</td>'+cell(id,"perUnit","0.25")+cell(id,"low","0.25")+cell(id,"high","0.25")+cell(id,"nextUnitFactor","0.05")+'</tr>'; }).join("")
-    + '</tbody></table></div>'+scHelp(SC_T.next,SC_T.nextEx);
   return scSection("hours","Effort Hours",SC_T.hours,
     fieldHtml("sc_lock","An estimate is locked",scSelectHtml("sc_lock","hours.lockPolicy",[["approve","When it is approved"],["approve_or_work_start",SC_T.lockWork]],ro))+scHelp(SC_T.lock)
-    + scAdvanced(tpl
-      + '<div class="eyebrow">'+tr("Complexity multiplier")+'</div>'+grid("cx",[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]],{min:0.1,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.cx,SC_T.cxEx)
+    + scAdvanced('<div class="eyebrow">'+tr("Complexity multiplier")+'</div>'+grid("cx",[[1,"1 · Very simple"],[2,"2 · Simple"],[3,"3 · Typical"],[4,"4 · Complex"],[5,"5 · Very complex"]],{min:0.1,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.cx,SC_T.cxEx)
       + '<div class="eyebrow">'+tr("Dependency multiplier")+'</div>'+grid("dp",[[0,"No open dependencies"],[1,"1 open dependency"],[2,"2 open dependencies"],[3,"3 or more"]],{min:0.5,max:10,step:0.05,unit:"×",ro:ro})+scHelp(SC_T.dp,SC_T.dpEx)
       + '<div class="eyebrow">'+tr("Limits")+'</div><div class="scr-grid">'+scNumHtml("sc_bmin","hours.bounds.min","Fewest hours",{min:0.05,max:40,step:0.25,unit:"h",ro:ro})+scNumHtml("sc_bmax","hours.bounds.max","Most hours",{min:0.5,max:400,step:1,unit:"h",ro:ro})+'</div>'+scHelp(SC_T.bounds),
       {id:"hours",hint:"Multipliers and limits"}),
@@ -352,9 +345,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Example:":"Contoh:","Turn on":"Nyalakan","Set up":"Atur","Leave without saving?":"Keluar tanpa menyimpan?","Keep editing":"Lanjut mengedit","Leave without saving":"Keluar tanpa menyimpan",
   "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini","How Smart Scoring works":"Cara kerja Smart Scoring","Log the time":"Catat waktu","Review & points":"Review & poin",
   "Settings version":"Versi pengaturan","last saved by":"terakhir disimpan oleh","Modules":"Modul","Primary capacity metric":"Metrik kapasitas utama",
-  "Multipliers and limits":"Pengali dan batas","Hours per kind of work":"Jam per jenis pekerjaan","Limits":"Batas",
+  "Multipliers and limits":"Pengali dan batas","Limits":"Batas",
   "First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
-  "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
   "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali dependensi",
   "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
   "No open dependencies":"Tanpa dependensi terbuka","2 open dependencies":"2 dependensi terbuka","3 or more":"3 atau lebih",

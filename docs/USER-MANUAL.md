@@ -153,6 +153,21 @@ Start, Due, Est., Tags. Klik header untuk mengurutkan. Klik sel **Status** atau 
 untuk mengubahnya langsung. Seret baris ke baris lain untuk mengurutkan, atau ke
 **header grup** untuk mengubah status/tim/assignee/project/prioritas sekaligus.
 
+*Kolom bisa digeser dan diubah lebarnya:*
+- **Pindah kolom** — seret judul kolom ke kiri/kanan; garis biru menunjukkan tempat jatuhnya.
+  **Esc** membatalkan. Kolom Task ikut bisa dipindah; kotak centang dan pegangan seret baris
+  tetap di depan. Klik biasa (tanpa digeser) tetap mengurutkan.
+- **Ubah lebar** — seret tepi kanan judul kolom (garis tipis saat kursor di atasnya). Lebar
+  minimum: Task 160 px, Est. 44 px, lainnya 60 px. **Klik dua kali** tepinya untuk lebar semula.
+  Setelah kamu mengubah lebar, kolom Task mengisi sisa ruang.
+- **Keyboard** — fokuskan judul kolom dengan Tab: **Alt+←/→** memindahkan, **Alt+Shift+←/→**
+  mengubah lebar 16 px, **Enter** mengurutkan.
+- Di layar sentuh (tablet), **tahan** judul kolom sebentar lalu geser; usapan biasa tetap
+  menggulir tabel ke samping. Di ponsel List tampil sebagai kartu, jadi kolom tidak digeser di sana.
+- Urutan dan lebar disimpan **per orang** (ikut ke perangkat lain) dan berlaku juga di tab List
+  sebuah project. Tombol **Reset columns** (*Atur ulang kolom*) di sebelah **Group** (muncul bila ada yang berubah)
+  mengembalikan urutan dan lebar bawaan.
+
 **Grid** — seperti spreadsheet. Setiap sel menulis langsung ke task: judul, status, tim,
 assignee, reviewer, project, prioritas, tanggal mulai & jatuh tempo, estimasi, tag, dan
 setiap custom field. Tombol **Fields** memilih kolom mana yang tampil.
@@ -169,6 +184,7 @@ Seret bar untuk menggeser kedua tanggal; seret ujung kiri/kanannya untuk menguba
 - **Filters** — membuka modal filter; setiap filter aktif juga jadi chip yang bisa dilepas
 - **Sort** — Manual, Due date, Priority, Created, A → Z, Status, Team, Assignee, plus tombol balik urutan
 - **Group** — None, Status, Team, Assignee, Project, Priority, Due date (List & Grid)
+- **Reset columns** — urutan dan lebar kolom List kembali ke bawaan (List, hanya bila sudah diubah)
 - **Fields** — kolom yang tampil (Grid)
 - Chip **n checked** — lihat di bawah
 - **Views** — view tersimpan
@@ -231,6 +247,16 @@ yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah d
 dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, story, banner, carousel, KV, web,
 dan email 50%; poster, reels, dan video 60%; copy, deck, dan konsep logo 40%. Contoh: 12 resize ≈ 5 jam, 3 reels
 ≈ 13 jam. Ketik angka sendiri kapan saja; angka yang kamu ketik tidak ditimpa.
+
+**Jenis pekerjaan (Kind of work).** Jenis pekerjaan dikenali dari kata di judul task, memakai daftar yang diatur admin
+di Settings → Smart Scoring → Estimasi → Kinds of work (misalnya "Siniar HSB eps 4" dikenali sebagai Podcast kalau admin
+menambahkan jenis itu dengan kata kunci "siniar"). Kalau judulnya tidak menyebut jenis yang tepat, pilih sendiri di
+baris **Effort** pada tab Brief: **Kind of work: Auto (post feed)** berarti dikenali dari judul; pilih jenis lain dari
+daftar, atau kembali ke **Auto**. Pilihanmu selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
+Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat judul diubah — kecuali angka yang kamu
+ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Pilihan ini bisa dibuat oleh siapa pun yang
+bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali
+dari judulnya.
 
 ### Empat tab
 
@@ -348,9 +374,9 @@ Kalau admin menyalakan **Smart Scoring**, tab Brief punya panel **Scoring & Inte
 Panel ini terlipat secara default, dan posisi buka/tutupnya diingat per orang. Satu baris untuk tiap modul yang
 dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
 
-- **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan dari judul, jumlah **Assets produced** sebagai
-  jumlah deliverable, rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat
-  langkah hitungannya.
+- **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan (yang dipilih di task, kalau tidak dari judul —
+  bisa dipilih juga di baris jam ini, **Kind of work**), jumlah **Assets produced** sebagai jumlah deliverable,
+  rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat langkah hitungannya.
 - **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
   jauh dari hitungan diberi peringatan.
 - **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,

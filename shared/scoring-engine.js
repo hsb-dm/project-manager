@@ -87,7 +87,7 @@
      many were. Nothing left: value null, reason no_progress (or zero_weight when the rest all weigh 0).
 
    validateAi(reply, settings) → {ok, value, errors}
-     Cleans an AI reply already parsed from JSON. Kept: kind (a template id), deliverables (a whole number 1–500),
+     Cleans an AI reply already parsed from JSON. Kept: kind (an active one of settings.kinds, else a template id), deliverables (a whole number 1–500),
      factors (the four ratings, whole numbers 1–5), hours (above 0, kept within settings.hours.bounds), storyPoints
      (only 1, 2, 3, 5, 8 or 13), weightedPoints (kept within 1–settings.weighted.scaleMax), confidence (0–1; above 1
      up to 100 is read as a percentage, above 100 dropped), explanation (600 characters at most), assumptions and
@@ -98,17 +98,15 @@
 
    inputHash(task) → 16 hexadecimal characters
      FNV-1a (two 32-bit passes) over the task as the AI is told about it: title, description, brief fields (the
-     template id with them), deliverable count (deliverables, else assetCount), labels and team. Text in Unicode NFC,
+     template id with them), deliverable count (deliverables, else assetCount), labels, team and kind (only if given). Text in Unicode NFC,
      spaces collapsed, lower case; brief keys and labels sorted; an empty field is the same as a missing one. The same
      task gives the same hash in the browser and on the server, whatever the key order or spacing — the AI cache key,
      with the settings' configVersion.
 
-   KINDS → [{id, name, nameId, pattern}], frozen; kindOf(title) → a kind id or null
-     The kinds of work, with their English and Indonesian names and the title pattern each is recognised by, the more
-     specific first (a "carousel" before a "feed post", "reels" before "video", a "resize" before anything it
-     resizes). kindOf lower-cases the title and gives the first kind whose pattern matches it, English or Indonesian;
-     nothing matches: null. The one list there is: src/effort-estimate.js (today's estimator, EST_KINDS) is built
-     from it, the hour templates and the asset points have its ids, and the server reads a task's kind with it.
+   KINDS (built-ins), KIND_LIMITS, kindMatch(title, kinds) → {id, keyword}|null, kindOf(title, kinds), kindPick(task, kinds)
+   (an active meta.kind), kindOfTask = kindPick || kindOf(title), kindKeyword. The first active kind of the list (else
+   KINDS) with a keyword in the title: text, never a pattern, whole words ("copy" is not "copywriter"), any case; a final
+   * takes longer words (video* → videografi).
 
    assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})
      → {perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total,
@@ -184,30 +182,51 @@
   });
   const defaults = () => JSON.parse(JSON.stringify(ENGINE_DEFAULTS));
 
-  /* ---------- the kinds of work, and how a title says which (the one list: src/effort-estimate.js is built on it) ---------- */
-  const kindDef = (id, name, nameId, pattern) => Object.freeze({ id, name, nameId, pattern });
+  /* ---------- the kinds of work, and how a title says which (the one matcher: page and server) ---------- */
+  const kindDef = (id, name, nameId, kw) => Object.freeze({ id, name, nameId: nameId || name, keywords: Object.freeze(kw.split(',')) });
   const KINDS = Object.freeze([
-    kindDef('carousel', 'carousel', 'karosel', /carousel|karosel/),
-    kindDef('story', 'story', 'story', /\bstor(y|ies)\b|insta ?story|ig ?story/),
-    kindDef('reels', 'reels or short video', 'reels atau video pendek', /\breels?\b|tiktok|\bshorts\b|short video|video pendek/),
-    kindDef('video', 'video', 'video', /video|motion|animation|animasi/),
-    kindDef('kv', 'key visual', 'key visual', /\bkv\b|key ?visual/),
-    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', /resize|adaptasi|adaptation|turunan/),
-    kindDef('feed', 'feed post', 'post feed', /\bfeeds?\b|\bposts?\b|posting|\bkonten\b|instagram|facebook|linkedin|social media|sosmed|media sosial/),
-    kindDef('poster', 'poster or flyer', 'poster atau flyer', /poster|flyer|leaflet|brosur|brochure|pamflet/),
-    kindDef('banner', 'banner or ad', 'banner atau iklan', /banner|\bads?\b|iklan|billboard|baliho|spanduk/),
-    kindDef('copy', 'copywriting', 'copywriting', /copywriting|\bcopy\b|caption|naskah|script|artikel|article|\bblog\b/),
-    kindDef('deck', 'presentation', 'presentasi', /\bdeck\b|presentation|presentasi|\bppt\b|pitch/),
-    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', /\blogo\b|branding|brand identity|identitas brand/),
-    kindDef('web', 'web page', 'halaman web', /landing ?page|website|web ?page|halaman web/),
-    kindDef('email', 'email or newsletter', 'email atau newsletter', /\bemail\b|newsletter|\bedm\b/)
+    kindDef('carousel', 'carousel', 'karosel', 'carousel*,karosel*'),
+    kindDef('story', 'story', '', 'story,stories,insta story*,instastory*,ig story*,igstory*'),
+    kindDef('reels', 'reels or short video', 'reels atau video pendek', 'reel,reels,tiktok*,shorts,short video*,video pendek*'),
+    kindDef('video', 'video', '', 'video*,motion*,animation*,animasi*'),
+    kindDef('kv', 'key visual', '', 'kv,key visual*,keyvisual*'),
+    kindDef('resize', 'resize or adaptation', 'resize atau adaptasi', 'resize*,adaptasi*,adaptation*,turunan*'),
+    kindDef('feed', 'feed post', 'post feed', 'feed,feeds,post,posts,posting*,konten,instagram*,facebook*,linkedin*,social media*,sosmed*,media sosial*'),
+    kindDef('poster', 'poster or flyer', 'poster atau flyer', 'poster*,flyer*,leaflet*,brosur*,brochure*,pamflet*'),
+    kindDef('banner', 'banner or ad', 'banner atau iklan', 'banner*,ad,ads,iklan*,periklanan*,billboard*,baliho*,spanduk*'),
+    kindDef('copy', 'copywriting', '', 'copywriting*,copy,caption*,naskah*,script*,artikel*,article*,blog'),
+    kindDef('deck', 'presentation', 'presentasi', 'deck,presentation*,presentasi*,ppt,pitch*'),
+    kindDef('logo', 'logo or brand identity', 'logo atau identitas brand', 'logo,branding*,rebranding*,brand identity*,identitas brand*'),
+    kindDef('web', 'web page', 'halaman web', 'landing page*,landingpage*,website*,web page*,webpage*,halaman web*'),
+    kindDef('email', 'email or newsletter', 'email atau newsletter', 'email,newsletter*,edm')
   ]);
-  const KIND_IDS = KINDS.map(k => k.id);
-  function kindOf(title) {
-    const s = String(title === null || title === undefined ? '' : title).toLowerCase();
-    for (const k of KINDS) if (k.pattern.test(s)) return k.id;
-    return null;
+  const KIND_IDS = KINDS.map(k => k.id), KIND_LIMITS = Object.freeze({ kinds: 50, keywords: 40, keyword: 40, name: 40 });
+  const EDGE = '(?:^|[^\\p{L}\\p{N}])', END = '(?![\\p{L}\\p{N}])';
+  const textOf = v => String(v == null ? '' : v).normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  function kindKeyword(v) {
+    if (typeof v !== 'string') return '';
+    const s = textOf(v), k = s.replace(/\*/g, '').trim(), n = Array.from(k).length;
+    return !n || n > KIND_LIMITS.keyword || !/[\p{L}\p{N}]/u.test(k) ? '' : k + (s.endsWith('*') && n > 2 ? '*' : '');
   }
+  const kindsOf = x => (Array.isArray(x) ? x : isObj(x) && Array.isArray(x.kinds) ? x.kinds : KINDS);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const reOf = w => (w.endsWith('*') ? esc(w.slice(0, -1)) : esc(w) + END);
+  /* per list, each active kind's keywords as escaped text between word edges: one expression a kind */
+  const compiled = new WeakMap();
+  function compile(list) {
+    if (!compiled.has(list)) compiled.set(list, list.filter(k => isObj(k) && k.active !== false).map(k => {
+      const kws = (Array.isArray(k.keywords) ? k.keywords : []).map(kindKeyword).filter(Boolean);
+      return { id: k.id, kws, re: kws.length ? new RegExp(EDGE + '(?:' + kws.map(reOf).join('|') + ')', 'u') : null };
+    }));
+    return compiled.get(list);
+  }
+  function kindMatch(title, kinds, idOnly) {
+    const s = textOf(title), k = s ? compile(kindsOf(kinds)).find(x => x.re && x.re.test(s)) : null;
+    return !k ? null : idOnly ? k.id : { id: k.id, keyword: k.kws.find(w => new RegExp(EDGE + reOf(w), 'u').test(s)) };
+  }
+  const kindOf = (title, kinds) => kindMatch(title, kinds, true);
+  const kindPick = (task, kinds) => { const id = isObj(task) && isObj(task.meta) ? task.meta.kind : null; return kindsOf(kinds).some(k => isObj(k) && k.id === id && k.active !== false) ? id : null; };
+  const kindOfTask = (task, kinds) => kindPick(task, kinds) || kindOf(isObj(task) ? task.title : '', kinds);
 
   /* ---------- the sentences (keys of `steps`; the page translates them with tr()) ---------- */
   const SENTENCES = {
@@ -694,7 +713,8 @@
     if (unknown.length) errors.push('Ignored unknown fields: ' + unknown.slice(0, 10).map(short).join(', ') + (unknown.length > 10 ? ' and ' + (unknown.length - 10) + ' more' : '') + '.');
     if (has('kind')) {
       const k = typeof reply.kind === 'string' ? reply.kind.trim() : '';
-      if (k && hasOwn(templates, k)) v.kind = k; else errors.push('kind ' + short(reply.kind) + ' is not a known kind of work; dropped.');
+      const known = Array.isArray(settings.kinds) ? settings.kinds.some(x => isObj(x) && x.id === k && x.active !== false) : hasOwn(templates, k);
+      if (k && known) v.kind = k; else errors.push('kind ' + short(reply.kind) + ' is not a known kind of work; dropped.');
     }
     if (has('deliverables')) {
       const n = num(reply.deliverables);
@@ -800,13 +820,13 @@
     const text = v => (v === null || v === undefined ? '' : norm(v));
     const labels = Array.isArray(t.labels) ? Array.from(new Set(t.labels.map(text).filter(Boolean))).sort() : [];
     const d = num(t.deliverables !== undefined && t.deliverables !== null ? t.deliverables : t.assetCount);
-    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)]);
+    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)].concat(t.kind ? [text(t.kind)] : []));
     return fnv1a(payload, 0x811c9dc5) + fnv1a(payload, 0x9747b28c);
   }
 
   const engine = {
     round2, hours, storyPoints, weightedPoints, basePoints, efficiency, allocate, progress, rollup, validateAi, inputHash,
-    assetPoints, kindOf, KINDS, KIND_IDS,
+    assetPoints, kindOf, kindMatch, kindPick, kindOfTask, kindKeyword, KINDS, KIND_IDS, KIND_LIMITS,
     fill, defaults, ENGINE_DEFAULTS, SENTENCES, REASONS, FACTORS, STORY_SCALE, ENGINE_VERSION, INPUT_HASH_VERSION
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = engine; else root.ScoringEngine = engine;

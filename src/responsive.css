@@ -933,44 +933,62 @@
   .tbl:has(td.tcheck-col) td.t .mono {
     display: none;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(n+4 of :not(.bulk-check-cell)) {
+  /* Each cell is found by its column class (lcol-<key>, src/tasks.js), not by its place: a person can move the
+     List's columns (src/list-columns.js), and the card keeps its own order whatever that order is —
+     the title, then status, dependency, team and due; assignee at the right, the priority bar at the left. */
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td {
+    order: 5;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-title {
+    order: 0;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-status {
     order: 1;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(8 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(10 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(12 of :not(.bulk-check-cell)),
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(13 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-dependency {
+    order: 2;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-team {
+    order: 3;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due {
+    order: 4;
+  }
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-proj,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-start,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-effort,
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-tags {
     display: none !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee {
     position: absolute;
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) .cell-flex {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .cell-flex {
     font-size: 0;
     gap: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(7 of :not(.bulk-check-cell)) .av {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .av {
     width: 22px;
     height: 22px;
     font-size: 8px;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio {
     position: absolute;
     left: 8px;
     top: 10px;
     bottom: 10px;
     font-size: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) .cell-flex {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .cell-flex {
     height: 100%;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(9 of :not(.bulk-check-cell)) .prio {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .prio {
     height: 100% !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td:nth-child(11 of :not(.bulk-check-cell)) .due {
+  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due .due {
     font-size: 10.5px;
     white-space: nowrap;
   }
