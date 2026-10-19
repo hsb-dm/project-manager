@@ -15,11 +15,10 @@
      shared task (to 100%, with a reason) and a reason. Everyone who sees it reads that it is an operational metric,
      not compensation or a ranking.
    - Settings → Smart Scoring → "Efficiency bonus" (scoringBonusSettingsHtml, called by src/scoring-settings.js): the
-     switch and every policy field — the grace, the reward factor, the most bonus, the shortest estimate and the least
-     time that count, when a reviewer is asked to look closely, what a material change of time is, where the base comes
-     from, the hours → points bands, the stages that count as completed, whether the latest version must be approved, a
-     minimum quality, the pilot teams — with the rules that are fixed shown as such and why, and a worked example
-     (E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10) recomputed from the fields as they are typed.
+     switch, a worked example (E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10) recomputed as the fields are typed,
+     the grace and the largest bonus, the fixed rules as "Always true"; the rest of the policy (reward factor, minimums,
+     review flags, base, hours → points bands, completed stages, approved version, quality, pilot teams) under
+     "Advanced", each field with a line on what it does.
    - The approvers' notification ("… is finished: its efficiency bonus waits for your review") in the bell, in English
      and Indonesian, under the "approval" notifications.
    Nothing blinks: the line is drawn from what the panel has, and the panel redraws it in place. In the offline demo the
@@ -145,15 +144,21 @@ function scoringBonusExample(b){ var E=typeof ScoringEngine!=="undefined"?Scorin
   var r=E.efficiency(b||{},{E:8,A:5,B:8,completed:true,qualityApproved:true,scopeChanged:false,validLogs:true});
   return {bonus:(+r.bonus||0).toFixed(2),earned:(+r.earned||0).toFixed(2),saved:scePct(r.savedRatio),beyond:scePct(r.eligibleSavings),rate:scePct(r.multiplier)}; }
 function sceExampleHtml(b){ var x=scoringBonusExample(b); if(!x) return ""; var p=b||{};
-  return '<b>'+fmt(tr("E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}"),{E:8,A:5,B:8,bonus:x.bonus,earned:x.earned})+'</b><span>'
+  return '<b>'+tr("Example")+': '+fmt(tr("E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}"),{E:8,A:5,B:8,bonus:x.bonus,earned:x.earned})+'</b><span>'
     +(x.beyond>0?fmt(tr("Saved {saved}% of the estimate; {beyond}% beyond the grace × the reward factor {factor} = a bonus rate of {rate}% (at most {max}%)."),{saved:x.saved,beyond:x.beyond,factor:+p.rewardFactor,rate:x.rate,max:scePct(p.maxRate)})
-      :fmt(tr("Saved {saved}% of the estimate: within the {grace}% grace, so no bonus."),{saved:x.saved,grace:scePct(p.grace)}))+'</span>'; }
+      :fmt(tr("Saved {saved}% of the estimate: within the {grace}% grace, so no bonus."),{saved:x.saved,grace:scePct(p.grace)}))+'</span><span class="hint">'+tr("E = the approved estimate, A = the time logged, B = the task's base points.")+'</span>'; }
 function sceExamplePaint(){ var el=document.getElementById("sceExample"); if(!el||typeof SC==="undefined"||!SC.draft) return; el.innerHTML=sceExampleHtml(SC.draft.bonus||{}); }
 (function(){ if(typeof scTotalsPaint!=="function") return; var base=scTotalsPaint; scTotalsPaint=function(){ var out=base.apply(this,arguments); try{ sceExamplePaint(); }catch(e){ console.error(e); } return out; }; })();
-function sceRedraw(){ if(typeof renderScreen==="function") renderScreen(false); }
+/* the hours → points bands, drawn again in place when one is added or removed */
 function sceBands(){ var b=scGet("bonus.hourMapping.bands"); return Array.isArray(b)?b:[]; }
-function sceBandAdd(){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length>=12) return; var last=b[b.length-1]||[8,5]; b.push([Math.min(10000,(+last[0]||8)*2),Math.round(((+last[1]||5)+3)*100)/100]); scPut("bonus.hourMapping.bands",b); sceRedraw(); }
-function sceBandDel(i){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length<=1) return; b.splice(i,1); scPut("bonus.hourMapping.bands",b); sceRedraw(); }
+function sceBandsHtml(ro){ var bands=sceBands();
+  return bands.map(function(x,i){ return '<div class="scr-band" data-band="'+i+'"><span>'+tr(i===bands.length-1&&bands.length>1?"Above that, up to":"Up to")+'</span><div class="scr-unit"><input type="number" min="0.05" max="10000" step="0.25" data-sc="bonus.hourMapping.bands.'+i+'.0" data-k="num" value="'+attr(x[0])+'" aria-label="'+attr(tr("Hours"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>h</span></div><span aria-hidden="true">→</span>'
+      +'<div class="scr-unit"><input type="number" min="0.01" max="1000" step="0.5" data-sc="bonus.hourMapping.bands.'+i+'.1" data-k="num" value="'+attr(x[1])+'" aria-label="'+attr(tr("Points"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>'+tr("pts")+'</span></div>'
+      +(ro||bands.length<=1?'':'<button type="button" class="iconbtn" onclick="sceBandDel('+i+')" aria-label="'+attr(tr("Remove this band"))+'">'+(I.x||"×")+'</button>')+'</div>'; }).join("")
+    +(ro||bands.length>=12?'':'<button type="button" class="btn xs ghost" onclick="sceBandAdd()">'+(I.plus||"")+tr("Add a band")+'</button>'); }
+function sceBandsSet(b){ scPut("bonus.hourMapping.bands",b); var el=document.getElementById("sceBands"); if(el) el.innerHTML=sceBandsHtml(!canI.scoringConfigure()); }
+function sceBandAdd(){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length>=12) return; var last=b[b.length-1]||[8,5]; b.push([Math.min(10000,(+last[0]||8)*2),Math.round(((+last[1]||5)+3)*100)/100]); sceBandsSet(b); }
+function sceBandDel(i){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length<=1) return; b.splice(i,1); sceBandsSet(b); }
 /* the stages that count as completed: every closed stage but Declined unless the workspace picks its own */
 function sceClosed(){ return ((typeof WS!=="undefined"&&WS.workflow)||[]).filter(function(s){ return s.kind==="closed"; }); }
 function sceDefaultStages(){ return sceClosed().filter(function(s){ return s.id!=="declined"; }).map(function(s){ return s.id; }); }
@@ -164,43 +169,37 @@ function sceMinQ(el){ scPut("bonus.minQuality",el.value===""?null:+el.value); }
 function scoringBonusSettingsHtml(ro,ed){
   if(typeof scGet!=="function") return "";
   var demo=typeof API!=="undefined"&&!API.on, lock=ro||demo, b=scGet("bonus")||{}, on=!!b.on;
-  var num=function(id,path,label,o){ return scNumHtml(id,path,label,Object.assign({ro:ro},o)); };
-  var bands=sceBands(), stages=b.completionStages, chosen=Array.isArray(stages)&&stages.length?stages:sceDefaultStages();
-  var pinned=[["An independent approver, always","Someone who is neither assigned to the task nor credited on it approves its bonus — an admin included — and never while acting as someone else."],
-    ["Nobody approves their own bonus","Being assigned to a task, or having logged time on it, rules a person out as its reviewer."],
-    ["No cap per person or period in this version","Unusual patterns are flagged for the reviewer instead."],
-    ["Never negative","Taking longer than the estimate never takes points away; the difference is shown as estimation variance."],
-    ["No retroactive awards","Only estimates approved after the bonus is turned on can earn one; turning it off and on again starts from then."]];
+  var num=function(id,path,label,o,help,ex){ return '<div class="scr-fld">'+scNumHtml(id,path,label,Object.assign({ro:ro},o))+scrHelp(help,ex)+'</div>'; };
+  var stages=b.completionStages, chosen=Array.isArray(stages)&&stages.length?stages:sceDefaultStages();
+  var pinned=[tr("An independent approver: someone neither assigned to the task nor credited on it — admins included."),tr("Nobody approves their own bonus, nor while acting as someone else."),
+    tr("No cap per person or period yet: unusual patterns are flagged for the reviewer."),tr("Never negative: taking longer never takes points away."),tr("Never backdated: only estimates approved after it is turned on count.")];
   var teams=(typeof TEAMS!=="undefined"?TEAMS:[]).filter(function(t){ return !t.archived; }), pilot=Array.isArray(b.pilotTeams)?b.pilotTeams:[];
-  return sp("Efficiency bonus",
-    '<p class="hint" style="margin-bottom:10px">'+tr("Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.")+'</p>'
-    +'<div class="pref" data-scr-bonus="on"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr(demo?"In the offline demo the bonus stays off: awards are worked out by the server.":on?"On: completed tasks that meet every condition wait for an independent review.":"Off: no award is worked out.")+'</span>'
-      +(on&&b.enabledAt?'<div class="hint" style="margin-top:2px">'+fmt(tr("Turned on {when}: only estimates approved after that count."),{when:esc(typeof scrDate==="function"?scrDate(b.enabledAt):b.enabledAt)})+'</div>':'')+'</div>'+scSwitchHtml("bonus.on","Efficiency bonus",lock)+'</div>'
-    +'<div class="scr-eff-example" id="sceExample" aria-live="polite">'+sceExampleHtml(b)+'</div>'
-    +'<div class="scr-grid">'+num("sc_b_grace","bonus.grace","Savings that do not count",{pct:true,min:0,max:90,step:1,unit:"%"})+num("sc_b_reward","bonus.rewardFactor","Reward factor",{min:0,max:5,step:0.05})
-      +num("sc_b_max","bonus.maxRate","Most bonus",{pct:true,min:0,max:100,step:1,unit:"%"})+num("sc_b_mine","bonus.minE","Shortest estimate",{min:0,max:1000,step:0.25,unit:"h"})
-      +num("sc_b_mina","bonus.minA","Least time logged",{min:0,max:1000,step:0.25,unit:"h"})+num("sc_b_review","bonus.reviewBelowRatio","Review when time is below",{pct:true,min:0,max:100,step:5,unit:"%"})
-      +num("sc_b_material","bonus.materialChangeHours","A change of time that counts",{min:0,max:100,step:0.25,unit:"h"})+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("Review when time is below: a reviewer is asked to look closely when the work took less than this share of the estimate. A change of time that counts: time changed by at least this much after an approval sends the bonus back to review.")+'</div>'
-    +fieldHtml("sc_b_base","Base points",scSelectHtml("sc_b_base","bonus.baseSource",[["weighted_else_mapping","Weighted Points while that module is on, else the hours bands"],["mapping","Always the hours bands"]],ro))
-    +'<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands" id="sceBands">'
-      +bands.map(function(x,i){ return '<div class="scr-band" data-band="'+i+'"><span>'+tr(i===bands.length-1&&bands.length>1?"Above that, up to":"Up to")+'</span><div class="scr-unit"><input type="number" min="0.05" max="10000" step="0.25" data-sc="bonus.hourMapping.bands.'+i+'.0" data-k="num" value="'+attr(x[0])+'" aria-label="'+attr(tr("Hours"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>h</span></div><span aria-hidden="true">→</span>'
-        +'<div class="scr-unit"><input type="number" min="0.01" max="1000" step="0.5" data-sc="bonus.hourMapping.bands.'+i+'.1" data-k="num" value="'+attr(x[1])+'" aria-label="'+attr(tr("Points"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>'+tr("pts")+'</span></div>'
-        +(ro||bands.length<=1?'':'<button type="button" class="iconbtn" onclick="sceBandDel('+i+')" aria-label="'+attr(tr("Remove this band"))+'">'+(I.x||"×")+'</button>')+'</div>'; }).join("")
-      +(ro||bands.length>=12?'':'<button type="button" class="btn xs ghost" onclick="sceBandAdd()">'+(I.plus||"")+tr("Add a band")+'</button>')+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("The locked hours fall in the first band they are at most; above every band, the last one counts. Hours are never counted as points themselves.")+'</div>'
-    +'<div class="eyebrow">'+tr("Completed means")+'</div><div class="scr-checks" id="sceStages">'+sceClosed().map(function(s){ return '<label><input type="checkbox" value="'+attr(s.id)+'"'+(chosen.indexOf(s.id)>=0?' checked':'')+(ro?' disabled':' onchange="sceStagesChange()"')+'> <span>'+esc(typeof stageName==="function"?stageName(s):s.name)+'</span></label>'; }).join("")+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("By default every closed stage except Declined.")+'</div>'
+  var adv='<div class="scr-grid scr-wide">'+num("sc_b_reward","bonus.rewardFactor","Reward factor",{min:0,max:5,step:0.05},tr("Each 1% saved beyond the grace adds this many % of the base points."),tr("0.5: 27.5% beyond the grace makes a 13.75% bonus."))
+      +num("sc_b_mine","bonus.minE","Smallest estimate",{min:0,max:1000,step:0.25,unit:"h"},"",tr("1 h: a 45-minute task never earns a bonus."))
+      +num("sc_b_mina","bonus.minA","Least time logged",{min:0,max:1000,step:0.25,unit:"h"},"",tr("0.25 h: under 15 minutes logged earns no bonus."))
+      +num("sc_b_review","bonus.reviewBelowRatio","Ask for a close look below",{pct:true,min:0,max:100,step:5,unit:"%"},tr("Work done in less than this share of the estimate is flagged for the reviewer."),tr("40%: an 8 h task done in under 3.2 h."))
+      +num("sc_b_material","bonus.materialChangeHours","Reopen the review after",{min:0,max:100,step:0.25,unit:"h"},tr("Logged time changed by at least this much after approval sends the bonus back to review."),tr("0.25 h = 15 minutes."))+'</div>'
+    +fieldHtml("sc_b_base","Base points come from",scSelectHtml("sc_b_base","bonus.baseSource",[["weighted_else_mapping","Weighted Points while that module is on, else the hours bands"],["mapping","Always the hours bands"]],ro))
+    +'<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands" id="sceBands">'+sceBandsHtml(ro)+'</div>'
+    +scrHelp(tr("A task gets the points of the first band its locked hours fit in; above them all, the last band. Hours never count as points themselves."),tr("6 h: up to 8 h → 5 pts."))
+    +'<div class="eyebrow">'+tr("Completed means")+'</div><div class="scr-checks" id="sceStages">'+sceClosed().map(function(s){ return '<label><input type="checkbox" value="'+attr(s.id)+'"'+(chosen.indexOf(s.id)>=0?' checked':'')+(ro?' disabled':' onchange="sceStagesChange()"')+'> <span>'+esc(typeof stageName==="function"?stageName(s.id):s.name)+'</span></label>'; }).join("")+'</div>'
+    +scrHelp(tr("By default every closed stage except Declined."))
     +'<div class="pref"><div class="pl"><b>'+tr("The latest version must be approved")+'</b><span>'+tr("By a reviewer who did not work on the task: the quality gate before a bonus can be reviewed.")+'</span></div>'+scSwitchHtml("bonus.requireApprovedVersion","The latest version must be approved",ro)+'</div>'
     +fieldHtml("sc_b_minq","Lowest quality score that can be approved",selectHtml("sc_b_minq",[["",tr("No minimum: a score is optional")]].concat([1,2,3,4,5].map(function(n){ return [String(n),String(n)]; })),b.minQuality==null?"":String(b.minQuality),ro?"disabled":'onchange="sceMinQ(this)"'))
     +'<div class="eyebrow">'+tr("Pilot teams")+'</div><div class="scr-checks" id="scePilot">'+(teams.length?teams.map(function(t){ return '<label><input type="checkbox" value="'+attr(t.id)+'"'+(pilot.indexOf(t.id)>=0?' checked':'')+(ro?' disabled':' onchange="scePilotChange()"')+'> <span data-no-translate>'+esc(t.name)+'</span></label>'; }).join(""):'<span class="hint">'+tr("No teams yet.")+'</span>')+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("None chosen: every team. Chosen: only their tasks can earn a bonus.")+'</div>'
-    +'<div class="eyebrow">'+tr("Fixed rules")+'</div>'
-    +pinned.map(function(p){ return '<div class="pref scr-pinned"><div class="pl"><b>'+tr(p[0])+'</b><span>'+tr(p[1])+'</span></div><span class="badge">'+(I.lock||"")+tr("Fixed")+'</span></div>'; }).join("")
+    +scrHelp(tr("None chosen: every team. Chosen: only their tasks can earn a bonus."));
+  return scrSec("bonus",tr("Efficiency bonus"),tr("Finish faster than the approved estimate and earn a few extra points — never hours — once someone who did not work on the task approves it."),
+    '<div class="pref" data-scr-bonus="on"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr(demo?"In the offline demo the bonus stays off: awards are worked out by the server.":on?"On: completed tasks that meet every condition wait for an independent review.":"Off: no award is worked out.")+'</span>'
+      +(on&&b.enabledAt?'<div class="hint" style="margin-top:2px">'+fmt(tr("Turned on {when}: only estimates approved after that count."),{when:esc(typeof scrDate==="function"?scrDate(b.enabledAt):b.enabledAt)})+'</div>':'')+'</div>'+scSwitchHtml("bonus.on","Efficiency bonus",lock)+'</div>'
+    +'<div class="scr-eff-example" id="sceExample" aria-live="polite">'+sceExampleHtml(b)+'</div>'
+    +'<div class="scr-grid scr-wide">'+num("sc_b_grace","bonus.grace","No bonus below",{pct:true,min:0,max:90,step:1,unit:"%"},tr("Saving less than this share of the estimate (the grace) earns nothing — small differences are normal."),tr("10%: an 8 h task done in 7.5 h earns nothing."))
+      +num("sc_b_max","bonus.maxRate","Largest bonus",{pct:true,min:0,max:100,step:1,unit:"%"},tr("Never more than this share of the base points."),tr("20%: a task worth 8 pts earns at most +1.60."))+'</div>'
+    +'<div class="scr-always"><b>'+(I.lock||"")+tr("Always true")+'</b><ul>'+pinned.map(function(p){ return '<li class="scr-pinned">'+p+'</li>'; }).join("")+'</ul></div>'
+    +scrAdv(adv,{id:"bonus"})
     +'<p class="hint">'+tr("Operational metric, not compensation or a ranking.")+'</p>',
-    scSaveFoot(ed),I.star||I.gauge); }
+    {icon:I.star||I.gauge}); }
 /* the bonus fields' names in the settings' history */
-(function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; var names={"bonus.on":"Efficiency bonus","bonus.grace":"Savings that do not count","bonus.rewardFactor":"Reward factor","bonus.maxRate":"Most bonus","bonus.minE":"Shortest estimate","bonus.minA":"Least time logged","bonus.reviewBelowRatio":"Review when time is below","bonus.materialChangeHours":"A change of time that counts","bonus.baseSource":"Base points","bonus.hourMapping.bands":"Base points from hours","bonus.completionStages":"Completed means","bonus.requireApprovedVersion":"The latest version must be approved","bonus.minQuality":"Lowest quality score that can be approved","bonus.pilotTeams":"Pilot teams","bonus.enabledAt":"Turned on"};
+(function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; var names={"bonus.on":"Efficiency bonus","bonus.grace":"No bonus below","bonus.rewardFactor":"Reward factor","bonus.maxRate":"Largest bonus","bonus.minE":"Smallest estimate","bonus.minA":"Least time logged","bonus.reviewBelowRatio":"Ask for a close look below","bonus.materialChangeHours":"Reopen the review after","bonus.baseSource":"Base points come from","bonus.hourMapping.bands":"Base points from hours","bonus.completionStages":"Completed means","bonus.requireApprovedVersion":"The latest version must be approved","bonus.minQuality":"Lowest quality score that can be approved","bonus.pilotTeams":"Pilot teams","bonus.enabledAt":"Turned on"};
   scPathLabel=function(p){ if(names[p]) return tr("Efficiency bonus")+(p==="bonus.on"?"":" · "+tr(names[p])); return base.apply(this,arguments); }; })();
 
 /* ---------- the approvers' notification ---------- */
@@ -246,29 +245,33 @@ if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY
   "E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}":"E {E} jam, A {A} jam, B {B} poin → bonus +{bonus}, diperoleh {earned}",
   "Saved {saved}% of the estimate; {beyond}% beyond the grace × the reward factor {factor} = a bonus rate of {rate}% (at most {max}%).":"Hemat {saved}% dari estimasi; {beyond}% di atas batas toleransi × faktor imbalan {factor} = tingkat bonus {rate}% (paling banyak {max}%).",
   "Saved {saved}% of the estimate: within the {grace}% grace, so no bonus.":"Hemat {saved}% dari estimasi: masih dalam toleransi {grace}%, jadi tanpa bonus.",
-  "Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.":"Selesai lebih cepat dari estimasi yang disetujui dan dikunci bisa mendapat poin bonus — tidak pernah jam tambahan — setelah pekerjaan lolos review dan disetujui oleh orang selain yang dikreditkan, termasuk admin.",
+  "Example":"Contoh","E = the approved estimate, A = the time logged, B = the task's base points.":"E = estimasi yang disetujui, A = waktu yang dicatat, B = poin dasar task.",
+  "Finish faster than the approved estimate and earn a few extra points — never hours — once someone who did not work on the task approves it.":"Selesai lebih cepat dari estimasi yang disetujui bisa memberi sedikit poin tambahan — bukan jam — setelah disetujui oleh orang yang tidak mengerjakan task itu.",
   "In the offline demo the bonus stays off: awards are worked out by the server.":"Di demo offline bonus tetap mati: penghargaan dihitung oleh server.",
   "On: completed tasks that meet every condition wait for an independent review.":"Nyala: task selesai yang memenuhi semua syarat menunggu review independen.",
   "Off: no award is worked out.":"Mati: tidak ada penghargaan yang dihitung.",
   "Turned on {when}: only estimates approved after that count.":"Dinyalakan {when}: hanya estimasi yang disetujui setelahnya yang dihitung.",
-  "Savings that do not count":"Penghematan yang tidak dihitung","Reward factor":"Faktor imbalan","Most bonus":"Bonus maksimal","Shortest estimate":"Estimasi terpendek","Least time logged":"Waktu tercatat paling sedikit","Review when time is below":"Review bila waktu di bawah",
-  "A change of time that counts":"Perubahan waktu yang dihitung",
-  "Review when time is below: a reviewer is asked to look closely when the work took less than this share of the estimate. A change of time that counts: time changed by at least this much after an approval sends the bonus back to review.":"Review bila waktu di bawah: reviewer diminta memeriksa dengan teliti bila pekerjaan memakan waktu kurang dari porsi estimasi ini. Perubahan waktu yang dihitung: waktu yang berubah sebanyak ini atau lebih setelah disetujui mengembalikan bonus ke review.",
-  "Base points":"Poin dasar","Weighted Points while that module is on, else the hours bands":"Poin Berbobot selama modul itu nyala, selain itu pita jam","Always the hours bands":"Selalu pita jam",
+  "No bonus below":"Tanpa bonus di bawah","Saving less than this share of the estimate (the grace) earns nothing — small differences are normal.":"Hemat kurang dari porsi estimasi ini (toleransi) tidak mendapat apa-apa — selisih kecil itu wajar.",
+  "10%: an 8 h task done in 7.5 h earns nothing.":"10%: task 8 jam yang selesai dalam 7,5 jam tidak mendapat bonus.",
+  "Largest bonus":"Bonus terbesar","Never more than this share of the base points.":"Tidak pernah lebih dari porsi poin dasar ini.","20%: a task worth 8 pts earns at most +1.60.":"20%: task bernilai 8 poin paling banyak mendapat +1,60.",
+  "Always true":"Selalu berlaku",
+  "An independent approver: someone neither assigned to the task nor credited on it — admins included.":"Penyetuju independen: orang yang tidak ditugaskan dan tidak dikreditkan di task itu — termasuk admin.",
+  "Nobody approves their own bonus, nor while acting as someone else.":"Tidak ada yang menyetujui bonusnya sendiri, juga tidak saat bertindak sebagai orang lain.",
+  "No cap per person or period yet: unusual patterns are flagged for the reviewer.":"Belum ada batas per orang atau periode: pola yang tidak biasa ditandai untuk reviewer.",
+  "Never negative: taking longer never takes points away.":"Tidak pernah negatif: lebih lama dari estimasi tidak pernah mengurangi poin.",
+  "Never backdated: only estimates approved after it is turned on count.":"Tidak berlaku surut: hanya estimasi yang disetujui setelah bonus dinyalakan yang dihitung.",
+  "Reward factor":"Faktor imbalan","Each 1% saved beyond the grace adds this many % of the base points.":"Setiap 1% penghematan di atas toleransi menambah sekian % dari poin dasar.","0.5: 27.5% beyond the grace makes a 13.75% bonus.":"0,5: 27,5% di atas toleransi menjadi bonus 13,75%.",
+  "Smallest estimate":"Estimasi terkecil","1 h: a 45-minute task never earns a bonus.":"1 jam: task 45 menit tidak pernah mendapat bonus.",
+  "Least time logged":"Waktu tercatat minimum","0.25 h: under 15 minutes logged earns no bonus.":"0,25 jam: tercatat kurang dari 15 menit, tanpa bonus.",
+  "Ask for a close look below":"Minta diperiksa teliti di bawah","Work done in less than this share of the estimate is flagged for the reviewer.":"Pekerjaan yang selesai kurang dari porsi estimasi ini ditandai untuk reviewer.","40%: an 8 h task done in under 3.2 h.":"40%: task 8 jam yang selesai dalam kurang dari 3,2 jam.",
+  "Reopen the review after":"Buka review lagi setelah","Logged time changed by at least this much after approval sends the bonus back to review.":"Waktu tercatat yang berubah sebanyak ini atau lebih setelah disetujui mengembalikan bonus ke review.","0.25 h = 15 minutes.":"0,25 jam = 15 menit.",
+  "Base points come from":"Poin dasar berasal dari","Weighted Points while that module is on, else the hours bands":"Poin Berbobot selama modul itu nyala, selain itu pita jam","Always the hours bands":"Selalu pita jam",
   "Base points from hours":"Poin dasar dari jam","Above that, up to":"Di atasnya, hingga","Up to":"Hingga","Hours":"Jam","Points":"Poin","Remove this band":"Hapus pita ini","Add a band":"Tambah pita",
-  "The locked hours fall in the first band they are at most; above every band, the last one counts. Hours are never counted as points themselves.":"Jam yang dikunci masuk ke pita pertama yang tidak dilampauinya; di atas semua pita, pita terakhir yang berlaku. Jam tidak pernah dihitung sebagai poin begitu saja.",
+  "A task gets the points of the first band its locked hours fit in; above them all, the last band. Hours never count as points themselves.":"Task mendapat poin dari pita pertama yang memuat jam terkuncinya; di atas semua pita, pita terakhir. Jam tidak pernah dihitung sebagai poin begitu saja.","6 h: up to 8 h → 5 pts.":"6 jam: hingga 8 jam → 5 poin.",
   "Completed means":"Selesai berarti","By default every closed stage except Declined.":"Secara bawaan setiap tahap tertutup kecuali Declined.",
   "The latest version must be approved":"Versi terbaru harus disetujui","By a reviewer who did not work on the task: the quality gate before a bonus can be reviewed.":"Oleh reviewer yang tidak mengerjakan task ini: gerbang kualitas sebelum bonus bisa di-review.",
   "Lowest quality score that can be approved":"Skor kualitas terendah yang bisa disetujui","No minimum: a score is optional":"Tanpa minimum: skor bersifat opsional",
   "Pilot teams":"Tim uji coba","No teams yet.":"Belum ada tim.","None chosen: every team. Chosen: only their tasks can earn a bonus.":"Tidak ada yang dipilih: semua tim. Dipilih: hanya task tim tersebut yang bisa mendapat bonus.",
-  "Fixed rules":"Aturan tetap","Fixed":"Tetap",
-  "An independent approver, always":"Selalu penyetuju independen",
-  "Someone who is neither assigned to the task nor credited on it approves its bonus — an admin included — and never while acting as someone else.":"Orang yang tidak ditugaskan pada task dan tidak dikreditkan di dalamnya yang menyetujui bonusnya — termasuk admin — dan tidak pernah saat bertindak sebagai orang lain.",
-  "Nobody approves their own bonus":"Tidak ada yang menyetujui bonusnya sendiri",
-  "Being assigned to a task, or having logged time on it, rules a person out as its reviewer.":"Ditugaskan pada task, atau sudah mencatat waktu di dalamnya, membuat seseorang tidak bisa menjadi reviewer-nya.",
-  "No cap per person or period in this version":"Tanpa batas per orang atau per periode di versi ini","Unusual patterns are flagged for the reviewer instead.":"Pola yang tidak biasa ditandai untuk reviewer sebagai gantinya.",
-  "Never negative":"Tidak pernah negatif","Taking longer than the estimate never takes points away; the difference is shown as estimation variance.":"Memakan waktu lebih lama dari estimasi tidak pernah mengurangi poin; selisihnya ditampilkan sebagai varians estimasi.",
-  "No retroactive awards":"Tanpa penghargaan surut","Only estimates approved after the bonus is turned on can earn one; turning it off and on again starts from then.":"Hanya estimasi yang disetujui setelah bonus dinyalakan yang bisa mendapatkannya; mematikan lalu menyalakannya lagi dimulai dari saat itu.",
   "Turned on":"Dinyalakan",
   "Approved the efficiency bonus":"Menyetujui bonus efisiensi","Rejected the efficiency bonus":"Menolak bonus efisiensi","Worked out the efficiency bonus again":"Menghitung ulang bonus efisiensi",
   "The efficiency bonus waits for review":"Bonus efisiensi menunggu review","The efficiency bonus went back to review":"Bonus efisiensi kembali ke review",
@@ -309,7 +312,11 @@ if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY
 .scr-band input:disabled{opacity:.7}
 .scr-checks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:4px}
 .scr-checks label{display:inline-flex;align-items:center;gap:6px;font-size:13px}
-.scr-pinned .badge{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.scr-pinned .badge .i{width:12px;height:12px}
+.scr-always{padding:8px 10px;margin:4px 0 12px;border-radius:8px;background:var(--color-surface-sunken);font-size:var(--fs-sm)}
+.scr-always b{display:flex;align-items:center;gap:6px}
+.scr-always svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+.scr-always ul{margin:4px 0 0 18px;padding:0;color:var(--color-text-secondary)}
+.scr-wide{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.scr-fld .scr-help{margin:4px 0 0}
 @media (max-width:640px){.scr-eff-line{font-size:12.5px}.scr-band>span:first-child{min-width:0;width:100%}}
 </style>

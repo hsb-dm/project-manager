@@ -2,8 +2,9 @@
    small bars sit right under the utilization (effort-hours) bar: on each team card, as the team's strip on its own page,
    and under each person's workload bar — points done against points planned over the last 4 weeks, and estimate
    accuracy ("no data yet" until something is measured). Each bar explains itself on hover and on a tap, without
-   opening the team. A member sees the team bars and their own row's bars, not a colleague's — until the admin chooses
-   "Everyone in the workspace" in Settings → Smart Scoring, which reaches the member's open tab by itself; chosen back,
+   opening the team. A member sees the team bars and their own row's bars, not a colleague's — until the admin picks
+   the "Everyone in the workspace" card in Settings → Smart Scoring (two radio cards, each with its trade-off; the
+   keyboard moves between them) and saves, which reaches the member's open tab by itself; chosen back,
    the colleague's bars go again. Redrawn, the bars are there at once and a background refresh paints nothing that did
    not change. At phone width nothing runs off the page. Off, the Teams screen is exactly as it was. Everything made
    here is removed and the settings are put back. The server side: tests/scoring-teams.test.js. */
@@ -20,6 +21,10 @@ async function signIn(page, who) {
 const setScoring = (page, patch) => page.evaluate(async patch => { const cur = (await apiFetch("GET", "/api/scoring/settings")).settings, next = JSON.parse(JSON.stringify(cur));
   (function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") merge(a[k], b[k]); else a[k] = b[k]; }); })(next, patch);
   const r = await apiFetch("PUT", "/api/scoring/settings", { settings: next, configVersion: cur.configVersion }); WS.scoring = r.settings; return r.settings; }, patch);
+/* Settings → Smart Scoring shows one group at a time once it has its sub-menu: the group is picked by its name (without
+   the sub-menu every section is on the page); saved as the tab saves (its Save bar calls the same function) */
+const group = async (page, name) => { const c = page.locator("#content"), b = c.getByRole("button", { name }).or(c.getByRole("link", { name })); if (await b.count()) await b.first().click(); };
+const save = page => page.evaluate(() => scSaveClick());
 
 test("the Teams bars sit under the utilization bars, explain themselves, follow who may see them and the admin's setting, never blink, fit a phone; off, nothing changes", async ({ browser }) => {
   test.setTimeout(150000);
@@ -108,19 +113,36 @@ test("the Teams bars sit under the utilization bars, explain themselves, follow 
 
     /* the admin lets everyone see everyone's bars, in Settings → Smart Scoring: the member's open tab follows */
     await page.evaluate(() => go("settings", "scoring"));
-    const section = page.locator("#content section.panel", { has: page.locator("h2", { hasText: "Teams screen" }) });
-    await expect(section.locator("#sc_tm_bars")).toHaveValue("self_and_leads");
-    await expect(section).toContainText("people may compare and rank one another");
-    await section.locator("#sc_tm_bars").selectOption("everyone");
-    await section.getByRole("button", { name: "Save" }).click();
+    await group(page, /^Access/);
+    const section = page.locator("#content section").filter({ has: page.locator('input[name="sc_tm_bars"]') }).last();
+    await expect(section.locator("h2, h3").first()).toHaveText("Teams screen");
+    const choice = v => section.locator('input[name="sc_tm_bars"][value="' + v + '"]');
+    await expect(choice("self_and_leads")).toBeChecked();
+    await expect(choice("everyone")).not.toBeChecked();
+    const radioCard = v => section.locator("label.scr-radio").filter({ has: page.locator('input[value="' + v + '"]') });
+    await expect(radioCard("self_and_leads")).toContainText("Recommended");
+    await expect(radioCard("everyone")).toContainText("people may compare and rank one another");
+    await expect(section).toContainText("Example: with the safer choice");
+    await expect(section.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
+    /* the whole card picks the choice */
+    await radioCard("everyone").click();
+    await expect(choice("everyone")).toBeChecked();
+    expect(await page.evaluate(() => scGet("teams.memberBars"))).toBe("everyone");
+    await save(page);
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     await expect(mp.locator('[data-scr-tb="person:' + o.colleague + '"] [data-bar="story"] .scr-tb-n')).toHaveText("0 / 3 pts · 0%", { timeout: 15000 });
+    await group(page, /^History/);
     await expect(page.locator("#scAudit")).toContainText("Who sees each person's bars on Teams");
     await expect(page.locator("#scAudit")).toContainText("Everyone in the workspace");
-    /* and back: the colleague's bars go again */
+    /* and back, by keyboard: the colleague's bars go again */
     await page.evaluate(() => go("settings", "scoring"));
-    await section.locator("#sc_tm_bars").selectOption("self_and_leads");
-    await section.getByRole("button", { name: "Save" }).click();
+    await group(page, /^Access/);
+    await expect(choice("everyone")).toBeChecked();
+    await choice("everyone").focus();
+    await page.keyboard.press("ArrowUp");
+    await expect(choice("self_and_leads")).toBeChecked();
+    expect(await page.evaluate(() => scGet("teams.memberBars"))).toBe("self_and_leads");
+    await save(page);
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     await expect(mp.locator('[data-scr-tb="person:' + o.colleague + '"]')).toHaveCount(0, { timeout: 15000 });
     await expect(mp.locator('[data-scr-tb="person:' + o.member + '"] [data-bar="story"]')).toHaveCount(1);

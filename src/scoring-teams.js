@@ -108,14 +108,18 @@ function scrTbDecorate(){ if(!scrTbReady()) return; scrTbOwner();
 (function(){ if(typeof renderTeamDetail!=="function") return; var base=renderTeamDetail; renderTeamDetail=function(){ var out=base.apply(this,arguments); try{ if(scrTbReady()){ scrTbDecorate(); scrTbLoad(false); } }catch(e){ console.error(e); } return out; }; })();
 
 /* ---------- Settings → Smart Scoring: who sees each person's bars ---------- */
+/* the two choices as cards, each with what it costs */
 function scoringTeamsSettingsHtml(ro,ed){
-  if(typeof scSelectHtml!=="function"||typeof sp!=="function") return "";
+  if(typeof scGet!=="function"||typeof sp!=="function"||typeof scrSec!=="function") return "";
   if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
-  return sp("Teams screen",
-    '<p class="hint" style="margin-bottom:10px">'+tr("While Smart Scoring is on, the Teams screen shows small bars under the workload bars, over the last 4 weeks: points done against points planned for each points module switched on, and how often estimates were within ±20%. Every member sees each team's bars; stakeholders never see any.")+'</p>'
-    + fieldHtml("sc_tm_bars","Who sees each person's bars on Teams",scSelectHtml("sc_tm_bars","teams.memberBars",[["self_and_leads",SCR_TB_MODES.self_and_leads],["everyone",SCR_TB_MODES.everyone]],ro))
-    + '<p class="hint scr-tb-tradeoff">'+tr("Everyone: more open, but people may compare and rank one another. Themselves and their lead: safer — the numbers are for learning, not for comparing people.")+'</p>',
-    typeof scSaveFoot==="function"?scSaveFoot(ed):null,I.team); }
+  var cur=scGet("teams.memberBars")==="everyone"?"everyone":"self_and_leads";
+  var card=function(v,why,tag){ return '<label class="scr-radio"><input type="radio" name="sc_tm_bars" id="sc_tm_bars_'+v+'" value="'+v+'" data-sc="teams.memberBars" data-k="str"'+(cur===v?' checked':'')+(ro?' disabled':' onchange="scInput(this)"')+'><span><b>'+tr(SCR_TB_MODES[v])+(tag?' <span class="badge">'+tag+'</span>':'')+'</b><span class="hint">'+why+'</span></span></label>'; };
+  return scrSec("teams",tr("Teams screen"),tr("While Smart Scoring is on, the Teams screen shows small bars under each workload bar: points done against planned, and how close estimates were."),
+    '<fieldset class="scr-radios"><legend>'+tr("Who sees each person's bars on Teams")+'</legend>'
+    + card("self_and_leads",tr("Safer: the numbers stay a tool for learning, and nobody compares colleagues."),tr("Recommended"))
+    + card("everyone",tr("More open, but people may compare and rank one another."))+'</fieldset>'
+    + scrHelp(tr("Every member always sees each team's bars; stakeholders never see any.")),
+    {icon:I.team,example:tr("with the safer choice, a designer sees their own bars, and their team's lead sees each member's.")}); }
 /* the setting's changes in the tab's history, in words */
 (function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; scPathLabel=function(p){ if(p==="teams.memberBars") return tr("Teams screen")+" · "+tr("Who sees each person's bars on Teams"); return base.apply(this,arguments); }; })();
 (function(){ if(typeof scVal!=="function") return; var base=scVal; scVal=function(path,v){ if(path==="teams.memberBars"&&SCR_TB_MODES[v]) return tr(SCR_TB_MODES[v]); return base.apply(this,arguments); }; })();
@@ -139,8 +143,11 @@ function scoringTeamsSettingsHtml(ro,ed){
   "Over the last 4 weeks (Smart Scoring). Operational figures for learning, not a ranking.":"Selama 4 minggu terakhir (Smart Scoring). Angka operasional untuk belajar, bukan peringkat.",
   "Teams screen":"Layar Tim","Who sees each person's bars on Teams":"Siapa yang melihat bar tiap orang di Tim",
   "Themselves, their team's lead and analytics holders":"Dirinya sendiri, lead timnya, dan pemegang analitik","Everyone in the workspace":"Semua orang di workspace",
-  "While Smart Scoring is on, the Teams screen shows small bars under the workload bars, over the last 4 weeks: points done against points planned for each points module switched on, and how often estimates were within ±20%. Every member sees each team's bars; stakeholders never see any.":"Selama Smart Scoring menyala, layar Tim menampilkan bar kecil di bawah bar beban kerja, selama 4 minggu terakhir: poin yang selesai dibanding poin yang direncanakan untuk tiap modul poin yang dinyalakan, dan seberapa sering estimasi berada dalam ±20%. Setiap anggota melihat bar tiap tim; stakeholder tidak pernah melihatnya.",
-  "Everyone: more open, but people may compare and rank one another. Themselves and their lead: safer — the numbers are for learning, not for comparing people.":"Semua orang: lebih terbuka, tetapi orang bisa saling membandingkan dan memeringkat. Dirinya sendiri dan lead-nya: lebih aman — angkanya untuk belajar, bukan untuk membandingkan orang."
+  "While Smart Scoring is on, the Teams screen shows small bars under each workload bar: points done against planned, and how close estimates were.":"Selama Smart Scoring menyala, layar Tim menampilkan bar kecil di bawah setiap bar beban kerja: poin yang selesai dibanding yang direncanakan, dan seberapa dekat estimasinya.",
+  "Recommended":"Disarankan","Safer: the numbers stay a tool for learning, and nobody compares colleagues.":"Lebih aman: angkanya tetap menjadi alat belajar, dan tidak ada yang membandingkan rekan kerja.",
+  "More open, but people may compare and rank one another.":"Lebih terbuka, tetapi orang bisa saling membandingkan dan memeringkat.",
+  "Every member always sees each team's bars; stakeholders never see any.":"Setiap anggota selalu melihat bar tiap tim; stakeholder tidak pernah melihatnya.",
+  "with the safer choice, a designer sees their own bars, and their team's lead sees each member's.":"dengan pilihan yang lebih aman, seorang desainer melihat bar miliknya sendiri, dan lead timnya melihat bar setiap anggota."
 });
 </script>
 <style>
@@ -170,5 +177,11 @@ function scoringTeamsSettingsHtml(ro,ed){
 .scr-tb-panel .scr-tb{margin-top:0;gap:8px}
 .scr-tb-panel .scr-tb-h{font-size:var(--fs-sm);color:var(--color-text-secondary)}
 .scr-tb-panel .scr-tb-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:6px 24px}
-.scr-tb-tradeoff{margin-top:8px}
+.scr-radios{border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
+.scr-radios legend{padding:0;margin-bottom:6px;font-weight:650}
+.scr-radio{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--color-border);border-radius:10px;cursor:pointer}
+.scr-radio:has(:checked){border-color:var(--color-primary);background:var(--color-primary-soft)}
+.scr-radio:focus-within{outline:2px solid var(--color-primary);outline-offset:1px}
+.scr-radio input{flex:none;width:auto;margin:3px 0 0}
+.scr-radio>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 </style>

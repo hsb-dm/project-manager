@@ -12,8 +12,11 @@
    people are listed in name order. Off — the module, Smart Scoring, or the server's feature — nothing shows.
    For the other scoring files to call when they are there:
    - scoringAssetsRowHtml(tk): the task panel's row — each person's count, points and validation mark.
-   - scoringAssetsSettingsHtml(ro, ed): the Settings tab's section — the switch, whether counts not validated yet
-     count, and the points per asset of each kind of work with the hours a piece typically takes beside it.
+   - scoringAssetsSettingsHtml(ro, ed): the Settings tab's "Asset points" section — whether counts not validated yet
+     count, and the points per asset of each kind of work with the hours a piece typically takes beside it (the
+     module's own switch is in the tab's Overview).
+   - scrSec, scrAdv, scrHelp: a section of that tab, its closed "Advanced" fold, a help line with an example (also for
+     the bonus, Teams screen and KPI/OKR sections): the tab's scSection, scAdvanced, scHelp once it has them.
    - scoringAssetsSummaryHtml(data): the "Assets produced" points view for Analytics, from scoringAssetsLoad(q)
      (GET /api/scoring/assets; worked out in the page in the offline demo), cached so it draws at once.
    ============================================================ */
@@ -50,30 +53,39 @@ function scoringAssetsRowHtml(tk){
   return '<div class="scr-ap" data-scoring-assets="'+attr(tk.id)+'">'+head+rows+notes+'</div>';
 }
 
+/* ---------- Settings → Smart Scoring: a section's pieces ---------- */
+var SCR_ADV={};
+function scrSec(id,title,intro,body,o){ o=o||{}; if(typeof scSection==="function") return scSection(id,title,intro,body,o);
+  return sp(title,(o.off?'<div class="banner warn" role="status"><span>'+o.off+'</span></div>':'')+'<p class="hint scr-help">'+intro+'</p>'+(o.example?scrHelp("",o.example):'')+body,null,o.icon,o.cls); }
+function scrAdv(body,o){ o=o||{}; if(typeof scAdvanced==="function") return scAdvanced(body,o); var k=o.id||"";
+  return '<details class="ai-details scr-adv"'+(o.open||SCR_ADV[k]?' open':'')+' ontoggle="SCR_ADV['+jsq(k)+']=this.open"><summary>'+tr("Advanced")+'</summary><div class="ai-details-body">'+body+'</div></details>'; }
+function scrHelp(text,ex){ if(typeof scHelp==="function") return scHelp(text,ex); return '<p class="hint scr-help">'+text+(ex?(text?' ':'')+'<i>'+tr("Example")+': '+ex+'</i>':'')+'</p>'; }
+
 /* ---------- Settings → Smart Scoring: the section ---------- */
 function scoringAssetsSettingsHtml(ro,ed){
   if(typeof scGet!=="function"||typeof sp!=="function") return "";
   if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
-  var kinds=ScoringEngine.KIND_IDS, sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b><span>'+tr(desc)+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
+  var kinds=ScoringEngine.KIND_IDS, shell=typeof scSection==="function", sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+desc+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
   var cell=function(id,path,label){ return '<td><input type="number" class="scr-cell" id="'+id+'" aria-label="'+attr(label)+'" data-sc="'+attr(path)+'" data-k="num" min="0" max="20" step="0.25" value="'+attr(scGet(path))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
   var hours=function(id){ var h=scGet("hours.templates."+id+".perUnit"); return h==null?"":'<span class="hint scr-ap-h">'+esc(tr("about {h} h a piece").replace("{h}",scaNum(h)))+'</span>'; };
-  return sp("Assets produced",
-    '<p class="hint" style="margin-bottom:6px">'+tr("Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.")+'</p>'
-    + sw("modules.assets.on","Points for assets produced","Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.")
-    + sw("assets.countUnvalidated","Counts not validated yet count","On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.")
+  return scrSec("assets",tr("Asset points"),tr("Each asset someone makes earns points by its kind of work, read from the task's title."),
+    /* the module's own switch is in the tab's Overview; until the tab has one, it is here */
+    (shell?'':sw("modules.assets.on",tr("Points for assets produced"),tr("Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.")))
+    + sw("assets.countUnvalidated",tr("Count assets before a lead validates them"),tr("On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated."))
     + '<div class="tbl-wrap scr-tpl scr-ap-tbl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("Points per asset")+'</th></tr></thead><tbody>'
     + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t"><span class="scr-ap-k">'+esc(scaKindName(id))+'</span>'+hours(id)+'</td>'+cell("sc_ap_"+id,"assets.perKind."+id,scaKindName(id)+" · "+tr("Points per asset"))+'</tr>'; }).join("")
     + '<tr data-kind=""><td class="t"><span class="scr-ap-k">'+tr("Kind not recognised")+'</span><span class="hint scr-ap-h">'+tr("from the title")+'</span></td>'+cell("sc_ap_unknown","assets.unknownKind",tr("Kind not recognised")+" · "+tr("Points per asset"))+'</tr>'
     + '</tbody></table></div>'
-    + '<p class="hint" style="margin:6px 0 0">'+tr("About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.")+'</p>',
-    typeof scSaveFoot==="function"?scSaveFoot(ed):null,I.assets);
+    + scrHelp(tr("A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.")),
+    {icon:I.assets,example:tr("with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points, and 4 resizes 4 × 0.25 = 1 point."),
+     off:shell&&!scGet("modules.assets.on")?tr("Asset points are off. Turn them on in Overview — the points can be set up first."):null,onModule:"assets"});
 }
 /* the section's changes in the tab's history */
 if(typeof SC_MODULE_LABEL!=="undefined") SC_MODULE_LABEL.assets="Assets produced";
 (function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; scPathLabel=function(p){ var s=String(p).split(".");
   if(s[0]==="assets"&&s[1]==="perKind") return tr("Asset points")+" · "+scaKindName(s[2]);
   if(p==="assets.unknownKind") return tr("Asset points")+" · "+tr("Kind not recognised");
-  if(p==="assets.countUnvalidated") return tr("Asset points")+" · "+tr("Counts not validated yet count");
+  if(p==="assets.countUnvalidated") return tr("Asset points")+" · "+tr("Count assets before a lead validates them");
   return base.apply(this,arguments); }; })();
 
 /* ---------- the figures over a period: the server's, or worked out in the page in the offline demo ---------- */
@@ -124,13 +136,16 @@ function scoringAssetsSummaryHtml(data){
   "Shared among the people assigned until each person's count is typed.":"Dibagi rata di antara orang yang ditugaskan sampai jumlah tiap orang diisi.",
   "Only counts a lead has validated earn points in this workspace.":"Di workspace ini, hanya jumlah yang sudah divalidasi lead yang mendapat poin.",
   "Counted when the task is completed. Output points, kept apart from hours, base points and the bonus.":"Dihitung saat task selesai. Poin hasil kerja, terpisah dari jam, poin dasar, dan bonus.",
-  "Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.":"Setiap aset yang dihasilkan seseorang mendapat poin sesuai jenis pekerjaannya, dibaca dari judul task: satu post feed 1 poin, resize 0,25, logo 5. Yang dihitung adalah jumlah milik tiap orang di task, atau kredit versi laporan selama belum diisi. Poin dihitung saat task selesai, pada minggu task itu selesai; task yang ditolak (Declined) tidak pernah dihitung. Poin ini angka tersendiri — bukan jam, poin dasar, atau bonus efisiensi — dan bukan peringkat.",
+  "Advanced":"Lanjutan","Example":"Contoh",
+  "Each asset someone makes earns points by its kind of work, read from the task's title.":"Setiap aset yang dibuat seseorang mendapat poin sesuai jenis pekerjaannya, yang dibaca dari judul task.",
+  "with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points, and 4 resizes 4 × 0.25 = 1 point.":"bila logo bernilai 5 poin, orang yang membuat 2 logo mendapat 2 × 5 = 10 poin, dan 4 resize 4 × 0,25 = 1 poin.",
+  "Asset points are off. Turn them on in Overview — the points can be set up first.":"Poin aset sedang mati. Nyalakan di Ringkasan — poinnya bisa diatur lebih dulu.",
   "Points for assets produced":"Poin untuk aset yang dihasilkan",
   "Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.":"Mati: tidak ada yang berubah. Nyala: task menampilkan poin aset tiap orang, dan Analitik bisa menghitungnya.",
-  "Counts not validated yet count":"Jumlah yang belum divalidasi ikut dihitung",
-  "On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.":"Nyala: setiap jumlah dihitung, ditandai “belum divalidasi” sampai lead tim memvalidasinya. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
+  "Count assets before a lead validates them":"Hitung aset sebelum divalidasi lead",
+  "On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated.":"Nyala: langsung mendapat poin, ditandai “belum divalidasi”. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
   "Kind of work":"Jenis pekerjaan","Points per asset":"Poin per aset","about {h} h a piece":"sekitar {h} jam per karya","from the title":"dari judul",
-  "About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.":"Kira-kira jam yang lazim untuk satu karya ÷ 2, dibulatkan ke 0,25 — jamnya dari template Jam Kerja di atas. 0 sampai 20 poin per aset.",
+  "A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.":"Patokannya: kira-kira setengah dari jam yang biasa dibutuhkan satu karya, dibulatkan ke 0,25, dari 0 sampai 20. Dihitung saat task selesai (Declined tidak pernah dihitung), terpisah dari jam dan bonus — bukan peringkat.",
   "Asset points":"Poin aset","asset":"aset","assets":"aset","task completed":"task selesai","tasks completed":"task selesai",
   "No assets produced in this period.":"Tidak ada aset yang dihasilkan pada periode ini.",
   "Tasks completed in the period, by the day they were completed; declined tasks and work still open are not counted. * shared among the people assigned, until each person's count is typed. People in name order — not a ranking.":"Task yang selesai dalam periode ini, menurut tanggal selesainya; task yang ditolak dan pekerjaan yang masih berjalan tidak dihitung. * dibagi rata di antara orang yang ditugaskan, sampai jumlah tiap orang diisi. Orang diurutkan menurut nama — bukan peringkat.",
@@ -147,6 +162,8 @@ function scoringAssetsSummaryHtml(data){
 });
 </script>
 <style>
+.scr-help{margin:4px 0 10px}
+.scr-adv{margin:12px 0}
 .scr-ap{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
 .scr-ap-head{display:flex;align-items:flex-start;gap:8px}
 .scr-ap-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}

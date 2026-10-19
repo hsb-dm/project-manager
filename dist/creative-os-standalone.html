@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="d0da2f8357f5">
+<meta name="zc-build" content="179fd825d54d">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -25013,8 +25013,11 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
    people are listed in name order. Off — the module, Smart Scoring, or the server's feature — nothing shows.
    For the other scoring files to call when they are there:
    - scoringAssetsRowHtml(tk): the task panel's row — each person's count, points and validation mark.
-   - scoringAssetsSettingsHtml(ro, ed): the Settings tab's section — the switch, whether counts not validated yet
-     count, and the points per asset of each kind of work with the hours a piece typically takes beside it.
+   - scoringAssetsSettingsHtml(ro, ed): the Settings tab's "Asset points" section — whether counts not validated yet
+     count, and the points per asset of each kind of work with the hours a piece typically takes beside it (the
+     module's own switch is in the tab's Overview).
+   - scrSec, scrAdv, scrHelp: a section of that tab, its closed "Advanced" fold, a help line with an example (also for
+     the bonus, Teams screen and KPI/OKR sections): the tab's scSection, scAdvanced, scHelp once it has them.
    - scoringAssetsSummaryHtml(data): the "Assets produced" points view for Analytics, from scoringAssetsLoad(q)
      (GET /api/scoring/assets; worked out in the page in the offline demo), cached so it draws at once.
    ============================================================ */
@@ -25051,30 +25054,39 @@ function scoringAssetsRowHtml(tk){
   return '<div class="scr-ap" data-scoring-assets="'+attr(tk.id)+'">'+head+rows+notes+'</div>';
 }
 
+/* ---------- Settings → Smart Scoring: a section's pieces ---------- */
+var SCR_ADV={};
+function scrSec(id,title,intro,body,o){ o=o||{}; if(typeof scSection==="function") return scSection(id,title,intro,body,o);
+  return sp(title,(o.off?'<div class="banner warn" role="status"><span>'+o.off+'</span></div>':'')+'<p class="hint scr-help">'+intro+'</p>'+(o.example?scrHelp("",o.example):'')+body,null,o.icon,o.cls); }
+function scrAdv(body,o){ o=o||{}; if(typeof scAdvanced==="function") return scAdvanced(body,o); var k=o.id||"";
+  return '<details class="ai-details scr-adv"'+(o.open||SCR_ADV[k]?' open':'')+' ontoggle="SCR_ADV['+jsq(k)+']=this.open"><summary>'+tr("Advanced")+'</summary><div class="ai-details-body">'+body+'</div></details>'; }
+function scrHelp(text,ex){ if(typeof scHelp==="function") return scHelp(text,ex); return '<p class="hint scr-help">'+text+(ex?(text?' ':'')+'<i>'+tr("Example")+': '+ex+'</i>':'')+'</p>'; }
+
 /* ---------- Settings → Smart Scoring: the section ---------- */
 function scoringAssetsSettingsHtml(ro,ed){
   if(typeof scGet!=="function"||typeof sp!=="function") return "";
   if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
-  var kinds=ScoringEngine.KIND_IDS, sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+tr(label)+'</b><span>'+tr(desc)+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
+  var kinds=ScoringEngine.KIND_IDS, shell=typeof scSection==="function", sw=function(path,label,desc){ return '<div class="pref"><div class="pl"><b>'+label+'</b><span>'+desc+'</span></div>'+scSwitchHtml(path,label,ro)+'</div>'; };
   var cell=function(id,path,label){ return '<td><input type="number" class="scr-cell" id="'+id+'" aria-label="'+attr(label)+'" data-sc="'+attr(path)+'" data-k="num" min="0" max="20" step="0.25" value="'+attr(scGet(path))+'"'+(ro?" disabled":' oninput="scInput(this)"')+'></td>'; };
   var hours=function(id){ var h=scGet("hours.templates."+id+".perUnit"); return h==null?"":'<span class="hint scr-ap-h">'+esc(tr("about {h} h a piece").replace("{h}",scaNum(h)))+'</span>'; };
-  return sp("Assets produced",
-    '<p class="hint" style="margin-bottom:6px">'+tr("Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.")+'</p>'
-    + sw("modules.assets.on","Points for assets produced","Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.")
-    + sw("assets.countUnvalidated","Counts not validated yet count","On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.")
+  return scrSec("assets",tr("Asset points"),tr("Each asset someone makes earns points by its kind of work, read from the task's title."),
+    /* the module's own switch is in the tab's Overview; until the tab has one, it is here */
+    (shell?'':sw("modules.assets.on",tr("Points for assets produced"),tr("Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.")))
+    + sw("assets.countUnvalidated",tr("Count assets before a lead validates them"),tr("On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated."))
     + '<div class="tbl-wrap scr-tpl scr-ap-tbl"><table class="tbl"><thead><tr><th>'+tr("Kind of work")+'</th><th>'+tr("Points per asset")+'</th></tr></thead><tbody>'
     + kinds.map(function(id){ return '<tr data-kind="'+attr(id)+'"><td class="t"><span class="scr-ap-k">'+esc(scaKindName(id))+'</span>'+hours(id)+'</td>'+cell("sc_ap_"+id,"assets.perKind."+id,scaKindName(id)+" · "+tr("Points per asset"))+'</tr>'; }).join("")
     + '<tr data-kind=""><td class="t"><span class="scr-ap-k">'+tr("Kind not recognised")+'</span><span class="hint scr-ap-h">'+tr("from the title")+'</span></td>'+cell("sc_ap_unknown","assets.unknownKind",tr("Kind not recognised")+" · "+tr("Points per asset"))+'</tr>'
     + '</tbody></table></div>'
-    + '<p class="hint" style="margin:6px 0 0">'+tr("About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.")+'</p>',
-    typeof scSaveFoot==="function"?scSaveFoot(ed):null,I.assets);
+    + scrHelp(tr("A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.")),
+    {icon:I.assets,example:tr("with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points, and 4 resizes 4 × 0.25 = 1 point."),
+     off:shell&&!scGet("modules.assets.on")?tr("Asset points are off. Turn them on in Overview — the points can be set up first."):null,onModule:"assets"});
 }
 /* the section's changes in the tab's history */
 if(typeof SC_MODULE_LABEL!=="undefined") SC_MODULE_LABEL.assets="Assets produced";
 (function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; scPathLabel=function(p){ var s=String(p).split(".");
   if(s[0]==="assets"&&s[1]==="perKind") return tr("Asset points")+" · "+scaKindName(s[2]);
   if(p==="assets.unknownKind") return tr("Asset points")+" · "+tr("Kind not recognised");
-  if(p==="assets.countUnvalidated") return tr("Asset points")+" · "+tr("Counts not validated yet count");
+  if(p==="assets.countUnvalidated") return tr("Asset points")+" · "+tr("Count assets before a lead validates them");
   return base.apply(this,arguments); }; })();
 
 /* ---------- the figures over a period: the server's, or worked out in the page in the offline demo ---------- */
@@ -25125,13 +25137,16 @@ function scoringAssetsSummaryHtml(data){
   "Shared among the people assigned until each person's count is typed.":"Dibagi rata di antara orang yang ditugaskan sampai jumlah tiap orang diisi.",
   "Only counts a lead has validated earn points in this workspace.":"Di workspace ini, hanya jumlah yang sudah divalidasi lead yang mendapat poin.",
   "Counted when the task is completed. Output points, kept apart from hours, base points and the bonus.":"Dihitung saat task selesai. Poin hasil kerja, terpisah dari jam, poin dasar, dan bonus.",
-  "Each asset a person produces earns points by the kind of work, read from the task's title: one feed post is 1 point, a resize 0.25, a logo 5. Each person's own count on the task counts, or the reports' credit while none is typed. Points are counted when a task is completed, in the week it is completed; declined tasks never count. They are a figure of their own — never hours, base points or the efficiency bonus — and never a ranking.":"Setiap aset yang dihasilkan seseorang mendapat poin sesuai jenis pekerjaannya, dibaca dari judul task: satu post feed 1 poin, resize 0,25, logo 5. Yang dihitung adalah jumlah milik tiap orang di task, atau kredit versi laporan selama belum diisi. Poin dihitung saat task selesai, pada minggu task itu selesai; task yang ditolak (Declined) tidak pernah dihitung. Poin ini angka tersendiri — bukan jam, poin dasar, atau bonus efisiensi — dan bukan peringkat.",
+  "Advanced":"Lanjutan","Example":"Contoh",
+  "Each asset someone makes earns points by its kind of work, read from the task's title.":"Setiap aset yang dibuat seseorang mendapat poin sesuai jenis pekerjaannya, yang dibaca dari judul task.",
+  "with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points, and 4 resizes 4 × 0.25 = 1 point.":"bila logo bernilai 5 poin, orang yang membuat 2 logo mendapat 2 × 5 = 10 poin, dan 4 resize 4 × 0,25 = 1 poin.",
+  "Asset points are off. Turn them on in Overview — the points can be set up first.":"Poin aset sedang mati. Nyalakan di Ringkasan — poinnya bisa diatur lebih dulu.",
   "Points for assets produced":"Poin untuk aset yang dihasilkan",
   "Off: nothing changes. On: tasks show each person's asset points, and Analytics can count them.":"Mati: tidak ada yang berubah. Nyala: task menampilkan poin aset tiap orang, dan Analitik bisa menghitungnya.",
-  "Counts not validated yet count":"Jumlah yang belum divalidasi ikut dihitung",
-  "On: every count counts, marked “not validated yet” until a team's lead validates it. Off: only validated counts earn points, and a count changed since earns at most what was validated.":"Nyala: setiap jumlah dihitung, ditandai “belum divalidasi” sampai lead tim memvalidasinya. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
+  "Count assets before a lead validates them":"Hitung aset sebelum divalidasi lead",
+  "On: they earn points at once, marked “not validated yet”. Off: only validated counts earn points, and a count changed later earns at most what was validated.":"Nyala: langsung mendapat poin, ditandai “belum divalidasi”. Mati: hanya jumlah yang sudah divalidasi yang mendapat poin, dan jumlah yang berubah sesudahnya paling banyak mendapat sebesar yang divalidasi.",
   "Kind of work":"Jenis pekerjaan","Points per asset":"Poin per aset","about {h} h a piece":"sekitar {h} jam per karya","from the title":"dari judul",
-  "About the hours one piece typically takes ÷ 2, rounded to 0.25 — the hours are the Effort Hours templates above. 0 to 20 points per asset.":"Kira-kira jam yang lazim untuk satu karya ÷ 2, dibulatkan ke 0,25 — jamnya dari template Jam Kerja di atas. 0 sampai 20 poin per aset.",
+  "A rule of thumb: about half the hours one piece usually takes, rounded to 0.25, from 0 to 20. Counted when the task is finished (Declined never counts), apart from hours and the bonus — never a ranking.":"Patokannya: kira-kira setengah dari jam yang biasa dibutuhkan satu karya, dibulatkan ke 0,25, dari 0 sampai 20. Dihitung saat task selesai (Declined tidak pernah dihitung), terpisah dari jam dan bonus — bukan peringkat.",
   "Asset points":"Poin aset","asset":"aset","assets":"aset","task completed":"task selesai","tasks completed":"task selesai",
   "No assets produced in this period.":"Tidak ada aset yang dihasilkan pada periode ini.",
   "Tasks completed in the period, by the day they were completed; declined tasks and work still open are not counted. * shared among the people assigned, until each person's count is typed. People in name order — not a ranking.":"Task yang selesai dalam periode ini, menurut tanggal selesainya; task yang ditolak dan pekerjaan yang masih berjalan tidak dihitung. * dibagi rata di antara orang yang ditugaskan, sampai jumlah tiap orang diisi. Orang diurutkan menurut nama — bukan peringkat.",
@@ -25148,6 +25163,8 @@ function scoringAssetsSummaryHtml(data){
 });
 </script>
 <style>
+.scr-help{margin:4px 0 10px}
+.scr-adv{margin:12px 0}
 .scr-ap{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface)}
 .scr-ap-head{display:flex;align-items:flex-start;gap:8px}
 .scr-ap-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
@@ -25944,11 +25961,10 @@ input[data-scr-lock]{cursor:not-allowed}
      shared task (to 100%, with a reason) and a reason. Everyone who sees it reads that it is an operational metric,
      not compensation or a ranking.
    - Settings → Smart Scoring → "Efficiency bonus" (scoringBonusSettingsHtml, called by src/scoring-settings.js): the
-     switch and every policy field — the grace, the reward factor, the most bonus, the shortest estimate and the least
-     time that count, when a reviewer is asked to look closely, what a material change of time is, where the base comes
-     from, the hours → points bands, the stages that count as completed, whether the latest version must be approved, a
-     minimum quality, the pilot teams — with the rules that are fixed shown as such and why, and a worked example
-     (E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10) recomputed from the fields as they are typed.
+     switch, a worked example (E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10) recomputed as the fields are typed,
+     the grace and the largest bonus, the fixed rules as "Always true"; the rest of the policy (reward factor, minimums,
+     review flags, base, hours → points bands, completed stages, approved version, quality, pilot teams) under
+     "Advanced", each field with a line on what it does.
    - The approvers' notification ("… is finished: its efficiency bonus waits for your review") in the bell, in English
      and Indonesian, under the "approval" notifications.
    Nothing blinks: the line is drawn from what the panel has, and the panel redraws it in place. In the offline demo the
@@ -26074,15 +26090,21 @@ function scoringBonusExample(b){ var E=typeof ScoringEngine!=="undefined"?Scorin
   var r=E.efficiency(b||{},{E:8,A:5,B:8,completed:true,qualityApproved:true,scopeChanged:false,validLogs:true});
   return {bonus:(+r.bonus||0).toFixed(2),earned:(+r.earned||0).toFixed(2),saved:scePct(r.savedRatio),beyond:scePct(r.eligibleSavings),rate:scePct(r.multiplier)}; }
 function sceExampleHtml(b){ var x=scoringBonusExample(b); if(!x) return ""; var p=b||{};
-  return '<b>'+fmt(tr("E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}"),{E:8,A:5,B:8,bonus:x.bonus,earned:x.earned})+'</b><span>'
+  return '<b>'+tr("Example")+': '+fmt(tr("E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}"),{E:8,A:5,B:8,bonus:x.bonus,earned:x.earned})+'</b><span>'
     +(x.beyond>0?fmt(tr("Saved {saved}% of the estimate; {beyond}% beyond the grace × the reward factor {factor} = a bonus rate of {rate}% (at most {max}%)."),{saved:x.saved,beyond:x.beyond,factor:+p.rewardFactor,rate:x.rate,max:scePct(p.maxRate)})
-      :fmt(tr("Saved {saved}% of the estimate: within the {grace}% grace, so no bonus."),{saved:x.saved,grace:scePct(p.grace)}))+'</span>'; }
+      :fmt(tr("Saved {saved}% of the estimate: within the {grace}% grace, so no bonus."),{saved:x.saved,grace:scePct(p.grace)}))+'</span><span class="hint">'+tr("E = the approved estimate, A = the time logged, B = the task's base points.")+'</span>'; }
 function sceExamplePaint(){ var el=document.getElementById("sceExample"); if(!el||typeof SC==="undefined"||!SC.draft) return; el.innerHTML=sceExampleHtml(SC.draft.bonus||{}); }
 (function(){ if(typeof scTotalsPaint!=="function") return; var base=scTotalsPaint; scTotalsPaint=function(){ var out=base.apply(this,arguments); try{ sceExamplePaint(); }catch(e){ console.error(e); } return out; }; })();
-function sceRedraw(){ if(typeof renderScreen==="function") renderScreen(false); }
+/* the hours → points bands, drawn again in place when one is added or removed */
 function sceBands(){ var b=scGet("bonus.hourMapping.bands"); return Array.isArray(b)?b:[]; }
-function sceBandAdd(){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length>=12) return; var last=b[b.length-1]||[8,5]; b.push([Math.min(10000,(+last[0]||8)*2),Math.round(((+last[1]||5)+3)*100)/100]); scPut("bonus.hourMapping.bands",b); sceRedraw(); }
-function sceBandDel(i){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length<=1) return; b.splice(i,1); scPut("bonus.hourMapping.bands",b); sceRedraw(); }
+function sceBandsHtml(ro){ var bands=sceBands();
+  return bands.map(function(x,i){ return '<div class="scr-band" data-band="'+i+'"><span>'+tr(i===bands.length-1&&bands.length>1?"Above that, up to":"Up to")+'</span><div class="scr-unit"><input type="number" min="0.05" max="10000" step="0.25" data-sc="bonus.hourMapping.bands.'+i+'.0" data-k="num" value="'+attr(x[0])+'" aria-label="'+attr(tr("Hours"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>h</span></div><span aria-hidden="true">→</span>'
+      +'<div class="scr-unit"><input type="number" min="0.01" max="1000" step="0.5" data-sc="bonus.hourMapping.bands.'+i+'.1" data-k="num" value="'+attr(x[1])+'" aria-label="'+attr(tr("Points"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>'+tr("pts")+'</span></div>'
+      +(ro||bands.length<=1?'':'<button type="button" class="iconbtn" onclick="sceBandDel('+i+')" aria-label="'+attr(tr("Remove this band"))+'">'+(I.x||"×")+'</button>')+'</div>'; }).join("")
+    +(ro||bands.length>=12?'':'<button type="button" class="btn xs ghost" onclick="sceBandAdd()">'+(I.plus||"")+tr("Add a band")+'</button>'); }
+function sceBandsSet(b){ scPut("bonus.hourMapping.bands",b); var el=document.getElementById("sceBands"); if(el) el.innerHTML=sceBandsHtml(!canI.scoringConfigure()); }
+function sceBandAdd(){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length>=12) return; var last=b[b.length-1]||[8,5]; b.push([Math.min(10000,(+last[0]||8)*2),Math.round(((+last[1]||5)+3)*100)/100]); sceBandsSet(b); }
+function sceBandDel(i){ var b=sceBands().map(function(x){ return x.slice(); }); if(b.length<=1) return; b.splice(i,1); sceBandsSet(b); }
 /* the stages that count as completed: every closed stage but Declined unless the workspace picks its own */
 function sceClosed(){ return ((typeof WS!=="undefined"&&WS.workflow)||[]).filter(function(s){ return s.kind==="closed"; }); }
 function sceDefaultStages(){ return sceClosed().filter(function(s){ return s.id!=="declined"; }).map(function(s){ return s.id; }); }
@@ -26093,43 +26115,37 @@ function sceMinQ(el){ scPut("bonus.minQuality",el.value===""?null:+el.value); }
 function scoringBonusSettingsHtml(ro,ed){
   if(typeof scGet!=="function") return "";
   var demo=typeof API!=="undefined"&&!API.on, lock=ro||demo, b=scGet("bonus")||{}, on=!!b.on;
-  var num=function(id,path,label,o){ return scNumHtml(id,path,label,Object.assign({ro:ro},o)); };
-  var bands=sceBands(), stages=b.completionStages, chosen=Array.isArray(stages)&&stages.length?stages:sceDefaultStages();
-  var pinned=[["An independent approver, always","Someone who is neither assigned to the task nor credited on it approves its bonus — an admin included — and never while acting as someone else."],
-    ["Nobody approves their own bonus","Being assigned to a task, or having logged time on it, rules a person out as its reviewer."],
-    ["No cap per person or period in this version","Unusual patterns are flagged for the reviewer instead."],
-    ["Never negative","Taking longer than the estimate never takes points away; the difference is shown as estimation variance."],
-    ["No retroactive awards","Only estimates approved after the bonus is turned on can earn one; turning it off and on again starts from then."]];
+  var num=function(id,path,label,o,help,ex){ return '<div class="scr-fld">'+scNumHtml(id,path,label,Object.assign({ro:ro},o))+scrHelp(help,ex)+'</div>'; };
+  var stages=b.completionStages, chosen=Array.isArray(stages)&&stages.length?stages:sceDefaultStages();
+  var pinned=[tr("An independent approver: someone neither assigned to the task nor credited on it — admins included."),tr("Nobody approves their own bonus, nor while acting as someone else."),
+    tr("No cap per person or period yet: unusual patterns are flagged for the reviewer."),tr("Never negative: taking longer never takes points away."),tr("Never backdated: only estimates approved after it is turned on count.")];
   var teams=(typeof TEAMS!=="undefined"?TEAMS:[]).filter(function(t){ return !t.archived; }), pilot=Array.isArray(b.pilotTeams)?b.pilotTeams:[];
-  return sp("Efficiency bonus",
-    '<p class="hint" style="margin-bottom:10px">'+tr("Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.")+'</p>'
-    +'<div class="pref" data-scr-bonus="on"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr(demo?"In the offline demo the bonus stays off: awards are worked out by the server.":on?"On: completed tasks that meet every condition wait for an independent review.":"Off: no award is worked out.")+'</span>'
-      +(on&&b.enabledAt?'<div class="hint" style="margin-top:2px">'+fmt(tr("Turned on {when}: only estimates approved after that count."),{when:esc(typeof scrDate==="function"?scrDate(b.enabledAt):b.enabledAt)})+'</div>':'')+'</div>'+scSwitchHtml("bonus.on","Efficiency bonus",lock)+'</div>'
-    +'<div class="scr-eff-example" id="sceExample" aria-live="polite">'+sceExampleHtml(b)+'</div>'
-    +'<div class="scr-grid">'+num("sc_b_grace","bonus.grace","Savings that do not count",{pct:true,min:0,max:90,step:1,unit:"%"})+num("sc_b_reward","bonus.rewardFactor","Reward factor",{min:0,max:5,step:0.05})
-      +num("sc_b_max","bonus.maxRate","Most bonus",{pct:true,min:0,max:100,step:1,unit:"%"})+num("sc_b_mine","bonus.minE","Shortest estimate",{min:0,max:1000,step:0.25,unit:"h"})
-      +num("sc_b_mina","bonus.minA","Least time logged",{min:0,max:1000,step:0.25,unit:"h"})+num("sc_b_review","bonus.reviewBelowRatio","Review when time is below",{pct:true,min:0,max:100,step:5,unit:"%"})
-      +num("sc_b_material","bonus.materialChangeHours","A change of time that counts",{min:0,max:100,step:0.25,unit:"h"})+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("Review when time is below: a reviewer is asked to look closely when the work took less than this share of the estimate. A change of time that counts: time changed by at least this much after an approval sends the bonus back to review.")+'</div>'
-    +fieldHtml("sc_b_base","Base points",scSelectHtml("sc_b_base","bonus.baseSource",[["weighted_else_mapping","Weighted Points while that module is on, else the hours bands"],["mapping","Always the hours bands"]],ro))
-    +'<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands" id="sceBands">'
-      +bands.map(function(x,i){ return '<div class="scr-band" data-band="'+i+'"><span>'+tr(i===bands.length-1&&bands.length>1?"Above that, up to":"Up to")+'</span><div class="scr-unit"><input type="number" min="0.05" max="10000" step="0.25" data-sc="bonus.hourMapping.bands.'+i+'.0" data-k="num" value="'+attr(x[0])+'" aria-label="'+attr(tr("Hours"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>h</span></div><span aria-hidden="true">→</span>'
-        +'<div class="scr-unit"><input type="number" min="0.01" max="1000" step="0.5" data-sc="bonus.hourMapping.bands.'+i+'.1" data-k="num" value="'+attr(x[1])+'" aria-label="'+attr(tr("Points"))+' '+(i+1)+'"'+(ro?' disabled':' oninput="scInput(this)"')+'><span>'+tr("pts")+'</span></div>'
-        +(ro||bands.length<=1?'':'<button type="button" class="iconbtn" onclick="sceBandDel('+i+')" aria-label="'+attr(tr("Remove this band"))+'">'+(I.x||"×")+'</button>')+'</div>'; }).join("")
-      +(ro||bands.length>=12?'':'<button type="button" class="btn xs ghost" onclick="sceBandAdd()">'+(I.plus||"")+tr("Add a band")+'</button>')+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("The locked hours fall in the first band they are at most; above every band, the last one counts. Hours are never counted as points themselves.")+'</div>'
-    +'<div class="eyebrow">'+tr("Completed means")+'</div><div class="scr-checks" id="sceStages">'+sceClosed().map(function(s){ return '<label><input type="checkbox" value="'+attr(s.id)+'"'+(chosen.indexOf(s.id)>=0?' checked':'')+(ro?' disabled':' onchange="sceStagesChange()"')+'> <span>'+esc(typeof stageName==="function"?stageName(s):s.name)+'</span></label>'; }).join("")+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("By default every closed stage except Declined.")+'</div>'
+  var adv='<div class="scr-grid scr-wide">'+num("sc_b_reward","bonus.rewardFactor","Reward factor",{min:0,max:5,step:0.05},tr("Each 1% saved beyond the grace adds this many % of the base points."),tr("0.5: 27.5% beyond the grace makes a 13.75% bonus."))
+      +num("sc_b_mine","bonus.minE","Smallest estimate",{min:0,max:1000,step:0.25,unit:"h"},"",tr("1 h: a 45-minute task never earns a bonus."))
+      +num("sc_b_mina","bonus.minA","Least time logged",{min:0,max:1000,step:0.25,unit:"h"},"",tr("0.25 h: under 15 minutes logged earns no bonus."))
+      +num("sc_b_review","bonus.reviewBelowRatio","Ask for a close look below",{pct:true,min:0,max:100,step:5,unit:"%"},tr("Work done in less than this share of the estimate is flagged for the reviewer."),tr("40%: an 8 h task done in under 3.2 h."))
+      +num("sc_b_material","bonus.materialChangeHours","Reopen the review after",{min:0,max:100,step:0.25,unit:"h"},tr("Logged time changed by at least this much after approval sends the bonus back to review."),tr("0.25 h = 15 minutes."))+'</div>'
+    +fieldHtml("sc_b_base","Base points come from",scSelectHtml("sc_b_base","bonus.baseSource",[["weighted_else_mapping","Weighted Points while that module is on, else the hours bands"],["mapping","Always the hours bands"]],ro))
+    +'<div class="eyebrow">'+tr("Base points from hours")+'</div><div class="scr-bands" id="sceBands">'+sceBandsHtml(ro)+'</div>'
+    +scrHelp(tr("A task gets the points of the first band its locked hours fit in; above them all, the last band. Hours never count as points themselves."),tr("6 h: up to 8 h → 5 pts."))
+    +'<div class="eyebrow">'+tr("Completed means")+'</div><div class="scr-checks" id="sceStages">'+sceClosed().map(function(s){ return '<label><input type="checkbox" value="'+attr(s.id)+'"'+(chosen.indexOf(s.id)>=0?' checked':'')+(ro?' disabled':' onchange="sceStagesChange()"')+'> <span>'+esc(typeof stageName==="function"?stageName(s.id):s.name)+'</span></label>'; }).join("")+'</div>'
+    +scrHelp(tr("By default every closed stage except Declined."))
     +'<div class="pref"><div class="pl"><b>'+tr("The latest version must be approved")+'</b><span>'+tr("By a reviewer who did not work on the task: the quality gate before a bonus can be reviewed.")+'</span></div>'+scSwitchHtml("bonus.requireApprovedVersion","The latest version must be approved",ro)+'</div>'
     +fieldHtml("sc_b_minq","Lowest quality score that can be approved",selectHtml("sc_b_minq",[["",tr("No minimum: a score is optional")]].concat([1,2,3,4,5].map(function(n){ return [String(n),String(n)]; })),b.minQuality==null?"":String(b.minQuality),ro?"disabled":'onchange="sceMinQ(this)"'))
     +'<div class="eyebrow">'+tr("Pilot teams")+'</div><div class="scr-checks" id="scePilot">'+(teams.length?teams.map(function(t){ return '<label><input type="checkbox" value="'+attr(t.id)+'"'+(pilot.indexOf(t.id)>=0?' checked':'')+(ro?' disabled':' onchange="scePilotChange()"')+'> <span data-no-translate>'+esc(t.name)+'</span></label>'; }).join(""):'<span class="hint">'+tr("No teams yet.")+'</span>')+'</div>'
-    +'<div class="hint" style="margin-bottom:10px">'+tr("None chosen: every team. Chosen: only their tasks can earn a bonus.")+'</div>'
-    +'<div class="eyebrow">'+tr("Fixed rules")+'</div>'
-    +pinned.map(function(p){ return '<div class="pref scr-pinned"><div class="pl"><b>'+tr(p[0])+'</b><span>'+tr(p[1])+'</span></div><span class="badge">'+(I.lock||"")+tr("Fixed")+'</span></div>'; }).join("")
+    +scrHelp(tr("None chosen: every team. Chosen: only their tasks can earn a bonus."));
+  return scrSec("bonus",tr("Efficiency bonus"),tr("Finish faster than the approved estimate and earn a few extra points — never hours — once someone who did not work on the task approves it."),
+    '<div class="pref" data-scr-bonus="on"><div class="pl"><b>'+tr("Efficiency bonus")+'</b><span>'+tr(demo?"In the offline demo the bonus stays off: awards are worked out by the server.":on?"On: completed tasks that meet every condition wait for an independent review.":"Off: no award is worked out.")+'</span>'
+      +(on&&b.enabledAt?'<div class="hint" style="margin-top:2px">'+fmt(tr("Turned on {when}: only estimates approved after that count."),{when:esc(typeof scrDate==="function"?scrDate(b.enabledAt):b.enabledAt)})+'</div>':'')+'</div>'+scSwitchHtml("bonus.on","Efficiency bonus",lock)+'</div>'
+    +'<div class="scr-eff-example" id="sceExample" aria-live="polite">'+sceExampleHtml(b)+'</div>'
+    +'<div class="scr-grid scr-wide">'+num("sc_b_grace","bonus.grace","No bonus below",{pct:true,min:0,max:90,step:1,unit:"%"},tr("Saving less than this share of the estimate (the grace) earns nothing — small differences are normal."),tr("10%: an 8 h task done in 7.5 h earns nothing."))
+      +num("sc_b_max","bonus.maxRate","Largest bonus",{pct:true,min:0,max:100,step:1,unit:"%"},tr("Never more than this share of the base points."),tr("20%: a task worth 8 pts earns at most +1.60."))+'</div>'
+    +'<div class="scr-always"><b>'+(I.lock||"")+tr("Always true")+'</b><ul>'+pinned.map(function(p){ return '<li class="scr-pinned">'+p+'</li>'; }).join("")+'</ul></div>'
+    +scrAdv(adv,{id:"bonus"})
     +'<p class="hint">'+tr("Operational metric, not compensation or a ranking.")+'</p>',
-    scSaveFoot(ed),I.star||I.gauge); }
+    {icon:I.star||I.gauge}); }
 /* the bonus fields' names in the settings' history */
-(function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; var names={"bonus.on":"Efficiency bonus","bonus.grace":"Savings that do not count","bonus.rewardFactor":"Reward factor","bonus.maxRate":"Most bonus","bonus.minE":"Shortest estimate","bonus.minA":"Least time logged","bonus.reviewBelowRatio":"Review when time is below","bonus.materialChangeHours":"A change of time that counts","bonus.baseSource":"Base points","bonus.hourMapping.bands":"Base points from hours","bonus.completionStages":"Completed means","bonus.requireApprovedVersion":"The latest version must be approved","bonus.minQuality":"Lowest quality score that can be approved","bonus.pilotTeams":"Pilot teams","bonus.enabledAt":"Turned on"};
+(function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; var names={"bonus.on":"Efficiency bonus","bonus.grace":"No bonus below","bonus.rewardFactor":"Reward factor","bonus.maxRate":"Largest bonus","bonus.minE":"Smallest estimate","bonus.minA":"Least time logged","bonus.reviewBelowRatio":"Ask for a close look below","bonus.materialChangeHours":"Reopen the review after","bonus.baseSource":"Base points come from","bonus.hourMapping.bands":"Base points from hours","bonus.completionStages":"Completed means","bonus.requireApprovedVersion":"The latest version must be approved","bonus.minQuality":"Lowest quality score that can be approved","bonus.pilotTeams":"Pilot teams","bonus.enabledAt":"Turned on"};
   scPathLabel=function(p){ if(names[p]) return tr("Efficiency bonus")+(p==="bonus.on"?"":" · "+tr(names[p])); return base.apply(this,arguments); }; })();
 
 /* ---------- the approvers' notification ---------- */
@@ -26175,29 +26191,33 @@ if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY
   "E {E} h, A {A} h, B {B} pts → bonus +{bonus}, earned {earned}":"E {E} jam, A {A} jam, B {B} poin → bonus +{bonus}, diperoleh {earned}",
   "Saved {saved}% of the estimate; {beyond}% beyond the grace × the reward factor {factor} = a bonus rate of {rate}% (at most {max}%).":"Hemat {saved}% dari estimasi; {beyond}% di atas batas toleransi × faktor imbalan {factor} = tingkat bonus {rate}% (paling banyak {max}%).",
   "Saved {saved}% of the estimate: within the {grace}% grace, so no bonus.":"Hemat {saved}% dari estimasi: masih dalam toleransi {grace}%, jadi tanpa bonus.",
-  "Finishing faster than an approved, locked estimate may earn bonus points — never extra hours — once the work passes review and someone other than the people credited approves it, admins included.":"Selesai lebih cepat dari estimasi yang disetujui dan dikunci bisa mendapat poin bonus — tidak pernah jam tambahan — setelah pekerjaan lolos review dan disetujui oleh orang selain yang dikreditkan, termasuk admin.",
+  "Example":"Contoh","E = the approved estimate, A = the time logged, B = the task's base points.":"E = estimasi yang disetujui, A = waktu yang dicatat, B = poin dasar task.",
+  "Finish faster than the approved estimate and earn a few extra points — never hours — once someone who did not work on the task approves it.":"Selesai lebih cepat dari estimasi yang disetujui bisa memberi sedikit poin tambahan — bukan jam — setelah disetujui oleh orang yang tidak mengerjakan task itu.",
   "In the offline demo the bonus stays off: awards are worked out by the server.":"Di demo offline bonus tetap mati: penghargaan dihitung oleh server.",
   "On: completed tasks that meet every condition wait for an independent review.":"Nyala: task selesai yang memenuhi semua syarat menunggu review independen.",
   "Off: no award is worked out.":"Mati: tidak ada penghargaan yang dihitung.",
   "Turned on {when}: only estimates approved after that count.":"Dinyalakan {when}: hanya estimasi yang disetujui setelahnya yang dihitung.",
-  "Savings that do not count":"Penghematan yang tidak dihitung","Reward factor":"Faktor imbalan","Most bonus":"Bonus maksimal","Shortest estimate":"Estimasi terpendek","Least time logged":"Waktu tercatat paling sedikit","Review when time is below":"Review bila waktu di bawah",
-  "A change of time that counts":"Perubahan waktu yang dihitung",
-  "Review when time is below: a reviewer is asked to look closely when the work took less than this share of the estimate. A change of time that counts: time changed by at least this much after an approval sends the bonus back to review.":"Review bila waktu di bawah: reviewer diminta memeriksa dengan teliti bila pekerjaan memakan waktu kurang dari porsi estimasi ini. Perubahan waktu yang dihitung: waktu yang berubah sebanyak ini atau lebih setelah disetujui mengembalikan bonus ke review.",
-  "Base points":"Poin dasar","Weighted Points while that module is on, else the hours bands":"Poin Berbobot selama modul itu nyala, selain itu pita jam","Always the hours bands":"Selalu pita jam",
+  "No bonus below":"Tanpa bonus di bawah","Saving less than this share of the estimate (the grace) earns nothing — small differences are normal.":"Hemat kurang dari porsi estimasi ini (toleransi) tidak mendapat apa-apa — selisih kecil itu wajar.",
+  "10%: an 8 h task done in 7.5 h earns nothing.":"10%: task 8 jam yang selesai dalam 7,5 jam tidak mendapat bonus.",
+  "Largest bonus":"Bonus terbesar","Never more than this share of the base points.":"Tidak pernah lebih dari porsi poin dasar ini.","20%: a task worth 8 pts earns at most +1.60.":"20%: task bernilai 8 poin paling banyak mendapat +1,60.",
+  "Always true":"Selalu berlaku",
+  "An independent approver: someone neither assigned to the task nor credited on it — admins included.":"Penyetuju independen: orang yang tidak ditugaskan dan tidak dikreditkan di task itu — termasuk admin.",
+  "Nobody approves their own bonus, nor while acting as someone else.":"Tidak ada yang menyetujui bonusnya sendiri, juga tidak saat bertindak sebagai orang lain.",
+  "No cap per person or period yet: unusual patterns are flagged for the reviewer.":"Belum ada batas per orang atau periode: pola yang tidak biasa ditandai untuk reviewer.",
+  "Never negative: taking longer never takes points away.":"Tidak pernah negatif: lebih lama dari estimasi tidak pernah mengurangi poin.",
+  "Never backdated: only estimates approved after it is turned on count.":"Tidak berlaku surut: hanya estimasi yang disetujui setelah bonus dinyalakan yang dihitung.",
+  "Reward factor":"Faktor imbalan","Each 1% saved beyond the grace adds this many % of the base points.":"Setiap 1% penghematan di atas toleransi menambah sekian % dari poin dasar.","0.5: 27.5% beyond the grace makes a 13.75% bonus.":"0,5: 27,5% di atas toleransi menjadi bonus 13,75%.",
+  "Smallest estimate":"Estimasi terkecil","1 h: a 45-minute task never earns a bonus.":"1 jam: task 45 menit tidak pernah mendapat bonus.",
+  "Least time logged":"Waktu tercatat minimum","0.25 h: under 15 minutes logged earns no bonus.":"0,25 jam: tercatat kurang dari 15 menit, tanpa bonus.",
+  "Ask for a close look below":"Minta diperiksa teliti di bawah","Work done in less than this share of the estimate is flagged for the reviewer.":"Pekerjaan yang selesai kurang dari porsi estimasi ini ditandai untuk reviewer.","40%: an 8 h task done in under 3.2 h.":"40%: task 8 jam yang selesai dalam kurang dari 3,2 jam.",
+  "Reopen the review after":"Buka review lagi setelah","Logged time changed by at least this much after approval sends the bonus back to review.":"Waktu tercatat yang berubah sebanyak ini atau lebih setelah disetujui mengembalikan bonus ke review.","0.25 h = 15 minutes.":"0,25 jam = 15 menit.",
+  "Base points come from":"Poin dasar berasal dari","Weighted Points while that module is on, else the hours bands":"Poin Berbobot selama modul itu nyala, selain itu pita jam","Always the hours bands":"Selalu pita jam",
   "Base points from hours":"Poin dasar dari jam","Above that, up to":"Di atasnya, hingga","Up to":"Hingga","Hours":"Jam","Points":"Poin","Remove this band":"Hapus pita ini","Add a band":"Tambah pita",
-  "The locked hours fall in the first band they are at most; above every band, the last one counts. Hours are never counted as points themselves.":"Jam yang dikunci masuk ke pita pertama yang tidak dilampauinya; di atas semua pita, pita terakhir yang berlaku. Jam tidak pernah dihitung sebagai poin begitu saja.",
+  "A task gets the points of the first band its locked hours fit in; above them all, the last band. Hours never count as points themselves.":"Task mendapat poin dari pita pertama yang memuat jam terkuncinya; di atas semua pita, pita terakhir. Jam tidak pernah dihitung sebagai poin begitu saja.","6 h: up to 8 h → 5 pts.":"6 jam: hingga 8 jam → 5 poin.",
   "Completed means":"Selesai berarti","By default every closed stage except Declined.":"Secara bawaan setiap tahap tertutup kecuali Declined.",
   "The latest version must be approved":"Versi terbaru harus disetujui","By a reviewer who did not work on the task: the quality gate before a bonus can be reviewed.":"Oleh reviewer yang tidak mengerjakan task ini: gerbang kualitas sebelum bonus bisa di-review.",
   "Lowest quality score that can be approved":"Skor kualitas terendah yang bisa disetujui","No minimum: a score is optional":"Tanpa minimum: skor bersifat opsional",
   "Pilot teams":"Tim uji coba","No teams yet.":"Belum ada tim.","None chosen: every team. Chosen: only their tasks can earn a bonus.":"Tidak ada yang dipilih: semua tim. Dipilih: hanya task tim tersebut yang bisa mendapat bonus.",
-  "Fixed rules":"Aturan tetap","Fixed":"Tetap",
-  "An independent approver, always":"Selalu penyetuju independen",
-  "Someone who is neither assigned to the task nor credited on it approves its bonus — an admin included — and never while acting as someone else.":"Orang yang tidak ditugaskan pada task dan tidak dikreditkan di dalamnya yang menyetujui bonusnya — termasuk admin — dan tidak pernah saat bertindak sebagai orang lain.",
-  "Nobody approves their own bonus":"Tidak ada yang menyetujui bonusnya sendiri",
-  "Being assigned to a task, or having logged time on it, rules a person out as its reviewer.":"Ditugaskan pada task, atau sudah mencatat waktu di dalamnya, membuat seseorang tidak bisa menjadi reviewer-nya.",
-  "No cap per person or period in this version":"Tanpa batas per orang atau per periode di versi ini","Unusual patterns are flagged for the reviewer instead.":"Pola yang tidak biasa ditandai untuk reviewer sebagai gantinya.",
-  "Never negative":"Tidak pernah negatif","Taking longer than the estimate never takes points away; the difference is shown as estimation variance.":"Memakan waktu lebih lama dari estimasi tidak pernah mengurangi poin; selisihnya ditampilkan sebagai varians estimasi.",
-  "No retroactive awards":"Tanpa penghargaan surut","Only estimates approved after the bonus is turned on can earn one; turning it off and on again starts from then.":"Hanya estimasi yang disetujui setelah bonus dinyalakan yang bisa mendapatkannya; mematikan lalu menyalakannya lagi dimulai dari saat itu.",
   "Turned on":"Dinyalakan",
   "Approved the efficiency bonus":"Menyetujui bonus efisiensi","Rejected the efficiency bonus":"Menolak bonus efisiensi","Worked out the efficiency bonus again":"Menghitung ulang bonus efisiensi",
   "The efficiency bonus waits for review":"Bonus efisiensi menunggu review","The efficiency bonus went back to review":"Bonus efisiensi kembali ke review",
@@ -26238,8 +26258,12 @@ if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY
 .scr-band input:disabled{opacity:.7}
 .scr-checks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:4px}
 .scr-checks label{display:inline-flex;align-items:center;gap:6px;font-size:13px}
-.scr-pinned .badge{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.scr-pinned .badge .i{width:12px;height:12px}
+.scr-always{padding:8px 10px;margin:4px 0 12px;border-radius:8px;background:var(--color-surface-sunken);font-size:var(--fs-sm)}
+.scr-always b{display:flex;align-items:center;gap:6px}
+.scr-always svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+.scr-always ul{margin:4px 0 0 18px;padding:0;color:var(--color-text-secondary)}
+.scr-wide{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+.scr-fld .scr-help{margin:4px 0 0}
 @media (max-width:640px){.scr-eff-line{font-size:12.5px}.scr-band>span:first-child{min-width:0;width:100%}}
 </style>
 <script>
@@ -26976,14 +27000,18 @@ function scrTbDecorate(){ if(!scrTbReady()) return; scrTbOwner();
 (function(){ if(typeof renderTeamDetail!=="function") return; var base=renderTeamDetail; renderTeamDetail=function(){ var out=base.apply(this,arguments); try{ if(scrTbReady()){ scrTbDecorate(); scrTbLoad(false); } }catch(e){ console.error(e); } return out; }; })();
 
 /* ---------- Settings → Smart Scoring: who sees each person's bars ---------- */
+/* the two choices as cards, each with what it costs */
 function scoringTeamsSettingsHtml(ro,ed){
-  if(typeof scSelectHtml!=="function"||typeof sp!=="function") return "";
+  if(typeof scGet!=="function"||typeof sp!=="function"||typeof scrSec!=="function") return "";
   if(ed===undefined) ed=canI.scoringConfigure(); if(ro===undefined) ro=!ed;
-  return sp("Teams screen",
-    '<p class="hint" style="margin-bottom:10px">'+tr("While Smart Scoring is on, the Teams screen shows small bars under the workload bars, over the last 4 weeks: points done against points planned for each points module switched on, and how often estimates were within ±20%. Every member sees each team's bars; stakeholders never see any.")+'</p>'
-    + fieldHtml("sc_tm_bars","Who sees each person's bars on Teams",scSelectHtml("sc_tm_bars","teams.memberBars",[["self_and_leads",SCR_TB_MODES.self_and_leads],["everyone",SCR_TB_MODES.everyone]],ro))
-    + '<p class="hint scr-tb-tradeoff">'+tr("Everyone: more open, but people may compare and rank one another. Themselves and their lead: safer — the numbers are for learning, not for comparing people.")+'</p>',
-    typeof scSaveFoot==="function"?scSaveFoot(ed):null,I.team); }
+  var cur=scGet("teams.memberBars")==="everyone"?"everyone":"self_and_leads";
+  var card=function(v,why,tag){ return '<label class="scr-radio"><input type="radio" name="sc_tm_bars" id="sc_tm_bars_'+v+'" value="'+v+'" data-sc="teams.memberBars" data-k="str"'+(cur===v?' checked':'')+(ro?' disabled':' onchange="scInput(this)"')+'><span><b>'+tr(SCR_TB_MODES[v])+(tag?' <span class="badge">'+tag+'</span>':'')+'</b><span class="hint">'+why+'</span></span></label>'; };
+  return scrSec("teams",tr("Teams screen"),tr("While Smart Scoring is on, the Teams screen shows small bars under each workload bar: points done against planned, and how close estimates were."),
+    '<fieldset class="scr-radios"><legend>'+tr("Who sees each person's bars on Teams")+'</legend>'
+    + card("self_and_leads",tr("Safer: the numbers stay a tool for learning, and nobody compares colleagues."),tr("Recommended"))
+    + card("everyone",tr("More open, but people may compare and rank one another."))+'</fieldset>'
+    + scrHelp(tr("Every member always sees each team's bars; stakeholders never see any.")),
+    {icon:I.team,example:tr("with the safer choice, a designer sees their own bars, and their team's lead sees each member's.")}); }
 /* the setting's changes in the tab's history, in words */
 (function(){ if(typeof scPathLabel!=="function") return; var base=scPathLabel; scPathLabel=function(p){ if(p==="teams.memberBars") return tr("Teams screen")+" · "+tr("Who sees each person's bars on Teams"); return base.apply(this,arguments); }; })();
 (function(){ if(typeof scVal!=="function") return; var base=scVal; scVal=function(path,v){ if(path==="teams.memberBars"&&SCR_TB_MODES[v]) return tr(SCR_TB_MODES[v]); return base.apply(this,arguments); }; })();
@@ -27007,8 +27035,11 @@ function scoringTeamsSettingsHtml(ro,ed){
   "Over the last 4 weeks (Smart Scoring). Operational figures for learning, not a ranking.":"Selama 4 minggu terakhir (Smart Scoring). Angka operasional untuk belajar, bukan peringkat.",
   "Teams screen":"Layar Tim","Who sees each person's bars on Teams":"Siapa yang melihat bar tiap orang di Tim",
   "Themselves, their team's lead and analytics holders":"Dirinya sendiri, lead timnya, dan pemegang analitik","Everyone in the workspace":"Semua orang di workspace",
-  "While Smart Scoring is on, the Teams screen shows small bars under the workload bars, over the last 4 weeks: points done against points planned for each points module switched on, and how often estimates were within ±20%. Every member sees each team's bars; stakeholders never see any.":"Selama Smart Scoring menyala, layar Tim menampilkan bar kecil di bawah bar beban kerja, selama 4 minggu terakhir: poin yang selesai dibanding poin yang direncanakan untuk tiap modul poin yang dinyalakan, dan seberapa sering estimasi berada dalam ±20%. Setiap anggota melihat bar tiap tim; stakeholder tidak pernah melihatnya.",
-  "Everyone: more open, but people may compare and rank one another. Themselves and their lead: safer — the numbers are for learning, not for comparing people.":"Semua orang: lebih terbuka, tetapi orang bisa saling membandingkan dan memeringkat. Dirinya sendiri dan lead-nya: lebih aman — angkanya untuk belajar, bukan untuk membandingkan orang."
+  "While Smart Scoring is on, the Teams screen shows small bars under each workload bar: points done against planned, and how close estimates were.":"Selama Smart Scoring menyala, layar Tim menampilkan bar kecil di bawah setiap bar beban kerja: poin yang selesai dibanding yang direncanakan, dan seberapa dekat estimasinya.",
+  "Recommended":"Disarankan","Safer: the numbers stay a tool for learning, and nobody compares colleagues.":"Lebih aman: angkanya tetap menjadi alat belajar, dan tidak ada yang membandingkan rekan kerja.",
+  "More open, but people may compare and rank one another.":"Lebih terbuka, tetapi orang bisa saling membandingkan dan memeringkat.",
+  "Every member always sees each team's bars; stakeholders never see any.":"Setiap anggota selalu melihat bar tiap tim; stakeholder tidak pernah melihatnya.",
+  "with the safer choice, a designer sees their own bars, and their team's lead sees each member's.":"dengan pilihan yang lebih aman, seorang desainer melihat bar miliknya sendiri, dan lead timnya melihat bar setiap anggota."
 });
 </script>
 <style>
@@ -27038,7 +27069,13 @@ function scoringTeamsSettingsHtml(ro,ed){
 .scr-tb-panel .scr-tb{margin-top:0;gap:8px}
 .scr-tb-panel .scr-tb-h{font-size:var(--fs-sm);color:var(--color-text-secondary)}
 .scr-tb-panel .scr-tb-rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:6px 24px}
-.scr-tb-tradeoff{margin-top:8px}
+.scr-radios{border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
+.scr-radios legend{padding:0;margin-bottom:6px;font-weight:650}
+.scr-radio{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--color-border);border-radius:10px;cursor:pointer}
+.scr-radio:has(:checked){border-color:var(--color-primary);background:var(--color-primary-soft)}
+.scr-radio:focus-within{outline:2px solid var(--color-primary);outline-offset:1px}
+.scr-radio input{flex:none;width:auto;margin:3px 0 0}
+.scr-radio>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 </style>
 <script>
 /* ============================================================
@@ -27050,7 +27087,8 @@ function scoringTeamsSettingsHtml(ro,ed){
    Settings → Smart Scoring has a "KPIs and OKRs" section (scoringOutcomesSettingsHtml, called from src/scoring-settings.js):
    whoever holds scoring_manage_outcomes defines KPIs, objectives and key results and enters values; everyone who sees
    the tab sees each one's progress as a bar, said to come "from evidence" or to be "manual", with how it was worked out
-   step by step; a metric with nothing to measure against says why instead of showing a made-up percentage. Details
+   step by step, starting with what it counts; a metric with nothing to measure against says why instead of showing a
+   made-up percentage. Which tasks count, the baseline and the direction are under the editor's "Advanced". Details
    list the tasks counted (and taken back), the links waiting for a manager, the values entered and the history. A
    person given scoring_manage_outcomes alone sees the tab for this section (the rest of it read-only).
    A task's Smart Scoring panel shows what the task counts towards (scoringOutcomesRowHtml, called by the panel when
@@ -27088,25 +27126,27 @@ function scoBarHtml(p){ p=p||{};
   if(p.value===null||p.value===undefined){ var why=(p.steps||[]).filter(function(s){ return /^No progress/.test(s.key); }).pop(); return '<div class="scr-out-none">'+esc(why?scoFill(why):tr("No progress yet"))+'</div>'; }
   var w=Math.max(0,Math.min(100,Math.round(p.value*1000)/10));
   return '<div class="scr-out-bar"><div class="pbar'+(w>=100?" good":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+w+'"><i style="width:'+w+'%"></i></div><span class="scr-out-pct">'+scoPct(p.value)+'</span></div>'; }
-function scoWhyHtml(key,p){ var st=(p&&p.steps)||[]; if(!st.length) return "";
-  return '<details class="scr-out-why"'+(SCO.open[key]?" open":"")+' ontoggle="SCO.open['+jsq(key)+']=this.open"><summary>'+tr("How this is worked out")+'</summary><ul>'+st.map(function(s){ return '<li>'+esc(scoFill(s))+'</li>'; }).join("")+'</ul></details>'; }
+/* how a number is worked out — for a KPI or key result, first what it counts */
+function scoWhyHtml(key,p,rule){ var st=(p&&p.steps)||[]; if(!st.length&&!rule) return "";
+  return '<details class="scr-out-why"'+(SCO.open[key]?" open":"")+' ontoggle="SCO.open['+jsq(key)+']=this.open"><summary>'+tr("How this is worked out")+'</summary><ul>'+(rule?'<li>'+tr("Counts")+': '+esc(rule)+'</li>':'')+st.map(function(s){ return '<li>'+esc(scoFill(s))+'</li>'; }).join("")+'</ul></details>'; }
 function scoIconBtn(icon,label,onclick){ return '<button type="button" class="iconbtn scr-out-ib" aria-label="'+attr(tr(label))+'" title="'+attr(tr(label))+'" onclick="'+onclick+'">'+icon+'</button>'; }
 
 /* ---------- Settings → Smart Scoring: the section ---------- */
-function scoringOutcomesSettingsHtml(){
-  if(!scoringFeature()) return "";
+function scoringOutcomesSettingsHtml(ro,ed){
+  if(!scoringFeature()||typeof scrSec!=="function") return "";
   if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
-  if(!API.on) return sp("KPIs and OKRs",'<p class="hint">'+tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")+'</p>',null,I.target);
+  var title=tr("KPIs and OKRs"), intro=tr("Goals whose progress comes from real work — never from points."), o={icon:I.target,cls:"scr-out-panel"};
+  if(!API.on) return scrSec("outcomes",title,intro,scrHelp(tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")),o);
   /* opened afresh: fetched now; drawn again while open (a redraw, the language): at most every few seconds */
   var fresh=!document.getElementById("scrOut"); setTimeout(function(){ scoLoad(fresh); },0);
   var h=scoBodyHtml(); SCO.html=h;
-  return sp("KPIs and OKRs",'<div id="scrOut" class="scr-out">'+h+'</div>',null,I.target,"scr-out-panel"); }
+  o.example=tr("a KPI “Approved assets this month” with a target of 40: each asset a lead validates on a finished task adds 1, so 10 assets make 25%.");
+  if(!scoringModuleOn("kpi")&&!scoringModuleOn("okr")) o.off=tr("KPI and OKR are both off. Turn either on in Overview and save, then set them up here.");
+  return scrSec("outcomes",title,intro,scrHelp(tr("A KPI, objective or key result is saved as soon as it is added or changed — the Save bar is for the settings."))+'<div id="scrOut" class="scr-out">'+h+'</div>',o); }
 function scoBodyHtml(){
-  var d=SCO.data, kpi=scoringModuleOn("kpi"), okr=scoringModuleOn("okr"), man=canI.scoringManageOutcomes();
-  var h='<p class="hint scr-out-intro">'+tr("Progress comes only from evidence — assets a lead validated on finished tasks, tasks finished successfully — or from a value entered by hand with a reason. Points never count as progress. What is changed here is saved at once; the Save buttons above are for the settings.")+'</p>';
-  if(!d) return h+(SCO.err?'<div class="hint">'+tr("KPIs and OKRs could not be loaded.")+' <button class="btn sm" onclick="scoLoad(true)">'+tr("Try again")+'</button></div>':'<div class="hint">'+tr("Loading…")+'</div>');
+  var d=SCO.data, kpi=scoringModuleOn("kpi"), okr=scoringModuleOn("okr"), man=canI.scoringManageOutcomes(), h="";
+  if(!d) return SCO.err?'<div class="hint">'+tr("KPIs and OKRs could not be loaded.")+' <button class="btn sm" onclick="scoLoad(true)">'+tr("Try again")+'</button></div>':'<div class="hint">'+tr("Loading…")+'</div>';
   var kpis=d.metrics.filter(function(m){ return m.kind==="kpi"; });
-  if(!kpi&&!okr&&!kpis.length&&!d.objectives.length) return h+'<div class="banner scr-out-off">'+I.target+'<span>'+tr("Switch on Smart Scoring and KPI or OKR above and save; then set them up here.")+'</span></div>';
   var shown=function(x){ return SCO.archived||x.status!=="archived"; }, hidden=d.metrics.filter(function(m){ return m.status==="archived"; }).length+d.objectives.filter(function(o){ return o.status==="archived"; }).length;
   if(kpi||kpis.length){
     var rows=kpis.filter(shown);
@@ -27129,10 +27169,10 @@ function scoMetricHtml(m,ed){
     +(ed&&m.rule.type==="manual"?scoIconBtn(I.edit,"Enter a value","scoValueModal("+jsq(m.id)+")"):'')
     +scoIconBtn(I.list,"Details","scoDetails("+jsq(m.id)+")")
     +(ed?scoIconBtn(I.settings,"Edit","scoMetricModal("+jsq(m.kind)+","+jsq(m.id)+",null)")+scoIconBtn(I.trash,"Delete","scoDelete(\'metric\',"+jsq(m.id)+")"):'')+'</span></div>';
-  var nums=scoNum(m.actual)+' / '+scoNum(m.target)+unit+' · '+esc(scoRuleText(m))+' · '+esc(scoPeriod(m.period))+(m.owner?' · <span data-no-translate>'+esc(person(m.owner).name)+'</span>':'');
+  var nums=scoNum(m.actual)+' / '+scoNum(m.target)+unit+' · '+esc(scoPeriod(m.period))+(m.owner?' · <span data-no-translate>'+esc(person(m.owner).name)+'</span>':'');
   var extra=man?'<div class="scr-out-sub scr-out-manual">'+tr("Entered by")+' <span data-no-translate>'+esc(man.by?person(man.by).name:"")+'</span>, '+esc(ago(minAgo(man.at),man.at))+(man.reason?': <span data-no-translate>'+esc(man.reason)+'</span>':'')+'</div>':'';
   var wait=m.links&&m.links.waiting&&canI.scoringManageOutcomes()?'<div class="scr-out-sub scr-out-waiting">'+tr(m.links.waiting===1?"1 task link waits for you to confirm it":"{n} task links wait for you to confirm them").replace("{n}",m.links.waiting)+' — <a href="#" onclick="event.preventDefault();scoDetails('+jsq(m.id)+')">'+tr("Details")+'</a></div>':'';
-  return '<div class="scr-out-m" data-metric="'+attr(m.id)+'">'+line+scoBarHtml(m.progress)+'<div class="scr-out-sub">'+nums+'</div>'+extra+wait+scoWhyHtml("m:"+m.id,m.progress)+'</div>'; }
+  return '<div class="scr-out-m" data-metric="'+attr(m.id)+'">'+line+scoBarHtml(m.progress)+'<div class="scr-out-sub">'+nums+'</div>'+extra+wait+scoWhyHtml("m:"+m.id,m.progress,scoRuleText(m))+'</div>'; }
 function scoObjectiveHtml(o,d,ed){
   var krs=d.metrics.filter(function(m){ return m.kind==="kr"&&m.objective===o.id&&(SCO.archived||m.status!=="archived"); });
   var line='<div class="scr-out-line"><span class="scr-out-title" data-no-translate>'+esc(o.title)+'</span>'+(o.status!=="active"?'<span class="badge">'+tr(SCO_STATUS_LABEL[o.status]||o.status)+'</span>':'')
@@ -27165,17 +27205,19 @@ function scoMetricModal(kind,id,objective){
     +(kind==="kr"?'<div class="field-row">'+fieldHtml("sco_obj","Objective",selectHtml("sco_obj",objs.map(function(o){ return [o.id,o.title]; }),m?m.objective:objective))
       +fieldHtml("sco_weight","Weight in the objective",scoNumIn("sco_weight",m?m.weight:1))+'</div><p class="hint scr-out-fh">'+tr("A key result weighing 0 does not count towards its objective.")+'</p>':'')
     +fieldHtml("sco_rule","Progress comes from",selectHtml("sco_rule",[["approved_assets",tr("Assets a lead validated, on tasks finished successfully")],["tasks_completed",tr("Tasks finished successfully (1 each; Declined does not count)")],["manual",tr("A value entered by hand, with a reason")]],r.type,'onchange="scoRuleSync()"'))
-    +'<div id="sco_counted">'+fieldHtml("sco_scope","Which tasks",selectHtml("sco_scope",[["matching",tr("Every task that matches the filter below (no filter: every task)")],["linked",tr("Only tasks linked to it, once an outcomes manager confirms the link")]],r.scope,'onchange="scoRuleSync()"'))
-    +'<div class="field-row scr-out-filter" id="sco_filter">'+fieldHtml("sco_team","Team",selectHtml("sco_team",[["",tr("Any team")]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),f.team||""))
-      +fieldHtml("sco_project","Project",selectHtml("sco_project",[["",tr("Any project")]].concat(liveProjects().map(function(p){ return [p.id,p.name]; })),f.project||""))
-      +fieldHtml("sco_label","Label",selectHtml("sco_label",[["",tr("Any label")]].concat(allLabels().map(function(l){ return [l.id,l.name]; })),f.label||""))+'</div>'
-    +'<p class="hint scr-out-fh">'+tr("A task linked by hand counts too, once an outcomes manager confirms the link. A task counts in the period by the day it was finished; reopened, it no longer counts.")+'</p></div>'
-    +'<div class="field-row">'+fieldHtml("sco_dir","Direction",selectHtml("sco_dir",[["up",tr("Up — more is better")],["down",tr("Down — less is better")]],m?m.direction:"up"))+fieldHtml("sco_unit","Unit",'<input id="sco_unit" maxlength="24" value="'+attr(m?m.unit:"")+'" placeholder="'+attr(tr("e.g. assets"))+'">')+'</div>'
-    +'<div class="field-row">'+fieldHtml("sco_base","Baseline",scoNumIn("sco_base",m?m.baseline:0))+fieldHtml("sco_target","Target",scoNumIn("sco_target",m?m.target:null,"Required for progress"))+'</div>'
-    +'<p class="hint scr-out-fh">'+tr("Counted evidence moves the actual from the baseline towards the target: up adds it, down takes it away (a backlog burnt down by completions).")+'</p>'
+    +'<div class="field-row">'+fieldHtml("sco_target","Target",scoNumIn("sco_target",m?m.target:null,"Required for progress"))+fieldHtml("sco_unit","Unit",'<input id="sco_unit" maxlength="24" value="'+attr(m?m.unit:"")+'" placeholder="'+attr(tr("e.g. assets"))+'">')+'</div>'
     +'<div class="field-row">'+fieldHtml("sco_start","Period from",'<input type="date" id="sco_start" value="'+attr(m&&m.period.start||"")+'">')+fieldHtml("sco_end","Period until",'<input type="date" id="sco_end" value="'+attr(m&&m.period.end||"")+'">')+'</div>'
     +'<div class="field-row">'+fieldHtml("sco_owner","Owner",selectHtml("sco_owner",scoPeopleOpts(),m&&m.owner||""))+fieldHtml("sco_status","Status",selectHtml("sco_status",[["active",tr("Active — counting")],["draft",tr("Draft — not counting yet")],["closed",tr("Closed — kept as it is")],["archived",tr("Archived — hidden")]],m?m.status:"active"))+'</div>'
-    +fieldHtml("sco_desc","Description",'<textarea id="sco_desc" maxlength="2000">'+esc(m?m.description:"")+'</textarea>');
+    +fieldHtml("sco_desc","Description",'<textarea id="sco_desc" maxlength="2000">'+esc(m?m.description:"")+'</textarea>')
+    /* which tasks count, the baseline and the direction: under "Advanced", open when they are not as they start */
+    +scrAdv('<div id="sco_counted">'+fieldHtml("sco_scope","Which tasks",selectHtml("sco_scope",[["matching",tr("Every task that matches the filter below (no filter: every task)")],["linked",tr("Only tasks linked to it, once an outcomes manager confirms the link")]],r.scope,'onchange="scoRuleSync()"'))
+      +'<div class="field-row scr-out-filter" id="sco_filter">'+fieldHtml("sco_team","Team",selectHtml("sco_team",[["",tr("Any team")]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),f.team||""))
+        +fieldHtml("sco_project","Project",selectHtml("sco_project",[["",tr("Any project")]].concat(liveProjects().map(function(p){ return [p.id,p.name]; })),f.project||""))
+        +fieldHtml("sco_label","Label",selectHtml("sco_label",[["",tr("Any label")]].concat(allLabels().map(function(l){ return [l.id,l.name]; })),f.label||""))+'</div>'
+      +'<p class="hint scr-out-fh">'+tr("A task linked by hand counts too, once an outcomes manager confirms the link. A task counts in the period by the day it was finished; reopened, it no longer counts.")+'</p></div>'
+      +'<div class="field-row">'+fieldHtml("sco_dir","Direction",selectHtml("sco_dir",[["up",tr("Up — more is better")],["down",tr("Down — less is better")]],m?m.direction:"up"))+fieldHtml("sco_base","Baseline",scoNumIn("sco_base",m?m.baseline:0))+'</div>'
+      +'<p class="hint scr-out-fh">'+tr("Counted evidence moves the actual from the baseline towards the target: up adds it, down takes it away (a backlog burnt down by completions).")+'</p>',
+      {id:"outcome",open:!!(m&&(r.scope==="linked"||f.team||f.project||f.label||m.direction==="down"||+m.baseline))});
   openModal(m?(kind==="kpi"?"Edit KPI":"Edit key result"):(kind==="kpi"?"New KPI":"New key result"),body,'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" id="sco_save" onclick="scoMetricSave('+jsq(kind)+','+jsq(id||"")+')">'+tr("Save")+'</button>',true);
   scoRuleSync(); }
 function scoRuleSync(){ var r=document.getElementById("sco_rule"), c=document.getElementById("sco_counted"), s=document.getElementById("sco_scope"), f=document.getElementById("sco_filter"); if(!r||!c) return;
@@ -27306,9 +27348,12 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "KPIs and OKRs":"KPI dan OKR","KPIs":"KPI","Key result":"Key result","Objectives and key results":"Objective dan key result","Objective":"Objective",
   "KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.":"KPI dan OKR disimpan di server ZenCrevia, yang menghitung buktinya; salinan offline ini tidak melacaknya.",
-  "Progress comes only from evidence — assets a lead validated on finished tasks, tasks finished successfully — or from a value entered by hand with a reason. Points never count as progress. What is changed here is saved at once; the Save buttons above are for the settings.":"Progres hanya berasal dari bukti — aset yang divalidasi lead pada task yang selesai, task yang selesai dengan berhasil — atau dari nilai yang diisi manual beserta alasan. Poin tidak pernah dihitung sebagai progres. Perubahan di sini langsung tersimpan; tombol Simpan di atas untuk pengaturan.",
+  "Counts":"Menghitung",
+  "Goals whose progress comes from real work — never from points.":"Target yang progresnya berasal dari pekerjaan nyata — bukan dari poin.",
+  "a KPI “Approved assets this month” with a target of 40: each asset a lead validates on a finished task adds 1, so 10 assets make 25%.":"KPI “Aset yang disetujui bulan ini” dengan target 40: setiap aset yang divalidasi lead pada task yang selesai menambah 1, jadi 10 aset berarti 25%.",
+  "KPI and OKR are both off. Turn either on in Overview and save, then set them up here.":"KPI dan OKR sama-sama mati. Nyalakan salah satunya di Ringkasan lalu simpan, kemudian atur di sini.",
+  "A KPI, objective or key result is saved as soon as it is added or changed — the Save bar is for the settings.":"KPI, objective, atau key result langsung tersimpan begitu ditambah atau diubah — bar Simpan hanya untuk pengaturan.",
   "KPIs and OKRs could not be loaded.":"KPI dan OKR tidak dapat dimuat.","Try again":"Coba lagi",
-  "Switch on Smart Scoring and KPI or OKR above and save; then set them up here.":"Nyalakan Smart Scoring serta KPI atau OKR di atas lalu simpan; setelah itu atur di sini.",
   "KPI details":"Detail KPI","Key result details":"Detail key result",
   "Switched off — shown as they were":"Dimatikan — ditampilkan seperti terakhir","New KPI":"KPI baru","No KPIs yet.":"Belum ada KPI.","New objective":"Objective baru","No objectives yet.":"Belum ada objective.",
   "Show archived":"Tampilkan yang diarsipkan","Hide archived":"Sembunyikan yang diarsipkan",
@@ -27390,11 +27435,9 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 });
 </script>
 <style>
-.scr-out-intro{margin-bottom:6px}
 .scr-out-block{margin-top:14px}
 .scr-out-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
 .scr-out-head .btn svg,.scr-out-acts .btn svg,.scr-out-pick svg{width:15px;height:15px}
-.scr-out-off{margin-top:8px}
 .scr-out-m,.scr-out-obj{border:1px solid var(--color-border);border-radius:var(--radius);padding:10px 12px;margin-top:8px;background:var(--color-surface);min-width:0}
 .scr-out-obj>.scr-out-krs{margin-left:12px}
 .scr-out-krs .scr-out-m{background:var(--color-surface-sunken)}
@@ -27413,6 +27456,8 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 .scr-out-why ul{margin:4px 0 0 18px;padding:0;font-size:var(--fs-sm);line-height:1.5}
 .scr-out-foot{margin-top:10px}
 .scr-out-fh{margin:-4px 0 10px}
+#sco_counted:not([hidden]){display:grid;gap:10px}
+#sco_counted .field{margin:0}
 .scr-out-filter{grid-template-columns:repeat(3,minmax(0,1fr))}
 .scr-out-ev[data-state="revoked"] b{text-decoration:line-through;opacity:.7}
 .scr-out-dtitle{font-weight:650;margin-bottom:4px;overflow-wrap:anywhere}
