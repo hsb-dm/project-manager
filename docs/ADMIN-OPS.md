@@ -336,6 +336,116 @@ Rambu pengaman: entri terakhir tidak bisa dihapus, dan model aktif terakhir tida
 dimatikan. Menonaktifkan sebuah model **tidak merusak pilihan yang sudah tersimpan** —
 pilihan itu jatuh diam-diam ke model default.
 
+### Chat models — model chat tanpa coding (Oktober 2026)
+
+Di halaman **Models** yang sama, di bawah model gambar dan Generative Expand, ada bagian **Chat models**:
+daftar model chat yang dipakai fitur AI teks. Memasang model baru — GPT-6 Luna, Claude, Gemini, model
+OpenRouter, dan lain-lain — **tidak perlu coding**: pilih preset provider, ketik model ID, simpan, klik
+**Test**.
+
+**Entri pertama: Workspace connection.** Koneksi chat di **Providers** (kartu *AI Intelligence — chat model*)
+otomatis menjadi entri pertama dan dipakai untuk semua fitur. Provider, endpoint, model, dan kuncinya tetap
+diubah di **Providers** (entri ini membacanya, tidak menyalin); nama, saklar, catatan, dan pengaturan
+**Advanced**-nya diubah di sini. Migrasinya berjalan sekali saat server start (penanda `ai_chat_models` di
+`app_meta`, dalam satu transaksi) dan **tidak mengubah apa pun yang dikirim ke provider**. Workspace yang
+belum dimigrasi (misalnya hasil restore backup lama) tetap bekerja persis seperti dulu lewat koneksi Providers.
+
+**Menambah model** — klik **Add chat model**:
+
+1. **Provider** dulu — presetnya mengisi endpoint dan format: OpenAI, OpenAI — Responses API, Anthropic
+   (Claude), Google Gemini, OpenRouter, Groq, DeepSeek, Mistral, xAI (Grok), Together AI, Azure OpenAI,
+   SumoPod, Custom.
+2. **Display name** — nama yang dilihat admin (kosong = model ID).
+3. **Model ID** — persis seperti di daftar model provider (huruf, angka, `. _ : / @ + -`, tanpa spasi).
+4. **Endpoint** — terisi dari preset; hanya `https://`. Alamat tidak boleh membawa kunci (`?key=…`) atau
+   `user:pass@` — kunci selalu di field API key.
+5. **API key** — *write-only*, disimpan terenkripsi (`COS_SECRET_KEY`), tidak pernah dikirim balik ke browser.
+   Kosong = kunci yang sudah tersimpan dipertahankan; bila belum ada, dipakai kunci yang tersimpan **untuk host
+   yang sama** (koneksi Providers, atau model chat lain di host itu). Kunci tidak pernah dikirim ke host lain.
+   Ketik `clear` untuk menghapus kunci tersimpan.
+
+Contoh pengisian:
+
+| Model | Preset | Model ID | Endpoint (dari preset) | API key |
+|---|---|---|---|---|
+| GPT-6 Luna | OpenAI | `gpt-6-luna` | `https://api.openai.com/v1/chat/completions` | kosongkan bila koneksi Providers sudah memakai kunci OpenAI |
+| Claude | Anthropic (Claude) | `claude-sonnet-4-6` | `https://api.anthropic.com/v1/messages` | kunci Anthropic (`sk-ant-…`) |
+| Gemini | Google Gemini | `gemini-3.5-flash` | `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` (`{model}` diganti otomatis) | kunci Google AI (`AIza…`) |
+| Model OpenRouter | OpenRouter | `anthropic/claude-sonnet-4.6`, `openai/gpt-6-luna`, … | `https://openrouter.ai/api/v1/chat/completions` | kunci OpenRouter, sekali saja — model OpenRouter berikutnya boleh dikosongkan |
+
+Untuk GPT-6 Luna cukup: **Add chat model** → Provider **OpenAI** → Model ID `gpt-6-luna` → **Save** →
+**Test** → di **Used for**, pilih *GPT-6 Luna* untuk fitur yang diinginkan. Field token-nya otomatis
+`max_completion_tokens`.
+
+**Advanced** — biarkan *Auto* kecuali hasil **Test** menyarankan lain. Semua yang *Auto*/kosong mengirim
+persis seperti sebelum fitur ini ada.
+
+| Field | Artinya |
+|---|---|
+| **Format** | Bentuk request: *Chat Completions*, *Responses (OpenAI)*, *Anthropic Messages*, *Gemini generateContent*. Auto = dibaca dari endpoint. Format yang dipilih juga melengkapi alamat dasar (mis. `…/v1` → `…/v1/responses`). |
+| **Token field** | `max_tokens`, `max_completion_tokens` (model reasoning: seri o, GPT-5, GPT-6, dan sesudahnya), `max_output_tokens` (Responses API). Auto = dari nama model. Berlaku untuk format gaya OpenAI; Anthropic selalu `max_tokens`, Gemini `maxOutputTokens`. |
+| **Max output tokens** | 64–128 000. Kosong = 1500, atau 4000 untuk model reasoning. |
+| **Reasoning effort** | none / minimal / low / medium / high. Hanya dikirim bila bukan Auto: `reasoning_effort` (Chat Completions) atau `reasoning.effort` (Responses API). Untuk Anthropic/Gemini pakai Extra parameters. |
+| **Temperature** | 0–2. Kosong = tidak dikirim (default provider) — model reasoning menolak temperature. |
+| **Extra parameters (JSON)** | Satu objek JSON yang digabung **terakhir** ke setiap request, mis. `{"top_p": 0.9}`, atau untuk Gemini `{"generationConfig": {"thinkingConfig": {"thinkingBudget": 0}}}`. Nilai `null` menghilangkan field dari request (mis. `{"max_tokens": null}`). Key yang membentuk request — `model`, `messages`, `input`, `instructions`, `stream`, `tools`, `system`, `contents`, dan sejenisnya — ditolak. Maksimal 4000 karakter, 6 tingkat, 60 key; divalidasi saat diketik. |
+
+**Test** — tombol di tiap baris mengirim prompt kecil ("Reply with the single word: ready") dengan pengaturan
+entri itu sendiri, lalu menampilkan di bawah baris: berhasil/gagal, waktu (ms), model, token in → out,
+cuplikan jawaban (≤ 120 karakter), dan field yang dikirim. Bila gagal, error provider diterjemahkan menjadi
+petunjuk, dan bila bisa ada **perbaikan satu klik** (disimpan ke entri lalu dites ulang):
+
+| Error dari provider | Petunjuk / tombol |
+|---|---|
+| `Unsupported parameter: 'max_tokens' … Use 'max_completion_tokens'` | **Use max_completion_tokens** |
+| kebalikannya | **Use max_tokens** |
+| `temperature … not supported`, `Only the default (1) value is supported` | **Clear the temperature** |
+| `reasoning_effort` tidak dikenal | **Set the reasoning effort to Auto** |
+| `Unsupported parameter: 'messages'` (endpoint Responses API) | **Set the format to Responses** |
+| `… 200000 > 64000, which is the maximum` / `supports at most N` | **Set max output tokens to N** |
+| sebuah extra parameter ditolak | **Remove …** |
+| model not found / does not exist | **Check the model ID** (membuka field-nya) |
+| 401 / API key tidak valid | **Change the key** |
+| host tidak ada di allowlist | penjelasan `COS_AI_ALLOWED_HOSTS` (lihat bawah) |
+| 429, 5xx, timeout, halaman HTML, host tak terjangkau | apa yang perlu dicek |
+
+Maksimal 10 tes per menit per admin. Hasil tes terakhir tersimpan di entri (*Last test passed / failed*).
+Tes untuk Workspace connection sama dengan **Save & test connection** di Providers, dan hasilnya tampil di
+kedua tempat. Kunci yang terulang di pesan error provider disamarkan (`[key]`).
+
+**Allowlist host.** Server hanya mengirim kunci AI ke provider yang dikenal (OpenAI, Anthropic, Gemini,
+OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, SumoPod, Perplexity, Fireworks, Cerebras, Moonshot,
+Cohere) dan resource Azure OpenAI. Host lain — misalnya LLM internal — harus ditambahkan admin server ke
+`COS_AI_ALLOWED_HOSTS` (dipisah koma) lalu **restart server**. Ini **tidak bisa** diizinkan dari browser;
+baris model dengan host yang belum diizinkan diberi tanda *Host not allowed on this server*.
+
+**Used for** — di bawah daftar, model mana yang menjawab tiap fitur:
+
+| Fitur | purpose |
+|---|---|
+| AI Intelligence chat | `intelligence` |
+| Smart Scoring AI suggestions | `scoring` |
+| Effort estimate on Create | `estimate` |
+| Brief refine (AI Hub) | `brief` |
+| Report summary | `report` |
+
+Selain AI Intelligence, defaultnya **Same as AI Intelligence** (ikut model AI Intelligence). Browser hanya
+mengirim *purpose* ke `/api/ai/chat` — tidak pernah model ID atau endpoint; server yang memilih modelnya.
+Purpose yang tidak dikenal dijawab model AI Intelligence.
+
+**Rambu pengaman.** Model aktif terakhir tidak bisa dimatikan atau dihapus. Mematikan atau menghapus model
+yang sedang dipakai membuat fiturnya kembali ke model AI Intelligence, dan layar menyebutnya
+("Now using … / Sekarang memakai …"). Bila model AI Intelligence sendiri yang dihapus, model aktif pertama yang
+tersisa mengambil alih. Workspace connection boleh dikeluarkan dari daftar (kuncinya tetap menjadi kunci
+bersama untuk host yang sama) dan dikembalikan lewat **Add the Providers connection**. Maksimal 30 model.
+
+**Siapa.** Yang memegang `manage_workspace` (sama dengan tab AI). Anggota lain hanya menerima nama model dan
+apakah model itu siap — tanpa endpoint, model ID, catatan, atau pengaturan.
+
+**Di server.** Disimpan di `workspaces.ai_settings` sebagai `chatModels` dan `chatUse`; ditulis hanya lewat
+`GET/POST /api/ai/chat-models`, `PUT/DELETE /api/ai/chat-models/:id`, `POST /api/ai/chat-models/:id/test`, dan
+`PUT /api/ai/chat-use` (simpan Settings biasa tidak bisa mengubahnya). Setiap request tetap melewati pemeriksaan
+yang sama: pemrosesan AI eksternal menyala, ada kunci, `https`, dan host di allowlist.
+
 ### Usage & Limits
 
 Nilai bawaan yang direkomendasikan:
@@ -375,6 +485,11 @@ Kunci dienkripsi di server dan **tidak pernah dikirim balik ke browser**.
 
 Ada juga **Brand default prompt** — teks yang disertakan pada setiap generasi AI Hub dan
 hanya bisa diubah administrator.
+
+Kartu **AI Intelligence — chat model** adalah *Workspace connection* di **Models → Chat models**: model chat
+lain ditambahkan di sana, dan di sana pula dipilih model mana yang dipakai tiap fitur (lihat
+[Chat models](#chat-models--model-chat-tanpa-coding-oktober-2026)). **Save & test connection** di sini selalu
+menguji koneksi ini sendiri, model mana pun yang sedang dipakai AI Intelligence.
 
 ### Permissions
 

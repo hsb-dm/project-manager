@@ -19,6 +19,8 @@ function aiKey(which){
   return (window.ZENCREVIA_DEMO_AI_KEYS||{})[which]||"";
 }
 function aiConfigured(which){ return !!(aiCfg()[which].keySet || aiKey(which)); }
+/* AI Intelligence can ask its model: the chat model chosen for it (src/ai-chat-models.js), else the connection */
+function aiChatOn(){ return typeof aiChatReady==="function" ? aiChatReady("intelligence") : aiConfigured("chat"); }
 
 /* ---------- prompt templates (Settings \u2192 AI) ----------
    The starting set follows the workspace's own posters (Oct 2026): a dark studio, one premium hero
@@ -850,7 +852,7 @@ function renderAIChat(){
   }).join("");
   if (AI_CHAT.busy) body += '<div class="aimsg assistant"><span class="aiav">'+I.sparkle+'</span><div class="bub"><span class="hint">'+(UI_LANG==="id"?"Sedang berpikir…":"Thinking…")+'</span></div></div>';
   el.innerHTML = '<div class="aichat-head"><span class="sq blue">'+I.sparkle+'</span><h2>AI Intelligence</h2>'
-    + '<span class="badge'+(aiConfigured("chat")?" approved":"")+'">'+(aiConfigured("chat")?tr("Connected"):(UI_LANG==="id"?"mode lokal":"local mode"))+'</span><span class="spacer"></span>'
+    + '<span class="badge'+(aiChatOn()?" approved":"")+'">'+(aiChatOn()?tr("Connected"):(UI_LANG==="id"?"mode lokal":"local mode"))+'</span><span class="spacer"></span>'
     + (AI_CHAT.msgs.length>1?'<button class="iconbtn" onclick="aiChatReset()" title="'+(UI_LANG==="id"?"Percakapan baru":"New conversation")+'">'+I.plus+'</button>':'')
     + '<button class="iconbtn" id="aiAttachBtn" onclick="aiAttachMenu(this)" title="'+attr(tr("Attach to this conversation"))+'">'+I.link+'</button>'
     + '<button class="iconbtn" onclick="aiChatTemplateMenu(this)" title="'+(UI_LANG==="id"?"Template prompt":"Prompt templates")+'">'+I.sparkle+'</button>'
@@ -883,8 +885,8 @@ function aiAsk(q){
   q = String(q||"").trim(); if (!q || AI_CHAT.busy) return;
   AI_CHAT.msgs.push({ role:"user", text:q, attach:aiAttachList().slice() });
   AI_CHAT.busy = true; aiChatSave(); renderAIChat();
-  var run = aiConfigured("chat")
-    ? (API.on ? apiFetch("POST","/api/ai/chat",{ messages:AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; }), context:aiChatContext(), actions:true })
+  var run = aiChatOn()
+    ? (API.on ? apiFetch("POST","/api/ai/chat",{ messages:AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; }), context:aiChatContext(), actions:true, purpose:"intelligence" })
               : aiDirectChat(q))
     : Promise.resolve({ text: aiLocalAnswer(q) });
   run.then(function(res){

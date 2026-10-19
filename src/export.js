@@ -185,7 +185,7 @@ function reportExternalRecommendations(d){
   var prompt=reportRecPrompt(d);
   var call;
   if(typeof API!=="undefined"&&API.on){
-    call=apiFetch("POST","/api/ai/chat",{messages:[{role:"user",content:prompt}],context:""})
+    call=apiFetch("POST","/api/ai/chat",{messages:[{role:"user",content:prompt}],context:"",purpose:"report"})
       .then(function(res){ return (res&&(res.text||res.reply))||""; });
   } else if(typeof aiDirectChatOnce==="function"){
     call=aiDirectChatOnce(prompt);

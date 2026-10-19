@@ -184,7 +184,8 @@ function setAI(){
   var cur=aiSection();
   var nav='<div class="subnav" role="tablist">'+AI_SETTINGS_SECTIONS.map(function(x){
     return '<button role="tab" aria-selected="'+(cur===x[0]?"true":"false")+'" class="'+(cur===x[0]?"on":"")+'" onclick="S.aiSettingsSection=\''+x[0]+'\';renderScreen(false)">'+tr(x[1])+'</button>'; }).join("")+'</div>';
-  var body={overview:setAIOverview,models:function(){return setAIModels()+setAIExpand();},limits:setAILimits,prompts:function(){return setAIPromptRules()+setAIDefaults();},providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
+  /* the chat models (src/ai-chat-models.js) sit beside the image models */
+  var body={overview:setAIOverview,models:function(){return setAIModels()+setAIExpand()+(typeof setAIChatModels==="function"?setAIChatModels():"");},limits:setAILimits,prompts:function(){return setAIPromptRules()+setAIDefaults();},providers:setAIProviders,permissions:setAIPermissions,privacy:setAIPrivacy}[cur]();
   return nav+body;
 }
 /* §P1-3 the overview answers "is this working?" before any technical field. */

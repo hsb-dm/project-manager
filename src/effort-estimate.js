@@ -79,7 +79,7 @@ function effortLive(){ var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!tk.
 document.addEventListener("input",function(e){ var el=e.target; if(!el||!el.closest||!(el.closest("#drHead .dr-title")||el.closest("#descSrc"))) return; var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!tk._draft) return; clearTimeout(EST_T); EST_T=setTimeout(effortLive,300); },true);(function(){ if(typeof renderDrawer!=="function") return; var base=renderDrawer; renderDrawer=function(){ var out=base.apply(this,arguments); try{ effortLive(); }catch(e){ console.error(e); } return out; }; })();
 
 /* ---------- the AI, once, on Create ---------- */
-function effortAiOk(){ if(typeof aiCfg!=="function"||typeof API==="undefined"||!API.on) return false; var c=aiCfg(); return !!(c.processing.externalEnabled&&(typeof aiConfigured!=="function"||aiConfigured("chat"))); }
+function effortAiOk(){ if(typeof aiCfg!=="function"||typeof API==="undefined"||!API.on) return false; var c=aiCfg(); return !!(c.processing.externalEnabled&&(typeof aiChatReady==="function"?aiChatReady("estimate"):(typeof aiConfigured!=="function"||aiConfigured("chat")))); }
 function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTemplates||[],tk.brief.tpl), tm=tk.team&&team(tk.team);
   return ["Estimate the hands-on working hours one experienced person needs to do this task — the time spent working on it, not calendar time and not time waiting for feedback or approval.",
     "Typical hands-on hours: "+EST_KINDS.map(function(k){ return k[1]+" "+k[5]+"–"+k[6]+" h"+" (each next at "+Math.round(k[7]*100)+"%)"; }).join("; ")+". A small task gets a small number.",
@@ -90,7 +90,7 @@ function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTem
     ex.length?"Finished tasks of this team that read alike, with the hours they took:\n"+ex.map(function(t){ return '- "'+String(t.title).slice(0,120)+'": '+estHours(t)+" h"; }).join("\n"):"",
     'Reply with JSON only: {"hours": <number>, "reason": "<one short sentence in '+(UI_LANG==="id"?"Indonesian":"English")+'>"}'].filter(Boolean).join("\n"); }
 function effortAskAi(id,probe,est){ var c=aiCfg(), ex=c.processing.workspaceContextEnabled&&est&&est.ids?est.ids.map(task).filter(Boolean):[];
-  var call=apiFetch("POST","/api/ai/chat",{messages:[{role:"user",content:effortAiPrompt(probe,ex)}],context:""}), late=new Promise(function(res){ setTimeout(function(){ res(null); },25000); });
+  var call=apiFetch("POST","/api/ai/chat",{messages:[{role:"user",content:effortAiPrompt(probe,ex)}],context:"",purpose:"estimate"}), late=new Promise(function(res){ setTimeout(function(){ res(null); },25000); });
   return Promise.race([call,late]).then(function(r){ if(!r) return false; var txt=String(r.reply||r.text||r.content||""), j=null; try{ j=JSON.parse((txt.match(/\{[\s\S]*\}/)||["null"])[0]); }catch(e){}
     /* kept within reason: a reply past a working week is read as a full week (it was asked for one task) */
     var h=j&&+j.hours, t=task(id); if(!(h>0)||!t||taskMeta(t).effortManual||!canI.editTask(t)) return false; h=Math.min(40,h);

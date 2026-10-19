@@ -540,7 +540,7 @@ const RAW_BODY = new Set(["/api/cloud/gdrive/upload", "/api/files/upload"]);
 const OPEN = new Set(["/api/auth/session", "/api/auth/status", "/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/auth/forgot", "/api/auth/reset", "/api/auth/reset/check", "/api/health"]);
 function readRoles() { return db.prepare("SELECT * FROM roles ORDER BY rank DESC, sort_order, name").all().map(r => ({ id: r.id, name: r.name, description: r.description || "", permissions: J(r.permissions, []), rank: r.rank || 0, system: !!r.is_system })); }
 function publicUser(id) { const u = db.prepare("SELECT id, name, email, initials, avatar_color FROM users WHERE id=?").get(id); const m = db.prepare("SELECT role_id, job_title FROM workspace_members WHERE user_id=? AND workspace_id=?").get(id, WS_ID); return u && { id: u.id, name: u.name, email: u.email, ini: u.initials, c: u.avatar_color, perm: m ? m.role_id : null, role: m ? m.job_title : "" }; }
-function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; if (w.ai && Array.isArray(w.ai.promptTemplates)) w.ai.promptTemplates = w.ai.promptTemplates.filter(t => !t || !t.private || t.owner === u.id);   /* someone's own templates are theirs alone */ /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
+function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; if (!can.manageWorkspace(u) && w.ai && Array.isArray(w.ai.chatModels)) w.ai.chatModels = require("./ai-chat-models").pure.publicState({ models: w.ai.chatModels, use: w.ai.chatUse, purposes: [] }).models;   /* the chat models' settings are the admins': everyone else learns which there are and whether each is ready */ if (w.ai && Array.isArray(w.ai.promptTemplates)) w.ai.promptTemplates = w.ai.promptTemplates.filter(t => !t || !t.private || t.owner === u.id);   /* someone's own templates are theirs alone */ /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
 const route = (method, pattern, handler) => routes.push({ method, re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), handler });
 require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
 /* v18 §144–147 Messages: the SSE stream handler needs the raw response, which route handlers receive as ctx.res */
@@ -795,10 +795,13 @@ route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
 }));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */
-const aiConf = (kind) => {
+const aiConf = (kind, purpose, chatModelId) => {
   const settings = sz.readAIRaw(db, WS_ID) || {}, processing = Object.assign({ externalEnabled: true }, settings.processing || {});
   if (!processing.externalEnabled) throw new HttpError(403, "External AI processing is disabled. An admin must enable it in Settings \\u2192 AI.");
-  const c = Object.assign({}, settings[kind] || {});
+  /* chat: the model chosen for what the request is for — or the one an admin is testing — from Settings → AI → Models →
+     Chat models (server/ai-chat-models.js; chatModels is registered below and only read here when a request runs).
+     Every one is held to the same checks as the connection always was. */
+  const c = kind === "chat" ? chatModels.configFor(settings, purpose, chatModelId) : Object.assign({}, settings[kind] || {});
   if (!c.key) throw new HttpError(400, "No " + kind + " API key configured. Add one in Settings \u2192 AI.");
   c.key = secrets.decrypt(c.key);
   let endpoint; try { endpoint = new URL(String(c.endpoint || "")); } catch { throw new HttpError(400, "The AI provider endpoint is invalid"); }
@@ -1058,7 +1061,8 @@ route("POST", "/api/ai/image", async (u, p, q, b) => {
 
 route("POST", "/api/ai/chat", async (u, p, q, b) => {
   forbid(can.useAIHub(u), "use AI Hub");
-  const c = aiConf("chat");
+  /* the page says only what the question is for (intelligence, scoring, estimate, brief, report); the server picks the model */
+  const c = aiConf("chat", b.purpose);
   const processing = Object.assign({ workspaceContextEnabled: true }, (sz.readAIRaw(db, WS_ID) || {}).processing || {});
   if (b.context && !processing.workspaceContextEnabled) throw new HttpError(403, "Sending workspace context to AI is disabled by the workspace admin");
   const msgs = (Array.isArray(b.messages) ? b.messages : []).slice(-14)
@@ -1091,7 +1095,7 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
     (c.systemExtra ? c.systemExtra + "\n\n" : "") + workspaceContext;
   /* the request and the reply in the provider's own shape: server/ai-chat-format.js (OpenAI's /v1/responses included) */
   const req = aiChatFormat.chatRequest(c, system, msgs);
-  security.log("ai_chat_requested", { userId: u.id, provider: c.provider || "chat", model: c.model, workspaceContext: !!b.context });
+  security.log("ai_chat_requested", { userId: u.id, provider: c.provider || "chat", model: c.model, chatModel: c.registryId || null, purpose: typeof b.purpose === "string" ? b.purpose.slice(0, 20) : null, workspaceContext: !!b.context });
   const j = await aiFetch(req.endpoint, { method: "POST", headers: req.headers, body: JSON.stringify(req.body) }, "Chat", 60000);
   const text = aiChatFormat.chatText(req.kind, j);
   if (!text) throw new HttpError(424, "The model returned no text.");
@@ -1347,6 +1351,7 @@ require("./scoring-analytics")(db, WS_ID, { route, HttpError, forbid, can, scori
 require("./scoring-awards")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, userContext, forViewer: (u, t) => forViewer(u, t), bumpData: () => { DATA_VERSION++; }, notify: (list, o) => deliverNotifs(list, o), texts: { mail: MAIL_TEXT, pushId: PUSH_TEXT_ID } });   /* the efficiency bonus: awards, their review and safeguards (server/scoring-awards.js) */
 require("./scoring-ai")(db, WS_ID, { scoring, route, HttpError, forbid, can, security, uid, now, tx, sz, aiConf, aiFetch, bumpData: () => { DATA_VERSION++; }, announce: id => announceTaskChange("PUT", "/api/tasks/" + id, null, { id: null }) });   /* the AI's suggestions for a task's scores: POST /api/tasks/:id/scoring/ai (server/scoring-ai.js) */
 require("./scoring-teams")(db, WS_ID, { route, HttpError, forbid, can, scoring });   /* the Teams screen's bars: GET /api/scoring/teams (server/scoring-teams.js) */
+const chatModels = require("./ai-chat-models")(db, WS_ID, { route, HttpError, forbid, can, security, now, tx, sz, secrets, act, aiConf, aiFetch });   /* the chat models an admin plugs in and which one does what: Settings → AI → Models → Chat models (server/ai-chat-models.js) */
 /* v38 connection test. "Connected" in Settings used to mean only "a key is stored". The server
    now makes a real, minimal call with the stored settings and records the outcome, and the UI
    shows Connected only after a passing check. */
@@ -1358,7 +1363,8 @@ route("POST", "/api/ai/test", async (u, p, q, b) => {
   forbid(can.manageWorkspace(u), "test AI providers");
   const kind = b.kind === "image" ? "image" : "chat";
   const handler = routes.find(r => r.method === "POST" && r.re.test("/api/ai/" + kind)).handler;
-  const probe = kind === "chat" ? { messages: [{ role: "user", content: "Reply with the single word: ready" }] } : { prompt: "a plain neutral grey gradient, no subject", width: 1024, height: 1024, modelRegistryId: b.modelRegistryId || null };
+  /* chat: the workspace connection of Providers itself, with its entry's settings (server/ai-chat-models.js), whichever model AI Intelligence uses */
+  const probe = kind === "chat" ? { messages: [{ role: "user", content: "Reply with the single word: ready" }], purpose: chatModels.CONNECTION } : { prompt: "a plain neutral grey gradient, no subject", width: 1024, height: 1024, modelRegistryId: b.modelRegistryId || null };
   const started = Date.now();
   try {
     const out = await handler(u, {}, {}, probe);

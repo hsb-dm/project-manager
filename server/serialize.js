@@ -2,6 +2,7 @@
 const { uid, now, J, S } = require("./db");
 const secrets = require("./secrets");
 const scoringSettings = require("../shared/scoring-settings");
+const aiChatModels = require("./ai-chat-models").pure;
 
 /* A version's notes are matched by id when a task is saved (sanitizeNotes in server.js). The pins
    stored before notes had ids get one here, made from the version's id and their place, so the same
@@ -22,6 +23,9 @@ function maskAI(ai) {
     const c = Object.assign({}, ai[k] || {});
     out[k] = Object.assign({}, c, { key: "", keySet: !!c.key });
   }
+  /* the chat models and which one does what (server/ai-chat-models.js): each says whether a key is set, never the key */
+  const chatModels = aiChatModels.maskState(ai);
+  out.chatModels = chatModels.models; out.chatUse = chatModels.use;
   return out;
 }
 /* v17 §P1-4 — SMTP configuration lives with the workspace, alongside AI
@@ -105,6 +109,10 @@ function mergeAI(db, wsId, incoming) {
     if (changed) delete merged.lastCheck; else if (old.lastCheck) merged.lastCheck = old.lastCheck; else delete merged.lastCheck;
     next[k] = merged;
   }
+  /* the chat models (their keys among them) and what each is used for are written only by their own routes
+     (server/ai-chat-models.js): a workspace save carries them over exactly as they are, whatever it sends */
+  if (cur.chatModels !== undefined) next.chatModels = cur.chatModels;
+  if (cur.chatUse !== undefined) next.chatUse = cur.chatUse;
   return next;
 }
 /* v33 review gate defaults (Settings → Workflow → "Who can move tasks here" overrides them).

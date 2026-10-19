@@ -33,7 +33,8 @@
    and prompt is answered from the earlier run (status cached) without asking the model again; two asks at once wait
    for one answer. Quotas are counted from the runs of the last 24 hours that asked the model (cached runs and refusals
    are not counted): settings.ai.perUserDaily per person for what they ask, settings.ai.workspaceDaily for everything.
-   The model is called through the chat proxy's pieces — aiConf("chat"), chatRequest/chatText, aiFetch with 30 seconds —
+   The model is called through the chat proxy's pieces — aiConf("chat", "scoring") (the chat model assigned to Smart
+   Scoring in Settings → AI → Models → Chat models, else AI Intelligence's), chatRequest/chatText, aiFetch with 30 seconds —
    and once more after a timeout or a 5xx; outside any transaction (SQLite has one writer). AI off, out of quota, an
    answer that is not valid, an error or a timeout: the answer is the math with a plain reason — it never fails the
    panel.
@@ -294,7 +295,8 @@ module.exports = function scoringAi(db, WS_ID, d) {
   /* aiConf("chat") → chatRequest → aiFetch (30 s) → chatText / chatUsage; once more after a timeout or a 5xx */
   async function defaultCall(prompt) {
     let c;
-    try { if (typeof d.aiConf !== "function") throw new Error("No AI chat model on this server"); c = d.aiConf("chat"); } catch (e) { e.kind = "not_configured"; throw e; }
+    /* the chat model Settings → AI → Models → Chat models assigns to Smart Scoring (server/ai-chat-models.js) */
+    try { if (typeof d.aiConf !== "function") throw new Error("No AI chat model on this server"); c = d.aiConf("chat", "scoring"); } catch (e) { e.kind = "not_configured"; throw e; }
     const req = chatFormat.chatRequest(c, prompt.system, [{ role: "user", content: prompt.user }]);
     const meta = { provider: c.provider || req.kind, model: c.model || (req.body && req.body.model) || null };
     for (let attempt = 1; ; attempt++) {
