@@ -431,3 +431,19 @@ test('on the real server: Ask AI goes through the chat proxy\'s pieces with the 
   r = await req('PUT', '/api/scoring/settings', { settings: Object.assign({}, cur, { enabled: false }), configVersion: cur.configVersion + 1 }, admin); assert.equal(r.status, 200);
   r = await req('POST', '/api/tasks/' + task.id + '/scoring/ai', {}, admin); assert.equal(r.status, 409);
 });
+
+/* switching Smart Scoring's chat model asks the new one: a cached answer is the model's that gave it (Oct 2026) */
+test('a cached answer is reused only while Smart Scoring asks the same model; switching models asks the new one', async () => {
+  let model = 'gpt-5-mini', n = 0;
+  const ok = () => ({ choices: [{ message: { content: reply() } }], usage: { prompt_tokens: 500, completion_tokens: 90 } });
+  const k = setup({ aiFetch: async () => { n++; return ok(); }, aiConf: () => ({ provider: 'openai', endpoint: 'https://api.openai.com/v1/chat/completions', key: 'k', model }) });
+  await k.on(); const T = k.task();
+  assert.equal((await k.ask(T)).aiResult.status, 'ok'); assert.equal(n, 1);
+  assert.equal((await k.ask(T)).aiResult.status, 'cached', 'same model, same task: the cache'); assert.equal(n, 1);
+  model = 'gpt-6-luna';
+  const b = await k.ask(T);
+  assert.equal(b.aiResult.status, 'ok', 'another model: asked again'); assert.equal(n, 2); assert.equal(b.aiResult.model, 'gpt-6-luna');
+  assert.equal((await k.ask(T)).aiResult.status, 'cached', 'and its own answer is cached in turn'); assert.equal(n, 2);
+  model = 'gpt-5-mini';
+  assert.equal((await k.ask(T)).aiResult.status, 'cached', 'back to the first model: its answer still stands'); assert.equal(n, 2);
+});

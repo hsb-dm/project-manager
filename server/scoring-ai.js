@@ -323,7 +323,10 @@ module.exports = function scoringAi(db, WS_ID, d) {
     return id;
   }
   /* the latest run that answered (ok, or the cache of one) for this task, with the settings and prompt of now */
-  const cacheHit = (taskId, hash, configVersion) => db.prepare("SELECT * FROM scoring_ai_runs WHERE workspace_id=? AND task_id=? AND input_hash=? AND config_version=? AND prompt_version=? AND status='ok' ORDER BY created_at DESC, rowid DESC LIMIT 1").get(WS_ID, taskId, hash, configVersion, PROMPT_VERSION) || null;
+  /* the model Smart Scoring asks now (Settings → AI → Models → Chat models): a cached answer from another model is not
+     reused when the admin switches models (Oct 2026) — the new one is asked; null when it cannot be told (no chat set up) */
+  const currentModel = () => { if (typeof d.aiConf !== "function") return null; try { return (d.aiConf("chat", "scoring") || {}).model || null; } catch (e) { return null; } };
+  const cacheHit = (taskId, hash, configVersion, model) => db.prepare("SELECT * FROM scoring_ai_runs WHERE workspace_id=? AND task_id=? AND input_hash=? AND config_version=? AND prompt_version=? AND status='ok' AND (? IS NULL OR model=?) ORDER BY created_at DESC, rowid DESC LIMIT 1").get(WS_ID, taskId, hash, configVersion, PROMPT_VERSION, model || null, model || null) || null;
   const lastAnswered = taskId => db.prepare("SELECT * FROM scoring_ai_runs WHERE workspace_id=? AND task_id=? AND status IN ('ok','cached') ORDER BY created_at DESC, rowid DESC LIMIT 1").get(WS_ID, taskId) || null;
 
   /* the AI value of each module asked for, beside its score (only ai_value and ai_run_id); inside a transaction */
@@ -363,9 +366,9 @@ module.exports = function scoringAi(db, WS_ID, d) {
       return out("off", "external_off", { runId, stored: [], missingModules: modules, suggestion: null, errors: [] });
     }
     /* the same task, settings and prompt: the earlier answer (also when another ask for it is under way) */
-    const key = taskId + "|" + hash + "|" + s.configVersion;
-    let hit = cacheHit(taskId, hash, s.configVersion);
-    if (!hit && inflight.has(key)) { try { await inflight.get(key).promise; } catch (e) { /* its own answer says why */ } hit = cacheHit(taskId, hash, s.configVersion); }
+    const model = currentModel(), key = taskId + "|" + hash + "|" + s.configVersion + "|" + (model || "");
+    let hit = cacheHit(taskId, hash, s.configVersion, model);
+    if (!hit && inflight.has(key)) { try { await inflight.get(key).promise; } catch (e) { /* its own answer says why */ } hit = cacheHit(taskId, hash, s.configVersion, model); }
     if (hit) {
       const hr = parse(hit.recommendation, {}) || {}, value = isObj(hr.value) ? hr.value : null;
       let runId, stored;
