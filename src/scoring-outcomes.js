@@ -8,7 +8,8 @@
    Settings → Smart Scoring has a "KPIs and OKRs" section (scoringOutcomesSettingsHtml, called from src/scoring-settings.js):
    whoever holds scoring_manage_outcomes defines KPIs, objectives and key results and enters values; everyone who sees
    the tab sees each one's progress as a bar, said to come "from evidence" or to be "manual", with how it was worked out
-   step by step; a metric with nothing to measure against says why instead of showing a made-up percentage. Details
+   step by step, starting with what it counts; a metric with nothing to measure against says why instead of showing a
+   made-up percentage. Which tasks count, the baseline and the direction are under the editor's "Advanced". Details
    list the tasks counted (and taken back), the links waiting for a manager, the values entered and the history. A
    person given scoring_manage_outcomes alone sees the tab for this section (the rest of it read-only).
    A task's Smart Scoring panel shows what the task counts towards (scoringOutcomesRowHtml, called by the panel when
@@ -46,25 +47,27 @@ function scoBarHtml(p){ p=p||{};
   if(p.value===null||p.value===undefined){ var why=(p.steps||[]).filter(function(s){ return /^No progress/.test(s.key); }).pop(); return '<div class="scr-out-none">'+esc(why?scoFill(why):tr("No progress yet"))+'</div>'; }
   var w=Math.max(0,Math.min(100,Math.round(p.value*1000)/10));
   return '<div class="scr-out-bar"><div class="pbar'+(w>=100?" good":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+w+'"><i style="width:'+w+'%"></i></div><span class="scr-out-pct">'+scoPct(p.value)+'</span></div>'; }
-function scoWhyHtml(key,p){ var st=(p&&p.steps)||[]; if(!st.length) return "";
-  return '<details class="scr-out-why"'+(SCO.open[key]?" open":"")+' ontoggle="SCO.open['+jsq(key)+']=this.open"><summary>'+tr("How this is worked out")+'</summary><ul>'+st.map(function(s){ return '<li>'+esc(scoFill(s))+'</li>'; }).join("")+'</ul></details>'; }
+/* how a number is worked out — for a KPI or key result, first what it counts */
+function scoWhyHtml(key,p,rule){ var st=(p&&p.steps)||[]; if(!st.length&&!rule) return "";
+  return '<details class="scr-out-why"'+(SCO.open[key]?" open":"")+' ontoggle="SCO.open['+jsq(key)+']=this.open"><summary>'+tr("How this is worked out")+'</summary><ul>'+(rule?'<li>'+tr("Counts")+': '+esc(rule)+'</li>':'')+st.map(function(s){ return '<li>'+esc(scoFill(s))+'</li>'; }).join("")+'</ul></details>'; }
 function scoIconBtn(icon,label,onclick){ return '<button type="button" class="iconbtn scr-out-ib" aria-label="'+attr(tr(label))+'" title="'+attr(tr(label))+'" onclick="'+onclick+'">'+icon+'</button>'; }
 
 /* ---------- Settings → Smart Scoring: the section ---------- */
-function scoringOutcomesSettingsHtml(){
-  if(!scoringFeature()) return "";
+function scoringOutcomesSettingsHtml(ro,ed){
+  if(!scoringFeature()||typeof scSection!=="function") return "";
   if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
-  if(!API.on) return sp("KPIs and OKRs",'<p class="hint">'+tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")+'</p>',null,I.target);
+  var title=tr("KPIs and OKRs"), intro=tr("Goals whose progress comes from real work — never from points."), o={icon:I.target,cls:"scr-out-panel"};
+  if(!API.on) return scSection("outcomes",title,intro,scHelp(tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")),o);
   /* opened afresh: fetched now; drawn again while open (a redraw, the language): at most every few seconds */
   var fresh=!document.getElementById("scrOut"); setTimeout(function(){ scoLoad(fresh); },0);
   var h=scoBodyHtml(); SCO.html=h;
-  return sp("KPIs and OKRs",'<div id="scrOut" class="scr-out">'+h+'</div>',null,I.target,"scr-out-panel"); }
+  o.example=tr("a KPI “Approved assets this month” with a target of 40: each asset a lead validates on a finished task adds 1, so 10 assets make 25%.");
+  if(!scoringModuleOn("kpi")&&!scoringModuleOn("okr")) o.off=tr("KPI and OKR are both off. Turn either on in Overview and save, then set them up here.");
+  return scSection("outcomes",title,intro,scHelp(tr("A KPI, objective or key result is saved as soon as it is added or changed — the Save bar is for the settings."))+'<div id="scrOut" class="scr-out">'+h+'</div>',o); }
 function scoBodyHtml(){
-  var d=SCO.data, kpi=scoringModuleOn("kpi"), okr=scoringModuleOn("okr"), man=canI.scoringManageOutcomes();
-  var h='<p class="hint scr-out-intro">'+tr("Progress comes only from evidence — assets a lead validated on finished tasks, tasks finished successfully — or from a value entered by hand with a reason. Points never count as progress. What is changed here is saved at once; the Save buttons above are for the settings.")+'</p>';
-  if(!d) return h+(SCO.err?'<div class="hint">'+tr("KPIs and OKRs could not be loaded.")+' <button class="btn sm" onclick="scoLoad(true)">'+tr("Try again")+'</button></div>':'<div class="hint">'+tr("Loading…")+'</div>');
+  var d=SCO.data, kpi=scoringModuleOn("kpi"), okr=scoringModuleOn("okr"), man=canI.scoringManageOutcomes(), h="";
+  if(!d) return SCO.err?'<div class="hint">'+tr("KPIs and OKRs could not be loaded.")+' <button class="btn sm" onclick="scoLoad(true)">'+tr("Try again")+'</button></div>':'<div class="hint">'+tr("Loading…")+'</div>';
   var kpis=d.metrics.filter(function(m){ return m.kind==="kpi"; });
-  if(!kpi&&!okr&&!kpis.length&&!d.objectives.length) return h+'<div class="banner scr-out-off">'+I.target+'<span>'+tr("Switch on Smart Scoring and KPI or OKR above and save; then set them up here.")+'</span></div>';
   var shown=function(x){ return SCO.archived||x.status!=="archived"; }, hidden=d.metrics.filter(function(m){ return m.status==="archived"; }).length+d.objectives.filter(function(o){ return o.status==="archived"; }).length;
   if(kpi||kpis.length){
     var rows=kpis.filter(shown);
@@ -87,10 +90,10 @@ function scoMetricHtml(m,ed){
     +(ed&&m.rule.type==="manual"?scoIconBtn(I.edit,"Enter a value","scoValueModal("+jsq(m.id)+")"):'')
     +scoIconBtn(I.list,"Details","scoDetails("+jsq(m.id)+")")
     +(ed?scoIconBtn(I.settings,"Edit","scoMetricModal("+jsq(m.kind)+","+jsq(m.id)+",null)")+scoIconBtn(I.trash,"Delete","scoDelete(\'metric\',"+jsq(m.id)+")"):'')+'</span></div>';
-  var nums=scoNum(m.actual)+' / '+scoNum(m.target)+unit+' · '+esc(scoRuleText(m))+' · '+esc(scoPeriod(m.period))+(m.owner?' · <span data-no-translate>'+esc(person(m.owner).name)+'</span>':'');
+  var nums=scoNum(m.actual)+' / '+scoNum(m.target)+unit+' · '+esc(scoPeriod(m.period))+(m.owner?' · <span data-no-translate>'+esc(person(m.owner).name)+'</span>':'');
   var extra=man?'<div class="scr-out-sub scr-out-manual">'+tr("Entered by")+' <span data-no-translate>'+esc(man.by?person(man.by).name:"")+'</span>, '+esc(ago(minAgo(man.at),man.at))+(man.reason?': <span data-no-translate>'+esc(man.reason)+'</span>':'')+'</div>':'';
   var wait=m.links&&m.links.waiting&&canI.scoringManageOutcomes()?'<div class="scr-out-sub scr-out-waiting">'+tr(m.links.waiting===1?"1 task link waits for you to confirm it":"{n} task links wait for you to confirm them").replace("{n}",m.links.waiting)+' — <a href="#" onclick="event.preventDefault();scoDetails('+jsq(m.id)+')">'+tr("Details")+'</a></div>':'';
-  return '<div class="scr-out-m" data-metric="'+attr(m.id)+'">'+line+scoBarHtml(m.progress)+'<div class="scr-out-sub">'+nums+'</div>'+extra+wait+scoWhyHtml("m:"+m.id,m.progress)+'</div>'; }
+  return '<div class="scr-out-m" data-metric="'+attr(m.id)+'">'+line+scoBarHtml(m.progress)+'<div class="scr-out-sub">'+nums+'</div>'+extra+wait+scoWhyHtml("m:"+m.id,m.progress,scoRuleText(m))+'</div>'; }
 function scoObjectiveHtml(o,d,ed){
   var krs=d.metrics.filter(function(m){ return m.kind==="kr"&&m.objective===o.id&&(SCO.archived||m.status!=="archived"); });
   var line='<div class="scr-out-line"><span class="scr-out-title" data-no-translate>'+esc(o.title)+'</span>'+(o.status!=="active"?'<span class="badge">'+tr(SCO_STATUS_LABEL[o.status]||o.status)+'</span>':'')
@@ -123,17 +126,19 @@ function scoMetricModal(kind,id,objective){
     +(kind==="kr"?'<div class="field-row">'+fieldHtml("sco_obj","Objective",selectHtml("sco_obj",objs.map(function(o){ return [o.id,o.title]; }),m?m.objective:objective))
       +fieldHtml("sco_weight","Weight in the objective",scoNumIn("sco_weight",m?m.weight:1))+'</div><p class="hint scr-out-fh">'+tr("A key result weighing 0 does not count towards its objective.")+'</p>':'')
     +fieldHtml("sco_rule","Progress comes from",selectHtml("sco_rule",[["approved_assets",tr("Assets a lead validated, on tasks finished successfully")],["tasks_completed",tr("Tasks finished successfully (1 each; Declined does not count)")],["manual",tr("A value entered by hand, with a reason")]],r.type,'onchange="scoRuleSync()"'))
-    +'<div id="sco_counted">'+fieldHtml("sco_scope","Which tasks",selectHtml("sco_scope",[["matching",tr("Every task that matches the filter below (no filter: every task)")],["linked",tr("Only tasks linked to it, once an outcomes manager confirms the link")]],r.scope,'onchange="scoRuleSync()"'))
-    +'<div class="field-row scr-out-filter" id="sco_filter">'+fieldHtml("sco_team","Team",selectHtml("sco_team",[["",tr("Any team")]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),f.team||""))
-      +fieldHtml("sco_project","Project",selectHtml("sco_project",[["",tr("Any project")]].concat(liveProjects().map(function(p){ return [p.id,p.name]; })),f.project||""))
-      +fieldHtml("sco_label","Label",selectHtml("sco_label",[["",tr("Any label")]].concat(allLabels().map(function(l){ return [l.id,l.name]; })),f.label||""))+'</div>'
-    +'<p class="hint scr-out-fh">'+tr("A task linked by hand counts too, once an outcomes manager confirms the link. A task counts in the period by the day it was finished; reopened, it no longer counts.")+'</p></div>'
-    +'<div class="field-row">'+fieldHtml("sco_dir","Direction",selectHtml("sco_dir",[["up",tr("Up — more is better")],["down",tr("Down — less is better")]],m?m.direction:"up"))+fieldHtml("sco_unit","Unit",'<input id="sco_unit" maxlength="24" value="'+attr(m?m.unit:"")+'" placeholder="'+attr(tr("e.g. assets"))+'">')+'</div>'
-    +'<div class="field-row">'+fieldHtml("sco_base","Baseline",scoNumIn("sco_base",m?m.baseline:0))+fieldHtml("sco_target","Target",scoNumIn("sco_target",m?m.target:null,"Required for progress"))+'</div>'
-    +'<p class="hint scr-out-fh">'+tr("Counted evidence moves the actual from the baseline towards the target: up adds it, down takes it away (a backlog burnt down by completions).")+'</p>'
+    +'<div class="field-row">'+fieldHtml("sco_target","Target",scoNumIn("sco_target",m?m.target:null,"Required for progress"))+fieldHtml("sco_unit","Unit",'<input id="sco_unit" maxlength="24" value="'+attr(m?m.unit:"")+'" placeholder="'+attr(tr("e.g. assets"))+'">')+'</div>'
     +'<div class="field-row">'+fieldHtml("sco_start","Period from",'<input type="date" id="sco_start" value="'+attr(m&&m.period.start||"")+'">')+fieldHtml("sco_end","Period until",'<input type="date" id="sco_end" value="'+attr(m&&m.period.end||"")+'">')+'</div>'
     +'<div class="field-row">'+fieldHtml("sco_owner","Owner",selectHtml("sco_owner",scoPeopleOpts(),m&&m.owner||""))+fieldHtml("sco_status","Status",selectHtml("sco_status",[["active",tr("Active — counting")],["draft",tr("Draft — not counting yet")],["closed",tr("Closed — kept as it is")],["archived",tr("Archived — hidden")]],m?m.status:"active"))+'</div>'
-    +fieldHtml("sco_desc","Description",'<textarea id="sco_desc" maxlength="2000">'+esc(m?m.description:"")+'</textarea>');
+    +fieldHtml("sco_desc","Description",'<textarea id="sco_desc" maxlength="2000">'+esc(m?m.description:"")+'</textarea>')
+    /* which tasks count, the baseline and the direction: under "Advanced", open when they are not as they start */
+    +scAdvanced('<div id="sco_counted">'+fieldHtml("sco_scope","Which tasks",selectHtml("sco_scope",[["matching",tr("Every task that matches the filter below (no filter: every task)")],["linked",tr("Only tasks linked to it, once an outcomes manager confirms the link")]],r.scope,'onchange="scoRuleSync()"'))
+      +'<div class="field-row scr-out-filter" id="sco_filter">'+fieldHtml("sco_team","Team",selectHtml("sco_team",[["",tr("Any team")]].concat(activeTeams().map(function(t){ return [t.id,t.name]; })),f.team||""))
+        +fieldHtml("sco_project","Project",selectHtml("sco_project",[["",tr("Any project")]].concat(liveProjects().map(function(p){ return [p.id,p.name]; })),f.project||""))
+        +fieldHtml("sco_label","Label",selectHtml("sco_label",[["",tr("Any label")]].concat(allLabels().map(function(l){ return [l.id,l.name]; })),f.label||""))+'</div>'
+      +'<p class="hint scr-out-fh">'+tr("A task linked by hand counts too, once an outcomes manager confirms the link. A task counts in the period by the day it was finished; reopened, it no longer counts.")+'</p></div>'
+      +'<div class="field-row">'+fieldHtml("sco_dir","Direction",selectHtml("sco_dir",[["up",tr("Up — more is better")],["down",tr("Down — less is better")]],m?m.direction:"up"))+fieldHtml("sco_base","Baseline",scoNumIn("sco_base",m?m.baseline:0))+'</div>'
+      +'<p class="hint scr-out-fh">'+tr("Counted evidence moves the actual from the baseline towards the target: up adds it, down takes it away (a backlog burnt down by completions).")+'</p>',
+      {id:"outcome",open:!!(m&&(r.scope==="linked"||f.team||f.project||f.label||m.direction==="down"||+m.baseline))});
   openModal(m?(kind==="kpi"?"Edit KPI":"Edit key result"):(kind==="kpi"?"New KPI":"New key result"),body,'<button class="btn" onclick="closeModal()">'+tr("Cancel")+'</button><button class="btn primary" id="sco_save" onclick="scoMetricSave('+jsq(kind)+','+jsq(id||"")+')">'+tr("Save")+'</button>',true);
   scoRuleSync(); }
 function scoRuleSync(){ var r=document.getElementById("sco_rule"), c=document.getElementById("sco_counted"), s=document.getElementById("sco_scope"), f=document.getElementById("sco_filter"); if(!r||!c) return;
@@ -264,9 +269,12 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "KPIs and OKRs":"KPI dan OKR","KPIs":"KPI","Key result":"Key result","Objectives and key results":"Objective dan key result","Objective":"Objective",
   "KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.":"KPI dan OKR disimpan di server ZenCrevia, yang menghitung buktinya; salinan offline ini tidak melacaknya.",
-  "Progress comes only from evidence — assets a lead validated on finished tasks, tasks finished successfully — or from a value entered by hand with a reason. Points never count as progress. What is changed here is saved at once; the Save buttons above are for the settings.":"Progres hanya berasal dari bukti — aset yang divalidasi lead pada task yang selesai, task yang selesai dengan berhasil — atau dari nilai yang diisi manual beserta alasan. Poin tidak pernah dihitung sebagai progres. Perubahan di sini langsung tersimpan; tombol Simpan di atas untuk pengaturan.",
+  "Counts":"Menghitung",
+  "Goals whose progress comes from real work — never from points.":"Target yang progresnya berasal dari pekerjaan nyata — bukan dari poin.",
+  "a KPI “Approved assets this month” with a target of 40: each asset a lead validates on a finished task adds 1, so 10 assets make 25%.":"KPI “Aset yang disetujui bulan ini” dengan target 40: setiap aset yang divalidasi lead pada task yang selesai menambah 1, jadi 10 aset berarti 25%.",
+  "KPI and OKR are both off. Turn either on in Overview and save, then set them up here.":"KPI dan OKR sama-sama mati. Nyalakan salah satunya di Ringkasan lalu simpan, kemudian atur di sini.",
+  "A KPI, objective or key result is saved as soon as it is added or changed — the Save bar is for the settings.":"KPI, objective, atau key result langsung tersimpan begitu ditambah atau diubah — bar Simpan hanya untuk pengaturan.",
   "KPIs and OKRs could not be loaded.":"KPI dan OKR tidak dapat dimuat.","Try again":"Coba lagi",
-  "Switch on Smart Scoring and KPI or OKR above and save; then set them up here.":"Nyalakan Smart Scoring serta KPI atau OKR di atas lalu simpan; setelah itu atur di sini.",
   "KPI details":"Detail KPI","Key result details":"Detail key result",
   "Switched off — shown as they were":"Dimatikan — ditampilkan seperti terakhir","New KPI":"KPI baru","No KPIs yet.":"Belum ada KPI.","New objective":"Objective baru","No objectives yet.":"Belum ada objective.",
   "Show archived":"Tampilkan yang diarsipkan","Hide archived":"Sembunyikan yang diarsipkan",
@@ -348,11 +356,9 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 });
 </script>
 <style>
-.scr-out-intro{margin-bottom:6px}
 .scr-out-block{margin-top:14px}
 .scr-out-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
 .scr-out-head .btn svg,.scr-out-acts .btn svg,.scr-out-pick svg{width:15px;height:15px}
-.scr-out-off{margin-top:8px}
 .scr-out-m,.scr-out-obj{border:1px solid var(--color-border);border-radius:var(--radius);padding:10px 12px;margin-top:8px;background:var(--color-surface);min-width:0}
 .scr-out-obj>.scr-out-krs{margin-left:12px}
 .scr-out-krs .scr-out-m{background:var(--color-surface-sunken)}
@@ -371,6 +377,8 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
 .scr-out-why ul{margin:4px 0 0 18px;padding:0;font-size:var(--fs-sm);line-height:1.5}
 .scr-out-foot{margin-top:10px}
 .scr-out-fh{margin:-4px 0 10px}
+#sco_counted:not([hidden]){display:grid;gap:10px}
+#sco_counted .field{margin:0}
 .scr-out-filter{grid-template-columns:repeat(3,minmax(0,1fr))}
 .scr-out-ev[data-state="revoked"] b{text-decoration:line-through;opacity:.7}
 .scr-out-dtitle{font-weight:650;margin-bottom:4px;overflow-wrap:anywhere}

@@ -375,6 +375,9 @@ test('the page: every word of the efficiency line and the bonus settings has its
   const c = page();
   const literals = new Set();
   for (const m of JS.matchAll(/\btr\("((?:[^"\\]|\\.)*)"\)/g)) literals.add(JSON.parse('"' + m[1] + '"'));
+  /* the settings' labels, which the tab's helpers translate, and the choices of its selects */
+  for (const m of JS.matchAll(/\b(?:num\("[^"]*",|fieldHtml\(|scSwitchHtml\()"[^"]*","((?:[^"\\]|\\.)*)"/g)) literals.add(m[1]);
+  for (const m of JS.matchAll(/\["[a-z_]+","((?:[^"\\]|\\.)*)"\]/g)) literals.add(m[1]);
   for (const v of Object.values(c.SCE_STATUS)) literals.add(v);
   for (const v of Object.values(c.SCE_AUDIT)) literals.add(v);
   for (const v of Object.values(c.SCE_QUALITY)) literals.add(v);

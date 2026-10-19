@@ -1,26 +1,22 @@
 <script>
 /* ============================================================
    SETTINGS → SMART SCORING (Oct 2026)
-   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md), after Automation. It
-   was one long page with a Save button per panel; now seven groups in a menu on the left (chips on a phone), one at a
-   time: Overview, Estimating, Output & goals, AI, Review & bonus, Access & visibility, History. The group is in the
-   address (/settings/scoring/estimating) so links and Back/Forward work; each person's last group and opened
-   "Advanced" folds are kept on their device. Switching group repaints the group only, from the edits kept in memory.
-   One Save bar appears while the edits differ from what is saved: Discard puts the saved values back, Save sends
-   them with the version they were made on (someone saved in between: theirs is loaded and the person is told).
-   Leaving Settings with changes not saved asks first. scoring_view_analytics alone: read-only, no Save bar.
-   The sections other files add use these:
-   - scSection(id, title, intro, body, opts) → section.panel[data-scr-sec=id] with its h2, a one-line intro,
-     opts.example ("Example: …"), body. opts.off: a notice that the module is off (fields stay usable, dimmed); with
-     opts.onModule (a module id like "story", or a path like "bonus.on") a "Turn on" button switches it on in the
-     draft. opts.icon, opts.foot (panel foot), opts.cls. Strings in English; tr() is applied here.
-   - scAdvanced(body, opts) → a closed "Advanced" fold; opts.id (e.g. "bonus") remembers it per person, opts.hint.
-   - scHelp(text, example) → a field's help line, with "Example: …" when given.
-   - scRepaint() → the group drawn again in place (after adding a row), instead of renderScreen.
-   - Fields go through scPut/scInput/scSwitch and their data-sc paths, so the Save bar sees every change.
-   - Called with (ro, ed) when defined: Estimating → scKindsPanel; Output → scoringAssetsSettingsHtml,
-     scoringOutcomesSettingsHtml; Review → scoringBonusSettingsHtml; Access → scoringTeamsSettingsHtml.
-     scSaveFoot() returns "". The longer sentences are kept once in each language in SC_T.
+   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md). Seven groups in a menu
+   on the left (chips on a phone), one shown at a time and named in the address (/settings/scoring/estimating), so
+   links and Back/Forward work; the last group and opened "Advanced" folds are kept per person on the device. A group
+   is drawn from the edits kept in memory. One Save bar shows while they differ from what is saved (Discard, Save with
+   the version they were made on; someone saved in between: theirs is loaded and the person is told); leaving Settings
+   with changes asks first. scoring_view_analytics alone: read-only, no Save bar.
+   For the sections other files add (called with (ro, ed) from their group when defined: scKindsPanel in Estimating,
+   scoringAssetsSettingsHtml and scoringOutcomesSettingsHtml in Output, scoringBonusSettingsHtml in Review,
+   scoringTeamsSettingsHtml in Access):
+   - scSection(id, title, intro, body, opts) → section.panel[data-scr-sec=id]: h2, one-line intro, opts.example as
+     "Example: …", body. opts.off: a notice the module is off (fields stay usable, dimmed), with a "Turn on" button
+     for opts.onModule (a module id, or a path like "bonus.on"); opts.icon, opts.foot, opts.cls. tr() is applied.
+   - scAdvanced(body, {id, hint, open}) → a closed "Advanced" fold, remembered per person by id.
+   - scHelp(text, example) → a help line, with "Example: …". scRepaint() → the group drawn again in place.
+   - Fields go through scPut/scInput/scSwitch (data-sc paths), so the Save bar sees every change.
+   The longer sentences are kept once in each language in SC_T.
    ============================================================ */
 var SC={draft:null,saved:null,base:0,dirty:false,audit:null,loading:false,loadedAt:0,saving:false,owner:null,gFor:null,leave:null};
 var SC_FACTORS=["complexity","scope","uncertainty","dependencies"];
@@ -50,7 +46,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   s4:["Finished work is reviewed; points and any bonus are counted.","Pekerjaan selesai di-review; poin dan bonus (kalau ada) dihitung."],
   modules:["Switch each module on or off on its own. Math only: just the calculation. AI-assisted: the AI suggests, the calculation stays as a fallback. Hybrid: both side by side.","Setiap modul dinyalakan atau dimatikan sendiri-sendiri. Hanya hitungan: cukup hasil hitungan. Dibantu AI: AI memberi saran, hasil hitungan tetap jadi cadangan. Hibrida: keduanya berdampingan."],
   masterOff:["Smart Scoring itself is still off, so the modules switched on below show nowhere yet. Switch on “Smart Scoring for this workspace” above and save.","Smart Scoring sendiri masih mati, jadi modul yang dinyalakan di bawah belum tampil di mana pun. Nyalakan “Smart Scoring untuk workspace ini” di atas, lalu simpan."],
-  hoursDo:["Estimates each task's hours from the kind of work, the number of deliverables, complexity and open dependencies.","Mengestimasi jam tiap task dari jenis pekerjaan, jumlah deliverable, kompleksitas, dan ketergantungan yang masih terbuka."],
+  hoursDo:["Estimates each task's hours from the kind of work, the number of deliverables, complexity and open dependencies.","Mengestimasi jam tiap task dari jenis pekerjaan, jumlah deliverable, kompleksitas, dan dependensi yang masih terbuka."],
   hoursSee:["People see the estimate on each task and log their time against it.","Orang melihat estimasi di tiap task dan mencatat waktunya terhadap estimasi itu."],
   storyDo:["Gives each task 1, 2, 3, 5, 8 or 13 points from four quick 1–5 ratings.","Memberi tiap task 1, 2, 3, 5, 8, atau 13 poin dari empat penilaian cepat 1–5."],
   storySee:["People see Story Points on the task, and points done against planned on Teams.","Orang melihat Story Points di task, serta poin selesai dibanding rencana di Teams."],
@@ -64,7 +60,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   okrSee:["People see the key results a task counts towards, and their progress in Analytics.","Orang melihat key result yang didukung sebuah task, dan progresnya di Analytics."],
   primary:["The one metric velocity is counted in, so nothing is counted twice. Workload and capacity stay in hours.","Satu-satunya metrik untuk menghitung velocity, agar tidak ada yang terhitung dua kali. Beban kerja dan kapasitas tetap dalam jam."],
   primaryEx:["Story Points: velocity is the Story Points finished in the period.","Story Points: velocity adalah Story Points yang selesai dalam periode itu."],
-  hours:["A task's estimated hours: the first deliverable's hours, plus a share for each next one, adjusted for complexity and open dependencies.","Jam estimasi sebuah task: jam deliverable pertama, ditambah porsi untuk tiap deliverable berikutnya, lalu disesuaikan dengan kompleksitas dan ketergantungan yang masih terbuka."],
+  hours:["A task's estimated hours: the first deliverable's hours, plus a share for each next one, adjusted for complexity and open dependencies.","Jam estimasi sebuah task: jam deliverable pertama, ditambah porsi untuk tiap deliverable berikutnya, lalu disesuaikan dengan kompleksitas dan dependensi yang masih terbuka."],
   hoursEx:["3 feed posts: 2 h + 1 h + 1 h = 4 h; rated complex (× 1.25), 5 h.","3 feed post: 2 jam + 1 jam + 1 jam = 4 jam; dinilai kompleks (× 1,25), jadi 5 jam."],
   lock:["After the lock, only people allowed to change scores can change it. Estimates tasks already have are kept: nothing is recalculated unless someone asks.","Setelah dikunci, hanya orang yang berizin mengubah skor yang bisa mengubahnya. Estimasi yang sudah ada tetap dipakai: tidak ada yang dihitung ulang kecuali diminta."],
   lockWork:["When it is approved — or, if work starts first, it is frozen then (unapproved: it never earns a bonus)","Saat disetujui — atau, bila pekerjaan dimulai lebih dulu, dibekukan saat itu (belum disetujui: tidak pernah mendapat bonus)"],
@@ -73,9 +69,9 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   cx:["How much the complexity rating stretches or shrinks the hours.","Seberapa besar penilaian kompleksitas menambah atau mengurangi jam."],
   cxEx:["5 · Very complex at × 1.5 turns 4 h into 6 h.","5 · Sangat kompleks dengan × 1,5 mengubah 4 jam menjadi 6 jam."],
   dp:["Extra time while other work is still open.","Tambahan waktu selama pekerjaan lain masih terbuka."],
-  dpEx:["1 open dependency at × 1.1 turns 4 h into 4.4 h.","1 ketergantungan terbuka dengan × 1,1 mengubah 4 jam menjadi 4,4 jam."],
+  dpEx:["1 open dependency at × 1.1 turns 4 h into 4.4 h.","1 dependensi terbuka dengan × 1,1 mengubah 4 jam menjadi 4,4 jam."],
   bounds:["No estimate goes below the fewest or above the most hours.","Tidak ada estimasi di bawah jam paling sedikit atau di atas jam paling banyak."],
-  story:["Each task gets 1, 2, 3, 5, 8 or 13 points from four 1–5 ratings: complexity, scope, uncertainty and dependencies. 13 suggests splitting the task.","Tiap task mendapat 1, 2, 3, 5, 8, atau 13 poin dari empat penilaian 1–5: kompleksitas, cakupan, ketidakpastian, dan ketergantungan. 13 berarti task sebaiknya dipecah."],
+  story:["Each task gets 1, 2, 3, 5, 8 or 13 points from four 1–5 ratings: complexity, scope, uncertainty and dependencies. 13 suggests splitting the task.","Tiap task mendapat 1, 2, 3, 5, 8, atau 13 poin dari empat penilaian 1–5: kompleksitas, cakupan, ketidakpastian, dan dependensi. 13 berarti task sebaiknya dipecah."],
   storyEx:["Rated 3, 3, 2 and 1: index 2.6, so 3 points.","Dinilai 3, 3, 2, dan 1: indeks 2,6, jadi 3 poin."],
   weights:["How much each rating counts; together they must be 100%.","Seberapa besar tiap penilaian dihitung; jumlahnya harus 100%."],
   thresholds:["Above the last: 13 points, which suggests splitting the task. The thresholds are kept in order when saved.","Di atas yang terakhir: 13 poin, yang menyarankan task dipecah. Ambang diurutkan saat disimpan."],
@@ -138,10 +134,9 @@ function scSection(id,title,intro,body,o){ o=o||{}; var p=o.onModule?(String(o.o
     +(o.off?'<div class="banner scr-off" role="status"><span>'+tr(o.off)+'</span>'+(p&&canI.scoringConfigure()?'<button type="button" class="btn sm" onclick="scTurnOn('+jsq(p)+')">'+tr("Turn on")+'</button>':'')+'</div>':'')
     +(intro?'<p class="scr-intro">'+tr(intro)+'</p>':'')+(o.example?'<p class="scr-ex">'+tr("Example:")+' '+tr(o.example)+'</p>':'')
     +'<div class="scr-sec-body">'+body+'</div></div>'+(o.foot?'<div class="panel-foot">'+o.foot+'</div>':'')+'</section>'; }
-function scAdvanced(body,o){ o=o||{}; var id=o.id?String(o.id):"", open=!!(id&&scUi().adv[id]);
+function scAdvanced(body,o){ o=o||{}; var id=o.id?String(o.id):"", open=!!(o.open||id&&scUi().adv[id]);
   return '<details class="scr-adv"'+(id?' data-adv="'+attr(id)+'" ontoggle="scAdvToggle(this)"':'')+(open?' open':'')+'><summary>'+tr(o.title||"Advanced")+(o.hint?'<span>'+tr(o.hint)+'</span>':'')+'</summary><div class="scr-adv-body">'+body+'</div></details>'; }
 function scHelp(text,example){ return '<div class="scr-help">'+tr(text)+(example?'<span class="scr-ex">'+tr("Example:")+' '+tr(example)+'</span>':'')+'</div>'; }
-function scSaveFoot(){ return ""; }
 function scOff(id){ return scGet("modules."+id+".on")?"":fmt(tr(SC_T.off),{m:tr(SC_MODULE_LABEL[id])}); }
 function scTurnOn(p){ if(!SC.draft) return; scPut(p,true); scRepaint(); }
 function scSwitchHtml(path,label,ro){ var on=!!scGet(path); return '<button type="button" class="switch'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" aria-label="'+attr(tr(label))+'" data-sc="'+attr(path)+'"'+(ro?" disabled":' onclick="scSwitch(this)"')+'></button>'; }
@@ -324,7 +319,7 @@ function scLeadsClick(){ if(!canI.manageRoles()) return;
     scoringDelegateLeads().then(function(r){ var n=Object.keys((r&&r.added)||{}).length; if(r&&r.audit) SC.audit=r.audit; toast(tr(n?SC_T.leadsDone:"They already had them")); refresh(); }).catch(function(e){ toast(e.message,"bad"); }); }); }
 /* leaving Settings with changes not saved asks first; leaving without saving puts the saved values back */
 function scLeaveGo(){ closeModal(); if(SC.saved){ SC.draft=clone(SC.saved); SC.dirty=false; } var f=SC.leave; SC.leave=null; if(f) f(); }
-(function(){ var base=go; go=function(screen,sub,o){
+(function(){ if(typeof go!=="function") return; var base=go; go=function(screen,sub,o){
   if(screen==="settings"&&typeof sub==="string"&&sub.indexOf("scoring/")===0){ scGroupSet(sub.slice(8)); sub="scoring"; }
   var n=S.screen==="settings"&&screen!=="settings"&&signedIn()&&canI.scoringConfigure()?scCount():0;
   if(n){ SC.leave=function(){ base.call(window,screen,sub,o); };
@@ -349,20 +344,20 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
 
 /* Indonesian, for the shorter words this tab adds (a word the page already translates keeps its translation) */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
-  "Effort Hours":"Effort Hours","Story Points":"Story Points","Weighted Points":"Poin Berbobot","KPI":"KPI","OKR":"OKR","Hours":"Jam","pts":"poin",
-  "Math only":"Hanya hitungan","AI-assisted":"Dibantu AI","Hybrid":"Hibrida","How it works":"Cara kerja",
-  "Complexity":"Kompleksitas","Uncertainty":"Ketidakpastian","must be 100% to save":"harus 100% agar bisa disimpan",
+  "Effort Hours":"Effort Hours","Story Points":"Story Points","Weighted Points":"Poin Berbobot","KPI":"KPI","OKR":"OKR",
+  "AI-assisted":"Dibantu AI","Hybrid":"Hibrida","How it works":"Cara kerja",
+  "must be 100% to save":"harus 100% agar bisa disimpan",
   "Estimating":"Estimasi","Output & goals":"Output & target","Review & bonus":"Review & bonus","Access & visibility":"Akses & visibilitas",
   "Unsaved changes":"Perubahan belum disimpan","1 unsaved change":"1 perubahan belum disimpan","{n} unsaved changes":"{n} perubahan belum disimpan",
   "Example:":"Contoh:","Turn on":"Nyalakan","Set up":"Atur","Leave without saving?":"Keluar tanpa menyimpan?","Keep editing":"Lanjut mengedit","Leave without saving":"Keluar tanpa menyimpan",
-  "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini","How Smart Scoring works":"Cara kerja Smart Scoring","Approve & lock":"Setujui & kunci","Log the time":"Catat waktu","Review & points":"Review & poin",
+  "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini","How Smart Scoring works":"Cara kerja Smart Scoring","Log the time":"Catat waktu","Review & points":"Review & poin",
   "Settings version":"Versi pengaturan","last saved by":"terakhir disimpan oleh","Modules":"Modul","Primary capacity metric":"Metrik kapasitas utama",
   "Multipliers and limits":"Pengali dan batas","Hours per kind of work":"Jam per jenis pekerjaan","Limits":"Batas",
-  "Kind of work":"Jenis pekerjaan","First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
+  "First (h)":"Pertama (jam)","Low (h)":"Terendah (jam)","High (h)":"Tertinggi (jam)","Each next (× first)":"Tiap berikutnya (× pertama)",
   "First deliverable (h)":"Deliverable pertama (jam)","Each next deliverable (× the first)":"Tiap deliverable berikutnya (× yang pertama)",
-  "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali ketergantungan",
+  "Complexity multiplier":"Pengali kompleksitas","Dependency multiplier":"Pengali dependensi",
   "1 · Very simple":"1 · Sangat sederhana","2 · Simple":"2 · Sederhana","3 · Typical":"3 · Biasa","4 · Complex":"4 · Kompleks","5 · Very complex":"5 · Sangat kompleks",
-  "No open dependencies":"Tanpa ketergantungan terbuka","1 open dependency":"1 ketergantungan terbuka","2 open dependencies":"2 ketergantungan terbuka","3 or more":"3 atau lebih",
+  "No open dependencies":"Tanpa dependensi terbuka","2 open dependencies":"2 dependensi terbuka","3 or more":"3 atau lebih",
   "Fewest hours":"Jam paling sedikit","Most hours":"Jam paling banyak","An estimate is locked":"Estimasi dikunci","When it is approved":"Saat disetujui",
   "Weights and thresholds":"Bobot dan ambang","Weights and scale":"Bobot dan skala",
   "Weight of each factor":"Bobot tiap faktor","The highest index each point is given for":"Indeks tertinggi untuk tiap poin","1 point up to":"1 poin hingga","{n} points up to":"{n} poin hingga",
@@ -371,11 +366,11 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Warn below confidence":"Peringatkan di bawah tingkat keyakinan","Suggestions per person a day":"Saran per orang per hari","Suggestions for the workspace a day":"Saran untuk workspace per hari",
   "Similar finished tasks as examples":"Task serupa yang selesai sebagai contoh","Of the same team":"Dari tim yang sama",
   "Manual changes":"Perubahan manual","A reason for every manual change":"Alasan untuk setiap perubahan manual","Manual changes wait for approval":"Perubahan manual menunggu persetujuan",
-  "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya","Efficiency bonus":"Bonus efisiensi",
+  "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
   "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring","and, on top of their role:":"dan, di luar role-nya:",
   "Give Team Lead and Creative Lead these permissions":"Beri izin ini ke Team Lead dan Creative Lead","Give Team Lead and Creative Lead these permissions?":"Beri izin ini ke Team Lead dan Creative Lead?",
   "They already had them":"Mereka sudah memilikinya","Recent changes":"Perubahan terakhir","The last 20 saves, newest first.":"20 penyimpanan terakhir, yang terbaru di atas.","{n} more changes":"{n} perubahan lainnya",
-  "No changes yet.":"Belum ada perubahan.","acting as":"bertindak sebagai","on":"nyala","off":"mati","thresholds":"ambang",
+  "on":"nyala","off":"mati","thresholds":"ambang",
   "Gave the approval and analytics permissions to":"Memberi izin persetujuan dan analitik kepada","The weights must add up to 100% before saving":"Bobot harus berjumlah 100% sebelum disimpan",
   "Nothing to save: no changes":"Tidak ada yang disimpan: tidak ada perubahan","Smart Scoring saved":"Smart Scoring tersimpan"
 });

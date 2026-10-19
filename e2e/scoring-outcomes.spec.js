@@ -1,6 +1,8 @@
 /* KPIs and OKRs (Oct 2026, src/scoring-outcomes.js, server/outcomes.js, docs/SMART-SCORING.md §11). With Smart Scoring,
    KPI and OKR switched on, the admin defines "Approved assets this month" in Settings → Smart Scoring, counted from the
-   assets a lead validated on finished tasks. A task's count is validated as admin in its panel and the task finished:
+   assets a lead validated on finished tasks (which tasks count and the baseline under the editor's "Advanced"; the
+   section has an example and no Save button: what is changed there is saved at once). A task's count is validated as
+   admin in its panel and the task finished:
    the KPI's bar moves, from evidence, and its details list the task. The task's own row says what it adds and links it
    by hand through the shared picker. Reopened, the task's count is taken back. The section draws from what the page has
    when the language changes, and fits a phone. Everything is put back as it was. The server side: tests/outcomes.test.js. */
@@ -17,7 +19,10 @@ async function signIn(page, who) {
 const settings = page => page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
 const putBack = (page, original) => page.evaluate(async o => { const cur = await apiFetch("GET", "/api/scoring/settings"); await apiFetch("PUT", "/api/scoring/settings", { settings: o, configVersion: cur.settings.configVersion }); WS.scoring = (await apiFetch("GET", "/api/scoring/settings")).settings; }, original);
 /* Settings → Smart Scoring, opened afresh (as someone coming back to it) */
-const openTab = page => page.evaluate(() => { go("home"); go("settings", "scoring/output"); });
+/* Settings → Smart Scoring, at the group KPIs and OKRs are in once the tab has its sub-menu (without it every section
+   is on the page) */
+const openTab = async page => { await page.evaluate(() => { go("home"); go("settings", "scoring"); });
+  const c = page.locator("#content"), b = c.getByRole("button", { name: /^Output/ }).or(c.getByRole("link", { name: /^Output/ })); if (await b.count()) await b.first().click(); };
 
 test("a KPI counted from approved assets moves when a lead-validated task is finished, and is taken back when it reopens", async ({ page }) => {
   await signIn(page, ADMIN);
@@ -27,11 +32,18 @@ test("a KPI counted from approved assets moves when a lead-validated task is fin
   try {
     await page.evaluate(async () => { const cur = (await apiFetch("GET", "/api/scoring/settings")).settings, n = JSON.parse(JSON.stringify(cur)); n.enabled = true; n.modules.kpi.on = true; n.modules.okr.on = true; await scoringSave(n, cur.configVersion); });
     await openTab(page);
-    const panel = page.locator("#content section.scr-out-panel");
-    await expect(panel.locator("h2")).toHaveText("KPIs and OKRs");
-    /* the admin defines the KPI: approved assets, this month, a target of 10 */
+    const panel = page.locator("#content section").filter({ has: page.locator("#scrOut") }).last();
+    await expect(panel.locator("h2, h3").first()).toHaveText("KPIs and OKRs");
+    await expect(panel).toContainText("Example: a KPI “Approved assets this month” with a target of 40");
+    await expect(panel).toContainText("saved as soon as it is added or changed");
+    await expect(panel.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
+    /* the admin defines the KPI: approved assets, this month, a target of 10 — which tasks count is under Advanced */
     await panel.locator("#scoNewKpi").click();
     await expect(page.locator("#modal .modal-head h3")).toHaveText("New KPI");
+    await expect(page.locator("#sco_scope")).toBeHidden();
+    await page.locator("#modal summary, #modal button").filter({ hasText: /^\s*Advanced/ }).first().click();
+    await expect(page.locator("#sco_scope")).toHaveValue("matching");
+    await expect(page.locator("#sco_base")).toBeVisible();
     await page.locator("#sco_title").fill("Approved assets this month");
     await expect(page.locator("#sco_rule")).toHaveValue("approved_assets");
     await page.locator("#sco_unit").fill("assets");
@@ -45,6 +57,8 @@ test("a KPI counted from approved assets moves when a lead-validated task is fin
     await expect(row.locator(".scr-out-src")).toHaveText("from evidence");
     const base = await page.evaluate(id => SCO.data.metrics.find(m => m.id === id).actual, o.metric);
     await expect(row.locator(".scr-out-sub").first()).toContainText(base + " / 10 assets");
+    await row.locator(".scr-out-why summary").click();
+    await expect(row.locator(".scr-out-why li").first()).toHaveText("Counts: Approved assets · every task");
 
     /* a task with 3 assets: validated as admin in its panel, then finished */
     o.task = await page.evaluate(async () => { const t = await apiFetch("POST", "/api/tasks", { title: "Outcomes e2e", status: "progress", prio: "medium", assignee: ME, assignees: [ME], reviewer: ME, assetCount: 3 }); await reloadAll(); openTask(t.id); S.drawerTab = "files"; renderDrawer(); return t.id; });
@@ -85,7 +99,7 @@ test("a KPI counted from approved assets moves when a lead-validated task is fin
     /* the language changes without the section going back to "Loading…" */
     const blinks = await page.evaluate(async () => { let n = 0; const ob = new MutationObserver(() => { const el = document.getElementById("scrOut"); if (el && /Memuat…|Loading…/.test(el.textContent)) n++; }); ob.observe(document.getElementById("content"), { childList: true, subtree: true, characterData: true }); setLanguage("id"); renderScreen(false); await new Promise(r => setTimeout(r, 400)); ob.disconnect(); return n; });
     expect(blinks).toBe(0);
-    await expect(panel.locator("h2")).toHaveText("KPI dan OKR");
+    await expect(panel.locator("h2, h3").first()).toHaveText("KPI dan OKR");
     await expect(row.locator(".scr-out-src")).toHaveText("dari bukti");
     await page.evaluate(() => { setLanguage("en"); renderScreen(false); });
     /* a phone: nothing wider than the screen */

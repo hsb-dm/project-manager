@@ -6,7 +6,9 @@
    pts · Pending review", how it is worked out, and approves it with a quality score; the person credited sees their
    approved award, with no buttons, at phone width too, in Indonesian as well, and reads that it is an operational
    metric, not compensation or a ranking. In Settings, the bonus policy's worked example follows the fields as they are
-   typed. The member and the task are made and removed here. The server side: tests/scoring-awards.test.js. */
+   typed — the grace and the largest bonus at hand, the reward factor and the bands under a closed "Advanced" that
+   stays open while a band is added or removed. The member and the task are made and removed here. The server side:
+   tests/scoring-awards.test.js. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
@@ -106,17 +108,44 @@ test("the efficiency bonus: the line with 1.10 and 9.10, approved by someone ind
     await expect(mine).toContainText("Metrik operasional, bukan kompensasi atau peringkat.");
     await mp.evaluate(() => { UI_LANG = "en"; renderDrawer(); });
 
-    /* Settings → Smart Scoring → Efficiency bonus: the worked example follows the fields */
-    await page.evaluate(() => { closeDrawer(); go("settings", "scoring/review"); });
+    /* Settings → Smart Scoring → Efficiency bonus: the worked example follows the fields, the grace and the largest bonus
+       at hand, the rest of the policy under a closed "Advanced" */
+    await page.evaluate(() => { closeDrawer(); go("settings", "scoring"); });
+    const group = page.locator("#content").getByRole("button", { name: /^Review/ }).or(page.locator("#content").getByRole("link", { name: /^Review/ }));
+    if (await group.count()) await group.first().click();   /* the tab's sub-menu, once it has one */
     const example = page.locator("#sceExample");
-    await expect(example).toContainText("E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10");
+    await expect(example).toContainText("Example: E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10");
+    await expect(example).toContainText("E = the approved estimate, A = the time logged, B = the task's base points.");
     await page.locator("#sc_b_grace").fill("20");
     await expect(example).toContainText("bonus +0.70, earned 8.70");
     await page.locator("#sc_b_grace").fill("40");
     await expect(example).toContainText("within the 40% grace, so no bonus");
     await page.locator("#sc_b_grace").fill("10"); await page.locator("#sc_b_max").fill("10");
     await expect(example).toContainText("bonus +0.80, earned 8.80");
-    for (const fixed of ["An independent approver, always", "Nobody approves their own bonus", "No cap per person or period in this version", "Never negative", "No retroactive awards"]) await expect(page.locator(".scr-pinned", { hasText: fixed })).toBeVisible();
+    for (const fixed of ["An independent approver", "Nobody approves their own bonus", "No cap per person or period yet", "Never negative", "Never backdated"]) await expect(page.locator(".scr-pinned", { hasText: fixed })).toBeVisible();
+    const section = page.locator("#content section").filter({ has: page.locator("#sceExample") }).last();
+    await expect(section.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
+    /* the reward factor is under Advanced: hidden until it is opened, and it moves the example too */
+    const reward = page.locator("#sc_b_reward");
+    await expect(reward).toBeHidden();
+    await section.locator("summary, button").filter({ hasText: /^\s*Advanced/ }).first().click();
+    await expect(reward).toBeVisible();
+    await reward.fill("1");
+    await expect(example).toContainText("bonus +0.80, earned 8.80");   /* capped at the 10% typed above */
+    await page.locator("#sc_b_max").fill("20");
+    await expect(example).toContainText("bonus +1.60, earned 9.60");
+    /* a band added and removed in place: the fold stays open */
+    await section.getByRole("button", { name: "Add a band" }).click();
+    await expect(section.locator(".scr-band")).toHaveCount(7);
+    await section.locator('.scr-band[data-band="6"] .iconbtn').click();
+    await expect(section.locator(".scr-band")).toHaveCount(6);
+    await expect(reward).toBeVisible();
+    await expect(section.locator("#sceStages")).toContainText("Done");
+    await expect(section.locator("#sceStages")).not.toContainText("[object Object]");
+    /* at phone width nothing runs off the page */
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.setViewportSize({ width: 1366, height: 1000 });
     expect(errors).toEqual([]);
   } finally {
     if (ctx) await ctx.close().catch(() => {});

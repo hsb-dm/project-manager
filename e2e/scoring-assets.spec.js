@@ -1,8 +1,9 @@
 /* Points for the assets people produce (Oct 2026, src/scoring-assets.js, docs/SMART-SCORING.md §11). With Smart Scoring
    and its "assets" module on, a task's row shows each person's count, the points it earns by the kind of work (a logo
    concept: 5 points an asset) and whether a lead has validated it — not validated yet, validated, changed since. The
-   Settings tab has the section: the switch, whether counts not validated yet count, and the points per asset of each
-   kind beside the hours a piece typically takes; a value changed there is saved and used. The figures over a period
+   Settings tab has the "Asset points" section, with an example: whether counts not validated yet count, and the points
+   per asset of each kind beside the hours a piece typically takes, and no Save button of its own; a value changed
+   there is saved (as the tab's Save bar saves) and used. The figures over a period
    come from GET /api/scoring/assets, people in name order. Off, nothing shows. Everything is put back as it was. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
@@ -13,6 +14,10 @@ const stored = page => page.evaluate(() => apiFetch("GET", "/api/scoring/setting
 const setScoring = (page, change) => page.evaluate(async patch => { const cur = (await apiFetch("GET", "/api/scoring/settings")).settings, next = JSON.parse(JSON.stringify(cur));
   (function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === "object" && a[k] && typeof a[k] === "object") merge(a[k], b[k]); else a[k] = b[k]; }); })(next, patch);
   const r = await apiFetch("PUT", "/api/scoring/settings", { settings: next, configVersion: cur.configVersion }); WS.scoring = r.settings; return r.settings; }, change);
+/* Settings → Smart Scoring shows one group at a time once it has its sub-menu: the group is picked by its name (without
+   the sub-menu every section is on the page); saved as the tab saves (its Save bar calls the same function) */
+const group = async (page, name) => { const c = page.locator("#content"), b = c.getByRole("button", { name }).or(c.getByRole("link", { name })); if (await b.count()) await b.first().click(); };
+const save = page => page.evaluate(() => scSaveClick());
 
 test("a task's asset points per person with their validation mark, the Settings section's table, and the figures over a period", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 1000 });
@@ -92,29 +97,34 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(page.locator('#e2eAssets .scr-asum-row[data-person="' + o.zara + '"]')).toContainText("Changed since validation 2 · 10.00 pts");
 
     /* Settings → Smart Scoring: the section, with the hours a piece takes beside each value */
-    await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; go("settings", "scoring/output"); });
-    const section = page.locator("#content section.panel").filter({ has: page.locator('[data-sc="modules.assets.on"]') });
-    await expect(section.locator("h2")).toHaveText("Assets produced");
-    await expect(section.locator('[data-sc="modules.assets.on"]')).toHaveClass(/\bon\b/);
+    await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; go("settings", "scoring"); });
+    await group(page, /^Output/);
+    const section = page.locator("#content section").filter({ has: page.locator('[data-sc="assets.countUnvalidated"]') }).last();
+    await expect(section.locator("h2, h3").first()).toHaveText("Asset points");
+    await expect(section).toContainText("Example: with a logo at 5 points, someone who makes 2 logos earns 2 × 5 = 10 points");
+    expect(await page.evaluate(() => scGet("modules.assets.on")), "the module is on (its switch is the tab's Overview's once it has one)").toBe(true);
+    await expect(section).not.toContainText("Asset points are off");
     await expect(section.locator('[data-sc="assets.countUnvalidated"]')).toHaveClass(/\bon\b/);
     await expect(section.locator('tr[data-kind="logo"]')).toContainText("10 h");
     await expect(section.locator('tr[data-kind="resize"] input')).toHaveValue("0.25");
     await expect(section.locator("#sc_ap_unknown")).toHaveValue("1");
+    await expect(section.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
     await section.locator("#sc_ap_logo").fill("6");
-    await page.locator("#scrBar").getByRole("button", { name: "Save" }).click();
+    await save(page);
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");
     expect((await stored(page)).assets.perKind.logo).toBe(6);
-    await page.evaluate(() => go("settings", "scoring/history"));
+    await group(page, /^History/);
     await expect(page.locator("#scAudit .scr-audit-row").first()).toContainText("Asset points · logo or brand identity");
-    await page.evaluate(() => go("settings", "scoring/output"));
+    await group(page, /^Output/);
     await draw();
     await expect(who(o.me).locator(".scr-ap-calc")).toHaveText("2 × 6.00 = 12.00 pts");
     /* Indonesian, and at phone width nothing runs off the page */
     await page.evaluate(() => { document.getElementById("e2eAssets").innerHTML = ""; setLanguage("id"); renderScreen(false); });
-    await expect(section.locator("h2")).toHaveText("Aset yang dihasilkan");
+    await expect(section.locator("h2, h3").first()).toHaveText("Poin aset");
+    await expect(section).toContainText("Contoh: bila logo bernilai 5 poin");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => renderScreen(false));
-    await expect(section.locator("h2")).toBeVisible();
+    await expect(section.locator("h2, h3").first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.evaluate(() => { setLanguage("en"); renderScreen(false); });
     await page.setViewportSize({ width: 1366, height: 1000 });
