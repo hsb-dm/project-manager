@@ -32,8 +32,13 @@ test("the admin turns Smart Scoring and a module on and off, it stays across a r
     await expect(master).not.toHaveClass(/\bon\b/);
     await expect(page.locator('[data-sc="modules.hours.on"]')).toHaveClass(/\bon\b/);
     expect(await page.evaluate(() => scoringOn())).toBe(false);
+    /* a module on while Smart Scoring itself is off: the Modules panel says why nothing shows, until the main switch is on */
+    const masterOff = page.locator(".scr-master-off");
+    await expect(masterOff).toBeVisible();
+    await expect(masterOff).toContainText("Smart Scoring for this workspace");
     /* on, with Story Points (hybrid) and OKR */
-    await master.click(); await story.click(); await okr.click();
+    await master.click(); await expect(masterOff).toBeHidden();
+    await story.click(); await okr.click();
     await page.locator("#sc_mode_story").selectOption("hybrid");
     await page.locator("#content section.panel").first().getByRole("button", { name: "Save" }).click();
     await expect(page.locator("#toasts .toast").last()).toHaveText("Smart Scoring saved");

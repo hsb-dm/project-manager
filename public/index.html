@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="85eb2bdfc75a">
+<meta name="zc-build" content="b48559f7c369">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -24630,7 +24630,11 @@ function scInput(el){ if(!SC.draft) return; var k=el.getAttribute("data-k"), p=e
   if(k==="num"||k==="pct"){ var n=parseFloat(String(v).replace(",",".")); if(!isFinite(n)) return; scPut(p,k==="pct"?n/100:n); }
   else if(k==="bool") scPut(p,v==="1"); else scPut(p,v);
   scTotalsPaint(); }
-function scSwitch(b){ if(!SC.draft||b.disabled) return; var on=!b.classList.contains("on"); b.classList.toggle("on",on); b.setAttribute("aria-checked",String(on)); scPut(b.getAttribute("data-sc"),on); }
+function scSwitch(b){ if(!SC.draft||b.disabled) return; var on=!b.classList.contains("on"); b.classList.toggle("on",on); b.setAttribute("aria-checked",String(on)); scPut(b.getAttribute("data-sc"),on); scMasterOffPaint(); }
+/* modules switched on while Smart Scoring itself is off show nowhere (Oct 2026): an admin turned Story Points on, saw
+   nothing in the tasks and could not tell why — the Modules panel says so while it is the case */
+function scMasterOff(){ var d=SC.draft||{}, m=d.modules||{}; return !d.enabled&&Object.keys(m).some(function(k){ return m[k]&&m[k].on; }); }
+function scMasterOffPaint(){ var el=document.querySelector(".scr-master-off"); if(el) el.style.display=scMasterOff()?"":"none"; }
 
 /* ---------- small pieces ---------- */
 function scSwitchHtml(path,label,ro){ var on=!!scGet(path); return '<button type="button" class="switch'+(on?" on":"")+'" role="switch" aria-checked="'+on+'" aria-label="'+attr(tr(label))+'" data-sc="'+attr(path)+'"'+(ro?" disabled":' onclick="scSwitch(this)"')+'></button>'; }
@@ -24669,7 +24673,8 @@ function scModulesPanel(ro,ed){
     + (withMode?'<div class="field scr-mode">'+scSelectHtml("sc_mode_"+id,"modules."+id+".mode",modes,ro,"",tr(SC_MODULE_LABEL[id])+" · "+tr("How it works"))+'</div>':'')
     + scSwitchHtml("modules."+id+".on",SC_MODULE_LABEL[id],ro)+'</div>'; };
   return sp("Modules",
-    '<p class="hint" style="margin-bottom:6px">'+tr("Each module is switched on and off on its own. Math only: the calculated value. AI-assisted: the AI suggests, the calculated value is always there to fall back on. Hybrid: both side by side.")+'</p>'
+    '<div class="banner warn scr-master-off" role="status"'+(scMasterOff()?'':' style="display:none"')+'><span>'+tr("Smart Scoring itself is still off, so the modules switched on below show nowhere yet. Switch on “Smart Scoring for this workspace” at the top and save.")+'</span></div>'
+    + '<p class="hint" style="margin-bottom:6px">'+tr("Each module is switched on and off on its own. Math only: the calculated value. AI-assisted: the AI suggests, the calculated value is always there to fall back on. Hybrid: both side by side.")+'</p>'
     + row("hours","Estimated and actual hours, from the kind of work, the number of deliverables, complexity and dependencies.",true)
     + row("story","A point on 1, 2, 3, 5, 8, 13 from a few 1–5 ratings. 13 suggests splitting the task.",true)
     + row("weighted","Points from weighted factor ratings, on the workspace's own scale.",true)
@@ -24812,6 +24817,7 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Total":"Total","must be 100% to save":"harus 100% agar bisa disimpan",
   "Score tasks in effort hours, story points or weighted points, and link them to KPIs and OKRs. Each module gives a calculated value, an optional AI suggestion, and a final value that only permitted people change, every change kept with who made it and why. While Smart Scoring is off ZenCrevia works exactly as it does now; turning it off later hides it again without erasing anything.":"Beri skor task dalam jam kerja, story points, atau poin berbobot, lalu kaitkan dengan KPI dan OKR. Setiap modul memberi nilai hitungan, saran AI (opsional), dan nilai akhir yang hanya bisa diubah orang yang berwenang; setiap perubahan dicatat beserta siapa dan alasannya. Selama Smart Scoring mati, ZenCrevia bekerja persis seperti sekarang; mematikannya nanti menyembunyikannya lagi tanpa menghapus apa pun.",
   "Smart Scoring for this workspace":"Smart Scoring untuk workspace ini",
+  "Smart Scoring itself is still off, so the modules switched on below show nowhere yet. Switch on “Smart Scoring for this workspace” at the top and save.":"Smart Scoring sendiri masih OFF, jadi modul yang dinyalakan di bawah belum tampil di mana pun. Nyalakan “Smart Scoring untuk workspace ini” di bagian atas, lalu simpan.",
   "Off: nothing changes for anyone. On: the modules switched on below appear for the people allowed to use them.":"Mati: tidak ada yang berubah bagi siapa pun. Nyala: modul yang dinyalakan di bawah muncul bagi orang yang boleh memakainya.",
   "Settings version":"Versi pengaturan","last saved by":"terakhir disimpan oleh",
   "You can see these settings. Changing them takes the permission to set up Smart Scoring.":"Kamu bisa melihat pengaturan ini. Untuk mengubahnya perlu izin mengatur Smart Scoring.",
