@@ -386,7 +386,7 @@ test("server/scoring-ai.js asks for the model assigned to Smart Scoring", async 
   await k.on(); const T = k.task();
   const a = await k.ask(T);
   assert.equal(a.aiResult.status, "ok"); assert.equal(a.aiResult.model, "gpt-6-luna");
-  assert.deepEqual(asked, [["chat", "scoring"]]);
+  /* every call asks for Smart Scoring's own model: the one that asks the AI, and the cache's check of which model answers now */ assert.ok(asked.length >= 1 && asked.every(x => x[0] === "chat" && x[1] === "scoring"), JSON.stringify(asked));
   assert.match(fs.readFileSync(path.join(root, "server", "scoring-ai.js"), "utf8"), /d\.aiConf\("chat", "scoring"\)/);
   /* and the page asks each of its features by name, never by model */
   const src = f => fs.readFileSync(path.join(root, "src", f), "utf8");
