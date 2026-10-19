@@ -110,6 +110,7 @@ test("a task's asset points per person with their validation mark, the Settings 
     await expect(section.getByRole("button", { name: "Save" }), "no Save button of its own").toHaveCount(0);
     /* each kind's points sit beside its hours, in its row under Kinds of work (the Estimating group) */
     await group(page, /^Estimating/);
+    for (const id of ["logo", "resize"]) await kind(id).getByRole("button", { name: "Edit" }).click();   /* a kind's fields are under its Edit */
     await expect(kind("logo").locator('[data-sc="hours.templates.logo.perUnit"]')).toHaveValue("10");
     await expect(kind("resize").locator('[data-sc="assets.perKind.resize"]')).toHaveValue("0.25");
     await kind("logo").locator('[data-sc="assets.perKind.logo"]').fill("6");
