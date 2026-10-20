@@ -216,7 +216,7 @@ test.describe.serial("the Scoring & Intelligence panel", () => {
     /* Calculate: the kind from the title, the assets produced as the deliverables, a complexity rating, a live result */
     await act(admin, "hours", "calculate").click();
     const modal = admin.locator("#modal");
-    await expect(modal.locator("#scrKind")).toHaveValue("feed");
+    await expect(modal.locator("#scrKind")).toHaveAttribute("data-value", "feed");
     await expect(modal.locator('[data-scr-in="deliverables"]')).toContainText("5 deliverables");
     const expected = Engine.hours(Settings.normalizeSettings(onSettings).hours, { kind: "feed", units: 5, complexity1to5: 4, openDeps: 0 });
     expect(expected.value).toBe(7.5);
@@ -480,7 +480,7 @@ test("the offline demo works the panel out in the page: calculate, lock, and the
   expect(await page.evaluate(() => scoringModuleOn("story"))).toBe(false);
   await expect(page.locator("#drawer .scr-row")).toHaveCount(1);
   await act(page, "hours", "calculate").click();
-  await expect(page.locator("#scrKind")).toHaveValue("resize");
+  await expect(page.locator("#scrKind")).toHaveAttribute("data-value", "resize");
   const expected = Engine.hours(Settings.DEFAULTS.hours, { kind: "resize", units: 5, openDeps: await page.evaluate(i => unresolvedDependencies(task(i)).length, id) });
   await page.locator("#modal").getByRole("button", { name: "Calculate", exact: true }).click();
   await expect(row(page, "hours").locator('[data-scr-v="math"] b')).toHaveText((Math.max(0.5, Math.round(expected.value * 2) / 2)) + " h");

@@ -272,8 +272,11 @@ dan email 50%; poster, reels, dan video 60%; copy, deck, dan konsep logo 40%. Co
 **Jenis pekerjaan (Kind of work).** Jenis pekerjaan dikenali dari kata di judul task, memakai daftar yang diatur admin
 di Settings → Smart Scoring → Estimasi → Kinds of work (misalnya "Siniar HSB eps 4" dikenali sebagai Podcast kalau admin
 menambahkan jenis itu dengan kata kunci "siniar"). Kalau judulnya tidak menyebut jenis yang tepat, pilih sendiri di
-baris **Effort** pada tab Brief: **Kind of work: Auto (post feed)** berarti dikenali dari judul; pilih jenis lain dari
-daftar, atau kembali ke **Auto**. Pilihanmu selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
+baris **Effort** pada tab Brief: **Kind of work** dengan tanda kecil **otomatis** dan *post feed* berarti dikenali dari
+judul. Klik untuk membuka daftarnya: **Otomatis — dari judul: post feed** paling atas, lalu tiap jenis dengan jam
+biasanya untuk satu deliverable (misalnya video 4–16 j), ✓ pada yang dipilih, dan kotak **Cari jenis** bila jenisnya
+lebih dari 8 (cari nama atau kata di judul). Pilih jenis lain, atau kembali ke **Otomatis**; keyboard juga bisa (↑ ↓,
+Enter memilih, Esc menutup). Pilihanmu selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
 Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat judul diubah — kecuali angka yang kamu
 ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Pilihan ini bisa dibuat oleh siapa pun yang
 bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali

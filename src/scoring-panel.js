@@ -293,8 +293,8 @@ function scrCalc(id,m){ var tk=task(id); if(!tk) return; var r=scrView(tk,m), s=
     if(!cx){ var st=scrRow(tk,"story")||scrRow(tk,"weighted"); cx=st&&scrNum(st.factors&&st.factors.complexity); }
     SCR.rate={id:id,m:m,kind:mi.kind||scrCtxKind(tk)||"",r:{complexity:cx||null}};
     var kinds=s.kinds.filter(function(k){ return k.active; }).map(function(k){ return k.id; }), n=assetCount(tk), deps=scrCtxDeps(tk);
-    body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label><select id="scrKind" onchange="SCR.rate.kind=this.value;scrPreview()"><option value="">'+tr("Choose the kind of work")+'</option>'
-      +kinds.map(function(k){ return '<option value="'+attr(k)+'"'+(k===SCR.rate.kind?' selected':'')+'>'+esc(scrKindName(k))+'</option>'; }).join("")+'</select>'
+    body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label>'
+      +kindDropdownHtml({key:"rate",id:"scrKind",field:true,kinds:kinds,value:SCR.rate.kind,placeholder:tr("Choose the kind of work"),pick:function(v){ SCR.rate.kind=v; scrPreview(); }})
       +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>'
       +scrRateField("complexity",SCR.rate.r.complexity)
       +'<div class="field"><label>'+tr("Deliverables")+'</label><p class="scr-in" data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+' · '+tr("the task's Assets produced")+' <button type="button" class="scr-link" onclick="closeModal();setTab(\'files\')">'+tr("Change under Assets & versions")+'</button></p></div>'

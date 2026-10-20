@@ -149,25 +149,31 @@ test("the admin adds a kind of work, a title finds it, a new task gets its hours
     const other = await page.evaluate(async () => (await apiFetch("POST", "/api/tasks", { title: "Episode recording HSB", status: WS.workflow[1].id, prio: "medium", assignee: ME, assignees: [ME] })).id);
     made.push(other);
     await page.evaluate(async id => { await reloadAll(); openTask(id); S.drawerTab = "brief"; renderDrawer(); }, other);
-    const pick = page.locator("#drawer .enh-blocks .effort .scr-kpick select");
-    await expect(pick.locator("option").first()).toHaveText("Auto (none recognised)");
-    await expect(pick.locator('option[value="' + pod.id + '"]')).toHaveText("Podcast");
-    await pick.selectOption(pod.id);
+    /* the kind is chosen in the app's own dropdown (src/scoring-kinds.js kindDropdownHtml, e2e/kind-dropdown.spec.js) */
+    const pick = page.locator("#drawer .enh-blocks .effort .scr-kpick .scr-kdd"), option = v => page.locator('#scrKdd [role=option][data-v="' + v + '"]');
+    const choose = async v => { await pick.click(); await option(v).click(); await expect(page.locator("#scrKdd")).toBeHidden(); };
+    await expect(pick).toHaveText("Auto · none recognised");
+    await pick.click();
+    await expect(page.locator("#scrKdd [role=option]").first()).toHaveText("Auto — none recognised");
+    await expect(option(pod.id).locator(".scr-kdd-l")).toHaveText("Podcast");
+    await expect(option(pod.id).locator(".scr-kdd-tag"), "the workspace's own kind").toHaveText("custom");
+    await expect(option(pod.id).locator(".scr-kdd-h"), "its hours for one deliverable").toHaveText("1.5–4.5 h");
+    await option(pod.id).click();
     await expect.poll(async () => (await saved(page, other)).meta.kind).toBe(pod.id);
     const t2 = await saved(page, other);
     expect(t2.effort, "estimated again, as a new title would be").toBe(3);
     expect(t2.meta.effortAuto).toMatchObject({ src: "kind", kind: pod.id });
-    await expect(page.locator("#drawer .enh-blocks .effort .scr-kpick select")).toHaveValue(pod.id);
+    await expect(pick).toHaveAttribute("data-value", pod.id); await expect(pick).toHaveText("Podcast");
     /* a kind that is not one of the workspace's is never kept */
     const odd = await page.evaluate(async id => { const d = await apiFetch("GET", "/api/tasks/" + id); d.meta.kind = "made_up"; return (await apiFetch("PUT", "/api/tasks/" + id, d)).meta.kind; }, created);
     expect(odd).toBeUndefined();
     /* a typed number is never overwritten by choosing a kind */
     await page.evaluate(async id => { const t = task(id); await editTaskWith(t, x => { x.effort = 5; effortManual(x); }); }, other);
     await page.evaluate(id => { openTask(id); S.drawerTab = "brief"; renderDrawer(); }, other);
-    await pick.selectOption("");
+    await choose("");
     await expect.poll(async () => (await saved(page, other)).meta.kind).toBeUndefined();
     expect((await saved(page, other)).effort).toBe(5);
-    await pick.selectOption(pod.id);
+    await choose(pod.id);
     await expect.poll(async () => (await saved(page, other)).meta.kind).toBe(pod.id);
 
     /* 4. a built-in switched off is no longer recognised — in the box, and by the estimate */
