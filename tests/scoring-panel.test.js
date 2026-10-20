@@ -43,7 +43,7 @@ test('every word the panel shows has its Indonesian', () => {
   for (const m of JS.matchAll(/openModal\((?:mine\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrAfter\(tk,m,d,(?:proposed\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?\)/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrBtn\(tk,m,"\w+",(?:r\.proposal\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
-  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS, c.SCR_AI_WARN, c.SCR_AI_GAPS, c.SCR_AI_NOTE, c.SCR_DOC_ST]) Object.values(map).forEach(v => literals.add(v));
+  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS, c.SCR_AI_WARN, c.SCR_AI_GAPS, c.SCR_AI_NOTE, c.SCR_DOC_ST, c.SCR_DOC_WHY]) Object.values(map).forEach(v => literals.add(v));
   /* the AI's reason placeholders */
   for (const m of JS.matchAll(/scrReasonField\(true,s\.far\?"((?:[^"\\]|\\.)*)":"((?:[^"\\]|\\.)*)"\)/g)) { literals.add(m[1]); literals.add(m[2]); }
   Object.values(c.SCR_LEVELS).forEach(l => l.forEach(v => literals.add(v)));
@@ -180,6 +180,17 @@ test('the documents in the brief: only while the workspace reads them and the AI
   assert.equal(stOf(html(), found[0].ref), 'not shared publicly — set it to “anyone with the link”');
   found[0].status = 'ready'; assert.equal(stOf(html(), found[0].ref), 'read · 4,200 characters');
   c.UI_LANG = 'id'; assert.equal(stOf(html(), found[0].ref), 'dibaca · 4.200 karakter'); c.UI_LANG = 'en';
+  /* the server's reason, in words (docs/SMART-SCORING.md §5.4.1); a code it does not know is left out; not_public's own words say what to do */
+  c.scrDocsRun('T-1', [{ ref: 'file:f1', status: 'too_large', reason: 'over_15mb' }, { ref: 'file:f2', status: 'unsupported', reason: 'no_text' }, { ref: found[1].ref, status: 'not_public', reason: 'login' }, { ref: found[0].ref, status: 'limit', reason: 'max_docs' }]);
+  c.SCR.cache['T-1'].ai.docs.maxDocs = 5; c.SCR.docRun['T-1'].at = 200; h = html();
+  assert.equal(stOf(h, 'file:f1'), 'too large · over 15 MB'); assert.equal(stOf(h, 'file:f2'), 'not supported · no text in it (a scan?)');
+  assert.equal(stOf(h, found[1].ref), 'not shared publicly — set it to “anyone with the link”'); assert.equal(stOf(h, found[0].ref), 'not read: only the first 5 are read per ask');
+  c.scrDocsRun('T-1', [{ ref: 'file:f1', status: 'error', reason: 'something_new' }]); c.SCR.docRun['T-1'].at = 200;
+  assert.equal(stOf(html(), 'file:f1'), 'could not be read');
+  c.UI_LANG = 'id'; c.scrDocsRun('T-1', [{ ref: 'file:f1', status: 'error', reason: 'rate_limited' }]); c.SCR.docRun['T-1'].at = 200;
+  assert.equal(stOf(html(), 'file:f1'), 'tidak dapat dibaca · Google meminta menunggu: coba lagi nanti'); c.UI_LANG = 'en';
+  c.scrDocsRun('T-1', [{ ref: found[0].ref, kind: 'gslides', title: 'Ramadan deck', status: 'read', chars: 4200 }, { ref: found[1].ref, status: 'not_public' }, { ref: 'file:f1', status: 'read', chars: 9000, cut: true, reason: 'budget' }]);
+  c.SCR.docRun['T-1'].at = 200;
   /* left out on this task: every chip says it will not be sent */
   await c.scrDocsUse('T-1'); assert.equal(tasks['T-1'].meta.aiReadDocs, false);
   h = html(); assert.match(h, /data-scr-docs="excluded"/); for (const x of found) assert.equal(stOf(h, x.ref), 'will not be sent', x.ref);

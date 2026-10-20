@@ -486,6 +486,10 @@ function scrAiAcceptGo(id,m,need){ var tk=task(id); if(!tk) return closeModal();
 var SCR_DOC_ICO={gdoc:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4"/></svg>',gslides:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M12 17v3M8 21h8"/></svg>',
   gsheet:'<svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>',file:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg>'};
 var SCR_DOC_ST={ready:"read when the AI is asked",not_public:"not shared publicly — set it to “anyone with the link”",too_large:"too large",unsupported:"not supported",error:"could not be read",limit:"not read: the limit for one ask was reached",off:"will not be sent"};
+/* why, as the server says it (docs/SMART-SCORING.md §5.4.1); not_public's own words say what to do, "budget" is "cut to fit" */
+var SCR_DOC_WHY={over_5mb:"over 5 MB",over_15mb:"over 15 MB",zip_limits:"too much packed inside",type:"this kind of file is not read",no_text:"no text in it (a scan?)",encrypted:"protected by a password",
+  zip64:"a file format that is not read",method:"compressed in a way that is not read",timeout:"took too long",redirect_refused:"the link leads outside Google",too_many_redirects:"too many redirects",
+  rate_limited:"Google asked to wait: try again later",http:"Google answered with an error",network:"could not be reached",corrupt:"the file is damaged",missing:"the file is no longer on the server"};
 function scrDocs(tk){ var a=scrAiInfo(tk), d=a&&a.docs; return d&&typeof d==="object"?d:null; }
 /* the workspace's switch: the settings' own word when they have it, else the server's */
 function scrDocsWs(tk){ var s=scoringSettings(), v=s&&s.ai&&s.ai.readDocs, d=scrDocs(tk); return typeof v==="boolean"?v:!!(d&&d.on); }
@@ -496,10 +500,12 @@ function scrInt(n){ n=Math.round(+n||0); try{ return n.toLocaleString(UI_LANG===
 function scrDocList(tk){ var d=scrDocs(tk), f=d&&Array.isArray(d.found)?d.found:[], run=SCR.docRun[tk.id], c=SCR.cache[tk.id];
   return (f.length?f:run?run.list:[]).filter(function(x){ return x&&typeof x==="object"; }).map(function(x){ var r=run&&run.by[x.ref]; return r&&(x.status==="ready"||!c||run.at>=c.at)?Object.assign({},x,r):x; }); }
 function scrDocsRun(id,list){ var c=SCR.cache[id], by={}; list.forEach(function(x){ if(x&&x.ref) by[x.ref]=x; }); SCR.docRun[id]={at:c?c.at:Date.now(),list:list,by:by}; scrPaint(id); }
-function scrDocChip(x,used){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
-  var txt=st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):""):tr(SCR_DOC_ST[st]||SCR_DOC_ST.error);
+function scrDocChip(x,used,max){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
+  var why=st!=="off"&&st!=="not_public"&&Object.prototype.hasOwnProperty.call(SCR_DOC_WHY,x.reason)?" · "+tr(SCR_DOC_WHY[x.reason]):"";
+  var txt=st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):"")
+    :st==="limit"&&x.reason==="max_docs"?fmt(tr("not read: only the first {n} are read per ask"),{n:max||5}):tr(SCR_DOC_ST[st]||SCR_DOC_ST.error)+why;
   var name=/^https:\/\/[^\s"'<>]+$/i.test(x.ref||"")?'<a href="'+attr(x.ref)+'" target="_blank" rel="noopener noreferrer" data-no-translate>'+esc(t)+'</a>':'<b data-no-translate>'+esc(t)+'</b>';
-  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' title="'+attr(x.reason)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name+'<span class="scr-doc-st">'+esc(txt)+'</span></li>'; }
+  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' data-why="'+attr(x.reason)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name+'<span class="scr-doc-st">'+esc(txt)+'</span></li>'; }
 /* only where the AI is asked for some score; reading off: nothing, or one quiet line for whoever may turn it on */
 function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocList(tk);
   if(!list.length||a&&a.external===false||!mods.some(function(m){ return scoringMode(m)!=="math_only"; })) return "";
@@ -510,7 +516,7 @@ function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocLi
   var tot=used&&read.length?'<span class="hint" data-scr-docs-sum>'+esc(lim?fmt(tr("read {n} of {m} characters"),{n:scrInt(sum),m:scrInt(lim)}):fmt(tr("read {n} characters"),{n:scrInt(sum)}))+'</span>':'';
   return '<div class="scr-docs" data-scr-docs="'+(used?"on":"excluded")+'"><div class="scr-docs-head">'+SCR_DOC_ICO.file+'<b>'+tr("Documents for the AI")+'</b>'+tot
     +'<span class="scr-docs-use"><span>'+tr("Use this task's documents")+'</span><button type="button" class="switch'+(used?" on":"")+'" role="switch" aria-checked="'+used+'" aria-label="'+attr(tr("Use this task's documents"))+'" data-scr-act="docs-use"'+(can?' onclick="scrDocsUse('+jsq(tk.id)+')"':' disabled')+'></button></span></div>'
-    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used); }).join("")+'</ul></div>'; }
+    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used,scrNum(d&&d.maxDocs)); }).join("")+'</ul></div>'; }
 /* left out or used again: meta.aiReadDocs false, or no word (the workspace's), saved as any change to the task */
 function scrDocsUse(id){ var tk=task(id); if(!tk) return; var on=!scrDocsUsed(tk);
   editTaskWith(tk,function(t){ var m=taskMeta(t); if(on) delete m.aiReadDocs; else m.aiReadDocs=false; }).then(function(r){ if(r!==false) toast(tr(on?"This task's documents are read when the AI is asked":"This task's documents will not be sent to the AI")); }); }
@@ -653,6 +659,10 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "could not be read":"tidak dapat dibaca","not read: the limit for one ask was reached":"tidak dibaca: batas untuk sekali tanya sudah tercapai","will not be sent":"tidak akan dikirim",
   "read · {n} characters":"dibaca · {n} karakter","read":"dibaca","cut to fit":"dipotong agar muat","read {n} of {m} characters":"dibaca {n} dari {m} karakter","read {n} characters":"dibaca {n} karakter",
   "Reading brief documents is off for this workspace":"Membaca dokumen brief dimatikan untuk workspace ini","Change it in Settings":"Ubah di Pengaturan",
+  "not read: only the first {n} are read per ask":"tidak dibaca: hanya {n} dokumen pertama yang dibaca per tanya","over 5 MB":"lebih dari 5 MB","over 15 MB":"lebih dari 15 MB","too much packed inside":"isinya terlalu banyak",
+  "this kind of file is not read":"jenis file ini tidak dibaca","no text in it (a scan?)":"tidak ada teksnya (hasil scan?)","protected by a password":"dilindungi kata sandi","a file format that is not read":"format file yang tidak dibaca",
+  "compressed in a way that is not read":"dikompresi dengan cara yang tidak dibaca","took too long":"terlalu lama","the link leads outside Google":"link-nya mengarah ke luar Google","too many redirects":"terlalu banyak pengalihan",
+  "Google asked to wait: try again later":"Google meminta menunggu: coba lagi nanti","Google answered with an error":"Google menjawab dengan galat","could not be reached":"tidak dapat dihubungi","the file is damaged":"file-nya rusak","the file is no longer on the server":"file-nya sudah tidak ada di server",
   "This task's documents are read when the AI is asked":"Dokumen task ini dibaca saat AI ditanya","This task's documents will not be sent to the AI":"Dokumen task ini tidak akan dikirim ke AI"
 });
 /* the engine's sentences (ScoringEngine.SENTENCES, the keys of every explanation step) in Indonesian, by their name there */

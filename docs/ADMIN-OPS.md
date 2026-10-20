@@ -715,6 +715,7 @@ Slides yang dibagikan ke "Anyone with the link" — AI membaca slide-nya.
 - Di bawahnya, **Document text per Ask AI** (Teks dokumen per Ask AI): 5.000, 15.000 (default), atau 30.000 karakter
   — kira-kira 1,5, 5, atau 10 halaman. Teks lebih banyak bisa membuat saran lebih akurat, tapi memakai lebih banyak
   kredit AI per Ask AI; beberapa dokumen berbagi jatah ini sama rata. Pilihan ini nonaktif selama switch-nya OFF.
+  Paling banyak 5 dokumen dibaca per Ask AI; satu dokumen paling besar 5 MB (file di server 15 MB).
 - Keduanya disimpan lewat bar **Save** seperti pengaturan lain dan tercatat di **History**.
 - Selama **external processing** di Settings → AI → Permissions OFF, keduanya nonaktif dengan penjelasan dan tombol
   **Open AI permissions**: tidak ada dokumen yang bisa dikirim ke AI.

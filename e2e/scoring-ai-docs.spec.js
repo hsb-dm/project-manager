@@ -8,7 +8,9 @@
    no documents on the task, one quiet line for whoever may turn it on. On: each document a chip with its kind and
    what it is; "Use this task's documents" saves meta.aiReadDocs false with the task (and takes it away again), the
    chips then say nothing is sent; after Ask AI they say what was read, how much and what was cut. In Indonesian, in
-   dark mode, and on a phone without sideways scrolling. Smart Scoring is turned on here and everything is put back. */
+   dark mode, and on a phone without sideways scrolling. Last, the real server's own list (server/scoring-docs.js): what
+   the description links to, titled with the link's words, and the task left out in its view too. Smart Scoring is
+   turned on here and everything is put back. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
@@ -24,21 +26,22 @@ const FOUND = () => [
   { ref: SLIDES, kind: "gslides", title: "Ramadan deck", status: "ready" },
   { ref: PRIV, kind: "gdoc", title: "Private brief", status: "not_public" },
   { ref: COPY, kind: "gdoc", title: "Copy doc", status: "ready" },
-  { ref: "file:e2e-spec", kind: "file", title: "Spec sheet.pdf", status: "too_large" },
+  { ref: "file:e2e-spec", kind: "file", title: "Spec sheet.pdf", status: "too_large", reason: "over_15mb" },
   { ref: "file:e2e-logo", kind: "file", title: "logo.ai", status: "unsupported" }];
 const RUN = () => [
   { ref: SLIDES, kind: "gslides", title: "Ramadan deck", status: "read", chars: 4200 },
   { ref: PRIV, kind: "gdoc", title: "Private brief", status: "not_public" },
-  { ref: COPY, kind: "gdoc", title: "Copy doc", status: "read", chars: 10000, cut: true },
-  { ref: "file:e2e-spec", kind: "file", title: "Spec sheet.pdf", status: "too_large" },
+  { ref: COPY, kind: "gdoc", title: "Copy doc", status: "read", chars: 10000, cut: true, reason: "budget" },
+  { ref: "file:e2e-spec", kind: "file", title: "Spec sheet.pdf", status: "too_large", reason: "over_15mb" },
   { ref: "file:e2e-logo", kind: "file", title: "logo.ai", status: "unsupported" }];
-/* the real GET …/scoring with ai.docs added (and the AI's suggestion once asked, as the server keeps it — the documents'
-   statuses it does not keep: "ready" again); POST …/ai answered with the view, the task, a suggestion and aiResult.docs */
+/* the real GET …/scoring with ai.docs set here when st.docs is (the server's own otherwise), as if external AI processing
+   were on, and the AI's suggestion once asked, as the server keeps it (the documents left "ready", as for one the last
+   run did not read); POST …/ai answered with the view, the task, a suggestion and aiResult.docs */
 async function mock(page, st) {
   await page.route(/\/api\/tasks\/[^/?]+\/scoring(\?.*)?$/, async route => {
     if (route.request().method() !== "GET") return route.fallback();
     const res = await route.fetch(), json = await res.json();
-    if (res.ok()) json.ai = Object.assign({}, json.ai, { external: true, docs: st.docs }, st.suggestion ? { rows: Object.assign({}, (json.ai || {}).rows, { hours: st.suggestion }) } : {});
+    if (res.ok()) json.ai = Object.assign({}, json.ai, { external: true }, st.docs ? { docs: st.docs } : {}, st.suggestion ? { rows: Object.assign({}, (json.ai || {}).rows, { hours: st.suggestion }) } : {});
     await route.fulfill({ response: res, json });
   });
   await page.route("**/api/tasks/*/scoring/ai", async route => {
@@ -194,7 +197,7 @@ test.describe.serial("the AI reading the documents in a brief", () => {
     await expect(chip(page, SLIDES).locator("a")).toHaveAttribute("href", SLIDES); await expect(chip(page, SLIDES).locator("a")).toHaveAttribute("target", "_blank");
     await expect(status(page, SLIDES)).toHaveText("read when the AI is asked");
     await expect(status(page, PRIV)).toHaveText("not shared publicly — set it to “anyone with the link”");
-    await expect(status(page, "file:e2e-spec")).toHaveText("too large");
+    await expect(status(page, "file:e2e-spec")).toHaveText("too large · over 15 MB");
     await expect(status(page, "file:e2e-logo")).toHaveText("not supported");
     await expect(page.locator("#drawer [data-scr-docs-sum]")).toHaveCount(0);
     /* left out: meta.aiReadDocs false, saved with the task */
@@ -235,6 +238,7 @@ test.describe.serial("the AI reading the documents in a brief", () => {
     expect(st.asked[0]).toMatchObject({ module: "hours", trigger: "ask" });
     await expect(status(page, SLIDES)).toHaveText("read · 4,200 characters");
     await expect(status(page, COPY)).toHaveText("read · 10,000 characters · cut to fit");
+    await expect(status(page, "file:e2e-spec"), "the server's reason, in words").toHaveText("too large · over 15 MB");
     await expect(status(page, PRIV)).toHaveText("not shared publicly — set it to “anyone with the link”");
     await expect(page.locator("#drawer [data-scr-docs-sum]")).toHaveText("read 14,200 of 15,000 characters");
     /* the server still says "ready" for them: what the ask said stays */
@@ -249,7 +253,7 @@ test.describe.serial("the AI reading the documents in a brief", () => {
     await expect(status(page, SLIDES)).toHaveText("dibaca · 4.200 karakter");
     await expect(status(page, COPY)).toHaveText("dibaca · 10.000 karakter · dipotong agar muat");
     await expect(status(page, PRIV)).toHaveText("tidak dibagikan secara publik — atur ke “siapa saja yang memiliki link”");
-    await expect(status(page, "file:e2e-spec")).toHaveText("terlalu besar");
+    await expect(status(page, "file:e2e-spec")).toHaveText("terlalu besar · lebih dari 15 MB");
     await expect(page.locator("#drawer [data-scr-docs-sum]")).toHaveText("dibaca 14.200 dari 15.000 karakter");
     await page.evaluate(() => { UI_LANG = "en"; renderDrawer(); });
     /* dark mode (this page only, not saved): the words stay readable on the chip */
@@ -279,5 +283,29 @@ test.describe.serial("the AI reading the documents in a brief", () => {
       await expect(ph.locator(".scr-docs-set")).toBeVisible();
       await expect.poll(() => ph.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1 && document.querySelector(".scr-docs-set").getBoundingClientRect().right <= innerWidth + 1)).toBe(true);
     } finally { await phone.close(); }
+  });
+
+  test("the real server's list: what the description links to, with the link's own words; the task left out is the server's word too", async () => {
+    test.skip(!known, "needs the server side: ai.readDocs and ai.docsChars in shared/scoring-settings.js");
+    const deck = "https://docs.google.com/presentation/d/e2eDeckRealId0123", priv = "https://docs.google.com/document/d/e2ePrivRealId4567";
+    st.docs = null; st.suggestion = null;
+    await page.evaluate(async () => { closeDrawer(); const cur = (await apiFetch("GET", "/api/scoring/settings")).settings;
+      WS.scoring = (await apiFetch("PUT", "/api/scoring/settings", { settings: Object.assign({}, cur, { ai: Object.assign({}, cur.ai, { readDocs: true }) }), configVersion: cur.configVersion })).settings; });
+    await page.evaluate(([i, d, p]) => editTaskWith(task(i), t => { t.description = "Brief: [Ramadan deck](" + d + "/edit) and [Private brief](" + p + "/edit?usp=sharing)."; }), [taskId, deck, priv]);
+    const view = await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i + "/scoring").then(r => r.ai.docs), taskId);
+    expect(view).toMatchObject({ on: true, allowed: true, canToggle: true, charsLimit: 15000 });
+    expect(view.found.map(x => [x.ref, x.kind, x.title, x.status])).toEqual([[deck, "gslides", "Ramadan deck", "ready"], [priv, "gdoc", "Private brief", "ready"]]);
+    await openBrief(page, taskId);
+    await expect(page.locator("#drawer .scr-doc")).toHaveCount(2);
+    await expect(chip(page, deck)).toHaveAttribute("data-kind", "gslides"); await expect(chip(page, deck).locator("a")).toHaveText("Ramadan deck");
+    await expect(status(page, priv)).toHaveText("read when the AI is asked");
+    let put = page.waitForResponse(r => r.request().method() === "PUT" && new RegExp("/api/tasks/" + taskId + "$").test(r.url()));
+    await useSwitch(page).click(); expect((await put).status()).toBe(200);
+    await expect(docs(page)).toHaveAttribute("data-scr-docs", "excluded");
+    expect(await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i + "/scoring").then(r => r.ai.docs.allowed), taskId)).toBe(false);
+    put = page.waitForResponse(r => r.request().method() === "PUT" && new RegExp("/api/tasks/" + taskId + "$").test(r.url()));
+    await useSwitch(page).click(); expect((await put).status()).toBe(200);
+    await expect(docs(page)).toHaveAttribute("data-scr-docs", "on");
+    expect(await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i + "/scoring").then(r => r.ai.docs.allowed), taskId)).toBe(true);
   });
 });

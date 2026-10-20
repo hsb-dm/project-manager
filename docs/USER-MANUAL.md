@@ -398,8 +398,9 @@ baris **Documents for the AI** (Dokumen untuk AI) di bawah baris skor. Tiap doku
 jenisnya (Google Docs, Slides, Sheets, file Drive, atau file yang dilampirkan) dan judulnya. Setelah **Ask AI**, tiap
 chip menyebut apa yang terjadi: **read · 4,200 characters** (dibaca, berapa karakter), **cut to fit** (dipotong agar
 muat dalam jatah teks per Ask AI), **not shared publicly** (tidak dibagikan publik), **too large** (terlalu besar),
-atau **not supported** (jenis file tidak didukung). Di sebelah judul baris tampil berapa karakter yang dibaca dari
-jatahnya, misalnya "read 14,200 of 15,000 characters".
+atau **not supported** (jenis file tidak didukung), dengan alasannya bila ada (misalnya "too large · over 15 MB").
+Paling banyak 5 dokumen dibaca per Ask AI; sisanya bertuliskan "not read: only the first 5 are read per ask". Di
+sebelah judul baris tampil berapa karakter yang dibaca dari jatahnya, misalnya "read 14,200 of 15,000 characters".
 
 - Yang dibaca: Google Docs, Slides, Sheets, dan file Drive yang dibagikan ke **"Anyone with the link"**, serta file
   PDF, Word, PowerPoint, dan teks yang dilampirkan ke task (disimpan di server ZenCrevia).

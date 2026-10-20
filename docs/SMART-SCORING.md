@@ -809,6 +809,23 @@ outDoc(doc), createReader({fetch, limits, fileFor, now}) → {read(planned), rea
 exportUrl, allowedHop, isLogin, cleanDoc, cleanTitle, decodeText, zipEntries, zipRead, xmlText, officeText, pdfText,
 parseCMap, fileText, readable, fetchGoogle, dispositionName} }`.
 
+**The page** (Oct 2026). Settings → Smart Scoring → AI → "AI suggestions" (src/scoring-settings.js `scDocsSetHtml`):
+the switch `ai.readDocs` and under it the select `ai.docsChars` (`SC_DOCS_CHARS`, disabled while the switch is off —
+`scLivePaint` follows the draft), both disabled with a banner and a button to Settings → AI → Permissions while
+`aiCfg().processing.externalEnabled` is off, read-only for analytics holders; History names them (`SC_NAMED`, `scVal`
+gives the budget's label). The task panel (src/scoring-panel.js `scrDocsHtml`, under the rows): shown only when some
+module asks the AI (not math only), `ai.external !== false` and `found` is not empty; the workspace's switch is the
+settings' `ai.readDocs` when they have it, else `docs.on`; off → nothing, or for `canI.scoringConfigure()` one line
+`[data-scr-docs="off"]` linking to the settings. On → `[data-scr-docs="on"|"excluded"]` with "Documents for the AI",
+"read N of M characters" (M = `charsLimit`, else the settings' `docsChars`; without either "read N characters"), the
+switch `[data-scr-act="docs-use"]` (`canToggle`, else `canI.editTask`) that saves `meta.aiReadDocs:false` or deletes the
+key through `editTaskWith` (the task's own PUT), and one chip `.scr-doc[data-scr-doc=<ref>][data-kind][data-st]` per
+document: its kind's icon, its title (a link for an https ref), its status in words (`SCR_DOC_ST`), the reason in words
+(`SCR_DOC_WHY`; an unknown code left out; `not_public`'s own words say what to do; `limit`/`max_docs` names `maxDocs`).
+After Ask AI, `aiResult.docs` is kept per task (`SCR.docRun`) and shown over `found` for the same ref while `found`
+says "ready" or is not newer; a task left out shows every chip as "will not be sent". Tests:
+`tests/scoring-panel.test.js`, `tests/scoring-settings-sections.test.js`, `e2e/scoring-ai-docs.spec.js`.
+
 ---
 
 ## 6. Permissions
