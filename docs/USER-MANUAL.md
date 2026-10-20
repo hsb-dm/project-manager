@@ -161,12 +161,32 @@ untuk mengubahnya langsung. Seret baris ke baris lain untuk mengurutkan, atau ke
   minimum: Task 160 px, Est. 44 px, lainnya 60 px. **Klik dua kali** tepinya untuk lebar semula.
   Setelah kamu mengubah lebar, kolom Task mengisi sisa ruang.
 - **Keyboard** — fokuskan judul kolom dengan Tab: **Alt+←/→** memindahkan, **Alt+Shift+←/→**
-  mengubah lebar 16 px, **Enter** mengurutkan.
+  mengubah lebar 16 px, **Enter** mengurutkan, **Shift+F10** (atau tombol menu) membuka menunya.
 - Di layar sentuh (tablet), **tahan** judul kolom sebentar lalu geser; usapan biasa tetap
   menggulir tabel ke samping. Di ponsel List tampil sebagai kartu, jadi kolom tidak digeser di sana.
-- Urutan dan lebar disimpan **per orang** (ikut ke perangkat lain) dan berlaku juga di tab List
-  sebuah project. Tombol **Reset columns** (*Atur ulang kolom*) di sebelah **Group** (muncul bila ada yang berubah)
-  mengembalikan urutan dan lebar bawaan.
+
+*Pilih kolom yang tampil:*
+- Tombol **Columns** (*Kolom*) di sebelah **Group** membuka daftar semua kolom menurut urutannya.
+  Centang untuk menampilkan, hapus centang untuk menyembunyikan; tombol panah **naik / turun** di
+  tiap baris memindahkan kolom (urutan yang sama dengan menyeret judulnya). Tabel langsung
+  berubah dan daftarnya tetap terbuka. Bila ada yang disembunyikan, tombolnya menunjukkan jumlahnya
+  dalam lingkaran kecil (arahkan kursor ke tombol: *Kolom · 3 disembunyikan*); di tablet dan ponsel
+  tombolnya ikon mata dengan angka itu.
+- Kolom **Task** selalu tampil (*selalu tampil*).
+- **Show all** (*Tampilkan semua*) menampilkan semua kolom lagi; **Reset columns** di bawah daftar
+  sama dengan tombol di toolbar.
+- **Klik kanan** judul kolom (atau **Shift+F10** pada judul yang terfokus) memberi **Hide column**
+  (*Sembunyikan kolom*, tidak ada untuk Task) dan **Columns…** (*Kolom…*), yang membuka daftar tadi.
+- Di daftar: **↑/↓** pindah baris, **Spasi** mencentang, **Alt+↑/↓** memindahkan kolom, **Esc** atau
+  klik di luar menutupnya.
+- Kolom yang disembunyikan tidak digambar sama sekali (juga tidak di kartu ponsel), tetapi tetap di
+  tempatnya dalam urutan dan kembali ke sana saat ditampilkan lagi. Mengurutkan atau mengelompokkan
+  menurut kolom yang disembunyikan tetap bisa.
+
+- Urutan, lebar, dan kolom yang disembunyikan disimpan **per orang** (ikut ke perangkat lain) dan
+  berlaku juga di tab List sebuah project. Tombol **Reset columns** (*Atur ulang kolom*) di sebelah
+  **Group** (muncul bila ada yang berubah) mengembalikan urutan dan lebar bawaan dan menampilkan
+  semua kolom.
 
 **Grid** — seperti spreadsheet. Setiap sel menulis langsung ke task: judul, status, tim,
 assignee, reviewer, project, prioritas, tanggal mulai & jatuh tempo, estimasi, tag, dan
@@ -184,7 +204,8 @@ Seret bar untuk menggeser kedua tanggal; seret ujung kiri/kanannya untuk menguba
 - **Filters** — membuka modal filter; setiap filter aktif juga jadi chip yang bisa dilepas
 - **Sort** — Manual, Due date, Priority, Created, A → Z, Status, Team, Assignee, plus tombol balik urutan
 - **Group** — None, Status, Team, Assignee, Project, Priority, Due date (List & Grid)
-- **Reset columns** — urutan dan lebar kolom List kembali ke bawaan (List, hanya bila sudah diubah)
+- **Columns** — pilih kolom List yang tampil dan urutannya (List)
+- **Reset columns** — urutan dan lebar kolom List kembali ke bawaan, semua kolom tampil lagi (List, hanya bila sudah diubah)
 - **Fields** — kolom yang tampil (Grid)
 - Chip **n checked** — lihat di bawah
 - **Views** — view tersimpan
