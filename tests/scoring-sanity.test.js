@@ -546,3 +546,35 @@ test('a kind of the workspace\'s own makes sense: its own hours, more for more d
   assert.equal(S.kindOf('Instagram carousel', s.kinds), 'carousel', 'the list\'s order: a carousel before a feed post');
   for (const [title, not] of [['Copywriter onboarding', 'copy'], ['Promotion plan', 'video'], ['Adalah rapat', 'banner'], ['Ppts', 'deck']]) assert.notEqual(S.kindOf(title, s.kinds), not, title + ': not found inside another word');
 });
+
+/* the brief's documents read for the AI (server/scoring-docs.js): whatever the documents, one ask never sends more than
+   the workspace's budget, more than five documents or more of a document than it has; a document within its even
+   share is never cut; a larger budget never gives a document less; nothing is negative */
+test('the documents read for the AI make sense: never more than the budget or five documents, a short one whole, a larger budget never less', () => {
+  const docs = require('../server/scoring-docs');
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const words = n => Array.from({ length: Math.ceil(n / 6) + 1 }, (x, i) => 'kata' + (i % 10)).join(' ').slice(0, n);
+  for (let round = 0; round < 150; round++) {
+    const n = 1 + Math.floor(rnd() * 7);
+    const lens = Array.from({ length: n }, () => (rnd() < 0.25 ? 0 : Math.floor(rnd() * 9000)) + (rnd() < 0.2 ? 30000 : 0));
+    const planned = docs.plan(lens.map((l, i) => ({ ref: 'r' + i, key: 'k' + i, kind: 'gdoc', id: 'SANITY' + i + 'abcdef' })));
+    const read = planned.map((r, i) => (r.status === 'ready' ? Object.assign({}, r, { status: 'read', raw: words(lens[i]) }) : r));
+    const has = read.map(r => (r.status === 'read' ? Array.from(docs.pure.cleanDoc(r.raw).text).length : 0));
+    let prev = null;
+    for (const budget of docs.LIMITS.budgets) {
+      const out = docs.fit(read, budget), sent = out.filter(d => d.status === 'read');
+      const total = sent.reduce((a, d) => a + d.chars, 0);
+      assert.ok(total <= budget, 'round ' + round + ': ' + total + ' characters sent with a budget of ' + budget);
+      assert.ok(sent.length <= 5, 'never more than five documents');
+      assert.equal(out.filter(d => d.status === 'limit').length, Math.max(0, n - 5), 'the rest are over the limit, never dropped silently');
+      out.forEach((d, i) => {
+        if (d.status !== 'read') { assert.equal(d.text, undefined); return; }
+        assert.ok(d.chars >= 0 && d.chars <= has[i], 'no more of a document than it has');
+        if (has[i] <= Math.floor(budget / sent.length)) { assert.equal(d.cut, undefined, 'within its even share: whole'); assert.equal(d.chars, has[i]); }
+        else if (d.cut) assert.ok(d.chars >= Math.floor(budget / sent.length) - 1, 'a cut document gets at least its even share');
+        if (prev) assert.ok(d.chars >= prev[i].chars - 1, 'a larger budget never gives less: ' + prev[i].chars + ' → ' + d.chars);
+      });
+      prev = out;
+    }
+  }
+});

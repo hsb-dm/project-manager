@@ -3,7 +3,9 @@
    server/scoring-ai.js wired as server.js wires them, and the model injected — nothing reaches a provider. setup(o):
    o.model (prompt, info) → the reply's text (or {text, usage, provider, model}, or a thrown error); o.aiFetch (and
    o.aiConf) instead, to run the module's own call to the provider (retries included); o.feature false: COS_SCORING=0;
-   o.debounceMs: "AI on brief revision"'s wait. Not a test file itself (no .test.js). */
+   o.debounceMs: "AI on brief revision"'s wait; o.fetchDoc (url, init) → a Response, standing in for Google when the AI
+   reads a brief's documents (every address asked for is in k.fetched; without it nothing is fetched), o.docsLimits,
+   o.docsFileFor (a stored file's name → its path). Not a test file itself (no .test.js). */
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
@@ -36,6 +38,11 @@ function setup(o) {
   const scoring = require('../server/scoring')(db, WS, deps);
   const k = { db, routes, logs, calls, bumps, announced, scoring, model: o.model || (() => reply()) };
   const aiDeps = Object.assign({}, deps, { scoring, debounceMs: o.debounceMs || 40 });
+  /* the brief's documents: o.fetchDoc stands in for Google; without it any fetch is refused and noted in k.fetched */
+  k.fetched = [];
+  aiDeps.fetchDoc = async (url, init) => { k.fetched.push(url); if (o.fetchDoc) return o.fetchDoc(url, init); throw new Error('no network in tests'); };
+  if (o.docsLimits) aiDeps.docsLimits = o.docsLimits;
+  if (o.docsFileFor) aiDeps.docsFileFor = o.docsFileFor;
   if (o.aiFetch) { aiDeps.aiFetch = o.aiFetch; aiDeps.aiConf = o.aiConf || (() => ({ provider: 'openai', endpoint: 'https://api.openai.com/v1/chat/completions', key: 'k', model: 'gpt-test' })); }
   else aiDeps.callModel = async (prompt, info) => { calls.push({ prompt, info }); const r = await k.model(prompt, info); return typeof r === 'string' ? { text: r, usage: { in: 800, out: 140 }, provider: 'fake', model: 'fake-1' } : r; };
   k.ai = require('../server/scoring-ai')(db, WS, aiDeps);

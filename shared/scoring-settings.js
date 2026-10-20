@@ -23,6 +23,10 @@
    never removed, the admin's own "k_…" (ids from the server); each has asset points (new: unknownKind's) and, once
    typed, hours (low, high, next left out: ×0.5, ×1.5, 0.5).
 
+   The brief's documents (Oct 2026): ai.readDocs lets the AI read the documents a brief links to or has attached (off
+   by default; server/scoring-docs.js), ai.docsChars is how much of their text one ask sends in all — 5 000, 15 000
+   (the default) or 30 000 characters, nothing else.
+
    diffSettings(a, b) lists what changed, one leaf at a time ({path, from, to}; kinds by id), for the audit.
 
    The calculations themselves are in shared/scoring-engine.js, which takes the sub-objects of this shape
@@ -38,6 +42,8 @@ const FACTORS = ["complexity", "scope", "uncertainty", "dependencies"];
 const SCALE = [1, 2, 3, 5, 8, 13];
 const LOCK_POLICIES = ["approve", "approve_or_work_start"];
 const COMPARABLES = ["team", "none"];
+/* the characters of document text one AI ask may send in all (settings.ai.docsChars) */
+const DOCS_CHARS = [5000, 15000, 30000];
 const BASE_SOURCES = ["weighted_else_mapping", "mapping"];
 /* who sees each person's bars on the Teams screen (server/scoring-teams.js) */
 const MEMBER_BARS = ["self_and_leads", "everyone"];
@@ -166,8 +172,11 @@ function normalizeSettings(raw) {
   o.weighted = { weights: weights(w.weights, d.weighted.weights), scaleMax: int(w.scaleMax, 2, 100, d.weighted.scaleMax), mappingVersion: int(w.mappingVersion, 1, 1e6, d.weighted.mappingVersion) };
 
   const a = isObj(r.ai) ? r.ai : {}, da = d.ai;
+  /* readDocs: the AI may read the documents a brief links to or has attached (off by default; server/scoring-docs.js);
+     docsChars: how much of their text one ask sends in all — only the three sizes offered, anything else the default */
   o.ai = { minConfidence: num(a.minConfidence, 0, 1, da.minConfidence), onCreate: bool(a.onCreate, da.onCreate), onBriefRevision: bool(a.onBriefRevision, da.onBriefRevision),
-    perUserDaily: int(a.perUserDaily, 0, 1000, da.perUserDaily), workspaceDaily: int(a.workspaceDaily, 0, 100000, da.workspaceDaily), comparables: pick(a.comparables, COMPARABLES, da.comparables) };
+    perUserDaily: int(a.perUserDaily, 0, 1000, da.perUserDaily), workspaceDaily: int(a.workspaceDaily, 0, 100000, da.workspaceDaily), comparables: pick(a.comparables, COMPARABLES, da.comparables),
+    readDocs: bool(a.readDocs, da.readDocs), docsChars: pick(typeof a.docsChars === "string" && /^\d+$/.test(a.docsChars) ? +a.docsChars : a.docsChars, DOCS_CHARS, da.docsChars) };
   const v = isObj(r.overrides) ? r.overrides : {}, dv = d.overrides;
   o.overrides = { requireReason: bool(v.requireReason, dv.requireReason), requireApproval: bool(v.requireApproval, dv.requireApproval), allowSelfApproveEstimate: bool(v.allowSelfApproveEstimate, dv.allowSelfApproveEstimate) };
 
@@ -212,6 +221,6 @@ function diffSettings(a, b) {
 /* a module counts only with the master switch on */
 const moduleOn = (s, id) => !!(s && s.enabled && s.modules && s.modules[id] && s.modules[id].on);
 
-const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, CUSTOM_ID, LOCK_POLICIES, COMPARABLES, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
+const model = { DEFAULTS, defaults, normalizeSettings, diffSettings, moduleOn, MODES, PRIMARY_CAPACITY, FACTORS, SCALE, KINDS: KIND_IDS, CUSTOM_ID, LOCK_POLICIES, COMPARABLES, DOCS_CHARS, MEMBER_BARS, ASSET_POINTS: Object.freeze(Object.assign({}, ASSET_POINTS)) };
 if (typeof module !== "undefined" && module.exports) module.exports = model; else root.ScoringSettings = model;
 })(typeof window !== "undefined" ? window : this);

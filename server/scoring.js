@@ -211,6 +211,11 @@ module.exports = function scoring(db, WS_ID, d) {
     const v = b.meta.kind, k = typeof v === "string" ? settings().kinds.find(x => x.id === v) : null;
     if (!k || !(k.active || (cur && isObj(cur.meta) && cur.meta.kind === v))) delete b.meta.kind;
   }
+  /* a task that keeps its documents from the AI (Oct 2026, server/scoring-docs.js): meta.aiReadDocs is false, or not
+     there at all (the workspace's switch decides) — anything else sent is dropped. Whoever may save the task may set it. */
+  function cleanReadDocs(b) {
+    if (b && isObj(b.meta) && Object.prototype.hasOwnProperty.call(b.meta, "aiReadDocs") && b.meta.aiReadDocs !== false) delete b.meta.aiReadDocs;
+  }
 
   route("GET", "/api/scoring/settings", (u) => { on(); return { settings: settings(), audit: seesAudit(u) ? settingsAudit() : [] }; });
 
@@ -484,7 +489,7 @@ module.exports = function scoring(db, WS_ID, d) {
   const hoursLocked = id => { const r = db.prepare("SELECT status FROM task_scoring WHERE task_id=? AND module='hours'").get(id); return !!r && LOCKED.has(r.status); };
   /* PUT /api/tasks/:id — after the concurrent-edit merge (and a slim copy's), before the task is cleaned and saved */
   function guardTaskWrite(u, cur, b) {
-    cleanKind(cur, b);
+    cleanKind(cur, b); cleanReadDocs(b);
     if (!timeLogMode() || !b || !cur) return;
     if (hoursLocked(cur.id)) {
       if (b.effort === undefined) b.effort = cur.effort;
@@ -493,10 +498,10 @@ module.exports = function scoring(db, WS_ID, d) {
     keepActual(cur, b);
   }
   /* POST /api/tasks: a new task has logged no time */
-  function guardNewTask(u, b) { cleanKind(null, b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
+  function guardNewTask(u, b) { cleanKind(null, b); cleanReadDocs(b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
   /* POST /api/restore/task/:id: a locked estimate and the logged Actual stay as they are now */
   function guardRestore(u, cur, next) {
-    cleanKind(cur, next);
+    cleanKind(cur, next); cleanReadDocs(next);
     if (!timeLogMode() || !cur || !next) return;
     if (hoursLocked(cur.id)) next.effort = cur.effort;
     keepActual(cur, next);

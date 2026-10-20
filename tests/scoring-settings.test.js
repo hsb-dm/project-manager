@@ -71,7 +71,7 @@ test('whatever arrives is held to the shape', () => {
     hours: { templates: { feed: { perUnit: 999, low: -4, high: 1, nextUnitFactor: 9, junk: 1 }, story: { perUnit: '2.5' }, made_up: { perUnit: 3 } }, complexity: { 1: 0, 5: 99, 6: 2 }, dependency: { 0: 'x' }, bounds: { min: 50, max: 10 }, lockPolicy: 'never' },
     story: { scale: [1, 2, 100], thresholds: [4.5, 9, '2', 1, -3] },
     weighted: { weights: { complexity: 50, scope: 30, uncertainty: 15, dependencies: 5, luck: 90 }, scaleMax: 1000, mappingVersion: -2 },
-    ai: { minConfidence: 7, onCreate: 1, perUserDaily: -5, workspaceDaily: 1e9, comparables: 'everyone' },
+    ai: { minConfidence: 7, onCreate: 1, perUserDaily: -5, workspaceDaily: 1e9, comparables: 'everyone', readDocs: 'yes', docsChars: 12000 },
     bonus: { on: true, grace: 3, perPeriodCap: 50, negative: true, retroactive: true, independentApproval: false, allowSelfApproval: true, completionStages: ['done', 'bad id!', 'done'], pilotTeams: 'all', minQuality: 9, hourMapping: { bands: [[8, 5], [1, 1], [8, 7]] } }
   });
   assert.equal(n.enabled, false, 'not a boolean: the default');
@@ -90,7 +90,7 @@ test('whatever arrives is held to the shape', () => {
   assert.deepEqual(S.normalizeSettings({ story: { thresholds: [1, 2] } }).story.thresholds, [1.5, 2.5, 3.5, 4.25, 4.75], 'five or the defaults');
   assert.deepEqual(n.weighted.weights, { complexity: 0.5, scope: 0.3, uncertainty: 0.15, dependencies: 0.05 }, 'percentages work; unknown factors dropped');
   assert.equal(n.weighted.scaleMax, 100); assert.equal(n.weighted.mappingVersion, 1);
-  assert.deepEqual(n.ai, { minConfidence: 1, onCreate: false, onBriefRevision: false, perUserDaily: 0, workspaceDaily: 100000, comparables: 'team' });
+  assert.deepEqual(n.ai, { minConfidence: 1, onCreate: false, onBriefRevision: false, perUserDaily: 0, workspaceDaily: 100000, comparables: 'team', readDocs: false, docsChars: 15000 });
   assert.equal(n.bonus.on, true, 'the bonus switch itself is the caller\'s (the server keeps it off until the awards ship)');
   assert.equal(n.bonus.grace, 0.9);
   assert.equal(n.bonus.perPeriodCap, null); assert.equal(n.bonus.negative, false); assert.equal(n.bonus.retroactive, false);
