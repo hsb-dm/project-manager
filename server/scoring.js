@@ -351,6 +351,8 @@ module.exports = function scoring(db, WS_ID, d) {
   /* server/scoring-ai.js: whether a row's AI suggestion may be taken now — fn(row, task, module, settings) →
      {ok, status?, error?, far?, marks?}; without it {use:"ai"} is refused */
   let aiGuard = null;
+  /* server/scoring-ai.js: PUT /api/tasks/:id/scoring/context, the team's context for the AI — fn(u, p, q, b, ctx) */
+  let contextPut = null;
   function sourceFromMeta(meta, dflt) {
     const a = meta && meta.effortAuto;
     if (a && a.src === "ai") return "ai";
@@ -519,7 +521,8 @@ module.exports = function scoring(db, WS_ID, d) {
     if (aw && aw.n) audit({ taskId, module: "efficiency", action: "removed_with_task", actor: actorId, impersonatedBy: imp, meta: { awards: aw.n } });
     const ol = get("SELECT count(*) n FROM task_outcome_links WHERE task_id=?");
     if (ol && ol.n) audit({ taskId, module: "outcomes", action: "removed_with_task", actor: actorId, impersonatedBy: imp, meta: { links: ol.n } });
-    ["task_scoring", "task_time_entries", "task_efficiency_awards", "task_outcome_links"].forEach(tb => { try { db.prepare("DELETE FROM " + tb + " WHERE task_id=?").run(taskId); } catch (e) { /* a table this database does not have */ } });
+    /* the team's context for the AI (server/scoring-ai.js) goes with the task, without an audit line: it is no score */
+    ["task_scoring", "task_time_entries", "task_efficiency_awards", "task_outcome_links", "scoring_ai_context"].forEach(tb => { try { db.prepare("DELETE FROM " + tb + " WHERE task_id=?").run(taskId); } catch (e) { /* a table this database does not have */ } });
   }
 
   /* The AI's suggestion for a score (server/scoring-ai.js): only ai_value and ai_run_id are written — never the final
@@ -657,7 +660,10 @@ module.exports = function scoring(db, WS_ID, d) {
     return answer(u, t.id, { result: { module: r.module, value: r.value, final: r.final, finalSet: r.finalSet, unit: r.unit, low: r.low === undefined ? null : r.low, high: r.high === undefined ? null : r.high, index: r.index === undefined ? null : r.index, split: !!r.split, reason: r.reason || null, missing: r.missing || [], mappingVersion: r.mappingVersion === undefined ? null : r.mappingVersion, inputs: r.inputs, steps: r.steps, explanation: r.explanation, suggestions: r.suggestions } });
   });
 
-  route("PUT", "/api/tasks/:id/scoring/:module", (u, p, q, b) => {
+  route("PUT", "/api/tasks/:id/scoring/:module", (u, p, q, b, ctx) => {
+    /* PUT …/scoring/context is server/scoring-ai.js's (the team's context for the AI): the server's router takes the
+       first route that matches, and this one is registered first */
+    if (p.module === "context" && contextPut) return contextPut(u, p, q, b, ctx);
     on();
     const t = taskOr404(p.id), m = moduleParam(p.module); b = isObj(b) ? b : {};
     const edit = can.scoringEditTask(u, t), propose = can.scoringPropose(u, t);
@@ -791,6 +797,7 @@ module.exports = function scoring(db, WS_ID, d) {
        suggestion write, and the check {use:"ai"} asks of it */
     ai: {
       guard: fn => { aiGuard = typeof fn === "function" ? fn : null; },
+      contextRoute: fn => { contextPut = typeof fn === "function" ? fn : null; },
       requireFeature: on, taskOr404, moduleParam, writable, liteTask, readRows, openDeps, answer, setSuggestion: setAiSuggestion,
       completed: statusId => completedStage(statusId, settings()), isAssignee, LOCKED, NAME
     }

@@ -5,7 +5,8 @@
    o.aiConf) instead, to run the module's own call to the provider (retries included); o.feature false: COS_SCORING=0;
    o.debounceMs: "AI on brief revision"'s wait; o.fetchDoc (url, init) → a Response, standing in for Google when the AI
    reads a brief's documents (every address asked for is in k.fetched; without it nothing is fetched), o.docsLimits,
-   o.docsFileFor (a stored file's name → its path). Not a test file itself (no .test.js). */
+   o.docsFileFor (a stored file's name → its path). k.context(id, body, u) saves the team's context for the AI
+   (PUT …/scoring/context) and k.contextRow(id) reads its row. Not a test file itself (no .test.js). */
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
@@ -67,6 +68,8 @@ function setup(o) {
   k.put = (id, m, body, u) => k.call('PUT', '/api/tasks/:id/scoring/:module', u || k.admin, { id, module: m }, body);
   k.calc = (id, body, u) => k.call('POST', '/api/tasks/:id/scoring/calculate', u || k.admin, { id }, body);
   k.approve = (id, m, body, u) => k.call('POST', '/api/tasks/:id/scoring/:module/approve', u || k.admin, { id, module: m }, body || {});
+  k.context = (id, body, u) => k.call('PUT', '/api/tasks/:id/scoring/context', u || k.admin, { id }, body);
+  k.contextRow = id => db.prepare('SELECT * FROM scoring_ai_context WHERE task_id=?').get(id);
   k.runs = id => db.prepare('SELECT * FROM scoring_ai_runs WHERE task_id=? ORDER BY created_at, rowid').all(id);
   k.row = (id, m) => db.prepare('SELECT * FROM task_scoring WHERE task_id=? AND module=?').get(id, m);
   k.processing();

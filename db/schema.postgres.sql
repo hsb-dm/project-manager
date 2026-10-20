@@ -279,6 +279,11 @@ CREATE TABLE IF NOT EXISTS scoring_ai_runs (
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_cache ON scoring_ai_runs(task_id, input_hash, config_version);
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_user ON scoring_ai_runs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_ws ON scoring_ai_runs(workspace_id, created_at);
+CREATE TABLE IF NOT EXISTS scoring_ai_context (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE, workspace_id TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '', checks JSONB NOT NULL DEFAULT '[]'::jsonb, user_id TEXT, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_context_ws ON scoring_ai_context(workspace_id, updated_at);
 CREATE TABLE IF NOT EXISTS outcome_objectives (
   id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), title TEXT NOT NULL, description TEXT DEFAULT '',
   period_start TEXT, period_end TEXT, owner_id TEXT,

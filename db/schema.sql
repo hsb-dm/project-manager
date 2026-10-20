@@ -289,6 +289,14 @@ CREATE TABLE IF NOT EXISTS scoring_ai_runs (
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_cache ON scoring_ai_runs(task_id, input_hash, config_version);
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_user ON scoring_ai_runs(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_scoring_ai_ws ON scoring_ai_runs(workspace_id, created_at);
+-- What the team told the AI about a task beyond its brief (Oct 2026, server/scoring-ai.js): a note (≤ 1 000 characters)
+-- and the assumptions of an earlier suggestion they marked right or wrong (checks: JSON [{a, ok, fix?}], ≤ 8). One row per
+-- task, sent with every Ask AI for it; never copied with a duplicate; removed with the task (archiving keeps it).
+CREATE TABLE IF NOT EXISTS scoring_ai_context (
+  task_id TEXT PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE, workspace_id TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '', checks TEXT NOT NULL DEFAULT '[]', user_id TEXT, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_scoring_ai_context_ws ON scoring_ai_context(workspace_id, updated_at);
 -- KPI and OKR: Objectives, and one metric model for KPI indicators and Key Results (kind). Progress comes only from
 -- evidence (evidence_rule: JSON {type:'approved_assets'|'tasks_completed'|'manual', filter:{team,project,label}}) or a
 -- manual value with a reason (outcome_values).

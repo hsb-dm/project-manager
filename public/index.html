@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="aa0c8b100657">
+<meta name="zc-build" content="0b854c010b8b">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -6222,10 +6222,11 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
      factors (the four ratings, whole numbers 1–5), hours (above 0, kept within settings.hours.bounds), storyPoints
      (only 1, 2, 3, 5, 8 or 13), weightedPoints (kept within 1–settings.weighted.scaleMax), confidence (0–1; above 1
      up to 100 is read as a percentage, above 100 dropped), explanation (600 characters at most), assumptions and
-     missing (8 items of 200 characters at most), comparables (8 task ids at most) and outcomes (8 {metricId, why} at
-     most, why 200 characters). Every other key is dropped; numbers written as text are read; each fix is a sentence
-     in `errors`. ok is true when hours, story points, weighted points or a factor rating survived; value is the
-     cleaned reply then, and null otherwise.
+     missing (8 items of 200 characters at most), comparables (8 task ids at most), outcomes (8 {metricId, why} at
+     most, why 200 characters) and contextEffect (300 characters at most: how the team's own context for the task
+     changed the estimate; an empty one is the same as none, so it is left out). Every other key is dropped; numbers
+     written as text are read; each fix is a sentence in `errors`. ok is true when hours, story points, weighted
+     points or a factor rating survived; value is the cleaned reply then, and null otherwise.
 
    inputHash(task) → 16 hexadecimal characters
      FNV-1a (two 32-bit passes) over the task as the AI is told about it: title, description, brief fields (the
@@ -6813,7 +6814,7 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
   }
 
   /* ---------- what the AI says, cleaned before anything stores it ---------- */
-  const AI_KEYS = ['kind', 'deliverables', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes'];
+  const AI_KEYS = ['kind', 'deliverables', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes', 'contextEffect'];
   const ID_TEXT = /^[-\w.:]{1,64}$/;
   const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const short = v => Array.from(typeof v === 'string' ? v : JSON.stringify(v) || String(v)).slice(0, 40).join('');
@@ -6920,6 +6921,10 @@ const model={canCreate,canManage,canView,canDuplicate,normalise,image,roleLimit,
         if (out.length > 8) errors.push('Only the first 8 outcomes were kept.');
         if (out.length) v.outcomes = out.slice(0, 8);
       }
+    }
+    if (has('contextEffect')) {
+      if (typeof reply.contextEffect !== 'string') errors.push('contextEffect is not text; dropped.');
+      else { const c = cut(reply.contextEffect, 300); if (c.cut) errors.push('contextEffect shortened to 300 characters.'); if (c.text) v.contextEffect = c.text; }
     }
     const ok = ['hours', 'storyPoints', 'weightedPoints', 'factors'].some(k => hasOwn(v, k));
     if (!ok) errors.push('The reply has no usable hours, points or factor ratings.');
