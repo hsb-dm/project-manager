@@ -533,8 +533,9 @@ dimatikan lagi, semua angka, riwayat, dan audit tetap tersimpan.
 
 ### Menyalakan
 
-**Settings → Smart Scoring** (tepat setelah Automation). Tab ini dibagi menjadi tujuh kelompok di menu kiri (di HP
-menjadi deretan chip yang bisa digeser), dan hanya satu kelompok yang tampil sekaligus:
+**Settings → Smart Scoring** (tepat setelah Automation). Tab ini dibagi menjadi tujuh kelompok, berupa deretan tab di
+atas isinya seperti di AI & integrations (di tablet dan HP menjadi deretan chip yang bisa digeser), dan hanya satu
+kelompok yang tampil sekaligus:
 
 | Kelompok | Isinya |
 |---|---|

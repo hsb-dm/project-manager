@@ -21,9 +21,9 @@ async function signIn(page, who) {
 const setScoring = (page, patch) => page.evaluate(async patch => { const cur = (await apiFetch("GET", "/api/scoring/settings")).settings, next = JSON.parse(JSON.stringify(cur));
   (function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") merge(a[k], b[k]); else a[k] = b[k]; }); })(next, patch);
   const r = await apiFetch("PUT", "/api/scoring/settings", { settings: next, configVersion: cur.configVersion }); WS.scoring = r.settings; return r.settings; }, patch);
-/* Settings → Smart Scoring shows one group at a time once it has its sub-menu: the group is picked by its name (without
-   the sub-menu every section is on the page); saved as the tab saves (its Save bar calls the same function) */
-const group = async (page, name) => { const c = page.locator("#content"), b = c.getByRole("button", { name }).or(c.getByRole("link", { name })); if (await b.count()) await b.first().click(); };
+/* Settings → Smart Scoring shows one group at a time: the group is picked by its name in the row of tabs above the
+   content; saved as the tab saves (its Save bar calls the same function) */
+const group = (page, name) => page.locator("#content").getByRole("tablist", { name: "Smart Scoring" }).getByRole("tab", { name }).click();
 const save = page => page.evaluate(() => scSaveClick());
 
 test("the Teams bars sit under the utilization bars, explain themselves, follow who may see them and the admin's setting, never blink, fit a phone; off, nothing changes", async ({ browser }) => {

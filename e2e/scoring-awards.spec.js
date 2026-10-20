@@ -111,8 +111,7 @@ test("the efficiency bonus: the line with 1.10 and 9.10, approved by someone ind
     /* Settings → Smart Scoring → Efficiency bonus: the worked example follows the fields, the grace and the largest bonus
        at hand, the rest of the policy under a closed "Advanced" */
     await page.evaluate(() => { closeDrawer(); go("settings", "scoring"); });
-    const group = page.locator("#content").getByRole("button", { name: /^Review/ }).or(page.locator("#content").getByRole("link", { name: /^Review/ }));
-    if (await group.count()) await group.first().click();   /* the tab's sub-menu, once it has one */
+    await page.locator("#content").getByRole("tablist", { name: "Smart Scoring" }).getByRole("tab", { name: /^Review/ }).click();   /* its tab above the content */
     const example = page.locator("#sceExample");
     await expect(example).toContainText("Example: E 8 h, A 5 h, B 8 pts → bonus +1.10, earned 9.10");
     await expect(example).toContainText("E = the approved estimate, A = the time logged, B = the task's base points.");

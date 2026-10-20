@@ -43,9 +43,14 @@ test("settings, screens and the export dialog fit a phone", async ({ page }) => 
     for (const t of ["profile", "layout", "workspace", "theme", "workflow", "automation", "scoring", "briefs", "fields", "labels", "tags", "members", "roles", "teams", "notifications", "integrations", "backup"]) {
       await page.evaluate(t => { S.settingsTab = t; go("settings"); renderScreen(); }, t); found["settings:" + t] = await scan(page);
     }
-    /* Smart Scoring: each of its groups, the chips row scrolling sideways */
+    /* Smart Scoring: each of its groups, picked from its tabs, which on a phone are one row of chips scrolling sideways */
+    await page.evaluate(() => go("settings", "scoring/overview"));
+    const chips = page.getByRole("tablist", { name: "Smart Scoring" });
+    expect(await chips.evaluate(u => { const c = getComputedStyle(u); return [c.flexWrap, c.overflowX, u.scrollWidth > u.clientWidth]; })).toEqual(["nowrap", "auto", true]);
     for (const g of ["overview", "estimating", "output", "ai", "review", "access", "history"]) {
-      await page.evaluate(g => { go("settings", "scoring/" + g); document.querySelectorAll("#content details").forEach(d => { d.open = true; }); }, g); found["settings:scoring:" + g] = await scan(page);
+      await chips.locator('[role="tab"][data-g="' + g + '"]').click();
+      await expect(chips.locator('[aria-selected="true"]')).toHaveAttribute("data-g", g);
+      await page.evaluate(() => document.querySelectorAll("#content details").forEach(d => { d.open = true; })); found["settings:scoring:" + g] = await scan(page);
     }
     for (const sec of ["overview", "models", "limits", "prompts", "providers", "permissions", "privacy"]) {
       await page.evaluate(s => { S.settingsTab = "ai"; S.aiSettingsSection = s; go("settings"); renderScreen(); }, sec); found["settings:ai:" + sec] = await scan(page);

@@ -1,8 +1,8 @@
 <script>
 /* ============================================================
    SETTINGS → SMART SCORING (Oct 2026)
-   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md). Seven groups in a menu
-   on the left (chips on a phone), one shown at a time and named in the address (/settings/scoring/estimating), so
+   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md). Seven groups as tabs
+   on top (chips up to 1100px), one shown at a time and named in the address (/settings/scoring/estimating), so
    links and Back/Forward work; the last group and opened "Advanced" folds are kept per person on the device. A group
    is drawn from the edits kept in memory. One Save bar shows while they differ from what is saved (Discard, Save with
    the version they were made on; someone saved in between: theirs is loaded and the person is told); leaving Settings
@@ -164,11 +164,12 @@ function setScoring(){
   var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
   scDraft(); var ed=canI.scoringConfigure(), g=scGroup(), n=scCount();
   setTimeout(scLoadOnce,0); setTimeout(function(){ scTotalsPaint(); scNavScroll(); },0);
-  return '<div class="scr-shell"><nav class="scr-nav" aria-label="Smart Scoring"><ul>'+SC_GROUPS.map(function(x){
-      return '<li><a href="'+attr(routeBuild("settings","scoring/"+x[0]))+'" data-g="'+x[0]+'"'+(x[0]===g?' class="on" aria-current="page"':'')+' onclick="return scGo(\''+x[0]+'\',event)">'+(I[x[2]]||"")+'<span>'+tr(x[1])+'</span></a></li>'; }).join("")+'</ul></nav>'
-    + '<div class="scr-main">'+(ed?'':'<div class="banner scr-ro">'+I.eye+'<span>'+tr(SC_T.ro)+'</span></div>')+'<div id="scrBody">'+scGroupHtml(g,!ed,ed)+'</div>'
+  return '<div class="subnav scr-nav" role="tablist" aria-label="Smart Scoring" onkeydown="scTabKey(event)">'+SC_GROUPS.map(function(x){ var on=x[0]===g;
+      return '<a role="tab" id="scrTab-'+x[0]+'" aria-controls="scrBody" aria-selected="'+on+'" href="'+attr(routeBuild("settings","scoring/"+x[0]))+'" data-g="'+x[0]+'"'+(on?' class="on"':'')+' onclick="return scGo(\''+x[0]+'\',event)">'+(I[x[2]]||"")+'<span>'+tr(x[1])+'</span></a>'; }).join("")+'</div>'
+    + '<div class="scr-main">'+(ed?'':'<div class="banner scr-ro">'+I.eye+'<span>'+tr(SC_T.ro)+'</span></div>')+'<div id="scrBody" role="tabpanel" aria-labelledby="scrTab-'+g+'">'+scGroupHtml(g,!ed,ed)+'</div>'
     + (ed?'<div class="scr-bar'+(n?" on":"")+'" id="scrBar" role="region" aria-label="'+attr(tr("Unsaved changes"))+'"><b class="scr-bar-n" aria-live="polite">'+scCountText(n)+'</b><span class="spacer"></span><button type="button" class="btn" onclick="scDiscard()">'+tr("Discard")+'</button><button type="button" class="btn primary" onclick="scSaveClick()">'+tr("Save")+'</button></div>':'')
-    + '</div></div>'; }
+    + '</div>'; }
+function scTabKey(e){ var t=e.target; if(e.key===" "&&t.getAttribute("role")==="tab"){ e.preventDefault(); t.click(); } }
 function scHook(name,ro,ed){ var f=window[name]; return typeof f==="function"?f(ro,ed)||"":""; }
 function scGroupHtml(g,ro,ed){ var x=SC_GROUPS.filter(function(x){ return x[0]===g; })[0], h;
   if(g==="estimating") h=scHook("scoringKindsSettingsHtml",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
@@ -188,12 +189,12 @@ function scGo(g,e,sec){ if(e&&(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.but
   scPaintGroup(sec,true); routeSync(); return false; }
 function scPaintGroup(sec,focus){ var body=document.getElementById("scrBody"); if(!body||!scDraft()) return; var g=scGroup(), ed=canI.scoringConfigure();
   body.innerHTML=scGroupHtml(g,!ed,ed); localizeVisibleText(body); scTotalsPaint(); scBarPaint();
-  document.querySelectorAll(".scr-nav a").forEach(function(a){ var on=a.getAttribute("data-g")===g; a.classList.toggle("on",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  scNavScroll(); var t=sec&&body.querySelector('[data-scr-sec="'+sec+'"]');
+  document.querySelectorAll(".scr-nav a").forEach(function(a){ var on=a.getAttribute("data-g")===g; a.classList.toggle("on",on); a.setAttribute("aria-selected",String(on)); });
+  body.setAttribute("aria-labelledby","scrTab-"+g); scNavScroll(); var t=sec&&body.querySelector('[data-scr-sec="'+sec+'"]');
   if(focus) document.getElementById("scrGh").focus(); if(t) t.scrollIntoView({block:"start"}); }
 function scRepaint(){ var y=appScrollTop(); scPaintGroup(); appScrollTop(y); }
-/* on a phone the chosen chip is kept in sight */
-function scNavScroll(){ var ul=document.querySelector(".scr-nav ul"), a=ul&&ul.querySelector("a.on"); if(a&&ul.scrollWidth>ul.clientWidth) ul.scrollLeft=Math.max(0,a.parentNode.offsetLeft-ul.offsetLeft-24); }
+/* on a tablet or phone the chosen chip is kept in sight */
+function scNavScroll(){ var n=document.querySelector(".scr-nav"), a=n&&n.querySelector("a.on"); if(a&&n.scrollWidth>n.clientWidth) n.scrollLeft=Math.max(0,a.offsetLeft-n.offsetLeft-24); }
 function scDiscard(){ if(!SC.saved) return; SC.draft=clone(SC.saved); SC.dirty=false; scRepaint(); }
 
 /* ---------- Overview ---------- */

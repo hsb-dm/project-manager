@@ -559,9 +559,9 @@ body{overflow:hidden}
 .ag-quota-pill.warn{color:var(--color-danger);opacity:1}
 /* §P1-3 AI settings sub-navigation */
 .subnav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:var(--sp-4);padding:4px;background:var(--color-surface-sunken);border-radius:var(--pill)}
-.subnav button{padding:6px 14px;border-radius:var(--pill);font-size:var(--fs-sm);font-weight:600;color:var(--color-text-secondary);background:none;border:0;cursor:pointer}
-.subnav button:hover{color:var(--color-text-primary)}
-.subnav button.on{background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 1px 2px rgba(17,18,20,.08)}
+.subnav :is(button,a){padding:6px 14px;border-radius:var(--pill);font-size:var(--fs-sm);font-weight:600;color:var(--color-text-secondary);background:none;border:0;cursor:pointer}
+.subnav :is(button,a):hover{color:var(--color-text-primary)}
+.subnav :is(button,a).on{background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 1px 2px rgba(17,18,20,.08)}
 /* §P1-4 guided SMTP setup — numbered steps keep a long form legible */
 .setup-step{display:flex;gap:12px;padding:14px 0;border-top:1px solid var(--color-border)}
 .setup-step:first-of-type{border-top:0;padding-top:4px}

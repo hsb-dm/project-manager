@@ -2,8 +2,9 @@
    and a module on and off and it stays across a reload; weights that do not add up to 100% are never saved. The tab is
    there only for whoever may set it up (or see it): a member has none, a role given scoring_manage_workspace has it.
    In Roles & permissions a role that can both change scores and approve them is warned. Team Lead and Creative Lead
-   get the approval and analytics permissions in one click. The tab is seven groups in a menu (chips on a phone), one
-   shown at a time and named in the address, Back and Forward stepping through them; one Save bar counts the changes,
+   get the approval and analytics permissions in one click. The tab is seven groups in a row of tabs above the content,
+   drawn as AI & integrations draws its sections (chips that scroll sideways on a tablet or phone), one shown at a time
+   and named in the address, Back and Forward stepping through them; one Save bar counts the changes,
    Discard puts the saved values back, and leaving Settings with changes asks first; the Advanced folds stay as each
    person left them. Everything is put back as it was. The server side: tests/scoring-settings-route.test.js. */
 const { test, expect } = require("@playwright/test");
@@ -20,7 +21,9 @@ const tabs = page => page.locator(".settings .snav button").evaluateAll(b => b.m
 const stored = page => page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
 /* back to what it was, whatever version it is on now */
 const putBack = (page, original) => page.evaluate(async o => { const cur = await apiFetch("GET", "/api/scoring/settings"); await apiFetch("PUT", "/api/scoring/settings", { settings: o, configVersion: cur.settings.configVersion }); WS.scoring = (await apiFetch("GET", "/api/scoring/settings")).settings; if (typeof SC !== "undefined") { SC.draft = null; SC.saved = null; } }, original);
-const group = (page, g) => page.locator('.scr-nav a[data-g="' + g + '"]').click();
+const tablist = page => page.getByRole("tablist", { name: "Smart Scoring" });
+const tab = (page, g) => tablist(page).locator('[role="tab"][data-g="' + g + '"]');
+const group = (page, g) => tab(page, g).click();
 const saveBar = page => page.locator("#scrBar");
 
 test("the admin turns Smart Scoring and a module on and off, it stays across a reload, and weights must add up to 100%", async ({ page }) => {
@@ -92,7 +95,7 @@ test("the admin turns Smart Scoring and a module on and off, it stays across a r
     await group(page, "overview");
     await page.evaluate(() => { setLanguage("id"); renderScreen(false); });
     await expect(page.locator("#content section.panel h2").nth(1)).toHaveText("Modul");
-    await expect(page.locator('.scr-nav a[data-g="estimating"]')).toHaveText("Estimasi");
+    await expect(tab(page, "estimating")).toHaveText("Estimasi");
     await expect(page.locator("#scrGh")).toHaveText("Ringkasan");
     await page.evaluate(() => { setLanguage("en"); renderScreen(false); });
   } finally {
@@ -102,30 +105,47 @@ test("the admin turns Smart Scoring and a module on and off, it stays across a r
   expect(back.enabled).toBe(false); expect(back.weighted.weights).toEqual(original.weighted.weights);
 });
 
-test("the groups: one at a time, named in the address, Back and Forward step through them, and the last one opens again", async ({ page }) => {
+test("the groups: tabs on top as in AI & integrations, one at a time, named in the address, Back and Forward step through them, and the last one opens again", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
   await signIn(page, ADMIN);
   const errors = []; page.on("pageerror", e => errors.push(e.message));
+  /* the row of tabs is AI & integrations' own: the same class, colours, font, spacing and chosen tab */
+  const look = sel => page.evaluate(s => { const n = document.querySelector(s), t = n.querySelector(".on"), a = getComputedStyle(n), b = getComputedStyle(t), r = n.getBoundingClientRect();
+    return [n.classList[0], n.getAttribute("role"), t.getAttribute("role"), t.getAttribute("aria-selected"), a.backgroundColor, a.padding, a.borderRadius, a.marginBottom, b.font, b.padding, b.color, b.backgroundColor, b.boxShadow, Math.round(t.getBoundingClientRect().height), Math.round(r.left), Math.round(r.top), Math.round(r.width)]; }, sel);
+  await page.evaluate(() => { S.aiSettingsSection = "overview"; go("settings", "ai"); });
+  const ai = await look("#content .subnav");
   await page.evaluate(() => go("settings", "scoring/overview"));
   await expect(page).toHaveURL(/\/settings\/scoring\/overview$/);
-  const nav = page.locator(".scr-nav");
-  await expect(nav.locator("a")).toHaveText(["Overview", "Estimating", "Output & goals", "AI", "Review & bonus", "Access & visibility", "History"]);
-  await expect(nav.locator('a[aria-current="page"]')).toHaveAttribute("data-g", "overview");
+  const nav = tablist(page);
+  await expect(nav.getByRole("tab")).toHaveText(["Overview", "Estimating", "Output & goals", "AI", "Review & bonus", "Access & visibility", "History"]);
+  expect(await look(".scr-nav")).toEqual(ai);
+  /* on a desktop the tabs sit above the first section, and the content takes the full width: no menu beside it */
+  const box = await page.evaluate(() => { const n = document.querySelector(".scr-nav").getBoundingClientRect(), b = document.getElementById("scrBody").getBoundingClientRect(), s = document.querySelector("#scrBody section.panel").getBoundingClientRect();
+    return { nav: [n.top, n.bottom, n.left, n.width], body: [b.left, b.width], sec: [s.top, s.left, s.width], icons: [...document.querySelectorAll(".scr-nav svg")].filter(x => x.getBoundingClientRect().width).length }; });
+  expect(box.nav[0]).toBeLessThan(box.sec[0]); expect(box.nav[1]).toBeLessThan(box.sec[0]);
+  for (const x of [box.body[0], box.sec[1]]) expect(Math.abs(x - box.nav[2])).toBeLessThanOrEqual(1);
+  for (const w of [box.body[1], box.sec[2]]) expect(Math.abs(w - box.nav[3])).toBeLessThanOrEqual(1);
+  expect(box.icons).toBe(0);   /* text only, as in AI & integrations */
+  await expect(nav.locator('[aria-selected="true"]')).toHaveAttribute("data-g", "overview");
+  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "scrTab-overview");
   await expect(page.locator('[data-scr-sec="master"]')).toBeVisible();
   await expect(page.locator('[data-scr-sec="story"]')).toHaveCount(0);   /* only the chosen group is drawn */
   /* a group is drawn in place: the rest of Settings is not redrawn, the heading takes the focus */
   await page.evaluate(() => { document.querySelector(".settings .snav").dataset.kept = "1"; });
-  await nav.locator('a[data-g="estimating"]').click();
+  await tab(page, "estimating").click();
   await expect(page).toHaveURL(/\/settings\/scoring\/estimating$/);
   await expect(page.locator("#scrGh")).toBeFocused();
   await expect(page.locator("#scrGh")).toHaveText("Estimating");
-  await expect(nav.locator('a[aria-current="page"]')).toHaveAttribute("data-g", "estimating");
+  await expect(nav.locator('[aria-selected="true"]')).toHaveAttribute("data-g", "estimating");
+  await expect(nav.locator('[aria-selected="false"]')).toHaveCount(6);
+  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "scrTab-estimating");
   await expect(page.locator('[data-scr-sec="hours"]')).toBeVisible(); await expect(page.locator('[data-scr-sec="story"]')).toBeVisible();
   await expect(page.locator('[data-scr-sec="master"]')).toHaveCount(0);
-  await nav.locator('a[data-g="history"]').click();
+  await tab(page, "history").click();
   await expect(page).toHaveURL(/\/settings\/scoring\/history$/);
   await expect(page.locator("#scAudit")).toBeVisible();
   /* "Set up →" on a module card opens its group at its section */
-  await nav.locator('a[data-g="overview"]').click();
+  await tab(page, "overview").click();
   await page.locator('.scr-card[data-module="weighted"] .scr-setup').click();
   await expect(page).toHaveURL(/\/settings\/scoring\/estimating$/);
   await expect(page.locator('[data-scr-sec="weighted"]')).toBeInViewport();
@@ -133,14 +153,22 @@ test("the groups: one at a time, named in the address, Back and Forward step thr
   await page.goBack(); await expect(page).toHaveURL(/\/settings\/scoring\/overview$/);
   await expect(page.locator('[data-scr-sec="master"]')).toBeVisible();
   await page.goBack(); await expect(page).toHaveURL(/\/settings\/scoring\/history$/);
-  await expect(nav.locator('a[aria-current="page"]')).toHaveAttribute("data-g", "history");
+  await expect(nav.locator('[aria-selected="true"]')).toHaveAttribute("data-g", "history");
   await page.goForward(); await expect(page).toHaveURL(/\/settings\/scoring\/overview$/);
   await expect(page.locator('[data-scr-sec="modules"]')).toBeVisible();
+  /* the keyboard: Tab goes from tab to tab, Enter or Space opens one */
+  await tab(page, "ai").focus(); await page.keyboard.press("Tab");
+  await expect(tab(page, "review")).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/settings\/scoring\/review$/); await expect(page.locator("#scrGh")).toBeFocused();
+  await tab(page, "history").focus(); await page.keyboard.press(" ");
+  await expect(page).toHaveURL(/\/settings\/scoring\/history$/); await expect(page.locator("#scAudit")).toBeVisible();
+  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "scrTab-history");
   expect(await page.evaluate(() => document.querySelector(".settings .snav").dataset.kept)).toBe("1");
   /* a link opens its group */
   await page.goto("/settings/scoring/ai"); await ready(page);
   await expect(page.locator('[data-scr-sec="ai"]')).toBeVisible();
-  await expect(nav.locator('a[aria-current="page"]')).toHaveAttribute("data-g", "ai");
+  await expect(nav.locator('[aria-selected="true"]')).toHaveAttribute("data-g", "ai");
   await expect(page.locator('[data-scr-sec="ai"]')).toContainText("Settings → AI & integrations → Models → Chat models");
   /* the last group opens again, from the Settings menu and from an old link without one */
   await page.evaluate(() => { go("home"); go("settings", "profile"); });
@@ -226,14 +254,15 @@ test("the Advanced folds stay as each person left them; on a phone the groups ar
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => go("settings", "scoring/overview"));
-  const ul = page.locator(".scr-nav ul");
-  expect(await ul.evaluate(u => getComputedStyle(u).flexDirection)).toBe("row");
-  expect(await ul.evaluate(u => u.scrollWidth > u.clientWidth)).toBe(true);   /* a row that scrolls sideways */
+  const row = tablist(page);
+  expect(await row.evaluate(u => [getComputedStyle(u).flexDirection, getComputedStyle(u).flexWrap])).toEqual(["row", "nowrap"]);
+  expect(await row.evaluate(u => u.scrollWidth > u.clientWidth)).toBe(true);   /* one row of chips that scrolls sideways */
+  await expect(row.locator("svg").first()).toBeVisible();   /* each chip with its icon */
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.evaluate(() => go("settings", "scoring/history"));
   /* the chosen chip is scrolled into sight within the row */
-  await expect.poll(() => page.evaluate(() => { const u = document.querySelector(".scr-nav ul").getBoundingClientRect(), a = document.querySelector('.scr-nav a[data-g="history"]').getBoundingClientRect(); return a.left >= u.left - 1 && a.right <= u.right + 1; })).toBe(true);
-  await page.locator('.scr-nav a[data-g="overview"]').click();
+  await expect.poll(() => page.evaluate(() => { const u = document.querySelector(".scr-nav").getBoundingClientRect(), a = document.querySelector('.scr-nav [data-g="history"]').getBoundingClientRect(); return a.left >= u.left - 1 && a.right <= u.right + 1; })).toBe(true);
+  await tab(page, "overview").click();
   await expect(page).toHaveURL(/\/settings\/scoring\/overview$/);
   await page.locator('[data-sc="modules.story.on"]').click();
   const bar = saveBar(page);

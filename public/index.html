@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="40fdcfe64518">
+<meta name="zc-build" content="f3227c0a0a9f">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -1047,9 +1047,9 @@ body{overflow:hidden}
 .ag-quota-pill.warn{color:var(--color-danger);opacity:1}
 /* §P1-3 AI settings sub-navigation */
 .subnav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:var(--sp-4);padding:4px;background:var(--color-surface-sunken);border-radius:var(--pill)}
-.subnav button{padding:6px 14px;border-radius:var(--pill);font-size:var(--fs-sm);font-weight:600;color:var(--color-text-secondary);background:none;border:0;cursor:pointer}
-.subnav button:hover{color:var(--color-text-primary)}
-.subnav button.on{background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 1px 2px rgba(17,18,20,.08)}
+.subnav :is(button,a){padding:6px 14px;border-radius:var(--pill);font-size:var(--fs-sm);font-weight:600;color:var(--color-text-secondary);background:none;border:0;cursor:pointer}
+.subnav :is(button,a):hover{color:var(--color-text-primary)}
+.subnav :is(button,a).on{background:var(--color-surface);color:var(--color-text-primary);box-shadow:0 1px 2px rgba(17,18,20,.08)}
 /* §P1-4 guided SMTP setup — numbered steps keep a long form legible */
 .setup-step{display:flex;gap:12px;padding:14px 0;border-top:1px solid var(--color-border)}
 .setup-step:first-of-type{border-top:0;padding-top:4px}
@@ -5491,12 +5491,7 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .cap-group .cap-row{padding:7px 12px}
 @media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
 /* Settings → Smart Scoring (src/scoring-settings.js): the groups, the sections, the Save bar; its warning in Roles & permissions */
-.scr-shell{display:grid;grid-template-columns:188px minmax(0,1fr);gap:var(--sp-4);align-items:start}
-.scr-nav{position:sticky;top:16px;z-index:2}
-.scr-nav ul{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
-.scr-nav a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);color:var(--color-text-secondary);font-weight:600;text-decoration:none;white-space:nowrap}
-.scr-nav a:hover{background:var(--color-surface-sunken);color:var(--color-text-primary)}
-.scr-nav a.on{background:var(--color-primary-soft);color:var(--color-primary)}
+.scr-nav svg{display:none}
 .scr-nav svg,.scr-see svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .scr-main,#scrBody{display:flex;flex-direction:column;gap:var(--sp-4);min-width:0}
 .scr-gh h2{margin:0;font-size:var(--fs-md);font-weight:700;outline:none}
@@ -5544,7 +5539,7 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .scr-change b{font-weight:600;color:var(--color-text-primary)}
 .cap-group .scr-duty-warn{margin:8px 12px}
 .panel-foot .scr-leads{white-space:normal;max-width:100%;text-align:left}
-@media (max-width:1100px){.scr-shell{grid-template-columns:minmax(0,1fr)}.scr-nav{position:static}.scr-nav ul{flex-direction:row;overflow-x:auto;scrollbar-width:none;padding:2px 0;border:0;background:none}.scr-nav a{padding:7px 12px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface)}.scr-nav a.on{border-color:var(--color-primary)}.scr-how{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1100px){.scr-nav.subnav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0;padding:2px 0;gap:4px;border-radius:0;background:none}.scr-nav a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:inherit;white-space:nowrap;border:1px solid var(--color-border);background:var(--color-surface)}.scr-nav a.on{border-color:var(--color-primary);background:var(--color-primary-soft);color:var(--color-primary);box-shadow:none}.scr-nav svg{display:block}.scr-how{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:980px){.scr-bar{bottom:calc(var(--tabbar-h,60px) + 10px)}}
 @media (max-width:600px){.scr-how{grid-template-columns:minmax(0,1fr)}}
 /* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the
@@ -24807,8 +24802,8 @@ function scoringLeadsMissing(){ return SCORING_LEAD_ROLES.some(function(id){ var
 <script>
 /* ============================================================
    SETTINGS → SMART SCORING (Oct 2026)
-   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md). Seven groups in a menu
-   on the left (chips on a phone), one shown at a time and named in the address (/settings/scoring/estimating), so
+   Where whoever holds scoring_manage_workspace sets up Smart Scoring (docs/SMART-SCORING.md). Seven groups as tabs
+   on top (chips up to 1100px), one shown at a time and named in the address (/settings/scoring/estimating), so
    links and Back/Forward work; the last group and opened "Advanced" folds are kept per person on the device. A group
    is drawn from the edits kept in memory. One Save bar shows while they differ from what is saved (Discard, Save with
    the version they were made on; someone saved in between: theirs is loaded and the person is told); leaving Settings
@@ -24970,11 +24965,12 @@ function setScoring(){
   var cur=scoringSettings(); if(!cur) return sp("Smart Scoring",'<div class="hint">'+tr("Smart Scoring is not available")+'</div>',null,I.gauge);
   scDraft(); var ed=canI.scoringConfigure(), g=scGroup(), n=scCount();
   setTimeout(scLoadOnce,0); setTimeout(function(){ scTotalsPaint(); scNavScroll(); },0);
-  return '<div class="scr-shell"><nav class="scr-nav" aria-label="Smart Scoring"><ul>'+SC_GROUPS.map(function(x){
-      return '<li><a href="'+attr(routeBuild("settings","scoring/"+x[0]))+'" data-g="'+x[0]+'"'+(x[0]===g?' class="on" aria-current="page"':'')+' onclick="return scGo(\''+x[0]+'\',event)">'+(I[x[2]]||"")+'<span>'+tr(x[1])+'</span></a></li>'; }).join("")+'</ul></nav>'
-    + '<div class="scr-main">'+(ed?'':'<div class="banner scr-ro">'+I.eye+'<span>'+tr(SC_T.ro)+'</span></div>')+'<div id="scrBody">'+scGroupHtml(g,!ed,ed)+'</div>'
+  return '<div class="subnav scr-nav" role="tablist" aria-label="Smart Scoring" onkeydown="scTabKey(event)">'+SC_GROUPS.map(function(x){ var on=x[0]===g;
+      return '<a role="tab" id="scrTab-'+x[0]+'" aria-controls="scrBody" aria-selected="'+on+'" href="'+attr(routeBuild("settings","scoring/"+x[0]))+'" data-g="'+x[0]+'"'+(on?' class="on"':'')+' onclick="return scGo(\''+x[0]+'\',event)">'+(I[x[2]]||"")+'<span>'+tr(x[1])+'</span></a>'; }).join("")+'</div>'
+    + '<div class="scr-main">'+(ed?'':'<div class="banner scr-ro">'+I.eye+'<span>'+tr(SC_T.ro)+'</span></div>')+'<div id="scrBody" role="tabpanel" aria-labelledby="scrTab-'+g+'">'+scGroupHtml(g,!ed,ed)+'</div>'
     + (ed?'<div class="scr-bar'+(n?" on":"")+'" id="scrBar" role="region" aria-label="'+attr(tr("Unsaved changes"))+'"><b class="scr-bar-n" aria-live="polite">'+scCountText(n)+'</b><span class="spacer"></span><button type="button" class="btn" onclick="scDiscard()">'+tr("Discard")+'</button><button type="button" class="btn primary" onclick="scSaveClick()">'+tr("Save")+'</button></div>':'')
-    + '</div></div>'; }
+    + '</div>'; }
+function scTabKey(e){ var t=e.target; if(e.key===" "&&t.getAttribute("role")==="tab"){ e.preventDefault(); t.click(); } }
 function scHook(name,ro,ed){ var f=window[name]; return typeof f==="function"?f(ro,ed)||"":""; }
 function scGroupHtml(g,ro,ed){ var x=SC_GROUPS.filter(function(x){ return x[0]===g; })[0], h;
   if(g==="estimating") h=scHook("scoringKindsSettingsHtml",ro,ed)+scHoursPanel(ro)+scStoryPanel(ro)+scWeightedPanel(ro);
@@ -24994,12 +24990,12 @@ function scGo(g,e,sec){ if(e&&(e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.but
   scPaintGroup(sec,true); routeSync(); return false; }
 function scPaintGroup(sec,focus){ var body=document.getElementById("scrBody"); if(!body||!scDraft()) return; var g=scGroup(), ed=canI.scoringConfigure();
   body.innerHTML=scGroupHtml(g,!ed,ed); localizeVisibleText(body); scTotalsPaint(); scBarPaint();
-  document.querySelectorAll(".scr-nav a").forEach(function(a){ var on=a.getAttribute("data-g")===g; a.classList.toggle("on",on); if(on) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
-  scNavScroll(); var t=sec&&body.querySelector('[data-scr-sec="'+sec+'"]');
+  document.querySelectorAll(".scr-nav a").forEach(function(a){ var on=a.getAttribute("data-g")===g; a.classList.toggle("on",on); a.setAttribute("aria-selected",String(on)); });
+  body.setAttribute("aria-labelledby","scrTab-"+g); scNavScroll(); var t=sec&&body.querySelector('[data-scr-sec="'+sec+'"]');
   if(focus) document.getElementById("scrGh").focus(); if(t) t.scrollIntoView({block:"start"}); }
 function scRepaint(){ var y=appScrollTop(); scPaintGroup(); appScrollTop(y); }
-/* on a phone the chosen chip is kept in sight */
-function scNavScroll(){ var ul=document.querySelector(".scr-nav ul"), a=ul&&ul.querySelector("a.on"); if(a&&ul.scrollWidth>ul.clientWidth) ul.scrollLeft=Math.max(0,a.parentNode.offsetLeft-ul.offsetLeft-24); }
+/* on a tablet or phone the chosen chip is kept in sight */
+function scNavScroll(){ var n=document.querySelector(".scr-nav"), a=n&&n.querySelector("a.on"); if(a&&n.scrollWidth>n.clientWidth) n.scrollLeft=Math.max(0,a.offsetLeft-n.offsetLeft-24); }
 function scDiscard(){ if(!SC.saved) return; SC.draft=clone(SC.saved); SC.dirty=false; scRepaint(); }
 
 /* ---------- Overview ---------- */

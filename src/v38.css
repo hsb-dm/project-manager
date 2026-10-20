@@ -1289,12 +1289,7 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .cap-group .cap-row{padding:7px 12px}
 @media (max-width:760px){.nc-panel .nc-head{padding:0 9px 6px}.nc-group-box .nc-row{padding:9px 8px}}
 /* Settings → Smart Scoring (src/scoring-settings.js): the groups, the sections, the Save bar; its warning in Roles & permissions */
-.scr-shell{display:grid;grid-template-columns:188px minmax(0,1fr);gap:var(--sp-4);align-items:start}
-.scr-nav{position:sticky;top:16px;z-index:2}
-.scr-nav ul{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:2px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
-.scr-nav a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);color:var(--color-text-secondary);font-weight:600;text-decoration:none;white-space:nowrap}
-.scr-nav a:hover{background:var(--color-surface-sunken);color:var(--color-text-primary)}
-.scr-nav a.on{background:var(--color-primary-soft);color:var(--color-primary)}
+.scr-nav svg{display:none}
 .scr-nav svg,.scr-see svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .scr-main,#scrBody{display:flex;flex-direction:column;gap:var(--sp-4);min-width:0}
 .scr-gh h2{margin:0;font-size:var(--fs-md);font-weight:700;outline:none}
@@ -1342,7 +1337,7 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .scr-change b{font-weight:600;color:var(--color-text-primary)}
 .cap-group .scr-duty-warn{margin:8px 12px}
 .panel-foot .scr-leads{white-space:normal;max-width:100%;text-align:left}
-@media (max-width:1100px){.scr-shell{grid-template-columns:minmax(0,1fr)}.scr-nav{position:static}.scr-nav ul{flex-direction:row;overflow-x:auto;scrollbar-width:none;padding:2px 0;border:0;background:none}.scr-nav a{padding:7px 12px;border:1px solid var(--color-border);border-radius:var(--pill);background:var(--color-surface)}.scr-nav a.on{border-color:var(--color-primary)}.scr-how{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1100px){.scr-nav.subnav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0;padding:2px 0;gap:4px;border-radius:0;background:none}.scr-nav a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:inherit;white-space:nowrap;border:1px solid var(--color-border);background:var(--color-surface)}.scr-nav a.on{border-color:var(--color-primary);background:var(--color-primary-soft);color:var(--color-primary);box-shadow:none}.scr-nav svg{display:block}.scr-how{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:980px){.scr-bar{bottom:calc(var(--tabbar-h,60px) + 10px)}}
 @media (max-width:600px){.scr-how{grid-template-columns:minmax(0,1fr)}}
 /* a task's row: its stage is never cut off. Labels on the right stack, two lines at most (+N for the rest); on the

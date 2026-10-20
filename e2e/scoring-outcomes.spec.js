@@ -19,10 +19,9 @@ async function signIn(page, who) {
 const settings = page => page.evaluate(() => apiFetch("GET", "/api/scoring/settings").then(r => r.settings));
 const putBack = (page, original) => page.evaluate(async o => { const cur = await apiFetch("GET", "/api/scoring/settings"); await apiFetch("PUT", "/api/scoring/settings", { settings: o, configVersion: cur.settings.configVersion }); WS.scoring = (await apiFetch("GET", "/api/scoring/settings")).settings; }, original);
 /* Settings → Smart Scoring, opened afresh (as someone coming back to it) */
-/* Settings → Smart Scoring, at the group KPIs and OKRs are in once the tab has its sub-menu (without it every section
-   is on the page) */
+/* Settings → Smart Scoring, at the group KPIs and OKRs are in, picked in the row of tabs above the content */
 const openTab = async page => { await page.evaluate(() => { go("home"); go("settings", "scoring"); });
-  const c = page.locator("#content"), b = c.getByRole("button", { name: /^Output/ }).or(c.getByRole("link", { name: /^Output/ })); if (await b.count()) await b.first().click(); };
+  await page.locator("#content").getByRole("tablist", { name: "Smart Scoring" }).getByRole("tab", { name: /^Output/ }).click(); };
 
 test("a KPI counted from approved assets moves when a lead-validated task is finished, and is taken back when it reopens", async ({ page }) => {
   await signIn(page, ADMIN);
