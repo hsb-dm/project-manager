@@ -43,6 +43,10 @@
      "Use this task's documents" for whoever may edit the task (meta.aiReadDocs false leaves them out; saved as any
      change to the task). With reading off, only a quiet line for whoever may change it.
    - Without a server (the offline demo) the same routes are answered in the page (scrDemo), with the same rules.
+   - The team's context for the AI (Oct 2026): after a suggestion, each assumption is marked right or wrong (a wrong one
+     with what is true instead) and a note tells the AI what the brief does not say; kept with the task (GET …/scoring
+     ai.context, PUT …/scoring/context) and sent on every ask; "Send & ask again" saves and asks at once, and each row
+     then says what changed and why (previous, contextEffect). See "the team's context for the AI" below.
    While Smart Scoring is off (scoringOn() in src/scoring-core.js) the Effort line is exactly as it always was, and
    nothing here runs.
    ============================================================ */
@@ -203,7 +207,7 @@ function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ retu
     +'<button type="button" class="scr-head" aria-expanded="'+(open?"true":"false")+'" onclick="scrToggle(this)">'+I.gauge+'<b>'+tr("Scoring & Intelligence")+'</b><span class="scr-sum">'+sum+'</span>'+I.chevd+'</button>'
     +'<div class="scr-body">'+inner+'</div></section>'; }
 function scrBodyHtml(tk,mods,timeRow){ var c=SCR.cache[tk.id];
-  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("")+scrDocsHtml(tk,mods);
+  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("")+scrCtxHtml(tk)+scrDocsHtml(tk,mods);
   var assets=scrHook("scoringAssetsRowHtml",tk), outcomes=scrHook("scoringOutcomesRowHtml",tk);
   /* Phase 3, the efficiency bonus line goes here — "Estimated 8h · Actual 5h · Saved 3h · Base 8 pts · Efficiency Bonus
      +1.10 pts · Earned 9.10 pts · Pending/Approved" — from GET …/scoring `efficiency`, which the server sends only to
@@ -268,8 +272,8 @@ function scrWhyHtml(tk,m,r){ var steps=r.steps; if(!steps||!steps.length){ var r
 function scrPaint(id,lockChanged){ var tk=task(id); if(!tk||S.drawerTask!==id||S.drawerTab!=="brief"||!scrShow(tk)) return;
   var el=document.querySelector('#drawer .scr-panel[data-scr-task="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]'); if(!el) return;
   var tmp=document.createElement("div"); tmp.innerHTML=scrPanelHtml(tk,scrTimeRow(tk)); var nu=tmp.firstElementChild;
-  if(nu.getAttribute("data-scr-h")!==el.getAttribute("data-scr-h")){ var ae=document.activeElement, fk=ae&&el.contains(ae)?(ae.getAttribute("data-scr-act")?'[data-scr-act="'+ae.getAttribute("data-scr-act")+'"][data-scr-m="'+(ae.getAttribute("data-scr-m")||"")+'"]':ae.classList.contains("scr-head")?".scr-head":null):null;
-    el.replaceWith(nu); if(typeof localizeVisibleText==="function") localizeVisibleText(nu); if(fk){ var f=nu.querySelector(fk); if(f){ try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } } }
+  if(nu.getAttribute("data-scr-h")!==el.getAttribute("data-scr-h")){ var ae=document.activeElement, kk=ae&&el.contains(ae)&&ae.getAttribute("data-scr-key"), fk=ae&&el.contains(ae)?(ae.getAttribute("data-scr-act")?'[data-scr-act="'+ae.getAttribute("data-scr-act")+'"][data-scr-m="'+(ae.getAttribute("data-scr-m")||"")+'"]':ae.classList.contains("scr-head")?".scr-head":null):null;
+    el.replaceWith(nu); if(typeof localizeVisibleText==="function") localizeVisibleText(nu); if(kk) scrKeep(nu,ae,kk); else if(fk){ var f=nu.querySelector(fk); if(f){ try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } } }
   scrPaintLock(tk); if(lockChanged&&S.screen==="tasks"&&typeof renderScreen==="function") renderScreen(false); }
 /* the Estimate inputs follow the lock where they stand */
 function scrLockInput(inp,lk,ed){ if(!inp) return; var wrap=inp.parentNode, ico=wrap&&wrap.querySelector(".scr-lock-ico");
@@ -413,7 +417,9 @@ function scrAiHideSet(id,m,runId){ var h=scrAiHides(), k=id+"|"+m; if(runId) h[k
 function scrAiConf(s){ if(s.shownConfidence==null) return scrSrcChip("ai"); var low=s.far||s.lowConfidence;
   return '<span class="scr-chip scr-src-ai'+(low?' scr-ai-low':'')+'" data-scr-conf="'+scrPct(s.shownConfidence)+'" title="'+attr(tr(SCR_SRC_WHY.ai))+'">'+fmt(tr("{n}% sure"),{n:scrPct(s.shownConfidence)})+'</span>'; }
 /* the AI cell of a row: math only, being asked, not asked yet, or the suggestion with how sure it is */
-function scrAiCell(tk,m,aiOn){ var head='<span class="scr-k">'+tr("AI suggestion")+'</span>', s=scrAiOf(tk,m), busy=SCR.aiBusy[tk.id]===m;
+/* being asked for this score: on its own, or with every score the AI is asked for ("all", Send & ask again) */
+function scrAiBusy(id,m){ var b=SCR.aiBusy[id]; return !!b&&(b===m||b==="all"); }
+function scrAiCell(tk,m,aiOn){ var head='<span class="scr-k">'+tr("AI suggestion")+'</span>', s=scrAiOf(tk,m), busy=scrAiBusy(tk.id,m);
   if(!aiOn) return head+'<b>—</b><span class="hint">'+tr("Math only")+'</span>';
   if(busy) return head+'<b><span class="scr-spin" aria-hidden="true"></span>…</b><span class="hint" role="status">'+tr("Asking the AI…")+'</span>';
   if(!s) return head+'<b>—</b><span class="hint">'+tr("Not asked yet")+'</span>';
@@ -421,8 +427,8 @@ function scrAiCell(tk,m,aiOn){ var head='<span class="scr-k">'+tr("AI suggestion
 /* Ask AI: for whoever may ask the AI; not while it is being asked, nor while external AI processing is off */
 function scrAiBtn(tk,m,can){ var a=scrAiInfo(tk), busy=!!SCR.aiBusy[tk.id], off=!!a&&a.external===false, ok=!!can.requestAi&&!busy&&!off;
   var why=!can.requestAi?tr("Asking the AI needs the permission to ask the AI for a task's scores."):off?tr("External AI processing is off in Settings → AI."):"";
-  return '<button type="button" class="btn xs" data-scr-act="ai" data-scr-m="'+m+'"'+(ok?' onclick="scrAskAi('+jsq(tk.id)+',\''+m+'\')"':' disabled')+(why?' title="'+attr(why)+'"':'')+(busy&&SCR.aiBusy[tk.id]===m?' aria-busy="true"':'')+'>'
-    +(busy&&SCR.aiBusy[tk.id]===m?'<span class="scr-spin" aria-hidden="true"></span>'+tr("Asking…"):I.sparkle+(scrAiOf(tk,m)?tr("Ask AI again"):tr("Ask AI")))+'</button>'; }
+  return '<button type="button" class="btn xs" data-scr-act="ai" data-scr-m="'+m+'"'+(ok?' onclick="scrAskAi('+jsq(tk.id)+',\''+m+'\')"':' disabled')+(why?' title="'+attr(why)+'"':'')+(scrAiBusy(tk.id,m)?' aria-busy="true"':'')+'>'
+    +(scrAiBusy(tk.id,m)?'<span class="scr-spin" aria-hidden="true"></span>'+tr("Asking…"):I.sparkle+(scrAiOf(tk,m)?tr("Ask AI again"):tr("Ask AI")))+'</button>'; }
 function scrAiWarnText(m,w){ var t=tr(SCR_AI_WARN[w.code]||w.code);
   if(w.code==="far") return fmt(t,{math:scrFmt(m,w.math)}); if(w.code==="low_confidence") return fmt(t,{min:scrPct(w.min)});
   if(w.code==="kind_differs") return fmt(t,{ai:scrKindName(w.ai),title:scrKindName(w.title)}); if(w.code==="deliverables_differ") return fmt(t,{ai:w.ai,task:w.task}); return t; }
@@ -447,25 +453,34 @@ function scrAiCardHtml(tk,m,can,lk){ var s=scrAiOf(tk,m), a=scrAiInfo(tk), nt=sc
   var by=s.by||s.requestedBy, who=s.background?tr("Asked again after the brief changed"):s.trigger==="create"?tr("Asked when the task was created"):by?fmt(tr("Asked by {name}"),{name:person(by).name}):tr("Asked");
   var fx=m!=="hours"&&s.factors?SCR_FACTORS.filter(function(f){ return scrNum(s.factors[f])!=null; }).map(function(f){ return scrFactorName(f)+" "+s.factors[f]; }).join(" · "):"";
   var n=(s.comparables||[]).length, meta=esc(who)+(s.at?' · '+esc(scrWhen(s.at)):'')+(n?' · '+esc(fmt(n===1?tr("compared with {n} finished task"):tr("compared with {n} finished tasks"),{n:n})):'');
+  /* after a re-ask: what it was before and why it changed (the team's context); each assumption marked right or wrong */
+  var pv=scrAiPrev(tk,m,s), eff=scrAiEffect(tk,s), bold=function(v){ return '<b>'+esc(scrFmt(m,v))+'</b>'; }, ctx=scrCtxOn(tk), ced=ctx&&scrCtxCanEdit(tk), cur=ctx&&scrCtxCur(tk,!ced);
+  var delta=(pv!=null?'<p class="scr-ai-delta" data-scr-ai-delta="'+m+'">'+(scrFmt(m,pv)===scrFmt(m,s.value)?fmt(esc(tr("Same as before: {v}")),{v:bold(pv)}):fmt(esc(tr("Before {a} → now {b}")),{a:bold(pv),b:bold(s.value)}))+'</p>':'')
+    +(eff?'<p class="scr-ai-effect" data-scr-ai-effect>'+esc(tr("Because of the team's context:"))+' <span data-no-translate>'+esc(eff)+'</span></p>':'');
   var acts=[];
   if(!lk&&s.acceptable!==false&&(can.edit||can.propose)) acts.push('<button type="button" class="btn xs primary" data-scr-act="ai-accept" data-scr-m="'+m+'" onclick="scrAiAccept('+jsq(tk.id)+',\''+m+'\')">'+(can.edit?tr("Accept"):tr("Propose it"))+'</button>');
   acts.push('<button type="button" class="btn xs ghost" data-scr-act="ai-dismiss" data-scr-m="'+m+'" onclick="scrAiDismiss('+jsq(tk.id)+',\''+m+'\')">'+tr("Dismiss")+'</button>');
   return '<div class="scr-ai'+(s.far?' far':'')+'" data-scr-ai="'+m+'">'
     +'<div class="scr-ai-head">'+I.sparkle+'<b>'+fmt(tr("The AI suggests {v}"),{v:scrFmt(m,s.value)})+'</b><span class="scr-ai-conf'+(s.far||s.lowConfidence?' scr-ai-low':'')+'" data-scr-ai-conf>'+esc(conf)+'</span></div>'
-    +(warns?'<ul class="scr-ai-warn" data-scr-warns>'+warns+'</ul>':'')
+    +delta+(warns?'<ul class="scr-ai-warn" data-scr-warns>'+warns+'</ul>':'')
     +(s.explanation?'<p class="scr-ai-text" data-no-translate>'+esc(s.explanation)+'</p>':'')
     +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')
-    +(s.assumptions&&s.assumptions.length?'<div class="scr-ai-list" data-scr-ai-assumptions><b>'+tr("It assumes")+'</b><ul>'+s.assumptions.map(li).join("")+'</ul></div>':'')
+    +(s.assumptions&&s.assumptions.length?'<div class="scr-ai-list" data-scr-ai-assumptions><b>'+tr("It assumes")+'</b><ul>'+s.assumptions.map(function(x,i){ return ctx?scrAsmHtml(tk,m,i,x,cur,ced):li(x); }).join("")+'</ul></div>':'')
     +(gaps?'<div class="scr-ai-list" data-scr-ai-missing><b>'+tr("Missing inputs")+'</b><ul>'+gaps+'</ul></div>':'')
     +(lk?'<p class="hint">'+tr("The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.")+'</p>':'')
     +'<p class="hint scr-ai-meta">'+meta+'</p>'+note+'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
 /* the finished tasks like it that the estimator found (src/effort-estimate.js): the server decides whether the AI sees them */
 function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?effortEstimate(tk):null; return e&&Array.isArray(e.ids)?e.ids.slice(0,5):[]; }catch(x){ return []; } }
-function scrAskAi(id,m){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; SCR.aiBusy[id]=m; delete SCR.aiNote[id+"|"+m]; scrPaint(id);
-  scrApi("POST",scrPath(id,"ai"),{module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}).then(function(d){ delete SCR.aiBusy[id];
-      var r=d&&d.aiResult||{}, n=scrAiNoteFrom(r,m); if(n) SCR.aiNote[id+"|"+m]=n; scrAiHideSet(id,m,null);
-      scrAfter(tk,m,d,null); if(Array.isArray(r.docs)) scrDocsRun(id,r.docs); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
-    .catch(function(e){ delete SCR.aiBusy[id]; scrFail(tk,e); }); }
+/* m is one score or "all" (every score the AI is asked for: one ask, one of the quota); ctx, the team's context, is
+   saved by the server first (Send & ask again) */
+function scrAskAi(id,m,ctx){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; var mods=m==="all"?scrCtxAiMods():[m]; SCR.aiBusy[id]=m; mods.forEach(function(x){ delete SCR.aiNote[id+"|"+x]; }); scrPaint(id);
+  var body={module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}; if(ctx) body.context=ctx;
+  scrApi("POST",scrPath(id,"ai"),body).then(function(d){ delete SCR.aiBusy[id]; delete SCR.ctx.busy[id];
+      var r=d&&d.aiResult||{}, said=false; (Array.isArray(r.modules)&&r.modules.length?r.modules:mods).forEach(function(x){ var n=scrAiNoteFrom(r,x); if(n){ SCR.aiNote[id+"|"+x]=n; said=true; } scrAiHideSet(id,x,null); });
+      if(r.runId) SCR.ctx.run[id]={runId:r.runId,previous:r.previous||null,effect:r.contextEffect||""};
+      if(ctx){ var dr=SCR.ctx.draft[id]; if(!dr||scrCtxKey(dr)===scrCtxKey(scrCtxNorm(ctx))) delete SCR.ctx.draft[id]; }
+      scrAfter(tk,m,d,null); if(Array.isArray(r.docs)) scrDocsRun(id,r.docs); if(r.status==="ok"&&!said) toast(tr("The AI's suggestion is ready")); })
+    .catch(function(e){ delete SCR.aiBusy[id]; delete SCR.ctx.busy[id]; scrFail(tk,e); }); }
 function scrAiDismiss(id,m){ var tk=task(id), s=tk&&scrAiOf(tk,m); if(!s) return; scrAiHideSet(id,m,s.runId); scrPaint(id); }
 function scrAiShow(id,m){ scrAiHideSet(id,m,null); scrPaint(id); }
 /* Accept: PUT …/:module {use:"ai", reason, rev} — set for whoever may change scores, proposed for anyone else on the task;
@@ -481,6 +496,120 @@ function scrAiAcceptGo(id,m,need){ var tk=task(id); if(!tk) return closeModal();
   var r=scrView(tk,m), b=document.getElementById("scrGo"); if(b) b.disabled=true;
   scrApi("PUT",scrPath(tk.id,m),{use:"ai",reason:why,rev:r.rev||0}).then(function(d){ if(need) closeModal(); var proposed=!!(d&&d.applied===false); scrAfter(tk,m,d,proposed?"Change proposed — an approver will look at it":"Saved"); })
     .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
+
+/* ---------- the team's context for the AI (GET …/scoring ai.context, PUT …/scoring/context, POST …/ai {context}) ----------
+   What the brief does not say, from the people doing the work: a note (1,000 characters) and the assumptions of "It
+   assumes" marked right or wrong (8 at most; a wrong one with what is true instead, 200 characters), a check matching
+   its assumption by its exact text. Kept with the task on the server, sent on every ask for it, and shown to everyone
+   who sees the task's scores; changed by whoever may edit the task and is not a stakeholder (ai.context.canEdit).
+   Notes left on similar tasks go with it (ai.context.similar, as the comparables setting allows). "Send & ask again"
+   saves it and asks at once; "Clear context" saves it empty and asks nothing; each row then says what it was before
+   (the suggestion's previous, or aiResult.previous) and why it changed (contextEffect). Hidden where the documents line
+   is. What is typed is the page's own until it is sent (SCR.ctx.draft): every redraw keeps it, caret and all. */
+SCR.ctx={draft:{},busy:{},run:{}};
+var SCR_PREV_KEY={hours:"hours",story:"storyPoints",weighted:"weightedPoints"};
+function scrCtxOf(tk){ var a=scrAiInfo(tk), x=a&&a.context; return x&&typeof x==="object"?x:null; }
+function scrCtxAiMods(){ return SCR_MODULES.filter(function(m){ return scoringModuleOn(m)&&scoringMode(m)!=="math_only"; }); }
+/* only where the AI is asked and may be sent anything, and only from a server that keeps it */
+function scrCtxOn(tk){ var a=scrAiInfo(tk); return !!scrCtxOf(tk)&&a.external!==false&&scrCtxAiMods().length>0; }
+function scrCtxCanEdit(tk){ var x=scrCtxOf(tk); return x&&typeof x.canEdit==="boolean"?x.canEdit:canI.editTask(tk)&&!scoringStakeholder(); }
+function scrCtxMax(tk){ var x=scrCtxOf(tk)||{}; return {note:scrNum(x.maxNote)||1000,checks:scrNum(x.maxChecks)||8}; }
+function scrCtxNorm(x){ x=x||{}; return {note:typeof x.note==="string"?x.note:"",checks:(Array.isArray(x.checks)?x.checks:[]).filter(function(c){ return c&&typeof c.a==="string"&&c.a; })
+  .map(function(c){ return {a:c.a,ok:c.ok!==false,fix:c.ok===false&&typeof c.fix==="string"?c.fix:""}; })}; }
+/* what it says, whatever the order the marks were made in */
+function scrCtxKey(x){ return JSON.stringify([x.note.trim(),x.checks.map(function(c){ return JSON.stringify([c.a,c.ok?1:0,c.ok?"":c.fix.trim()]); }).sort()]); }
+function scrCtxBody(x){ return {note:x.note.trim(),checks:x.checks.map(function(c){ var f=c.ok?"":c.fix.trim(); return f?{a:c.a,ok:false,fix:f}:{a:c.a,ok:!!c.ok}; })}; }
+/* what is shown: what is being written, else what is saved (always what is saved for whoever only reads it) */
+function scrCtxCur(tk,saved){ return !saved&&SCR.ctx.draft[tk.id]||scrCtxNorm(scrCtxOf(tk)); }
+function scrCtxDirty(tk){ var d=SCR.ctx.draft[tk.id]; return !!d&&scrCtxKey(d)!==scrCtxKey(scrCtxNorm(scrCtxOf(tk))); }
+/* an assumption as the server keeps it: trimmed, 200 characters */
+function scrCtxCut(s){ return Array.from(String(s||"").trim()).slice(0,200).join(""); }
+function scrCtxIdx(list,a){ var k=scrCtxCut(a); for(var i=0;i<list.length;i++) if(list[i].a===a||list[i].a===k) return i; return -1; }
+/* the assumptions of the suggestions shown now: a check of none of them is a saved correction */
+function scrCtxShown(tk){ var out=[]; scrCtxAiMods().forEach(function(m){ var s=scrAiOf(tk,m); if(s&&!scrAiHidden(tk,m,s)) (s.assumptions||[]).forEach(function(a){ if(typeof a==="string"&&out.indexOf(a)<0) out.push(a); }); }); return out; }
+function scrCtxStale(tk){ return scrCtxAiMods().some(function(m){ var s=scrAiOf(tk,m); return !!s&&(s.stale===true||(s.warnings||[]).some(function(w){ return w&&w.code==="stale"; })); }); }
+function scrCtxAsk(tk){ var l=scrCtxAiMods(); return !!l.length&&!!scrCan(tk,l[0]).requestAi; }
+/* one ask: the one score with a suggestion (or the only one the AI is asked for), else all of them */
+function scrCtxTarget(tk){ var l=scrCtxAiMods(), w=l.filter(function(m){ return scrAiOf(tk,m); }); return w.length===1?w[0]:l.length===1?l[0]:"all"; }
+function scrCtxSendOk(tk){ if(SCR.aiBusy[tk.id]||SCR.ctx.busy[tk.id]) return false; var d=scrCtxDirty(tk); return scrCtxAsk(tk)?d||scrCtxStale(tk):d; }
+/* the previous value of this score and why it changed: kept in GET with the suggestion, or what the ask in this page said */
+function scrAiPrev(tk,m,s){ var p=s.previous, r=SCR.ctx.run[tk.id]; if(p==null&&r&&r.runId===s.runId) p=r.previous; if(p&&typeof p==="object") p=scrPick(p,[SCR_PREV_KEY[m],m]); return scrNum(p); }
+function scrAiEffect(tk,s){ var e=s.contextEffect, r=SCR.ctx.run[tk.id]; if(!e&&r&&r.runId===s.runId) e=r.effect; return typeof e==="string"?e.trim():""; }
+/* an assumption: its two toggles and, when wrong, what is true instead; marked only, for whoever only reads it */
+function scrAsmHtml(tk,m,i,a,cur,ed){ var c=cur.checks[scrCtxIdx(cur.checks,a)], st=c?(c.ok?"ok":"wrong"):"", k=m+":"+i, txt='<span data-no-translate>'+esc(a)+'</span>';
+  if(!ed) return '<li class="scr-asm" data-st="'+st+'">'+txt+(c?' <span class="scr-asm-mark">'+(c.ok?tr("✓ Right"):tr("✗ Wrong"))+'</span>'+(!c.ok&&c.fix?'<span class="scr-asm-fix" data-no-translate>'+esc(c.fix)+'</span>':''):'')+'</li>';
+  var tog=function(ok,label){ var on=!!c&&c.ok===ok; return '<button type="button" class="scr-tog'+(on?' on':'')+'" data-ok="'+(ok?1:0)+'" aria-pressed="'+on+'" data-scr-key="asm:'+k+':'+(ok?1:0)+'" onclick="scrCtxMark('+jsq(tk.id)+',\''+m+'\','+i+','+ok+')">'+label+'</button>'; };
+  return '<li class="scr-asm" data-st="'+st+'">'+txt+'<span class="scr-asm-acts">'+tog(true,tr("✓ Right"))+tog(false,tr("✗ Wrong"))+'</span>'
+    +(c&&!c.ok?'<input type="text" class="scr-fix" data-scr-key="fix:'+k+'" maxlength="200" value="'+attr(c.fix)+'" placeholder="'+attr(tr("What is true instead…"))+'" aria-label="'+attr(tr("What is true instead…"))+'" oninput="scrCtxFix('+jsq(tk.id)+',\''+m+'\','+i+',this)">':'')+'</li>'; }
+function scrCtxListHtml(tk,cur,shown,ed){ var list=cur.checks.map(function(c,i){ return {c:c,i:i}; }).filter(function(x){ return !shown.some(function(a){ return scrCtxIdx([x.c],a)===0; }); });
+  if(!list.length) return ""; var q=function(s){ return '<span data-no-translate>'+esc(s)+'</span>'; };
+  return '<div class="scr-ctx-saved" data-scr-ctx-saved><b>'+tr("Saved corrections")+'</b><ul>'+list.map(function(x){ var c=x.c;
+    return '<li data-st="'+(c.ok?"ok":"wrong")+'"><span>'+(c.ok?fmt(esc(tr("“{a}” — right")),{a:q(c.a)}):c.fix?fmt(esc(tr("“{a}” — wrong; in fact: {fix}")),{a:q(c.a),fix:q(c.fix)}):fmt(esc(tr("“{a}” — wrong")),{a:q(c.a)}))+'</span>'
+      +(ed?'<button type="button" class="scr-x" data-scr-key="ctx-rm:'+x.i+'" aria-label="'+attr(tr("Remove"))+'" title="'+attr(tr("Remove"))+'" onclick="scrCtxRemove('+jsq(tk.id)+','+x.i+')">'+I.x+'</button>':'')+'</li>'; }).join("")+'</ul></div>'; }
+/* under the rows: the note, the saved corrections, who saved it, the similar tasks' notes going with it, the buttons */
+function scrCtxHtml(tk){ if(!scrCtxOn(tk)) return ""; var x=scrCtxOf(tk), ed=scrCtxCanEdit(tk), saved=scrCtxNorm(x), cur=scrCtxCur(tk,!ed), has=!!(saved.note.trim()||saved.checks.length), shown=scrCtxShown(tk);
+  var sim=(Array.isArray(x.similar)?x.similar:[]).filter(function(o){ return o&&o.id; }), any=scrCtxAiMods().some(function(m){ return scrAiOf(tk,m); });
+  if(!(has||any&&(ed||sim.length))) return "";
+  var name=x.byName||(x.by?person(x.by).name:""), id=tk.id, busy=SCR.ctx.busy[id]||SCR.aiBusy[id], mx=scrCtxMax(tk);
+  var by=has&&name?'<p class="hint scr-ctx-by" data-scr-ctx-by>'+fmt(esc(tr(x.at?"Context from {name} · {when}":"Context from {name}")),{name:'<span data-no-translate>'+esc(name)+'</span>',when:esc(scrWhen(x.at))})+'</p>':'';
+  var simL=sim.length?'<p class="hint scr-ctx-sim" data-scr-ctx-sim="'+sim.length+'">'+esc(fmt(tr(sim.length===1?"+ {n} note from a similar task will be used":"+ {n} notes from similar tasks will be used"),{n:sim.length}))+': '
+    +sim.map(function(o){ var t='<span class="mono">'+esc(o.id)+'</span> <span data-no-translate>'+esc(o.title||"")+'</span>'; return task(o.id)?'<button type="button" class="scr-link" data-scr-sim="'+attr(o.id)+'" onclick="openTask('+jsq(o.id)+')">'+t+'</button>':'<span>'+t+'</span>'; }).join(", ")+'</p>':'';
+  if(!ed) return '<div class="scr-ctx" data-scr-ctx="ro"><div class="scr-ctx-head">'+I.sparkle+'<b>'+tr("The team's context for the AI")+'</b></div>'
+    +(saved.note.trim()?'<p class="scr-ctx-text" data-no-translate>'+esc(saved.note)+'</p>':'')+scrCtxListHtml(tk,saved,shown,false)+by+simL+'</div>';
+  var ask=scrCtxAsk(tk), ok=scrCtxSendOk(tk), go=SCR.ctx.busy[id]==="send"||SCR.ctx.busy[id]==="save";
+  return '<div class="scr-ctx" data-scr-ctx="edit"><label class="scr-ctx-head" for="scrCtxNote">'+I.sparkle+'<b>'+tr("Add context for the AI")+'</b></label>'
+    +'<textarea id="scrCtxNote" class="scr-ctx-in" data-scr-key="ctx-note" rows="3" maxlength="'+mx.note+'" placeholder="'+attr(tr("E.g. this client usually asks for 3 revision rounds; product photos arrive two days before the deadline."))+'" oninput="scrCtxNote('+jsq(id)+',this)">'+esc(cur.note)+'</textarea>'
+    +'<div class="scr-ctx-sub"><span class="hint">'+tr("The AI uses this on every Ask AI for this task, and as an example for similar tasks.")+'</span><span class="scr-ctx-n" data-scr-ctx-n>'+scrInt(Array.from(cur.note).length)+' / '+scrInt(mx.note)+'</span></div>'+scrCtxListHtml(tk,cur,shown,true)+by+simL
+    +'<div class="scr-acts"><button type="button" class="btn xs primary" data-scr-act="ctx-send" data-scr-key="ctx-send"'+(ok?'':' disabled')+(go?' aria-busy="true"':'')+' onclick="scrCtxSend('+jsq(id)+')">'
+    +(go?'<span class="scr-spin" aria-hidden="true"></span>'+tr("Sending…"):ask?I.sparkle+tr("Send & ask again"):tr("Save context"))+'</button>'
+    +(has?'<button type="button" class="scr-link scr-ctx-clear" data-scr-act="ctx-clear" data-scr-key="ctx-clear"'+(busy?' disabled':'')+' onclick="scrCtxClear('+jsq(id)+')">'+tr("Clear context")+'</button>':'')+'</div></div>'; }
+/* what is written: the page's own until sent; back to what is saved, it is nothing of its own again */
+function scrCtxEdit(id){ var tk=task(id); if(!tk) return null; return SCR.ctx.draft[id]||(SCR.ctx.draft[id]=scrCtxNorm(scrCtxOf(tk))); }
+function scrCtxDone(id){ var tk=task(id), d=SCR.ctx.draft[id]; if(tk&&d&&!scrCtxDirty(tk)) delete SCR.ctx.draft[id]; }
+/* typing redraws nothing: the counter and the button follow where they stand */
+function scrCtxSync(id){ scrCtxDone(id); var tk=task(id), box=document.querySelector('#drawer .scr-ctx[data-scr-ctx="edit"]'); if(!tk||!box) return;
+  var n=box.querySelector("[data-scr-ctx-n]"), b=box.querySelector('[data-scr-act="ctx-send"]'), cur=scrCtxCur(tk), mx=scrCtxMax(tk);
+  if(n) n.textContent=scrInt(Array.from(cur.note).length)+" / "+scrInt(mx.note); if(b&&!b.getAttribute("aria-busy")) b.disabled=!scrCtxSendOk(tk); }
+function scrCtxNote(id,el){ var d=scrCtxEdit(id); if(!d) return; d.note=el.value; scrCtxSync(id); }
+function scrCtxFix(id,m,i,el){ var tk=task(id), s=tk&&scrAiOf(tk,m), a=s&&(s.assumptions||[])[i], d=a&&scrCtxEdit(id), at=d?scrCtxIdx(d.checks,a):-1; if(at<0) return;
+  /* the same assumption in another row's suggestion is the same check */
+  d.checks[at].fix=el.value; document.querySelectorAll("#drawer .scr-fix").forEach(function(o){ var k=(o.getAttribute("data-scr-key")||"").split(":"), b=o!==el&&scrAiOf(tk,k[1]); if(b&&scrCtxIdx([d.checks[at]],(b.assumptions||[])[+k[2]])===0) o.value=el.value; }); scrCtxSync(id); }
+/* Right or Wrong, or back to unmarked: the same again takes the mark away */
+function scrCtxMark(id,m,i,ok){ var tk=task(id), s=tk&&scrAiOf(tk,m), a=s&&(s.assumptions||[])[i]; if(typeof a!=="string") return; var d=scrCtxEdit(id), at=scrCtxIdx(d.checks,a);
+  if(at>=0&&d.checks[at].ok===ok) d.checks.splice(at,1); else if(at>=0){ d.checks[at].ok=ok; if(ok) d.checks[at].fix=""; }
+  else { var mx=scrCtxMax(tk).checks; if(d.checks.length>=mx){ scrCtxDone(id); return toast(fmt(tr("At most {n} assumptions can be marked"),{n:mx}),"bad"); } d.checks.push({a:scrCtxCut(a),ok:ok,fix:""}); }
+  scrCtxDone(id); scrPaint(id); if(!ok){ var f=document.querySelector('#drawer [data-scr-key="fix:'+m+':'+i+'"]'); if(f) try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
+function scrCtxRemove(id,i){ var d=scrCtxEdit(id); if(!d||!d.checks[i]) return; d.checks.splice(i,1); scrCtxDone(id); scrPaint(id); }
+/* Send & ask again: saved and asked at once (POST …/ai {context}); without the right to ask the AI, only saved */
+function scrCtxSend(id){ var tk=task(id); if(!tk||!scrCtxSendOk(tk)) return; var b=scrCtxBody(scrCtxCur(tk));
+  if(!scrCtxAsk(tk)) return scrCtxPut(id,b,tr("Context saved"),"save"); SCR.ctx.busy[id]="send"; scrAskAi(id,scrCtxTarget(tk),b); }
+function scrCtxClear(id){ scrCtxPut(id,{note:"",checks:[]},tr("Context cleared"),"clear"); }
+/* PUT …/scoring/context {note, checks} → {context}; the suggestion is then one for the task as it was: asked again */
+function scrCtxPut(id,body,msg,kind){ var tk=task(id); if(!tk||SCR.ctx.busy[id]||SCR.aiBusy[id]) return; SCR.ctx.busy[id]=kind; scrPaint(id);
+  scrApi("PUT",scrPath(id,"context"),body).then(function(d){ delete SCR.ctx.busy[id]; var c=SCR.cache[id], dr=SCR.ctx.draft[id];
+      if(c&&c.ai&&d&&d.context&&typeof d.context==="object") c.ai.context=d.context;
+      if(!dr||!body.note&&!body.checks.length||scrCtxKey(dr)===scrCtxKey(scrCtxNorm(body))) delete SCR.ctx.draft[id];
+      toast(msg); scrPaint(id); scrLoad(tk,true); })
+    .catch(function(e){ delete SCR.ctx.busy[id]; scrFail(tk,e); }); }
+/* a redraw keeps the field being typed in as the very same element (caret, scroll, undo) with the new one's words
+   (another language), and a button its focus */
+function scrKeep(root,ae,key){ var f=root.querySelector('[data-scr-key="'+key+'"]'); if(!f) return;
+  if((ae.tagName==="TEXTAREA"||ae.tagName==="INPUT")&&f.tagName===ae.tagName&&f!==ae){ var a=ae.selectionStart, b=ae.selectionEnd, t=ae.scrollTop;
+    ["placeholder","aria-label","title","maxlength"].forEach(function(k){ var v=f.getAttribute(k); if(v==null) ae.removeAttribute(k); else if(ae.getAttribute(k)!==v) ae.setAttribute(k,v); });
+    f.replaceWith(ae); f=ae; try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } try{ f.setSelectionRange(a,b); }catch(x){} f.scrollTop=t; }
+  else { try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "✓ Right":"✓ Benar","✗ Wrong":"✗ Salah","What is true instead…":"Yang sebenarnya…","Saved corrections":"Koreksi tersimpan",
+  "“{a}” — right":"“{a}” — benar","“{a}” — wrong; in fact: {fix}":"“{a}” — salah; sebenarnya: {fix}","“{a}” — wrong":"“{a}” — salah","Remove":"Hapus",
+  "Add context for the AI":"Tambah konteks untuk AI","The team's context for the AI":"Konteks tim untuk AI",
+  "E.g. this client usually asks for 3 revision rounds; product photos arrive two days before the deadline.":"Misal: klien ini biasanya minta 3x revisi; foto produk dari klien baru masuk H-2.",
+  "The AI uses this on every Ask AI for this task, and as an example for similar tasks.":"AI memakai ini setiap Ask AI di task ini, dan sebagai contoh untuk task serupa.",
+  "Send & ask again":"Kirim & tanya ulang","Save context":"Simpan konteks","Sending…":"Mengirim…","Clear context":"Hapus konteks",
+  "Context from {name} · {when}":"Konteks dari {name} · {when}","Context from {name}":"Konteks dari {name}",
+  "+ {n} note from a similar task will be used":"+ {n} catatan dari task serupa ikut dipakai","+ {n} notes from similar tasks will be used":"+ {n} catatan dari task serupa ikut dipakai",
+  "At most {n} assumptions can be marked":"Paling banyak {n} asumsi bisa ditandai","Context saved":"Konteks tersimpan","Context cleared":"Konteks dihapus",
+  "Before {a} → now {b}":"Sebelumnya {a} → sekarang {b}","Same as before: {v}":"Sama seperti sebelumnya: {v}","Because of the team's context:":"Karena konteks tim:"
+});
 
 /* ---------- the documents in the brief the AI may read (GET …/scoring ai.docs, POST …/ai aiResult.docs) ---------- */
 var SCR_DOC_ICO={gdoc:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4"/></svg>',gslides:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M12 17v3M8 21h8"/></svg>',
@@ -595,6 +724,9 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
     catch(e){ console.error(e); return base.apply(this,arguments); } }; })();
 /* opening the same task again later asks for its details again */
 (function(){ if(typeof closeDrawer!=="function") return; var base=closeDrawer; closeDrawer=function(){ SCR.shown=null; return base.apply(this,arguments); }; })();
+/* the task drawn again (an answer, a colleague's change): the context being typed keeps its element, caret and all */
+(function(){ if(typeof renderDrawer!=="function") return; var base=renderDrawer; renderDrawer=function(){ var ae=document.activeElement, k=ae&&ae.closest&&ae.closest("#drawer .scr-panel")&&ae.getAttribute("data-scr-key");
+  var out=base.apply(this,arguments); if(k){ var p=document.querySelector("#drawer .scr-panel"); if(p) scrKeep(p,ae,k); } return out; }; })();
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Scoring & Intelligence":"Skor & Intelijen","Effort Hours":"Jam Usaha","Story Points":"Story Points","Weighted Points":"Weighted Points",
@@ -805,6 +937,36 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-ai-list b{display:block;font-weight:600;color:var(--color-text-primary)}
 .scr-ai-list ul{margin:2px 0 0;padding-left:18px}
 .scr-ai-meta{font-size:11.5px;color:var(--color-text-tertiary)}
+.scr-ai-delta{margin:0;color:var(--color-text-primary)}
+.scr-ai-effect{margin:0;padding:5px 8px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-asm{margin:3px 0}
+.scr-asm-acts{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:1px}
+.scr-tog{padding:0 8px;border:1px solid var(--color-border);border-radius:999px;background:var(--color-surface);color:var(--color-text-secondary);font-size:11px;font-weight:600;line-height:19px;white-space:nowrap}
+.scr-tog:hover{background:var(--color-surface-hover)}
+.scr-tog.on[data-ok="1"],.scr-asm[data-st="ok"] .scr-asm-mark{color:var(--color-success);background:var(--color-success-soft);border-color:transparent}
+.scr-tog.on[data-ok="0"],.scr-asm[data-st="wrong"] .scr-asm-mark{color:var(--color-warning);background:var(--color-warning-soft);border-color:transparent}
+.scr-asm-mark{display:inline-block;padding:0 7px;border-radius:999px;font-size:11px;font-weight:600}
+.scr-asm-fix{display:block;color:var(--color-text-primary)}
+.scr-fix,.scr-ctx-in{display:block;width:100%;min-width:0;box-sizing:border-box;margin-top:4px;padding:6px 10px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);color:var(--color-text-primary);font-size:var(--fs-sm);outline:none}
+.scr-fix:focus,.scr-ctx-in:focus{border-color:var(--color-primary)}
+.scr-ctx-in{min-height:64px;margin:0;resize:vertical;line-height:1.45}
+.scr-ctx{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--color-border);min-width:0;font-size:var(--fs-sm);color:var(--color-text-secondary);overflow-wrap:anywhere}
+.scr-ctx-head{display:flex;align-items:center;gap:6px;color:var(--color-text-primary)}
+.scr-ctx-head svg{width:14px;height:14px;flex:none;color:var(--color-info)}
+.scr-ctx-head b{font-weight:650}
+.scr-ctx-sub{display:flex;flex-wrap:wrap;gap:2px 10px}
+.scr-ctx .hint{margin:0;font-size:11.5px}
+.scr-ctx-n{margin-left:auto;font-size:11.5px;color:var(--color-text-tertiary);font-variant-numeric:tabular-nums}
+.scr-ctx-text{margin:0;white-space:pre-wrap;color:var(--color-text-primary)}
+.scr-ctx-saved b{display:block;font-weight:600;color:var(--color-text-primary)}
+.scr-ctx-saved ul{display:flex;flex-direction:column;gap:3px;margin:2px 0 0;padding:0;list-style:none}
+.scr-ctx-saved li{display:flex;align-items:flex-start;gap:6px}
+.scr-ctx-saved li>span{flex:1;min-width:0}
+.scr-x{display:inline-flex;flex:none;padding:3px;border-radius:6px;color:var(--color-text-tertiary)}
+.scr-x:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
+.scr-x svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.scr-ctx .scr-acts{align-items:center;gap:6px 12px}
+.scr-ctx-clear:disabled{opacity:.5;cursor:default}
 .scr-spin{display:inline-block;width:11px;height:11px;margin-right:5px;border:2px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;vertical-align:-1px;animation:scr-spin .8s linear infinite}
 @keyframes scr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.scr-spin{animation:none}}

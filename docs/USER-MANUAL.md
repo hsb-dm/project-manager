@@ -414,6 +414,33 @@ Yang bisa kamu lakukan:
 Setelah estimasi dikunci, kolom Estimate di task dan di grid menjadi abu-abu, dengan keterangan siapa yang
 menguncinya.
 
+**Konteks tim untuk AI.** Setelah AI memberi saran, kamu bisa memberi tahu AI hal-hal yang tidak tertulis di brief.
+Konteks ini disimpan di task dan ikut dikirim setiap kali AI ditanya untuk task ini, termasuk saat AI ditanya ulang
+otomatis setelah brief direvisi.
+
+- Di daftar **It assumes** (Asumsinya), tiap asumsi punya dua tombol: **✓ Right** (Benar) dan **✗ Wrong** (Salah).
+  Kalau kamu memilih Salah, muncul kolom **What is true instead…** (Yang sebenarnya…), maksimal 200 karakter.
+  Contoh: "1 revision round" → Salah → "klien ini biasanya minta 3x revisi". Klik tombol yang sama sekali lagi
+  untuk membatalkan tandanya. Paling banyak 8 asumsi bisa ditandai.
+- Di bawah baris skor ada kotak **Add context for the AI** (Tambah konteks untuk AI), maksimal 1.000 karakter,
+  dengan penghitung karakter. Contoh: "klien ini biasanya minta 3x revisi; foto produk dari klien baru masuk H-2."
+- **Send & ask again** (Kirim & tanya ulang) menyimpan konteks lalu langsung bertanya ulang ke AI. Ini memakai satu
+  jatah Ask AI. Tombol ini aktif kalau ada yang berubah, atau kalau sarannya sudah tidak sesuai dengan task. Kalau
+  jatah hari ini sudah habis, konteksnya tetap tersimpan.
+- Setelah ditanya ulang, tiap baris menampilkan apa yang berubah, misalnya **Before 6 h → now 9 h** (Sebelumnya
+  6 h → sekarang 9 h), dan alasannya: **Because of the team's context: …** (Karena konteks tim: …). Keterangan
+  ini tetap ada setelah halaman dimuat ulang.
+- Tanda pada asumsi yang tidak lagi disebut AI di saran terbaru muncul di **Saved corrections** (Koreksi
+  tersimpan), dan bisa dihapus satu per satu dengan tombol ×.
+- Di bawah kotak tertulis siapa yang terakhir menyimpan dan kapan: **Context from Ayu · …** (Konteks dari …).
+  Kalau ada task serupa di workspace yang punya catatan, tertulis misalnya "+ 2 notes from similar tasks will be
+  used" (+ 2 catatan dari task serupa ikut dipakai), dengan tautan ke task-task itu. Jadi AI belajar kebiasaan tim.
+- **Clear context** (Hapus konteks) menghapus konteks task ini tanpa bertanya ke AI.
+- Konteks bisa diubah oleh siapa pun yang boleh mengedit task (kecuali stakeholder). Yang lain hanya bisa
+  melihatnya. Kalau external AI processing dimatikan, atau semua skor diatur **Math only**, bagian ini tidak tampil.
+- Teks yang sedang kamu ketik tidak hilang selama AI ditanya atau saat panel diperbarui. Konteks tidak ikut tersalin
+  saat task diduplikasi.
+
 **Rating** untuk Story/Weighted Points: empat faktor dinilai 1–5. Nilai **Scope** disarankan dari jumlah aset
 (1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13+ → 5) dan bisa diubah.
 

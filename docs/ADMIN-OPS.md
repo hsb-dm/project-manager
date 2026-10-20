@@ -702,6 +702,19 @@ kelompok **AI**, begitu juga AI saat task dibuat dan AI saat brief direvisi besa
 Saran yang jauh dari hitungan diberi peringatan dan butuh alasan untuk dipakai. AI tidak pernah mengunci,
 meng-approve, atau memberi bonus.
 
+**Konteks tim untuk AI.** Di panel Scoring & Intelligence, tim bisa menandai asumsi AI sebagai benar atau salah
+(dengan koreksinya) dan menulis catatan sampai 1.000 karakter. **Send & ask again** menyimpannya lalu bertanya ulang
+(memakai satu jatah Ask AI).
+
+- Konteks disimpan **per task** di tabel `scoring_ai_context`, bukan di data task. Akibatnya, menduplikasi task tidak
+  menyalinnya. Menghapus task secara permanen ikut menghapusnya, sedangkan trash/restore tetap menyimpannya.
+- Catatan dari task serupa (paling banyak 3) ikut dikirim. Ini mengikuti pengaturan **task serupa sebagai contoh** di
+  kelompok **AI** dan switch **workspace context** di Settings → AI: catatan tidak dikirim kalau switch itu OFF atau
+  pilihannya "none"; dengan "team", hanya dari tim task itu. Catatan dari draft tidak pernah dikirim.
+- Biayanya kecil: biasanya sekitar **+300 token** per Ask AI, paling banyak sekitar 1.500 token.
+- Yang boleh mengubah: siapa pun yang boleh mengedit task, kecuali stakeholder. Yang bisa melihat skor task bisa
+  membacanya.
+
 **Dokumen di brief.** Di kelompok **AI**, bagian **AI suggestions**, switch **Let the AI read documents in the brief**
 (Izinkan AI membaca dokumen di brief) — **OFF secara default**. Kalau ON, saat AI ditanya ia juga membaca dokumen yang
 ditautkan di brief atau dilampirkan ke task, untuk menilai cakupan pekerjaan. Contoh: brief yang menautkan deck Google

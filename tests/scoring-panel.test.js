@@ -2,8 +2,9 @@
    the server in either spelling (camelCase or snake_case, a summary or a whole row), how it shows numbers (hours to the
    half hour, Story Points whole, Weighted Points with two decimals), when an estimate counts as locked, and that every
    word it shows — every sentence of the engine's explanations too — has its Indonesian; and the "Documents for the AI"
-   line (what the server found, what the last ask did with each, a task left out). The panel in the browser:
-   e2e/scoring-panel.spec.js, e2e/scoring-ai-docs.spec.js. */
+   line (what the server found, what the last ask did with each, a task left out); and the team's context for the AI
+   (each assumption right or wrong, the note, what is sent, read-only, hidden, before → now). The panel in the browser:
+   e2e/scoring-panel.spec.js, e2e/scoring-ai-docs.spec.js, e2e/scoring-ai-context.spec.js. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
@@ -202,6 +203,156 @@ test('the documents in the brief: only while the workspace reads them and the AI
   c.SCR.cache['T-1'].ai.docs.found = []; delete c.SCR.docRun['T-1']; assert.equal(html(), '');
   c.SCR.cache['T-1'].ai.docs.canToggle = false; c.SCR.cache['T-1'].ai.docs.found = found;
   assert.match(html(), /data-scr-act="docs-use" disabled/, 'whoever may not edit the task sees the switch, not to be changed');
+});
+
+/* the panel with what the team's context needs: a task, the server's view (ai.rows, ai.context), the calls it makes */
+function ctxPanel() {
+  const tasks = { 'T-1': { id: 'T-1', meta: {} }, 'T-7': { id: 'T-7', title: 'Older feed' } }, on = { mods: ['hours'], mode: 'hybrid' }, calls = [], toasts = [];
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const c = load({ task: id => tasks[id], API: { on: true }, S: { drawerTask: null }, scoringSettings: () => Settings.normalizeSettings({}), scoringMode: () => on.mode, scoringModuleOn: m => on.mods.includes(m),
+    esc, attr: esc, jsq: s => esc(JSON.stringify(String(s))), fmt: (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] !== undefined ? o[k] : m)), person: id => ({ name: { u1: 'Ayu' }[id] || id }),
+    canI: { editTask: () => true, scoringConfigure: () => true }, scoringStakeholder: () => false, ago: (m, iso) => 'at ' + iso, toast: (t, k) => toasts.push([t, k || '']),
+    document: { querySelector: () => null, querySelectorAll: () => [] }, assetCount: () => 0, refresh: () => {}, replaceInto: () => {},
+    apiFetch: (method, path, body) => { calls.push({ method, path, body }); const r = c.__answer ? c.__answer(method, path, body) : null; return r instanceof Error ? Promise.reject(r) : Promise.resolve(r || {}); } });
+  c.I.x = '<svg></svg>';
+  const sug = (o) => Object.assign({ module: 'hours', value: 9, runId: 'r2', at: '2026-10-20T08:00:00.000Z', by: 'u1', confidence: 0.8, shownConfidence: 0.8, stale: false, warnings: [],
+    explanation: 'Twelve posts.', assumptions: ['1 revision round', 'Copy is ready'], missing: [], acceptable: true }, o || {});
+  const ctx = (o) => Object.assign({ note: '', checks: [], by: null, byName: null, at: null, canEdit: true, maxNote: 1000, maxChecks: 8, similar: [] }, o || {});
+  c.SCR.cache['T-1'] = { rows: {}, at: 1, can: { requestAi: true, edit: true, propose: true }, ai: { external: true, rows: { hours: sug(), story: null, weighted: null }, context: ctx() } };
+  return { c, tasks, on, calls, toasts, sug, ctx, tk: tasks['T-1'], ai: () => c.SCR.cache['T-1'].ai };
+}
+test('the team\'s context: each assumption right or wrong, a wrong one with what is true instead; what is sent; the button follows', async () => {
+  const { c, tk, ai, calls, toasts, sug } = ctxPanel();
+  const card = () => c.scrAiCardHtml(tk, 'hours', c.scrCan(tk, 'hours'), false), box = () => c.scrCtxHtml(tk);
+  /* the toggles on each assumption, nothing marked yet; the box under the rows with its words */
+  let h = card();
+  assert.match(h, /<li class="scr-asm" data-st=""><span data-no-translate>1 revision round<\/span><span class="scr-asm-acts"><button type="button" class="scr-tog" data-ok="1" aria-pressed="false"/);
+  assert.match(h, /onclick="scrCtxMark\(&quot;T-1&quot;,'hours',0,false\)">✗ Wrong</);
+  assert.doesNotMatch(h, /scr-fix/);
+  h = box();
+  assert.match(h, /data-scr-ctx="edit"/); assert.match(h, /<b>Add context for the AI<\/b>/); assert.match(h, /maxlength="1000"/);
+  assert.match(h, /placeholder="E\.g\. this client usually asks for 3 revision rounds; product photos arrive two days before the deadline\."/);
+  assert.match(h, /The AI uses this on every Ask AI for this task, and as an example for similar tasks\./); assert.match(h, /data-scr-ctx-n>0 \/ 1,000</);
+  assert.match(h, /data-scr-act="ctx-send" data-scr-key="ctx-send" disabled/, 'nothing to send yet');
+  assert.doesNotMatch(h, /ctx-clear/, 'nothing saved: no Clear context');
+  /* Wrong: the line for what is true instead; Right on the other */
+  c.scrCtxMark('T-1', 'hours', 0, false); c.scrCtxMark('T-1', 'hours', 1, true);
+  h = card();
+  assert.match(h, /data-st="wrong"><span data-no-translate>1 revision round<\/span>.*class="scr-tog on" data-ok="0" aria-pressed="true".*<input type="text" class="scr-fix" data-scr-key="fix:hours:0" maxlength="200" value="" placeholder="What is true instead…"/);
+  assert.match(h, /data-st="ok"><span data-no-translate>Copy is ready/);
+  c.scrCtxFix('T-1', 'hours', 0, { value: 'this client usually asks for 3 rounds' });
+  assert.match(box(), /data-scr-act="ctx-send" data-scr-key="ctx-send" onclick=/, 'something to send: enabled');
+  c.scrCtxNote('T-1', { value: '  Photos arrive two days before the deadline.  ' });
+  assert.match(box(), /data-scr-ctx-n>47 \/ 1,000</, 'counted as typed');
+  assert.deepEqual(JSON.parse(JSON.stringify(c.scrCtxBody(c.scrCtxCur(tk)))), { note: 'Photos arrive two days before the deadline.', checks: [{ a: '1 revision round', ok: false, fix: 'this client usually asks for 3 rounds' }, { a: 'Copy is ready', ok: true }] });
+  /* the same mark again takes it away; marking back to what is saved leaves nothing of its own */
+  c.scrCtxMark('T-1', 'hours', 1, true); assert.equal(c.scrCtxCur(tk).checks.length, 1);
+  c.scrCtxMark('T-1', 'hours', 0, true); assert.deepEqual(JSON.parse(JSON.stringify(c.scrCtxCur(tk).checks)), [{ a: '1 revision round', ok: true, fix: '' }], 'right: no correction kept');
+  c.scrCtxMark('T-1', 'hours', 0, true); c.scrCtxNote('T-1', { value: '' }); assert.equal(c.SCR.ctx.draft['T-1'], undefined, 'as saved again: no draft');
+  /* marked again in another order: what is saved, nothing to send */
+  ai().context.checks = [{ a: '1 revision round', ok: true }, { a: 'Copy is ready', ok: false, fix: 'not yet' }];
+  c.scrCtxMark('T-1', 'hours', 0, true); c.scrCtxMark('T-1', 'hours', 0, true); assert.equal(c.scrCtxDirty(tk), false, 'the same marks in another order');
+  assert.equal(c.SCR.ctx.draft['T-1'], undefined); ai().context.checks = [];
+  /* at most 8 checks */
+  ai().rows.hours = sug({ assumptions: Array.from({ length: 9 }, (_, i) => 'A' + i) });
+  for (let i = 0; i < 9; i++) c.scrCtxMark('T-1', 'hours', i, true);
+  assert.equal(c.scrCtxCur(tk).checks.length, 8); assert.deepEqual(toasts.pop(), ['At most 8 assumptions can be marked', 'bad']);
+  delete c.SCR.ctx.draft['T-1']; ai().rows.hours = sug();
+  /* out of date: Send & ask again is there for the asking even with nothing new */
+  ai().rows.hours = sug({ stale: true }); assert.match(box(), /data-scr-key="ctx-send" onclick=/); ai().rows.hours = sug({ warnings: [{ code: 'stale' }] }); assert.equal(c.scrCtxSendOk(tk), true);
+  ai().rows.hours = sug();
+  /* Send & ask again: one ask with the context, for the one score with a suggestion; the draft goes once sent */
+  c.scrCtxMark('T-1', 'hours', 0, false); c.scrCtxFix('T-1', 'hours', 0, { value: '3 rounds' });
+  c.__answer = (m, p) => (p.endsWith('/scoring/ai') ? { rows: {}, ai: { external: true, rows: { hours: sug({ runId: 'r3', value: 12 }) }, context: { note: '', checks: [{ a: '1 revision round', ok: false, fix: '3 rounds' }], canEdit: true, by: 'u1', at: '2026-10-20T09:00:00.000Z' } },
+    aiResult: { status: 'ok', runId: 'r3', modules: ['hours'], previous: { hours: 9, storyPoints: null, weightedPoints: null }, contextEffect: 'Three rounds add three hours.', context: { used: true, similar: [] } } } : {});
+  c.scrCtxSend('T-1');
+  assert.equal(c.SCR.aiBusy['T-1'], 'hours'); assert.equal(c.SCR.ctx.busy['T-1'], 'send');
+  assert.equal(c.scrCtxSendOk(tk), false, 'busy: no second send');
+  let b = box(); assert.match(b, /data-scr-key="ctx-send" disabled aria-busy="true"/); assert.match(b, />Sending…</); assert.match(b, /<textarea [^>]*oninput=/, 'the note stays to be typed in');
+  await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  const post = calls.find(x => x.path === '/api/tasks/T-1/scoring/ai');
+  assert.deepEqual(JSON.parse(JSON.stringify(post.body)), { module: 'hours', trigger: 'ask', comparables: [], lang: 'en', context: { note: '', checks: [{ a: '1 revision round', ok: false, fix: '3 rounds' }] } });
+  assert.equal(c.SCR.ctx.draft['T-1'], undefined); assert.equal(c.SCR.aiBusy['T-1'], undefined); assert.equal(c.SCR.ctx.busy['T-1'], undefined);
+  /* what changed and why, from what the ask said */
+  h = card(); assert.match(h, /data-scr-ai-delta="hours">Before <b>9 h<\/b> → now <b>12 h<\/b></); assert.match(h, /Because of the team&#39;s context: <span data-no-translate>Three rounds add three hours\.<\/span>/);
+  b = box(); assert.match(b, /data-scr-ctx-by>Context from <span data-no-translate>Ayu<\/span> · at 2026-10-20T09:00:00\.000Z</); assert.match(b, /data-scr-act="ctx-clear"/);
+  /* two scores with a suggestion: one ask for all of them */
+  const p2 = ctxPanel(); p2.on.mods = ['hours', 'story']; p2.ai().rows.story = p2.sug({ module: 'story', value: 5 });
+  assert.equal(p2.c.scrCtxTarget(p2.tk), 'all'); p2.ai().rows.story = null; assert.equal(p2.c.scrCtxTarget(p2.tk), 'hours');
+  p2.ai().rows.hours = null; assert.equal(p2.c.scrCtxTarget(p2.tk), 'all', 'none yet, two asked for: all');
+  assert.equal(p2.c.scrAiBusy('T-1', 'story'), false); p2.c.SCR.aiBusy['T-1'] = 'all'; assert.equal(p2.c.scrAiBusy('T-1', 'story'), true);
+  /* without the right to ask the AI, the context is only saved; Clear context saves it empty and asks nothing */
+  calls.length = 0; c.SCR.cache['T-1'].can.requestAi = false; c.scrCtxNote('T-1', { value: 'Client is slow to reply' });
+  assert.match(box(), />Save context</);
+  c.__answer = (m, p, body) => (p.endsWith('/context') ? { context: Object.assign({ canEdit: true, by: 'u1', at: '2026-10-20T10:00:00.000Z', similar: [] }, body) } : { rows: {}, ai: ai() });
+  c.scrCtxSend('T-1'); await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(calls.map(x => x.method + ' ' + x.path).slice(0, 1), ['PUT /api/tasks/T-1/scoring/context']); assert.equal(calls[0].body.note, 'Client is slow to reply');
+  assert.ok(toasts.some(t => t[0] === 'Context saved'));
+  calls.length = 0; c.SCR.cache['T-1'].ai.context.note = 'Client is slow to reply'; c.scrCtxClear('T-1'); await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), { method: 'PUT', path: '/api/tasks/T-1/scoring/context', body: { note: '', checks: [] } });
+  assert.ok(calls.every(x => !x.path.endsWith('/ai')), 'nothing asked'); assert.ok(toasts.some(t => t[0] === 'Context cleared'));
+  /* refused (403): nothing is lost */
+  c.SCR.cache['T-1'].can.requestAi = true; c.scrCtxNote('T-1', { value: 'Keep me' }); c.__answer = () => new Error('You don\'t have permission to do that');
+  c.scrCtxSend('T-1'); await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));
+  assert.equal(c.scrCtxCur(tk).note, 'Keep me'); assert.equal(c.SCR.ctx.busy['T-1'], undefined);
+});
+test('the team\'s context: saved corrections, similar tasks, read-only, hidden; before → now kept in the view; in Indonesian', () => {
+  const { c, tk, ai, on, sug, ctx } = ctxPanel();
+  const card = () => c.scrAiCardHtml(tk, 'hours', c.scrCan(tk, 'hours'), false), box = () => c.scrCtxHtml(tk);
+  ai().context = ctx({ note: 'Line one\nline two <b>', by: 'u1', byName: 'Ayu Lestari', at: '2026-10-19T08:00:00.000Z',
+    checks: [{ a: '1 revision round', ok: false, fix: 'three rounds' }, { a: 'Stock photos are fine', ok: false, fix: 'shoot needed' }, { a: 'One size only', ok: true }], similar: [{ id: 'T-7', title: 'Older feed' }, { id: 'T-404', title: 'Not here' }] });
+  let h = box();
+  /* the checks of no shown assumption are saved corrections, each to be removed */
+  assert.match(h, /data-scr-ctx-saved><b>Saved corrections<\/b>/);
+  assert.match(h, /“<span data-no-translate>Stock photos are fine<\/span>” — wrong; in fact: <span data-no-translate>shoot needed<\/span>/);
+  assert.match(h, /“<span data-no-translate>One size only<\/span>” — right/);
+  assert.doesNotMatch(h.slice(h.indexOf('data-scr-ctx-saved'), h.indexOf('</ul>')), /1 revision round/, 'shown with its assumption, not here');
+  assert.match(h, /data-scr-key="ctx-rm:1" aria-label="Remove"/);
+  assert.match(h, />Line one\nline two &lt;b&gt;<\/textarea>/);
+  assert.match(h, /Context from <span data-no-translate>Ayu Lestari<\/span>/);
+  /* the similar tasks' notes going with it: links to the tasks there are */
+  assert.match(h, /data-scr-ctx-sim="2">\+ 2 notes from similar tasks will be used: <button type="button" class="scr-link" data-scr-sim="T-7" onclick="openTask\(&quot;T-7&quot;\)"><span class="mono">T-7<\/span> <span data-no-translate>Older feed<\/span><\/button>, <span><span class="mono">T-404/);
+  ai().context.similar = [{ id: 'T-7', title: 'Older feed' }]; assert.match(box(), /\+ 1 note from a similar task will be used: /);
+  assert.match(card(), /data-st="wrong">.*value="three rounds"/, 'the saved correction on its assumption');
+  c.scrCtxRemove('T-1', 1); assert.doesNotMatch(box(), /Stock photos/); assert.match(box(), /data-scr-key="ctx-send" onclick=/, 'removed: something to send');
+  delete c.SCR.ctx.draft['T-1'];
+  /* a long assumption matches its check as the server keeps it (200 characters) */
+  const long = 'x'.repeat(230); ai().rows.hours = sug({ assumptions: [long] }); ai().context.checks = [{ a: 'x'.repeat(200), ok: true }];
+  assert.match(card(), /data-st="ok"/); assert.doesNotMatch(box(), /Saved corrections/);
+  ai().rows.hours = sug(); ai().context.checks = [{ a: '1 revision round', ok: false, fix: 'three rounds' }];
+  /* read-only: the context and the marks, no input, no button */
+  ai().context.canEdit = false; h = box();
+  assert.ok(h.includes('data-scr-ctx="ro"><div class="scr-ctx-head"><b>The team\'s context for the AI</b>'), 'read-only: its own heading');
+  assert.match(h, /<p class="scr-ctx-text" data-no-translate>Line one\nline two &lt;b&gt;<\/p>/);
+  assert.doesNotMatch(h, /<textarea|<button type="button" class="btn|scr-x/);
+  h = card(); assert.match(h, /data-st="wrong"><span data-no-translate>1 revision round<\/span> <span class="scr-asm-mark">✗ Wrong<\/span><span class="scr-asm-fix" data-no-translate>three rounds<\/span>/);
+  assert.doesNotMatch(h, /scr-tog|scr-fix/);
+  ai().context = ctx({ canEdit: false }); assert.equal(box(), '', 'read-only, nothing saved: nothing');
+  ai().context = ctx(); c.canI.editTask = () => false; delete ai().context.canEdit; assert.equal(box(), '', 'no word from the server: the page\'s own rule');
+  c.canI.editTask = () => true; assert.match(box(), /data-scr-ctx="edit"/);
+  ai().context.canEdit = true;
+  /* hidden: external AI processing off, no score asking the AI, an older server without it; and no toggles then */
+  ai().external = false; assert.equal(box(), ''); assert.doesNotMatch(card(), /scr-tog/); ai().external = true;
+  on.mode = 'math_only'; assert.equal(box(), ''); on.mode = 'hybrid';
+  const keep = ai().context; delete ai().context; assert.equal(box(), ''); assert.match(card(), /<li data-no-translate>1 revision round<\/li>/, 'the list as it was'); ai().context = keep;
+  ai().rows.hours = null; assert.equal(box(), '', 'no suggestion, nothing saved: nothing yet'); ai().rows.hours = sug();
+  /* before → now from the view itself (GET carries previous and contextEffect), as an object or a number; the same value says so */
+  ai().rows.hours = sug({ value: 9, previous: { hours: 6, storyPoints: null, weightedPoints: null }, contextEffect: 'Three rounds of revision instead of one.' });
+  h = card(); assert.match(h, /Before <b>6 h<\/b> → now <b>9 h<\/b>/); assert.match(h, /data-scr-ai-effect>Because of the team&#39;s context: <span data-no-translate>Three rounds of revision instead of one\.<\/span>/);
+  assert.ok(h.indexOf('data-scr-ai-delta') < h.indexOf('scr-ai-text'), 'right under what it suggests');
+  ai().rows.hours = sug({ value: 9, previous: 9.2 }); assert.match(card(), /Same as before: <b>9 h<\/b>/); assert.doesNotMatch(card(), /data-scr-ai-effect/);
+  ai().rows.hours = sug({ previous: { hours: null } }); assert.doesNotMatch(card(), /data-scr-ai-delta/, 'no earlier suggestion: nothing');
+  const st = sug({ module: 'story', value: 8, previous: { hours: 6, storyPoints: 5, weightedPoints: null } }); on.mods = ['hours', 'story']; ai().rows.story = st;
+  assert.match(c.scrAiCardHtml(tk, 'story', c.scrCan(tk, 'story'), false), /Before <b>5 SP<\/b> → now <b>8 SP<\/b>/);
+  /* in Indonesian, with the placeholders kept */
+  c.UI_LANG = 'id'; ai().rows.hours = sug({ value: 9, previous: { hours: 6 }, contextEffect: 'Tiga putaran revisi.' }); ai().context = ctx({ note: 'x', by: 'u1', at: '2026-10-19T08:00:00.000Z', similar: [{ id: 'T-7', title: 'Older feed' }], checks: [{ a: 'Gone', ok: false, fix: 'y' }] });
+  h = card(); assert.match(h, /Sebelumnya <b>6 h<\/b> → sekarang <b>9 h<\/b>/); assert.match(h, /Karena konteks tim: /); assert.match(h, />✓ Benar</); assert.match(h, />✗ Salah</);
+  h = box(); for (const s of ['Tambah konteks untuk AI', 'AI memakai ini setiap Ask AI di task ini, dan sebagai contoh untuk task serupa.', 'placeholder="Misal: klien ini biasanya minta 3x revisi; foto produk dari klien baru masuk H-2."', '>Kirim & tanya ulang</button>', '>Hapus konteks</button>', 'Konteks dari <span data-no-translate>Ayu</span> · ', '+ 1 catatan dari task serupa ikut dipakai: ', 'Koreksi tersimpan', '” — salah; sebenarnya: '])
+    assert.ok(h.includes(s), s);
+  const marks = s => (String(s).match(/\{\w+\}/g) || []).sort().join(' ');
+  for (const k of ['Before {a} → now {b}', 'Same as before: {v}', 'Context from {name} · {when}', '+ {n} notes from similar tasks will be used', '“{a}” — wrong; in fact: {fix}', 'At most {n} assumptions can be marked'])
+    assert.equal(marks(c.UI_ID[k]), marks(k), k + ': the placeholders differ');
+  assert.equal(c.UI_ID['✓ Right'], '✓ Benar', 'not "Kanan", the direction');
 });
 
 test('the explanation of a stored row is the engine\'s, in Indonesian too, with a kind\'s and a factor\'s name in their words', () => {
