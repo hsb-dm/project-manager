@@ -54,21 +54,33 @@ test('clean production install: no demo data, configured admin, one-time setup',
   assert.equal(demo.status, 401);
 });
 
-test('app shell is compressed, cacheable by ETag, and small', { timeout: 20000 }, async t => {
+test('app shell is compressed, cacheable by ETag, and small', { timeout: 60000 }, async t => {
   const s = await startServer(t);
   const r = await fetch(s.base + '/', { headers: { 'accept-encoding': 'br, gzip' } });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-encoding'), 'br');
   assert.equal(r.headers.get('cache-control'), 'no-cache');
   const etag = r.headers.get('etag'); assert.ok(etag);
-  const wire = Number(r.headers.get('content-length'));
+  /* first sent at brotli quality 9 at once, then — when the server's background compression at quality 11 is done —
+     smaller: what every later visit gets (server.js staticEntry, Oct 2026). The smaller copy must still be the page. */
+  const first = Number(r.headers.get('content-length')); await r.arrayBuffer();
+  let wire = first, body = null;
+  for (let i = 0; i < 160 && wire >= first; i++) {
+    await new Promise(res => setTimeout(res, 250));
+    const again = await fetch(s.base + '/', { headers: { 'accept-encoding': 'br, gzip' } });
+    body = Buffer.from(await again.arrayBuffer()); wire = Number(again.headers.get('content-length'));
+  }
+  assert.ok(wire < first, 'the background compression sends less than the first copy (' + wire + ' vs ' + first + ')');
+  assert.ok(body.equals(fs.readFileSync(path.join(root, 'public', 'index.html'))), 'and it is the page, byte for byte (fetch decodes it)');
   /* 700 → 760 KB (October 2026): AI Hub's poster look, brand characters and fonts, templates saved from the canvas
      (for everyone or oneself), the screen-fitting layout and extra permissions for one person took the compressed
      shell 2 KB past 700 KB (about 702 KB). */
   /* 760 → 860 KB (October 2026): Smart Scoring — its shared engine and settings, the Settings tab and the room for its
      task panel, time log, KPI/OKR and analytics still to come — and pasted writing that keeps its format took the
      compressed shell to about 760 KB (778,518 bytes). With all of Smart Scoring in (its task panel, time log, asset
-     points, KPIs and OKRs, analytics, efficiency bonus and AI suggestions) it is about 826 KB, under this limit. */
+     points, KPIs and OKRs, analytics, efficiency bonus and AI suggestions) it is about 826 KB, under this limit.
+     Since 20 October 2026 the server sends it at brotli quality 11 once compressed in the background: about 790 KB
+     for a page that is 858 KB at quality 9. */
   assert.ok(wire < 860 * 1024, 'compressed shell under 860 KB, got ' + wire);
   const html = fs.readFileSync(path.join(root, 'public', 'index.html'));
   /* 2.2 → 2.4 MB (October 2026): the comment toolbar, @mentions, the simplified Assets & versions

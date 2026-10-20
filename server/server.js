@@ -2098,6 +2098,7 @@ const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; cha
    in memory per file and rebuilt when the file's mtime or size changes. */
 const zlib = require("zlib");
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
+const BR_BEST_FROM = 256 * 1024;   /* files above this are compressed again at the highest quality, in the background */
 const staticCache = new Map();
 function staticEntry(file) {
   const st = fs.statSync(file), key = st.mtimeMs + ":" + st.size, hit = staticCache.get(file);
@@ -2107,6 +2108,17 @@ function staticEntry(file) {
   if (COMPRESSIBLE.has(ext) && raw.length > 1024) {
     entry.br = zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
     entry.gzip = zlib.gzipSync(raw, { level: 9 });
+    /* A large file — the page itself, about 3.5 MB — is compressed again at brotli's highest quality in the background
+       (Oct 2026): quality 11 takes some 8 s for it, too long to hold a request, and sends about 8% less (790 KB
+       where quality 9 sends 858 KB). Until it is ready the quality-9 copy above is sent; it is taken only if the file
+       has not changed meanwhile, and only if it is smaller. */
+    if (raw.length > BR_BEST_FROM) {
+      entry.brBest = false;
+      zlib.brotliCompress(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }, (err, best) => {
+        if (!err && staticCache.get(file) === entry && best.length < entry.br.length) entry.br = best;
+        entry.brBest = true;
+      });
+    }
   }
   staticCache.set(file, entry); return entry;
 }
@@ -2234,7 +2246,11 @@ const server = http.createServer(async (req, res) => {
     send(status, { error: status >= 500 && security.IS_PRODUCTION ? "Server error" : (e.message || "Server error") });
   }
 });
-server.listen(PORT, () => console.log("ZenCrevia running at http://localhost:" + server.address().port + "  (db: " + require("./db").DB_PATH + ")"));
+server.listen(PORT, () => {
+  console.log("ZenCrevia running at http://localhost:" + server.address().port + "  (db: " + require("./db").DB_PATH + ")");
+  /* the page's background compression starts now, not on the first visit */
+  try { staticEntry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
+});
 /* v36 graceful shutdown (systemd/pm2 stop, deploys): stop accepting connections, end live
    streams, let requests in flight finish (max 8 s), then checkpoint and close the database so
    the -wal file is folded back into the main file. */
