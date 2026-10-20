@@ -460,6 +460,11 @@ sebelah judul baris tampil berapa karakter yang dibaca dari jatahnya, misalnya "
 - Sakelar **Use this task's documents** (Pakai dokumen task ini) mematikan pembacaan dokumen untuk task ini saja;
   chip lalu bertuliskan **will not be sent** (tidak akan dikirim). Sakelar ini bisa diubah oleh siapa pun yang boleh
   mengedit task, dan tersimpan bersama task.
+- Kalau link menunjuk slide/halaman tertentu (misalnya `#slide=…` dari Google Slides, atau "slide 5" / "hal. 3" di
+  samping link), AI menghitung bagian itu saja — ditambah slide lanjutannya, judul bagiannya, dan slide umum seperti
+  Brand Guidelines — tidak pernah brief lain di deck yang sama. Chip menulis bagiannya ("· slide 12") dan apa yang
+  dikirim; kalau bagian itu tidak bisa dibaca tersendiri, dokumen itu tidak dikirim sama sekali. Isi **Slides/pages**
+  (Slide/halaman) di chip, misalnya `12–13`, untuk menentukan slide-nya sendiri; tersimpan bersama task.
 - Kalau fitur ini dimatikan untuk workspace, tidak ada yang tampil tentang dokumen (admin melihat satu baris kecil
   dengan tautan ke pengaturannya).
 

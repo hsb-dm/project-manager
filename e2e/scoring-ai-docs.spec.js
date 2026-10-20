@@ -8,7 +8,10 @@
    no documents on the task, one quiet line for whoever may turn it on. On: each document a chip with its kind and
    what it is; "Use this task's documents" saves meta.aiReadDocs false with the task (and takes it away again), the
    chips then say nothing is sent; after Ask AI they say what was read, how much and what was cut. In Indonesian, in
-   dark mode, and on a phone without sideways scrolling. Last, the real server's own list (server/scoring-docs.js): what
+   dark mode, and on a phone without sideways scrolling. A document the brief points into (Doc.part): the part beside its
+   title, what was sent of it ("read: slide 12 (the work) + …") or that it could not be read on its own, and
+   "Slides/pages:" set by hand, saved with the task through the real PUT as meta.aiDocParts and cleared again. Last, the
+   real server's own list (server/scoring-docs.js): what
    the description links to, titled with the link's words, and the task left out in its view too. Smart Scoring is
    turned on here and everything is put back. */
 const { test, expect } = require("@playwright/test");
@@ -267,6 +270,54 @@ test.describe.serial("the AI reading the documents in a brief", () => {
       expect(contrast.dark, "a dark chip").toBe(true);
       expect(contrast.title).toBeGreaterThan(4.5); expect(contrast.status).toBeGreaterThan(3);
     } finally { await page.evaluate(v => { if (v === null) delete myPrefs().appearance; else myPrefs().appearance = v; applyTheme(); renderDrawer(); }, was); }
+  });
+
+  test("a document the brief points into: its part beside the title, what was sent of it or that it could not be read on its own, and the slides set by hand, saved with the task; in Indonesian", async () => {
+    const deck = "https://docs.google.com/presentation/d/e2eDeckPart0001", old = "https://docs.google.com/presentation/d/e2eDeckGone0001";
+    st.docs = { on: true, allowed: true, canToggle: true, charsLimit: 15000, maxDocs: 5, found: [
+      { ref: deck + "#slide=id.p11", kind: "gslides", title: "Ramadan plan", status: "read", chars: 2300, part: { kind: "slide", label: "slide 12", from: 12, to: 12, of: 40, resolved: true, also: [{ role: "continues", n: 13 }, { role: "general", n: 2 }] } },
+      { ref: old + "#slide=id.gone", kind: "gslides", title: "Old plan", status: "read", chars: 0, reason: "part_not_found", part: { kind: "slide", label: "slide id.gone", resolved: false } },
+      { ref: "file:e2e-plan#page=2-4", kind: "file", title: "Plan.pdf", status: "ready", part: { kind: "page", label: "pages 2–4", from: 2, to: 4, resolved: false } }] };
+    await page.evaluate(i => { closeDrawer(); }, taskId);
+    await openBrief(page, taskId);
+    await page.evaluate(i => scrLoad(task(i), true), taskId);
+    const part = ref => chip(page, ref).locator(".scr-doc-part"), field = ref => page.locator('#drawer .scr-doc input[data-scr-doc-parts="' + ref + '"]');
+    await expect(part(deck + "#slide=id.p11")).toHaveText("· slide 12");
+    await expect(status(page, deck + "#slide=id.p11")).toHaveText("read: slide 12 (the work) + slide 13 (continues) + slide 2 (general) of 40 · 2,300 characters");
+    await expect(part(old + "#slide=id.gone")).toHaveText("· one slide");
+    await expect(status(page, old + "#slide=id.gone")).toHaveText("points to one slide; not sent: it could not be read on its own · not found in it");
+    await expect(part("file:e2e-plan#page=2-4")).toHaveText("· pages 2–4");
+    await expect(status(page, "file:e2e-plan#page=2-4")).toHaveText("read when the AI is asked");
+    /* the slides or pages to set: filled from what was found; set by hand, saved with the task as "12-13" */
+    await expect(chip(page, deck + "#slide=id.p11").locator(".scr-doc-parts")).toContainText("Slides/pages:");
+    await expect(field(deck)).toHaveValue("12"); await expect(field(old)).toHaveValue(""); await expect(field("file:e2e-plan")).toHaveValue("2–4");
+    let put = page.waitForResponse(r => r.request().method() === "PUT" && new RegExp("/api/tasks/" + taskId + "$").test(r.url()));
+    await field(deck).fill("12–13"); await field(deck).press("Tab");
+    let res = await put; expect(res.status()).toBe(200);
+    expect(res.request().postDataJSON().meta.aiDocParts).toEqual({ [deck]: "12-13" });
+    await expect(page.locator("#toasts .toast").last()).toHaveText("The AI reads only these slides or pages of it");
+    expect((await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i), taskId)).meta.aiDocParts, "the server keeps it, cleaned").toEqual({ [deck]: "12-13" });
+    await expect(field(deck)).toHaveValue("12–13");
+    /* not numbers: said, nothing saved */
+    await field(old).fill("slide five"); await field(old).press("Tab");
+    await expect(page.locator("#toasts .toast").last()).toHaveText("Use slide or page numbers, such as 12–13 or 3, 5 (at most 20, up to 999)");
+    /* in Indonesian */
+    await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
+    await expect(status(page, deck + "#slide=id.p11")).toHaveText("terbaca: slide 12 (dikerjakan) + slide 13 (lanjutan) + slide 2 (umum) dari 40 · 2.300 karakter");
+    await expect(status(page, old + "#slide=id.gone")).toHaveText("menunjuk satu slide; tidak dikirim: tidak bisa dibaca tersendiri · tidak ditemukan di dalamnya");
+    await expect(part("file:e2e-plan#page=2-4")).toHaveText("· hal. 2–4");
+    await expect(chip(page, deck + "#slide=id.p11").locator(".scr-doc-parts")).toContainText("Slide/halaman:");
+    await page.evaluate(() => { UI_LANG = "en"; renderDrawer(); });
+    /* cleared: back to the link, and nothing of it left on the task */
+    put = page.waitForResponse(r => r.request().method() === "PUT" && new RegExp("/api/tasks/" + taskId + "$").test(r.url()));
+    await field(deck).fill(""); await field(deck).press("Tab");
+    res = await put; expect(res.status()).toBe(200);
+    expect("aiDocParts" in (res.request().postDataJSON().meta || {})).toBe(false);
+    expect("aiDocParts" in ((await page.evaluate(i => apiFetch("GET", "/api/tasks/" + i), taskId)).meta || {})).toBe(false);
+    /* back to the documents the tests below use */
+    st.docs = { on: true, allowed: true, canToggle: true, charsLimit: 15000, found: FOUND() };
+    await page.evaluate(i => scrLoad(task(i), true), taskId);
+    await expect(page.locator("#drawer .scr-doc")).toHaveCount(5);
   });
 
   test("on a phone the documents fit, and so does their setting: no sideways scroll", async ({ browser }) => {

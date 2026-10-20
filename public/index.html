@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="2830336a79bd">
+<meta name="zc-build" content="2bbd2ae047c3">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -9532,7 +9532,7 @@ function taskGearSetPosition(pos){
   if(typeof WorkspaceQuest!=="undefined"&&WorkspaceQuest.emit) WorkspaceQuest.emit("task-panel-position");
 }
 function taskMenu(a){ var id=S.drawerTask; ctxMenu(a,(canI.createTask()?'<button onclick="closePops();duplicateTask(\''+id+'\')">'+I.plus+tr("Duplicate task")+'</button>':'')+'<button onclick="closePops();exportTaskCSV(\''+id+'\')">'+I.download+tr("Export task (.csv)")+'</button>'+(canI.editTask(task(id))?'<button onclick="closePops();toggleHidden(\''+id+'\')">'+I.eye+tr(task(id).hidden?"Unhide task":"Hide task")+'</button>':'')+(canI.deleteTask()?'<button class="danger" onclick="closePops();deleteTask(\''+id+'\')">'+I.trash+tr("Delete task")+'</button>':'')); }
-function duplicateTask(id){ var src=task(id); var nid=nextId("T-",TASKS); var c=clone(src); c.id=nid; c.title=src.title+" (copy)"; c.status=WS.workflow[0].id; c.versions=[]; c.comments=[]; c.activity=[]; c.files=[]; c.ago=0; c.createdAt=null; c.completedAt=null; /* the work is to be done again: no hours spent on it, no lead validation yet */ if(c.meta){ delete c.meta.actualEffort; delete c.meta.assetSplitOk; } c.sort=(src.sort||0)+1; log(c,"created"); createTask(c).then(function(saved){ if(saved===false)return false; toast("Duplicated as "+c.id); openTask(c.id); }).catch(function(){}); }
+function duplicateTask(id){ var src=task(id); var nid=nextId("T-",TASKS); var c=clone(src); c.id=nid; c.title=src.title+" (copy)"; c.status=WS.workflow[0].id; c.versions=[]; c.comments=[]; c.activity=[]; c.files=[]; c.ago=0; c.createdAt=null; c.completedAt=null; /* the work is to be done again: no hours spent on it, no lead validation yet; and no slides set for the AI — a copy is usually the next brief in the same deck */ if(c.meta){ delete c.meta.actualEffort; delete c.meta.assetSplitOk; delete c.meta.aiDocParts; } c.sort=(src.sort||0)+1; log(c,"created"); createTask(c).then(function(saved){ if(saved===false)return false; toast("Duplicated as "+c.id); openTask(c.id); }).catch(function(){}); }
 function descView(tk){ if(typeof descEditorHtml==="function") return descEditorHtml(tk); var ed=canI.editTask(tk); return '<div style="margin-bottom:16px"><div class="eyebrow" style="margin-bottom:6px">Description</div>'+(ed?'<textarea class="desc" placeholder="'+attr(tr("Add context not covered by the brief…"))+'" onchange="editTask(\'description\',this.value)">'+esc(tk.description||"")+'</textarea><div class="hint" style="margin-top:5px">'+tr("Use this for additional context, constraints, or notes.")+'</div>':'<div style="white-space:pre-line">'+(tk.description?esc(tk.description):'<span class="hint">No description.</span>')+'</div>')+'</div>'; }
 
 /* ---- brief ---- */
@@ -25412,7 +25412,10 @@ function scoringAssetsSummaryHtml(data){
      one a chip with its kind and title, and what happened to it at the last ask (aiResult.docs: read and how much of it,
      cut to fit, not shared publicly — private Google documents are never read — too large, not supported), with
      "Use this task's documents" for whoever may edit the task (meta.aiReadDocs false leaves them out; saved as any
-     change to the task). With reading off, only a quiet line for whoever may change it.
+     change to the task). With reading off, only a quiet line for whoever may change it. A document the brief points
+     into (Doc.part) shows that part beside its title ("· slide 5"), what was sent of it ("read: slide 12 (the work) +
+     slide 13 (continues) of 40 · 2,300 characters") or that it could not be read on its own (then nothing was sent);
+     a deck or a PDF has "Slides/pages:" to set them by hand (meta.aiDocParts, saved with the task, over the link).
    - Without a server (the offline demo) the same routes are answered in the page (scrDemo), with the same rules.
    - The team's context for the AI (Oct 2026): after a suggestion, each assumption is marked right or wrong (a wrong one
      with what is true instead) and a note tells the AI what the brief does not say; kept with the task (GET …/scoring
@@ -25989,7 +25992,8 @@ var SCR_DOC_ST={ready:"read when the AI is asked",not_public:"not shared publicl
 /* why, as the server says it (docs/SMART-SCORING.md §5.4.1); not_public's own words say what to do, "budget" is "cut to fit" */
 var SCR_DOC_WHY={over_5mb:"over 5 MB",over_15mb:"over 15 MB",zip_limits:"too much packed inside",type:"this kind of file is not read",no_text:"no text in it (a scan?)",encrypted:"protected by a password",
   zip64:"a file format that is not read",method:"compressed in a way that is not read",timeout:"took too long",redirect_refused:"the link leads outside Google",too_many_redirects:"too many redirects",
-  rate_limited:"Google asked to wait: try again later",http:"Google answered with an error",network:"could not be reached",corrupt:"the file is damaged",missing:"the file is no longer on the server"};
+  rate_limited:"Google asked to wait: try again later",http:"Google answered with an error",network:"could not be reached",corrupt:"the file is damaged",missing:"the file is no longer on the server",
+  part_not_found:"not found in it",part_too_large:"the deck is over 50 MB",part_timeout:"took too long",part_unreadable:"it cannot be read by slide or page"};
 function scrDocs(tk){ var a=scrAiInfo(tk), d=a&&a.docs; return d&&typeof d==="object"?d:null; }
 /* the workspace's switch: the settings' own word when they have it, else the server's */
 function scrDocsWs(tk){ var s=scoringSettings(), v=s&&s.ai&&s.ai.readDocs, d=scrDocs(tk); return typeof v==="boolean"?v:!!(d&&d.on); }
@@ -26000,12 +26004,52 @@ function scrInt(n){ n=Math.round(+n||0); try{ return n.toLocaleString(UI_LANG===
 function scrDocList(tk){ var d=scrDocs(tk), f=d&&Array.isArray(d.found)?d.found:[], run=SCR.docRun[tk.id], c=SCR.cache[tk.id];
   return (f.length?f:run?run.list:[]).filter(function(x){ return x&&typeof x==="object"; }).map(function(x){ var r=run&&run.by[x.ref]; return r&&(x.status==="ready"||!c||run.at>=c.at)?Object.assign({},x,r):x; }); }
 function scrDocsRun(id,list){ var c=SCR.cache[id], by={}; list.forEach(function(x){ if(x&&x.ref) by[x.ref]=x; }); SCR.docRun[id]={at:c?c.at:Date.now(),list:list,by:by}; scrPaint(id); }
-function scrDocChip(x,used,max){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
+/* the part of a document the brief points to (docs/SMART-SCORING.md §5.4.1 part): words built from its fields, never
+   from its label — "slide 5", "slides 3–8", "page 2", "sheet tab", "range A1:C20", "one section" */
+function scrDocNums(p){ var l=Array.isArray(p.list)?p.list.filter(function(n){ return n===Math.floor(n)&&n>0; }):[], f=scrNum(p.from), t=scrNum(p.to);
+  if(l.length>1) return {many:true,txt:l.join(", ")}; if(l.length===1) f=t=l[0];
+  if(f==null) return null; return t==null||t===f?{many:false,txt:String(f)}:{many:true,txt:f+"–"+t}; }
+function scrDocUnit(kind,many,txt){ return fmt(tr(kind==="page"?(many?"pages {n}":"page {n}"):(many?"slides {n}":"slide {n}")),{n:txt}); }
+function scrDocPart(p){ if(!p||typeof p!=="object") return ""; var n=scrDocNums(p);
+  if(p.kind==="slide"||p.kind==="page") return n?scrDocUnit(p.kind,n.many,n.txt):tr(p.kind==="page"?"one page":"one slide");
+  if(p.kind==="sheet") return tr("sheet tab");
+  if(p.kind==="range") return /^(?:[A-Z]{1,3}\d{0,7}|\d{1,7})(?::(?:[A-Z]{1,3}\d{0,7}|\d{1,7}))?$/.test(String(p.label||""))?fmt(tr("range {r}"),{r:p.label}):tr("one range");
+  if(p.kind==="heading") return tr("one section");
+  return ""; }
+var SCR_DOC_ROLE={continues:"(continues)",heading:"(section heading)",general:"(general)"};
+/* what was sent of it: "slide 12 (the work) + slide 13 (continues) + slide 2 (general) of 40" */
+function scrDocSent(p){ var w=scrDocPart(p)+" "+tr("(the work)"), groups=[];
+  (Array.isArray(p.also)?p.also:[]).forEach(function(a){ if(!a||!Object.prototype.hasOwnProperty.call(SCR_DOC_ROLE,a.role)||!(a.n>0)) return; var g=groups[groups.length-1]; if(g&&g.role===a.role&&g.to===a.n-1) g.to=a.n; else groups.push({role:a.role,from:a.n,to:a.n}); });
+  groups.forEach(function(g){ w+=" + "+scrDocUnit(p.kind==="page"?"page":"slide",g.to>g.from,g.to>g.from?g.from+"–"+g.to:String(g.from))+" "+tr(SCR_DOC_ROLE[g.role]); });
+  var of=scrNum(p.of); return of!=null&&(p.kind==="slide"||p.kind==="page")?fmt(tr("{parts} of {of}"),{parts:w,of:scrInt(of)}):w; }
+/* the slides or pages a person sets for a deck or a PDF (meta.aiDocParts, keyed by its ref without the part): they win
+   over the link and the words, and are the way to fix a part that could not be read on its own */
+function scrDocBase(ref){ return String(ref||"").split("#")[0]; }
+function scrDocTakesNums(x){ return x.kind==="gslides"||x.kind==="gdrive"||(x.kind==="file"&&/\.(pdf|pptx)$/i.test(String(x.title||""))); }
+function scrDocPartsHtml(tk,x,can){ if(!scrDocTakesNums(x)) return ""; var b=scrDocBase(x.ref), set=(tk.meta||{}).aiDocParts, own=set&&typeof set==="object"&&Object.prototype.hasOwnProperty.call(set,b)?String(set[b]):"", n=x.part&&scrDocNums(x.part);
+  var v=own?own.replace(/-/g,"–").replace(/,/g,", "):n?n.txt:"";
+  return '<label class="scr-doc-parts">'+esc(tr("Slides/pages:"))+'<input type="text" inputmode="numeric" maxlength="40" value="'+attr(v)+'" placeholder="'+attr(tr("e.g. 12–13"))+'" aria-label="'+attr(fmt(tr("Slides or pages of {doc} for the AI"),{doc:String(x.title||"")}))+'" data-scr-doc-parts="'+attr(b)+'"'+(own?' data-own="1"':'')+(can?' onchange="scrDocParts('+jsq(tk.id)+','+jsq(b)+',this.value)"':' disabled')+'></label>'; }
+/* "12–13, 15" → "12-13,15"; "" → "" (back to the link); null when it is not slide or page numbers (at most 20, up to 999) */
+function scrDocParseNums(v){ var s=String(v==null?"":v).replace(/[–—]/g,"-").replace(/\s+/g,""), seen={}, list=[], ok=true; if(!s) return ""; if(s.length>80||!/^[\d,-]+$/.test(s)) return null;
+  s.split(",").forEach(function(it){ if(!ok||!it) return; var m=/^(\d{1,3})(?:-(\d{1,3}))?$/.exec(it); if(!m){ ok=false; return; } var a=+m[1], b=m[2]?+m[2]:a; if(a<1||b<a||b-a+1>20){ ok=false; return; } for(var x=a;x<=b;x++) if(!seen[x]){ seen[x]=1; list.push(x); } });
+  if(!ok||!list.length||list.length>20) return null; list.sort(function(a,b){ return a-b; });
+  var out=[]; for(var i=0;i<list.length;i++){ var j=i; while(j+1<list.length&&list[j+1]===list[j]+1) j++; out.push(j>i?list[i]+"-"+list[j]:String(list[i])); i=j; } return out.join(","); }
+function scrDocParts(id,ref,v){ var tk=task(id); if(!tk) return; var spec=scrDocParseNums(v), cur=(tk.meta||{}).aiDocParts, set=Object.assign({},cur&&typeof cur==="object"?cur:{});
+  if(spec===null){ toast(tr("Use slide or page numbers, such as 12–13 or 3, 5 (at most 20, up to 999)"),"bad"); scrPaint(id); return; }
+  if((set[ref]||"")===spec) return;
+  if(spec) set[ref]=spec; else delete set[ref];
+  if(Object.keys(set).length>5){ toast(tr("Slides or pages can be set for at most 5 documents of a task"),"bad"); scrPaint(id); return; }
+  editTaskWith(tk,function(t){ var m=taskMeta(t); if(Object.keys(set).length) m.aiDocParts=set; else delete m.aiDocParts; }).then(function(r){ if(r===false) return; toast(tr(spec?"The AI reads only these slides or pages of it":"The AI follows the brief's link for it again")); var t2=task(id); if(t2&&API.on) scrLoad(t2,true); }); }
+function scrDocChip(x,used,max,tk,can){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
+  var p=x.part&&typeof x.part==="object"?x.part:null, pw=p?scrDocPart(p):"", loose=!!pw&&st==="read"&&p.resolved!==true;
   var why=st!=="off"&&st!=="not_public"&&Object.prototype.hasOwnProperty.call(SCR_DOC_WHY,x.reason)?" · "+tr(SCR_DOC_WHY[x.reason]):"";
-  var txt=st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):"")
+  var txt=loose?fmt(tr("points to {part}; not sent: it could not be read on its own"),{part:pw})+why
+    :st==="read"&&pw?fmt(tr("read: {parts}"),{parts:scrDocSent(p)})+(n!=null?" · "+fmt(tr("{n} characters"),{n:scrInt(n)}):"")+(x.cut?" · "+tr("cut to fit"):"")
+    :st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):"")
     :st==="limit"&&x.reason==="max_docs"?fmt(tr("not read: only the first {n} are read per ask"),{n:max||5}):tr(SCR_DOC_ST[st]||SCR_DOC_ST.error)+why;
   var name=/^https:\/\/[^\s"'<>]+$/i.test(x.ref||"")?'<a href="'+attr(x.ref)+'" target="_blank" rel="noopener noreferrer" data-no-translate>'+esc(t)+'</a>':'<b data-no-translate>'+esc(t)+'</b>';
-  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' data-why="'+attr(x.reason)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name+'<span class="scr-doc-st">'+esc(txt)+'</span></li>'; }
+  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' data-why="'+attr(x.reason)+'"':'')+(p?' data-part="'+attr(p.kind||"")+'" data-resolved="'+(p.resolved===true)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name
+    +(pw?'<span class="scr-doc-part">· '+esc(pw)+'</span>':'')+'<span class="scr-doc-st">'+esc(txt)+'</span>'+(tk?scrDocPartsHtml(tk,x,can&&used):'')+'</li>'; }
 /* only where the AI is asked for some score; reading off: nothing, or one quiet line for whoever may turn it on */
 function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocList(tk);
   if(!list.length||a&&a.external===false||!mods.some(function(m){ return scoringMode(m)!=="math_only"; })) return "";
@@ -26016,7 +26060,7 @@ function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocLi
   var tot=used&&read.length?'<span class="hint" data-scr-docs-sum>'+esc(lim?fmt(tr("read {n} of {m} characters"),{n:scrInt(sum),m:scrInt(lim)}):fmt(tr("read {n} characters"),{n:scrInt(sum)}))+'</span>':'';
   return '<div class="scr-docs" data-scr-docs="'+(used?"on":"excluded")+'"><div class="scr-docs-head">'+SCR_DOC_ICO.file+'<b>'+tr("Documents for the AI")+'</b>'+tot
     +'<span class="scr-docs-use"><span>'+tr("Use this task's documents")+'</span><button type="button" class="switch'+(used?" on":"")+'" role="switch" aria-checked="'+used+'" aria-label="'+attr(tr("Use this task's documents"))+'" data-scr-act="docs-use"'+(can?' onclick="scrDocsUse('+jsq(tk.id)+')"':' disabled')+'></button></span></div>'
-    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used,scrNum(d&&d.maxDocs)); }).join("")+'</ul></div>'; }
+    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used,scrNum(d&&d.maxDocs),tk,can); }).join("")+'</ul></div>'; }
 /* left out or used again: meta.aiReadDocs false, or no word (the workspace's), saved as any change to the task */
 function scrDocsUse(id){ var tk=task(id); if(!tk) return; var on=!scrDocsUsed(tk);
   editTaskWith(tk,function(t){ var m=taskMeta(t); if(on) delete m.aiReadDocs; else m.aiReadDocs=false; }).then(function(r){ if(r!==false) toast(tr(on?"This task's documents are read when the AI is asked":"This task's documents will not be sent to the AI")); }); }
@@ -26166,7 +26210,15 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "this kind of file is not read":"jenis file ini tidak dibaca","no text in it (a scan?)":"tidak ada teksnya (hasil scan?)","protected by a password":"dilindungi kata sandi","a file format that is not read":"format file yang tidak dibaca",
   "compressed in a way that is not read":"dikompresi dengan cara yang tidak dibaca","took too long":"terlalu lama","the link leads outside Google":"link-nya mengarah ke luar Google","too many redirects":"terlalu banyak pengalihan",
   "Google asked to wait: try again later":"Google meminta menunggu: coba lagi nanti","Google answered with an error":"Google menjawab dengan galat","could not be reached":"tidak dapat dihubungi","the file is damaged":"file-nya rusak","the file is no longer on the server":"file-nya sudah tidak ada di server",
-  "This task's documents are read when the AI is asked":"Dokumen task ini dibaca saat AI ditanya","This task's documents will not be sent to the AI":"Dokumen task ini tidak akan dikirim ke AI"
+  "This task's documents are read when the AI is asked":"Dokumen task ini dibaca saat AI ditanya","This task's documents will not be sent to the AI":"Dokumen task ini tidak akan dikirim ke AI",
+  /* the part a document points to */
+  "slide {n}":"slide {n}","slides {n}":"slide {n}","page {n}":"hal. {n}","pages {n}":"hal. {n}","one slide":"satu slide","one page":"satu halaman","sheet tab":"tab sheet","range {r}":"rentang {r}","one range":"satu rentang","one section":"satu bagian",
+  "(the work)":"(dikerjakan)","(continues)":"(lanjutan)","(section heading)":"(judul bagian)","(general)":"(umum)","{parts} of {of}":"{parts} dari {of}","read: {parts}":"terbaca: {parts}","{n} characters":"{n} karakter",
+  "points to {part}; not sent: it could not be read on its own":"menunjuk {part}; tidak dikirim: tidak bisa dibaca tersendiri","not found in it":"tidak ditemukan di dalamnya","the deck is over 50 MB":"deck-nya lebih dari 50 MB",
+  "it cannot be read by slide or page":"tidak bisa dibaca per slide atau halaman","Slides/pages:":"Slide/halaman:","e.g. 12–13":"mis. 12–13","Slides or pages of {doc} for the AI":"Slide atau halaman {doc} untuk AI",
+  "Use slide or page numbers, such as 12–13 or 3, 5 (at most 20, up to 999)":"Pakai nomor slide atau halaman, misalnya 12–13 atau 3, 5 (paling banyak 20, sampai 999)",
+  "Slides or pages can be set for at most 5 documents of a task":"Slide atau halaman bisa diatur untuk paling banyak 5 dokumen per task",
+  "The AI reads only these slides or pages of it":"AI hanya membaca slide atau halaman ini dari dokumen itu","The AI follows the brief's link for it again":"AI kembali mengikuti link di brief untuk dokumen itu"
 });
 /* the engine's sentences (ScoringEngine.SENTENCES, the keys of every explanation step) in Indonesian, by their name there */
 (function(E,d){ if(!E||!E.SENTENCES) return; Object.keys(d).forEach(function(k){ var en=E.SENTENCES[k]; if(en&&!(en in UI_ID)) UI_ID[en]=d[k]; }); })(typeof ScoringEngine!=="undefined"?ScoringEngine:null,{
@@ -26357,6 +26409,11 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-doc[data-st="read"] .scr-doc-st{color:var(--color-success)}
 .scr-doc[data-st="not_public"] .scr-doc-st,.scr-doc[data-st="too_large"] .scr-doc-st,.scr-doc[data-st="error"] .scr-doc-st,.scr-doc[data-st="limit"] .scr-doc-st{color:var(--color-warning)}
 .scr-doc[data-st="off"]{opacity:.7}
+.scr-doc-part{color:var(--color-text-secondary);font-weight:600;white-space:nowrap}
+.scr-doc[data-resolved="false"][data-st="read"] .scr-doc-st{color:var(--color-warning)}
+.scr-doc-parts{display:inline-flex;align-items:center;gap:5px;min-width:0;color:var(--color-text-secondary);font-size:11.5px}
+.scr-doc-parts input{width:76px;min-width:0;height:22px;padding:0 6px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);color:var(--color-text-primary);font:inherit;font-size:12px}
+.scr-doc-parts input:focus{outline:2px solid var(--color-info);outline-offset:1px}
 .scr-docs-off{margin:0;padding-top:8px;border-top:1px solid var(--color-border)}
 @media(max-width:640px){.scr-vals{grid-template-columns:repeat(2,minmax(0,1fr))}.scr-val[data-scr-v="final"]{grid-column:1/-1}}
 </style>

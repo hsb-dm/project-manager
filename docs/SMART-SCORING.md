@@ -777,7 +777,7 @@ create and restore): only `false` is kept, any other value is dropped (server/sc
    unread; the stream is cancelled past it). No cookie, no key, `credentials: "omit"`.
 2. Files attached to the task and stored on this server (`source: "server"`, `/files/d/<sha>.<ext>`, present in
    `uploads`): `.txt .md .markdown .csv .tsv` as text (UTF-8, or UTF-16 with its mark; a NUL in the first 8 KB is not text);
-   `.docx` (`word/document.xml`) and `.pptx` (`ppt/slides/slide<N>.xml`, by N, "Slide N: …") through a bounded zip reader
+   `.docx` (`word/document.xml`) and `.pptx` (`ppt/slides/slide<N>.xml` in the presentation's own order — `ppt/presentation.xml` `sldIdLst` through its rels — else by N, "Slide N: …") through a bounded zip reader
    (the end record and central directory only; stored or deflated entries; ≤ 5 000 entries; each entry ≤ 10 MB and never
    more than it declares — `inflateRaw` with `maxOutputLength` = its declared size — and ≤ 40 MB in all; zip64, encrypted
    or other methods "unsupported"); `.pdf` — the page tree from `/Root` in order, object streams, FlateDecode content
@@ -805,6 +805,73 @@ Google Sheets spreadsheet (its first sheet) | file on Google Drive | file attach
 `validateAi` and the JSON form stay the only way an answer is used. Without documents the prompt is exactly as before
 (the prompt version is unchanged, so earlier runs stay valid).
 
+**The part the brief points to (Oct 2026).** Owner: "kasih konteks AI kalau attach dokumen kadang yang dibikin bukan
+keseluruhan dokumen melainkan spesific page/slide sesuai linknya" — and, later, requesters keep **one long deck holding
+many briefs** and link the slide being worked on, so the AI must see only that slide and what belongs to it, never
+another request in the same deck. A document can carry a **part**:
+- *Where it comes from*, first that wins: (1) the slides or pages a person set on the task, `meta.aiDocParts =
+  {"<the document's ref without its part>": "12-13"}` — for a deck or a PDF only (Google Slides, a Drive file, an
+  attached `.pptx`/`.pdf`); (2) the link itself, fragment or query, well-formed values only: Slides `slide=id.<objectId>`
+  (`[A-Za-z0-9_-]{1,100}`) or `slide=<n>`, Sheets `gid=<n>` and `range=<A1>` (`A1`, `A:C`, `1:5`, `A1:C20`, upper-cased),
+  Docs `heading=h.<id>`, Drive `page=<n>`; (3) words on the link's own line within 60 characters, English and
+  Indonesian — `slide 5`, `slides 3–8`, `slide 3, 5`, `slide 3 dan 5`, `slide ke-5`, `page 2`, `pages 2-4`, `p. 3`,
+  `pp. 3–4`, `hal. 3`, `hlm. 3`, `halaman 2–4`, `halaman 2 s/d 4`, `tab Budget`, `sheet "Budget 2025"` (a tab name is
+  quoted, or one word with a capital or a digit) — each mention going to the nearest document on the line (a tie: the
+  one after the words); for an attached file, such words on a line that names it (its whole name, or the name without
+  the extension when that is at least 6 characters). At most 20 slides or pages, none over 999; a number that is part
+  of a longer number, a word, a decimal, a time or a fraction is not one, nor is `page 404 error`/`halaman 404 tidak
+  ditemukan`, `slide deck`, `halaman depan`. A deck or a PDF takes slide and page words alike (slide 5 of a PDF deck is
+  its page 5), a Sheet tab words; a Doc, a Word file or a text file takes none (their text has no pages to tell apart,
+  and an unresolved part sends nothing, so such words would only hide them). Every pattern is bounded and runs on a few
+  characters around a link (tested on 60 000 characters of hostile text).
+- *The ref carries it*: `…/presentation/d/<id>#slide=id.p11`, `#slide=12-13`, `#page=2,4`, `#gid=123&range=A1:C20`,
+  `#sheet=Budget`, `#heading=h.abc`, `file:<id>#page=3`. Two parts of one document are two entries (both may be read
+  within the five); a document with a part is not listed again whole.
+- *How it is read on its own* — the SSRF boundary unchanged (the address is built from the id; redirects only to the
+  allowlisted hosts): **Google Slides** through `…/export/pptx` (the text export runs the slides together and cannot be
+  numbered), fetched whole — **50 MB and 25 s for this export only** (Range is not honoured), then only
+  `ppt/presentation.xml`, its rels and `ppt/slides/*.xml` are unpacked, never a picture, within the zip limits; the
+  slide order is the presentation's `sldIdLst` through its rels (not the files' numbers); a `slide=id.<objectId>` is
+  matched by the shapes Google names `Google Shape;<n>;<slide id>` — the most common id on a slide is its id, a slide
+  with only `Shape <n>` names cannot be matched. Only the text read is kept (10 minutes), never the file. An attached or
+  Drive **.pptx** the same way; a **PDF** page by page (the page tree); a **Sheet** tab through
+  `export?format=csv&gid=<n>[&range=<A1>]`; a **Doc** heading through `export?format=html`, taken only when Google sends
+  it as a download (`Content-Disposition: attachment`, a `.html` name) and only with that very id on an `h1`–`h6` (or an
+  anchor in one) — the section runs to the next heading of its level or above; any other web page goes back to the
+  text export's own sign-in check, whose answer is kept (`not_public`) and whose text is never used.
+- *What is sent*: the part as **the work**, and with it only (relevant()): **(a)** up to 2 slides after it that
+  continue it — no title, its own title, or a title saying so (`lanjutan`, `sambungan`, `cont.`, `cont'd`,
+  `continued`, `(2)`, `2/2`, `part 2`, `bagian 2`); the first other title stops it; **(b)** the slide just before it
+  when that is a title alone (1–60 characters in all): its section heading; **(c)** up to 2 general slides, the
+  earliest, each cut to 1 500 characters — a title that is a general phrase (overview, background, objective(s), brand
+  guideline(s), key message, target audience, tone of voice, do & don't, mandatory, timeline, deadline, general,
+  umum, latar belakang, tujuan, panduan, ketentuan, catatan umum, info umum…) with at most one other word beside the
+  joining ones and no kind of work in it (`FEED — Deadline 12 March`, `Tujuan Wisata Bali` are not general). A
+  slide's title is its title placeholder's text, else its first line (a PDF page: its first line). **Nothing else of the
+  document is ever sent.** The budget (`fit`) gives, across the documents and each tier shared fairly: the parts and
+  the documents with no part, then what continues a part, then section headings, then general slides.
+- *Not pinned down* (`resolved: false`): an id no slide has, a number past the end, a tab Google will not export, a tab
+  named only by its name (not fetched at all), a heading the Doc does not have, a deck over 50 MB or slower than 25 s,
+  a kind of file whose pages cannot be told apart — then **nothing of the document is sent**, only its title and
+  "The brief links to one specific slide of '<title>' that could not be read on its own; it was not sent, so other
+  requests in it are not mixed in — use the brief's words." (`page`, `tab`, `range`, `section` for the other kinds);
+  status `read`, `chars: 0`, `reason` `part_not_found` | `part_too_large` | `part_timeout` | `part_unreadable`; kept a
+  minute like a failure. Never the whole document instead.
+- *The prompt* (`docsBlock` only): when some document has a part, before `<documents>` — "When a document names the part
+  the brief points to, estimate that part only." and four lines on reading it (a content plan's slide is one piece: its
+  label says the kind and how many — FEED is one feed post, "CAROUSEL 5 slides" one carousel of 5, "STORY 3 frames" 3
+  stories; the deck is not the deliverable — not the kind "deck", its slides not deliverables, unless slides are to be
+  designed; the part's details judge complexity and scope, not the count; a part not read: read the brief's words the
+  same way). In the document: "This document holds other requests too; only the parts shown were sent — do not assume
+  more work than they ask for.", "The brief points to slide 12 of 40 — this part is the work:" (a tab, "the range
+  A1:C20 of one tab", "the section under the heading "…"") and its text, then "Slide 13 — continues the same brief:",
+  "Slide 11 — section heading:", "Slide 2 — applies to every brief in this deck — background only:" each with its text.
+  **Without a part the block is byte for byte as before.**
+- *The hash*: the part is in the ref, so `~d` changes with it (another slide asks again; setting the slides by hand makes
+  the suggestion stale); with a part the document's text hash covers the part's text, what went with it and the part's
+  resolution. A document with no part hashes as it always did, so earlier answers stay valid. (A link that already
+  carried `#slide=id.…` or `#gid=…` now has a part: its earlier suggestion is stale once.)
+
 **The hash.** `input_hash` = the task's hash (§5.4) + `~d` + sha256(`[docsChars, refs to read]`)[0:16] + `~c` +
 sha256(`[[ref, status, sha of the text sent, chars]…]`)[0:16] — only when the documents are read and there is one to
 read. A changed document, another budget or another set of documents misses the cache. A view, `use:"ai"` and "AI on
@@ -819,10 +886,18 @@ Doc      = { ref /* https://docs.google.com/document/d/<id> (…/presentation/d/
              title /* Google's name for it after a read (an export's ".txt"/".csv" dropped), the link's own text, the file's
                       name; else "<Google Docs|Slides|Sheets|Drive> · <first 6 of the id>" */,
              status: "ready"|"read"|"not_public"|"too_large"|"unsupported"|"error"|"limit",
-             chars? /* read: characters sent */, cut?: true, reason? }
+             chars? /* read: characters sent */, cut?: true, reason?, part?: Part }
+Part     = { kind: "slide"|"page"|"sheet"|"range"|"heading",
+             label /* short English: "slide 5", "slides 3–8", "pages 2, 4", "slide id.p11", "tab gid 123", "tab "Budget"",
+                      "A1:C20" (a range: its A1 notation), "heading "Deliverables"" — the page builds its own words from the
+                      fields, the range's A1 notation alone from the label */,
+             from?, to? /* a run of numbers */, list? /* numbers that are not a run */, of? /* slides or pages there are */,
+             resolved /* pinned down at the last read; false before a read */,
+             also?: [{ role: "continues"|"heading"|"general", n }] /* sent with it */ }
 reason   = not_public: login | html | denied | not_found;  too_large: over_5mb | over_15mb | zip_limits;
            unsupported: type | no_text | encrypted | zip64 | method;  error: timeout | redirect_refused |
-           too_many_redirects | rate_limited | http | network | corrupt | missing;  limit: max_docs;  read (cut): budget
+           too_many_redirects | rate_limited | http | network | corrupt | missing;  limit: max_docs;  read (cut): budget;
+           read with a part not pinned down (nothing sent): part_not_found | part_too_large | part_timeout | part_unreadable
 DocsView = { on /* settings.ai.readDocs */, allowed /* meta.aiReadDocs !== false */, canToggle /* may edit the task */,
              charsLimit /* settings.ai.docsChars */, maxDocs: 5,
              found: [Doc] /* what the brief links to and the task has attached, now; each "ready" one with what the latest
@@ -832,13 +907,22 @@ DocsView = { on /* settings.ai.readDocs */, allowed /* meta.aiReadDocs !== false
 on `cached` and `quota` answers — the documents are read before the cache, since what they say is part of its key);
 the run's `recommendation.docs` the same, `recommendation.sent.docs` the refs whose text went along,
 `security.log(…, {docs: n})`. The per-task switch: `PUT /api/tasks/:id` with `meta.aiReadDocs: false`, or the key left
-out to follow the workspace. Settings → Smart Scoring's labels for the history: `ai.readDocs`, `ai.docsChars`
-(src/scoring-settings.js `SC_NAMED`, the page's).
+out to follow the workspace. The slides or pages set by hand: `PUT /api/tasks/:id` with `meta.aiDocParts` — cleaned in
+server/scoring.js `cleanDocParts` (guardTaskWrite, guardNewTask, guardRestore, beside `cleanReadDocs`): at most 5
+documents, each key a Slides or Drive ref (`https://docs.google.com/presentation/d/<id>`,
+`https://drive.google.com/file/d/<id>`) or `file:<attachment id>`, each value numbers, commas and ranges (`–` read as
+`-`), at most 20, none over 999, written back as `"3,5,7-9"`; anything else dropped, nothing left: the key goes. A
+duplicated task drops it (src/drawer.js `duplicateTask`: a copy is usually the next brief in the same deck). Settings →
+Smart Scoring's labels for the history: `ai.readDocs`, `ai.docsChars` (src/scoring-settings.js `SC_NAMED`, the page's).
 
-`module.exports = { LIMITS, KIND_NAME, STATUSES, findRefs({texts, files, isStored}), plan(refs), fit(docs, budget),
-outDoc(doc), createReader({fetch, limits, fileFor, now}) → {read(planned), readOne, clear, size}, pure: {parseGoogleUrl,
-exportUrl, allowedHop, isLogin, cleanDoc, cleanTitle, decodeText, zipEntries, zipRead, xmlText, officeText, pdfText,
-parseCMap, fileText, readable, fetchGoogle, dispositionName} }`.
+`module.exports = { LIMITS, PART, KIND_NAME, STATUSES, findRefs({texts, files, isStored, parts}), plan(refs),
+fit(docs, budget), outDoc(doc), outPart(part), cleanDocParts(v), createReader({fetch, limits, fileFor, now}) →
+{read(planned), readOne, clear, size}, pure: {parseGoogleUrl, exportUrl(ref, {html|pptx|gid, range}), allowedHop,
+isLogin, cleanDoc, cleanTitle, decodeText, zipEntries, zipRead, xmlText, officeText(buf, part), pdfText(buf, part),
+parseCMap, fileText, readable, fetchGoogle(ref, prev, o, v), dispositionName, linkPart, mentionsIn, partLabel,
+resolvePart, unresolvePart, htmlText, htmlSection, googleIds, slideTitle, isGeneral, relevant, parseNums, numsSpec} }`;
+`LIMITS.pptxBytes` 50 MB, `pptxTimeoutMs` 25 000, `extraChars` 1 500. `server/scoring-ai.js` `pure.docsBlock` builds
+the block above.
 
 **The page** (Oct 2026). Settings → Smart Scoring → AI → "AI suggestions" (src/scoring-settings.js `scDocsSetHtml`):
 the switch `ai.readDocs` and under it the select `ai.docsChars` (`SC_DOCS_CHARS`, disabled while the switch is off —
@@ -854,8 +938,20 @@ key through `editTaskWith` (the task's own PUT), and one chip `.scr-doc[data-scr
 document: its kind's icon, its title (a link for an https ref), its status in words (`SCR_DOC_ST`), the reason in words
 (`SCR_DOC_WHY`; an unknown code left out; `not_public`'s own words say what to do; `limit`/`max_docs` names `maxDocs`).
 After Ask AI, `aiResult.docs` is kept per task (`SCR.docRun`) and shown over `found` for the same ref while `found`
-says "ready" or is not newer; a task left out shows every chip as "will not be sent". Tests:
-`tests/scoring-panel.test.js`, `tests/scoring-settings-sections.test.js`, `e2e/scoring-ai-docs.spec.js`.
+says "ready" or is not newer; a task left out shows every chip as "will not be sent". A document with a part shows it
+beside its title (`.scr-doc-part`, words from the fields: "· slide 5" / "· slide 5", "· slides 3–8" / "· slide 3–8",
+"· page 2" / "· hal. 2", "· sheet tab" / "· tab sheet", "· range A1:C20" / "· rentang A1:C20", "· one section" / "·
+satu bagian", "· one slide" / "· satu slide" for an id not yet matched); read and pinned down, "read: slide 12 (the work)
++ slide 13 (continues) + slide 11 (section heading) + slide 2 (general) of 40 · 2,300 characters" / "terbaca: slide 12
+(dikerjakan) + slide 13 (lanjutan) + slide 11 (judul bagian) + slide 2 (umum) dari 40 · 2.300 karakter" (consecutive
+slides of one role grouped); not pinned down, "points to one slide; not sent: it could not be read on its own · not
+found in it" / "menunjuk satu slide; tidak dikirim: tidak bisa dibaca tersendiri · tidak ditemukan di dalamnya" (the
+reason from `SCR_DOC_WHY`). A deck or a PDF (`gslides`, `gdrive`, a file named `.pdf`/`.pptx`) has "Slides/pages:" /
+"Slide/halaman:" with a small field (`input[data-scr-doc-parts=<ref without its part>]`), filled with what was set, else
+what was found; changed, it is checked as the server checks it (numbers, commas, ranges, ≤ 20, ≤ 999, ≤ 5 documents —
+else a toast and nothing saved), saved through `editTaskWith` as `meta.aiDocParts` (cleared: the key goes) and the view
+read again; disabled for whoever may not edit the task or while it is left out. Tests: `tests/scoring-panel.test.js`,
+`tests/scoring-settings-sections.test.js`, `tests/scoring-docs.test.js`, `e2e/scoring-ai-docs.spec.js`.
 
 ### 5.4.2 The team's context for the AI — built (Oct 2026, `server/scoring-ai.js`)
 
@@ -1143,7 +1239,14 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   in the test, zip bombs (declared and lying), the three budgets and the fair share, hostile text, the prompt's fenced
   block, the run without the text, the view without fetching, the hash (off, opted out, nothing linked, changed
   document, another budget), external processing off, stale after opting out, five at most, files on this server,
-  `meta.aiReadDocs` cleaning, the settings. `tests/scoring-sanity.test.js` holds the budget to its limits.
+  `meta.aiReadDocs` cleaning, the settings; the part the brief points to — every link form and word form (and words
+  that are not one), the nearest document on the line, attached files named, the slides set by hand winning and
+  `meta.aiDocParts` cleaning, a duplicate dropping it, a .pptx in its presentation order, Google's slide ids from a
+  hand-made export with `Google Shape;<n>;<id>` and `Shape <n>` names, what belongs to the part (continuation, heading,
+  general slides, false positives), PDF pages, the PowerPoint export (50 MB, 25 s, pictures never unpacked, only text
+  kept), a Sheet tab, a Docs heading (a sign-in page never passing), the budget's order, nothing sent for a part not
+  pinned down, the prompt with and without a part (byte for byte as before), the hash as before with no part, an ask
+  end to end, and 60 000 characters of hostile text. `tests/scoring-sanity.test.js` holds the budget to its limits.
 - `tests/scoring-ai-context.test.js` (§5.4.2, through the harness — and once on the real server, its own router and a
   stand-in provider): validateAi's `contextEffect`; the context cleaned and cut (characters, not code units), 8 checks,
   a fix only on a wrong one, empty deletes, the same save writes nothing, the wrong shapes (400), who may change it

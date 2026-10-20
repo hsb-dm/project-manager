@@ -62,6 +62,7 @@
 const model = require("../shared/scoring-settings");
 const engine = require("../shared/scoring-engine");
 const { has } = require("./permissions");
+const docsLib = require("./scoring-docs");
 
 const MODULES = ["hours", "story", "weighted"];
 const UNIT = { hours: "h", story: "story_points", weighted: "weighted_points" };
@@ -215,6 +216,14 @@ module.exports = function scoring(db, WS_ID, d) {
      there at all (the workspace's switch decides) — anything else sent is dropped. Whoever may save the task may set it. */
   function cleanReadDocs(b) {
     if (b && isObj(b.meta) && Object.prototype.hasOwnProperty.call(b.meta, "aiReadDocs") && b.meta.aiReadDocs !== false) delete b.meta.aiReadDocs;
+  }
+  /* the slides or pages a person set for a document of the task (Oct 2026, server/scoring-docs.js cleanDocParts):
+     meta.aiDocParts = {"<the document's ref>": "12-13"} — at most 5 documents, numbers, commas and ranges, at most 20,
+     none over 999; written back as "12-13", anything else dropped, nothing left: the key goes */
+  function cleanDocParts(b) {
+    if (!b || !isObj(b.meta) || !Object.prototype.hasOwnProperty.call(b.meta, "aiDocParts")) return;
+    const v = docsLib.cleanDocParts(b.meta.aiDocParts);
+    if (v) b.meta.aiDocParts = v; else delete b.meta.aiDocParts;
   }
 
   route("GET", "/api/scoring/settings", (u) => { on(); return { settings: settings(), audit: seesAudit(u) ? settingsAudit() : [] }; });
@@ -491,7 +500,7 @@ module.exports = function scoring(db, WS_ID, d) {
   const hoursLocked = id => { const r = db.prepare("SELECT status FROM task_scoring WHERE task_id=? AND module='hours'").get(id); return !!r && LOCKED.has(r.status); };
   /* PUT /api/tasks/:id — after the concurrent-edit merge (and a slim copy's), before the task is cleaned and saved */
   function guardTaskWrite(u, cur, b) {
-    cleanKind(cur, b); cleanReadDocs(b);
+    cleanKind(cur, b); cleanReadDocs(b); cleanDocParts(b);
     if (!timeLogMode() || !b || !cur) return;
     if (hoursLocked(cur.id)) {
       if (b.effort === undefined) b.effort = cur.effort;
@@ -500,10 +509,10 @@ module.exports = function scoring(db, WS_ID, d) {
     keepActual(cur, b);
   }
   /* POST /api/tasks: a new task has logged no time */
-  function guardNewTask(u, b) { cleanKind(null, b); cleanReadDocs(b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
+  function guardNewTask(u, b) { cleanKind(null, b); cleanReadDocs(b); cleanDocParts(b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
   /* POST /api/restore/task/:id: a locked estimate and the logged Actual stay as they are now */
   function guardRestore(u, cur, next) {
-    cleanKind(cur, next); cleanReadDocs(next);
+    cleanKind(cur, next); cleanReadDocs(next); cleanDocParts(next);
     if (!timeLogMode() || !cur || !next) return;
     if (hoursLocked(cur.id)) next.effort = cur.effort;
     keepActual(cur, next);

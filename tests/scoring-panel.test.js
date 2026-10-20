@@ -355,6 +355,75 @@ test('the team\'s context: saved corrections, similar tasks, read-only, hidden; 
   assert.equal(c.UI_ID['✓ Right'], '✓ Benar', 'not "Kanan", the direction');
 });
 
+test('the part a document points to: beside its title, what was sent of it, or that it could not be read on its own; a deck or a PDF has its slides or pages to set by hand, saved with the task', async () => {
+  const tasks = { 'T-1': { id: 'T-1', meta: {} } }, settings = Settings.normalizeSettings({ ai: { readDocs: true } }), saved = [], toasts = [], loads = [];
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const c = load({ task: id => tasks[id], API: { on: true }, S: { drawerTask: null }, scoringSettings: () => settings, scoringMode: () => 'hybrid', esc, attr: esc, jsq: s => esc(JSON.stringify(String(s))),
+    fmt: (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] !== undefined ? o[k] : m)), canI: { scoringConfigure: () => true, editTask: () => true },
+    taskMeta: t => (t.meta = t.meta || {}), editTaskWith: (t, fn) => { fn(t); saved.push(JSON.parse(JSON.stringify(t.meta))); return Promise.resolve(t); }, toast: (m, k) => toasts.push([m, k || '']) });
+  c.scrLoad = tk => loads.push(tk.id);
+  const deck = 'https://docs.google.com/presentation/d/SLDAAabcdefghij', sheet = 'https://docs.google.com/spreadsheets/d/SHT1abcdefghij';
+  const found = [
+    { ref: deck + '#slide=id.p11', kind: 'gslides', title: 'Ramadan plan', status: 'read', chars: 2300, part: { kind: 'slide', label: 'slide 12', from: 12, to: 12, of: 40, resolved: true, also: [{ role: 'continues', n: 13 }, { role: 'continues', n: 14 }, { role: 'heading', n: 11 }, { role: 'general', n: 2 }] } },
+    { ref: deck + '#slide=id.gone', kind: 'gslides', title: 'Old plan', status: 'read', chars: 0, reason: 'part_not_found', part: { kind: 'slide', label: 'slide id.gone', resolved: false } },
+    { ref: 'file:f1#page=2-4', kind: 'file', title: 'Spec.pdf', status: 'ready', part: { kind: 'page', label: 'pages 2–4', from: 2, to: 4, resolved: false } },
+    { ref: sheet + '#gid=123', kind: 'gsheet', title: 'Sizes', status: 'read', chars: 300, part: { kind: 'sheet', label: 'tab gid 123', resolved: true } },
+    { ref: sheet + '#range=A1:C20', kind: 'gsheet', title: 'Plan', status: 'read', chars: 90, cut: true, reason: 'budget', part: { kind: 'range', label: 'A1:C20', resolved: true } },
+    { ref: 'https://docs.google.com/document/d/DOC1abcdefghij', kind: 'gdoc', title: 'Brief', status: 'read', chars: 500 }
+  ];
+  c.SCR.cache['T-1'] = { rows: {}, at: 100, ai: { external: true, docs: { on: true, allowed: true, canToggle: true, charsLimit: 15000, found } } };
+  const html = () => c.scrDocsHtml(tasks['T-1'], ['hours']);
+  const chip = (h, ref) => { const at = h.indexOf('data-scr-doc="' + esc(ref) + '"'); return at < 0 ? null : h.slice(at, h.indexOf('</li>', at)); };
+  const piece = (x, cls) => { const at = x.indexOf('class="' + cls + '">'); return at < 0 ? null : x.slice(at + cls.length + 9, x.indexOf('</span>', at)); };
+  const field = x => { const m = /<input[^>]*data-scr-doc-parts="([^"]*)"[^>]*>/.exec(x); return m ? { ref: m[1], value: (/value="([^"]*)"/.exec(m[0]) || [])[1], tag: m[0] } : null; };
+  let h = html();
+  assert.equal(piece(chip(h, found[0].ref), 'scr-doc-part'), '· slide 12');
+  assert.equal(piece(chip(h, found[0].ref), 'scr-doc-st'), 'read: slide 12 (the work) + slides 13–14 (continues) + slide 11 (section heading) + slide 2 (general) of 40 · 2,300 characters');
+  assert.equal(piece(chip(h, found[1].ref), 'scr-doc-part'), '· one slide');
+  assert.equal(piece(chip(h, found[1].ref), 'scr-doc-st'), 'points to one slide; not sent: it could not be read on its own · not found in it');
+  assert.match(chip(h, found[1].ref), /data-resolved="false"/);
+  assert.equal(piece(chip(h, found[2].ref), 'scr-doc-part'), '· pages 2–4'); assert.equal(piece(chip(h, found[2].ref), 'scr-doc-st'), 'read when the AI is asked', 'not read yet: nothing said about whether it could be');
+  assert.equal(piece(chip(h, found[3].ref), 'scr-doc-part'), '· sheet tab'); assert.equal(piece(chip(h, found[3].ref), 'scr-doc-st'), 'read: sheet tab (the work) · 300 characters');
+  assert.equal(piece(chip(h, found[4].ref), 'scr-doc-part'), '· range A1:C20'); assert.equal(piece(chip(h, found[4].ref), 'scr-doc-st'), 'read: range A1:C20 (the work) · 90 characters · cut to fit');
+  assert.equal(piece(chip(h, found[5].ref), 'scr-doc-part'), null, 'a document with no part as before'); assert.equal(piece(chip(h, found[5].ref), 'scr-doc-st'), 'read · 500 characters');
+  /* the slides or pages to set: for decks and PDFs only, filled from what was found, keyed by the document without its part */
+  assert.deepEqual([field(chip(h, found[0].ref)).ref, field(chip(h, found[0].ref)).value], [deck, '12']);
+  assert.deepEqual([field(chip(h, found[2].ref)).ref, field(chip(h, found[2].ref)).value], ['file:f1', '2–4']);
+  assert.equal(field(chip(h, found[1].ref)).value, '', 'nothing found: empty, to be set');
+  assert.equal(field(chip(h, found[3].ref)), null); assert.equal(field(chip(h, found[5].ref)), null);
+  assert.match(field(chip(h, found[0].ref)).tag, /onchange="scrDocParts\(&quot;T-1&quot;,&quot;https:\/\/docs\.google\.com\/presentation\/d\/SLDAAabcdefghij&quot;,this\.value\)"/, 'jsq() for the strings in the handler');
+  assert.match(chip(h, found[0].ref), /<label class="scr-doc-parts">Slides\/pages:<input/);
+  /* in Indonesian */
+  c.UI_LANG = 'id'; h = html();
+  assert.equal(piece(chip(h, found[0].ref), 'scr-doc-st'), 'terbaca: slide 12 (dikerjakan) + slide 13–14 (lanjutan) + slide 11 (judul bagian) + slide 2 (umum) dari 40 · 2.300 karakter');
+  assert.equal(piece(chip(h, found[1].ref), 'scr-doc-st'), 'menunjuk satu slide; tidak dikirim: tidak bisa dibaca tersendiri · tidak ditemukan di dalamnya');
+  assert.equal(piece(chip(h, found[2].ref), 'scr-doc-part'), '· hal. 2–4'); assert.equal(piece(chip(h, found[3].ref), 'scr-doc-part'), '· tab sheet'); assert.equal(piece(chip(h, found[4].ref), 'scr-doc-part'), '· rentang A1:C20');
+  assert.match(chip(h, found[0].ref), /<label class="scr-doc-parts">Slide\/halaman:<input[^>]*placeholder="mis\. 12–13"/);
+  c.UI_LANG = 'en';
+  /* set by hand: saved with the task as numbers and ranges, the view read again; cleared: back to the link */
+  await c.scrDocParts('T-1', deck, ' 12 – 13, 15 ');
+  assert.deepEqual(saved.pop(), { aiDocParts: { [deck]: '12-13,15' } }); assert.deepEqual(loads, ['T-1']);
+  assert.equal(field(chip(html(), found[0].ref)).value, '12–13, 15', 'what was set shows, over what was found');
+  await c.scrDocParts('T-1', deck, '12-13,15'); assert.equal(saved.length, 0, 'the same again: not saved');
+  await c.scrDocParts('T-1', deck, 'slide five');
+  assert.equal(saved.length, 0); assert.deepEqual(toasts.pop(), ['Use slide or page numbers, such as 12–13 or 3, 5 (at most 20, up to 999)', 'bad']);
+  for (const v of ['0', '1000', '1-21', '8-3']) { await c.scrDocParts('T-1', deck, v); assert.equal(saved.length, 0, v); }
+  tasks['T-1'].meta.aiDocParts = { 'file:a': '1', 'file:b': '1', 'file:c': '1', 'file:d': '1', [deck]: '12' };
+  await c.scrDocParts('T-1', 'file:e', '3'); assert.equal(saved.length, 0, 'five documents at most'); assert.match(toasts.pop()[0], /at most 5 documents/);
+  await c.scrDocParts('T-1', deck, '');
+  assert.deepEqual(saved.pop(), { aiDocParts: { 'file:a': '1', 'file:b': '1', 'file:c': '1', 'file:d': '1' } });
+  tasks['T-1'].meta = { aiDocParts: { [deck]: '4' } }; await c.scrDocParts('T-1', deck, ' ');
+  assert.deepEqual(saved.pop(), {}, 'the last one cleared: no key left');
+  /* left out, or not to be changed: the field cannot be used */
+  tasks['T-1'].meta = { aiReadDocs: false };
+  assert.match(field(chip(html(), found[0].ref)).tag, / disabled/);
+  tasks['T-1'].meta = {}; c.SCR.cache['T-1'].ai.docs.canToggle = false;
+  assert.match(field(chip(html(), found[0].ref)).tag, / disabled/);
+  /* every word of it has its Indonesian */
+  Object.values(c.SCR_DOC_ROLE).forEach(v => assert.ok(v in c.UI_ID, v));
+  ['slide {n}', 'slides {n}', 'page {n}', 'pages {n}', 'one slide', 'one page', 'one range', 'one section', 'sheet tab', 'range {r}', '{parts} of {of}', 'read: {parts}', '{n} characters'].forEach(v => assert.ok(v in c.UI_ID, v));
+});
+
 test('the explanation of a stored row is the engine\'s, in Indonesian too, with a kind\'s and a factor\'s name in their words', () => {
   const c = load({ estKindName: id => (c.UI_LANG === 'id' ? { feed: 'post feed' } : { feed: 'feed post' })[id] || id, scoringSettings: () => Settings.normalizeSettings({}) });
   const res = Engine.hours(Settings.DEFAULTS.hours, { kind: 'feed', units: 5, complexity1to5: 4, openDeps: 0 });
