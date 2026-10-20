@@ -167,6 +167,9 @@ test("images are optimised: opaque to a smaller JPEG, transparent to PNG, GIF le
 });
 
 test("an optimised image is stored as .jpg, and its version links to that original", async ({ browser }) => {
+  /* the 2600×1600 test photo is drawn and handed over as a plain array of its bytes: on a busy machine that alone
+     took most of the usual 60 s, so this test gets more room (Oct 2026) */
+  test.setTimeout(150000);
   const page = await asUser(browser, SARI, "/tasks?task=" + taskId);
   /* a photo-like PNG (smooth light plus grain), which is what JPEG is for */
   const png = await page.evaluate(() => new Promise(res => { const W = 2600, H = 1600, c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"), d = x.createImageData(W, H); let s = 777; const rnd = () => (s = (s * 1103515245 + 12345) >>> 0) / 4294967296;
