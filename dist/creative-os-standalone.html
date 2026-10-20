@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="f3227c0a0a9f">
+<meta name="zc-build" content="db6352971012">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -5500,8 +5500,9 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .scr-ex{display:block;margin:0 0 12px;padding:6px 10px;border-left:3px solid var(--color-primary);border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--color-surface-sunken);font-size:var(--fs-sm);color:var(--color-text-primary)}
 .scr-help{margin:-2px 0 12px}
 .scr-help .scr-ex{margin:4px 0 0}
-.scr-off,.scr-ai-model{margin-bottom:12px;align-items:center;flex-wrap:wrap}
-.scr-off span,.scr-ai-model span{flex:1 1 180px}
+.scr-off,.scr-ai-model,.scr-docs-ext{margin-bottom:12px;align-items:center;flex-wrap:wrap}
+.scr-off span,.scr-ai-model span,.scr-docs-ext span{flex:1 1 180px}
+.scr-docs-set{margin-top:14px;padding-top:4px;border-top:1px solid var(--color-border)}
 .scr-sec.off .scr-sec-body{opacity:.65}
 .scr-adv{margin-top:6px;border:1px solid var(--color-border);border-radius:var(--radius)}
 .scr-adv>summary{cursor:pointer;padding:10px 12px;font-weight:650}
@@ -24817,6 +24818,10 @@ function scoringLeadsMissing(){ return SCORING_LEAD_ROLES.some(function(id){ var
    - scAdvanced(body, {id, hint, open}) → a closed "Advanced" fold, remembered per person by id.
    - scHelp(text, example) → a help line, with "Example: …". scRepaint() → the group drawn again in place.
    - Fields go through scPut/scInput/scSwitch (data-sc paths), so the Save bar sees every change.
+   The AI group's "AI suggestions" also holds whether the AI may read the documents in a brief (ai.readDocs, off by
+   default; disabled with the reason while external AI processing is off) and how much of their text one ask sends
+   (ai.docsChars: 5,000, 15,000 or 30,000 characters, disabled while reading is off); each task can be left out from
+   its own panel (src/scoring-panel.js, meta.aiReadDocs).
    The longer sentences are kept once in each language in SC_T.
    ============================================================ */
 var SC={draft:null,saved:null,base:0,dirty:false,audit:null,loading:false,loadedAt:0,saving:false,owner:null,gFor:null,leave:null};
@@ -24886,6 +24891,11 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   aiBrief:["Never on every keystroke or when a task is opened.","Tidak pernah di setiap ketikan atau saat task dibuka."],
   aiConf:["Below that confidence, a suggestion is shown with a warning.","Di bawah tingkat keyakinan itu, saran ditampilkan dengan peringatan."],
   aiSees:["What the AI sees: the title, brief, number of deliverables, labels, team and up to 800 characters of the description (no links or e-mail addresses); similar finished tasks only while the workspace shares its data with the AI.","Yang dilihat AI: judul, brief, jumlah deliverable, label, tim, dan hingga 800 karakter deskripsi (tanpa link atau alamat email); task serupa yang sudah selesai hanya selama workspace berbagi datanya dengan AI."],
+  docs:["When the AI is asked, it also reads the documents linked in the brief or attached to the task, to judge the scope. Off by default.","Saat AI ditanya, AI juga membaca dokumen yang ditautkan di brief atau dilampirkan ke task, untuk menilai cakupannya. Bawaannya mati."],
+  docsEx:["A brief linking a Google Slides deck shared with “anyone with the link”: the AI reads its slides to judge the scope.","Brief yang menautkan deck Google Slides yang dibagikan ke “siapa saja yang memiliki link”: AI membaca slide-nya untuk menilai cakupannya."],
+  docsWhat:["Read: Google Docs, Slides, Sheets and Drive files shared with “anyone with the link”, and PDF, Word, PowerPoint and text files attached to the task. Not read: private Google documents — share them with “anyone with the link”, or attach the file to the task. Each task can be left out under its Scoring & Intelligence.","Dibaca: Google Docs, Slides, Sheets, dan file Drive yang dibagikan ke “siapa saja yang memiliki link”, serta file PDF, Word, PowerPoint, dan teks yang dilampirkan ke task. Tidak dibaca: dokumen Google yang privat — bagikan ke “siapa saja yang memiliki link”, atau lampirkan filenya ke task. Tiap task bisa dikecualikan di Skor & Intelijen-nya."],
+  docsExt:["External AI processing is off in Settings → AI, so no document can be sent to the AI. Turn it on there first.","Pemrosesan AI eksternal dimatikan di Pengaturan → AI, jadi tidak ada dokumen yang bisa dikirim ke AI. Nyalakan dulu di sana."],
+  docsChars:["More text can make suggestions more accurate but uses more AI credit per Ask AI; documents share this budget evenly.","Teks yang lebih banyak bisa membuat saran lebih akurat, tetapi memakai lebih banyak kredit AI per Ask AI; dokumen-dokumen berbagi jatah ini secara merata."],
   manual:["What happens when someone changes a calculated score by hand.","Apa yang terjadi bila seseorang mengubah skor hasil hitungan secara manual."],
   manualEx:["An estimate changed from 6 h to 8 h needs a reason, and with approval on, it waits for an approver.","Estimasi yang diubah dari 6 jam ke 8 jam perlu alasan, dan bila persetujuan dinyalakan, perubahan itu menunggu penyetuju."],
   reason:["Kept in the task's scoring history with who made the change.","Disimpan di riwayat skor task beserta siapa yang mengubahnya."],
@@ -24903,7 +24913,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
 /* [id, name, icon, one line] */
 var SC_GROUPS=[["overview","Overview","gauge",SC_T.gOverview],["estimating","Estimating","clock",SC_T.gEstimating],["output","Output & goals","target",SC_T.gOutput],["ai","AI","sparkle",SC_T.gAi],
   ["review","Review & bonus","star",SC_T.gReview],["access","Access & visibility","lock",SC_T.gAccess],["history","History","list",SC_T.gHistory]];
-var SC_NAMED={"ai.onCreate":"Suggest when a task is created","ai.onBriefRevision":"Suggest again when the brief changes a lot","ai.minConfidence":"Warn below confidence","ai.perUserDaily":"Suggestions per person a day","ai.workspaceDaily":"Suggestions for the workspace a day","ai.comparables":"Similar finished tasks as examples",
+var SC_NAMED={"ai.onCreate":"Suggest when a task is created","ai.onBriefRevision":"Suggest again when the brief changes a lot","ai.minConfidence":"Warn below confidence","ai.perUserDaily":"Suggestions per person a day","ai.workspaceDaily":"Suggestions for the workspace a day","ai.comparables":"Similar finished tasks as examples","ai.readDocs":"Let the AI read documents in the brief","ai.docsChars":"Document text per Ask AI",
   "overrides.requireReason":"A reason for every manual change","overrides.requireApproval":"Manual changes wait for approval","overrides.allowSelfApproveEstimate":"Someone assigned to a task may approve its estimate",
   "hours.bounds.min":"Fewest hours","hours.bounds.max":"Most hours","hours.lockPolicy":"An estimate is locked","primaryCapacity":"Primary capacity metric","enabled":"Smart Scoring"};
 
@@ -24926,8 +24936,9 @@ function scInput(el){ if(!SC.draft) return; var k=el.getAttribute("data-k"), p=e
 function scSwitch(b){ if(!SC.draft||b.disabled) return; var on=!b.classList.contains("on"); b.classList.toggle("on",on); b.setAttribute("aria-checked",String(on)); scPut(b.getAttribute("data-sc"),on); }
 /* modules switched on while Smart Scoring itself is off show nowhere: Overview says so while it is the case */
 function scMasterOff(){ var d=SC.draft||{}, m=d.modules||{}; return !d.enabled&&Object.keys(m).some(function(k){ return m[k]&&m[k].on; }); }
-function scLivePaint(){ var el=document.querySelector(".scr-master-off"), st=document.getElementById("scrMasterState");
-  if(el) el.style.display=scMasterOff()?"":"none"; if(st) st.textContent=tr(SC.draft&&SC.draft.enabled?SC_T.on:SC_T.offAll); scBarPaint(); }
+function scLivePaint(){ var el=document.querySelector(".scr-master-off"), st=document.getElementById("scrMasterState"), dc=document.getElementById("sc_ai_docs_chars");
+  if(el) el.style.display=scMasterOff()?"":"none"; if(st) st.textContent=tr(SC.draft&&SC.draft.enabled?SC_T.on:SC_T.offAll);
+  if(dc) dc.disabled=!canI.scoringConfigure()||scDocsExtOff()||!scGet("ai.readDocs"); scBarPaint(); }
 
 /* ---------- the pieces every section is made of (the contract above) ---------- */
 function scSection(id,title,intro,body,o){ o=o||{}; var p=o.onModule?(String(o.onModule).indexOf(".")<0?"modules."+o.onModule+".on":o.onModule):"";
@@ -25044,8 +25055,17 @@ function scAiPanel(ro){ var num=function(id,p,o){ return scNumHtml(id,p,SC_NAMED
     '<div class="banner scr-ai-model">'+I.sparkle+'<span>'+tr(SC_T.aiModel)+'</span><button type="button" class="btn xs" onclick="S.aiSettingsSection=\'models\';go(\'settings\',\'ai\')">'+tr("Open Chat models")+'</button></div>'
     + scPrefHtml("ai.onCreate",SC_T.aiCreate,ro)+scPrefHtml("ai.onBriefRevision",SC_T.aiBrief,ro)
     + '<div class="scr-grid">'+num("sc_ai_conf","ai.minConfidence",{pct:true,max:100,step:5,unit:"%"})+num("sc_ai_user","ai.perUserDaily",{max:1000})+num("sc_ai_ws","ai.workspaceDaily",{max:100000})+'</div>'+scHelp(SC_T.aiConf)
-    + fieldHtml("sc_ai_cmp","Similar finished tasks as examples",scSelectHtml("sc_ai_cmp","ai.comparables",[["team","Of the same team"],["none","None"]],ro))+scHelp(SC_T.aiSees),
+    + fieldHtml("sc_ai_cmp","Similar finished tasks as examples",scSelectHtml("sc_ai_cmp","ai.comparables",[["team","Of the same team"],["none","None"]],ro))+scHelp(SC_T.aiSees)+scDocsSetHtml(ro),
     {icon:I.sparkle,example:SC_T.aiEx}); }
+/* the documents in the brief (off by default) and how much of their text one ask sends; nothing can be sent while
+   external AI processing is off (Settings → AI → Permissions), so both are disabled then and say why */
+var SC_DOCS_CHARS=[[5000,"5,000 characters (≈1.5 pages)"],[15000,"15,000 characters (≈5 pages, default)"],[30000,"30,000 characters (≈10 pages)"]];
+function scDocsExtOff(){ return typeof aiCfg==="function"&&!aiCfg().processing.externalEnabled; }
+function scDocsSetHtml(ro){ var ext=scDocsExtOff(), cur=String(+scGet("ai.docsChars")||15000), off=ro||ext||!scGet("ai.readDocs");
+  return '<div class="scr-docs-set" data-scr-docs-set>'+scPrefHtml("ai.readDocs",SC_T.docs,ro||ext)
+    + (ext?'<div class="banner warn scr-docs-ext" role="status"><span>'+tr(SC_T.docsExt)+'</span><button type="button" class="btn xs" onclick="S.aiSettingsSection=\'permissions\';go(\'settings\',\'ai\')">'+tr("Open AI permissions")+'</button></div>':'')
+    + fieldHtml("sc_ai_docs_chars","Document text per Ask AI",selectHtml("sc_ai_docs_chars",SC_DOCS_CHARS.map(function(o){ return [String(o[0]),tr(o[1])]; }),cur,'data-sc="ai.docsChars" data-k="num" onchange="scInput(this)"'+(off?" disabled":"")))
+    + scHelp(SC_T.docsChars)+scHelp(SC_T.docsWhat,SC_T.docsEx)+'</div>'; }
 function scOverridesPanel(ro){
   return scSection("overrides","Manual changes",SC_T.manual,
     scPrefHtml("overrides.requireReason",SC_T.reason,ro)+scPrefHtml("overrides.requireApproval",SC_T.approval,ro)+scPrefHtml("overrides.allowSelfApproveEstimate",SC_T.self,ro),
@@ -25064,6 +25084,7 @@ function scHoldersPanel(){
 /* ---------- History: each save with who, when and every field from → to ---------- */
 function scVal(path,v){ if(v===null||v===undefined) return "—"; if(typeof v==="boolean") return tr(v?"on":"off");
   if(/\.mode$/.test(path)) return tr(SC_MODE_LABEL[v]||v); if(path==="primaryCapacity") return tr(SC_PRIMARY_LABEL[v]||v);
+  if(path==="ai.docsChars"){ var dc=SC_DOCS_CHARS.filter(function(o){ return o[0]===+v; })[0]; if(dc) return tr(dc[1]); }
   if(Array.isArray(v)) return v.map(function(x){ return Array.isArray(x)?x.join("→"):x; }).join(", ");
   if(/\.weights\./.test(path)||/minConfidence|grace|maxRate|reviewBelowRatio/.test(path)) return scPct(v)+"%";
   return String(v); }
@@ -25159,6 +25180,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Suggest when a task is created":"Beri saran saat task dibuat","Suggest again when the brief changes a lot":"Beri saran lagi bila brief banyak berubah",
   "Warn below confidence":"Peringatkan di bawah tingkat keyakinan","Suggestions per person a day":"Saran per orang per hari","Suggestions for the workspace a day":"Saran untuk workspace per hari",
   "Similar finished tasks as examples":"Task serupa yang selesai sebagai contoh","Of the same team":"Dari tim yang sama",
+  "Let the AI read documents in the brief":"Izinkan AI membaca dokumen di brief","Open AI permissions":"Buka izin AI","Document text per Ask AI":"Teks dokumen per Ask AI",
+  "5,000 characters (≈1.5 pages)":"5.000 karakter (±1,5 halaman)","15,000 characters (≈5 pages, default)":"15.000 karakter (±5 halaman, bawaan)","30,000 characters (≈10 pages)":"30.000 karakter (±10 halaman)",
   "Manual changes":"Perubahan manual","A reason for every manual change":"Alasan untuk setiap perubahan manual","Manual changes wait for approval":"Perubahan manual menunggu persetujuan",
   "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
   "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring","and, on top of their role:":"dan, di luar role-nya:",
@@ -25370,11 +25393,17 @@ function scoringAssetsSummaryHtml(data){
      far) or Dismiss (this person's view only). The AI's own words stay as it wrote them; everything around them is in
      English or Indonesian. An answer from the cache, a quota used up, external AI processing off, an answer that could
      not be used: said in plain words, and the math stands. A spinner while it is asked; nothing else moves.
+   - The documents in the brief (Oct 2026): while the workspace lets the AI read them (Settings → Smart Scoring → AI,
+     ai.readDocs) and the task has some (GET …/scoring ai.docs.found), a "Documents for the AI" line under the rows: each
+     one a chip with its kind and title, and what happened to it at the last ask (aiResult.docs: read and how much of it,
+     cut to fit, not shared publicly — private Google documents are never read — too large, not supported), with
+     "Use this task's documents" for whoever may edit the task (meta.aiReadDocs false leaves them out; saved as any
+     change to the task). With reading off, only a quiet line for whoever may change it.
    - Without a server (the offline demo) the same routes are answered in the page (scrDemo), with the same rules.
    While Smart Scoring is off (scoringOn() in src/scoring-core.js) the Effort line is exactly as it always was, and
    nothing here runs.
    ============================================================ */
-var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null,aiBusy:{},aiNote:{},aiHide:null};
+var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null,aiBusy:{},aiNote:{},aiHide:null,docRun:{}};
 var SCR_MODULES=["hours","story","weighted"];
 var SCR_NAMES={hours:"Effort Hours",story:"Story Points",weighted:"Weighted Points"};
 var SCR_SRC={math:"Math",ai:"AI",manual:"Manual",legacy:"Legacy"};
@@ -25531,7 +25560,7 @@ function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ retu
     +'<button type="button" class="scr-head" aria-expanded="'+(open?"true":"false")+'" onclick="scrToggle(this)">'+I.gauge+'<b>'+tr("Scoring & Intelligence")+'</b><span class="scr-sum">'+sum+'</span>'+I.chevd+'</button>'
     +'<div class="scr-body">'+inner+'</div></section>'; }
 function scrBodyHtml(tk,mods,timeRow){ var c=SCR.cache[tk.id];
-  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("");
+  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("")+scrDocsHtml(tk,mods);
   var assets=scrHook("scoringAssetsRowHtml",tk), outcomes=scrHook("scoringOutcomesRowHtml",tk);
   /* Phase 3, the efficiency bonus line goes here — "Estimated 8h · Actual 5h · Saved 3h · Base 8 pts · Efficiency Bonus
      +1.10 pts · Earned 9.10 pts · Pending/Approved" — from GET …/scoring `efficiency`, which the server sends only to
@@ -25792,7 +25821,7 @@ function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?eff
 function scrAskAi(id,m){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; SCR.aiBusy[id]=m; delete SCR.aiNote[id+"|"+m]; scrPaint(id);
   scrApi("POST",scrPath(id,"ai"),{module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}).then(function(d){ delete SCR.aiBusy[id];
       var r=d&&d.aiResult||{}, n=scrAiNoteFrom(r,m); if(n) SCR.aiNote[id+"|"+m]=n; scrAiHideSet(id,m,null);
-      scrAfter(tk,m,d,null); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
+      scrAfter(tk,m,d,null); if(Array.isArray(r.docs)) scrDocsRun(id,r.docs); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
     .catch(function(e){ delete SCR.aiBusy[id]; scrFail(tk,e); }); }
 function scrAiDismiss(id,m){ var tk=task(id), s=tk&&scrAiOf(tk,m); if(!s) return; scrAiHideSet(id,m,s.runId); scrPaint(id); }
 function scrAiShow(id,m){ scrAiHideSet(id,m,null); scrPaint(id); }
@@ -25809,6 +25838,39 @@ function scrAiAcceptGo(id,m,need){ var tk=task(id); if(!tk) return closeModal();
   var r=scrView(tk,m), b=document.getElementById("scrGo"); if(b) b.disabled=true;
   scrApi("PUT",scrPath(tk.id,m),{use:"ai",reason:why,rev:r.rev||0}).then(function(d){ if(need) closeModal(); var proposed=!!(d&&d.applied===false); scrAfter(tk,m,d,proposed?"Change proposed — an approver will look at it":"Saved"); })
     .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
+
+/* ---------- the documents in the brief the AI may read (GET …/scoring ai.docs, POST …/ai aiResult.docs) ---------- */
+var SCR_DOC_ICO={gdoc:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4"/></svg>',gslides:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M12 17v3M8 21h8"/></svg>',
+  gsheet:'<svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>',file:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg>'};
+var SCR_DOC_ST={ready:"read when the AI is asked",not_public:"not shared publicly — set it to “anyone with the link”",too_large:"too large",unsupported:"not supported",error:"could not be read",limit:"not read: the limit for one ask was reached",off:"will not be sent"};
+function scrDocs(tk){ var a=scrAiInfo(tk), d=a&&a.docs; return d&&typeof d==="object"?d:null; }
+/* the workspace's switch: the settings' own word when they have it, else the server's */
+function scrDocsWs(tk){ var s=scoringSettings(), v=s&&s.ai&&s.ai.readDocs, d=scrDocs(tk); return typeof v==="boolean"?v:!!(d&&d.on); }
+function scrDocsUsed(tk){ return (tk.meta||{}).aiReadDocs!==false; }
+function scrInt(n){ n=Math.round(+n||0); try{ return n.toLocaleString(UI_LANG==="id"?"id-ID":"en-US"); }catch(e){ return String(n); } }
+/* what the server found, each with what the last ask in this page said of it — unless the server answered since with
+   more than "ready" */
+function scrDocList(tk){ var d=scrDocs(tk), f=d&&Array.isArray(d.found)?d.found:[], run=SCR.docRun[tk.id], c=SCR.cache[tk.id];
+  return (f.length?f:run?run.list:[]).filter(function(x){ return x&&typeof x==="object"; }).map(function(x){ var r=run&&run.by[x.ref]; return r&&(x.status==="ready"||!c||run.at>=c.at)?Object.assign({},x,r):x; }); }
+function scrDocsRun(id,list){ var c=SCR.cache[id], by={}; list.forEach(function(x){ if(x&&x.ref) by[x.ref]=x; }); SCR.docRun[id]={at:c?c.at:Date.now(),list:list,by:by}; scrPaint(id); }
+function scrDocChip(x,used){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
+  var txt=st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):""):tr(SCR_DOC_ST[st]||SCR_DOC_ST.error);
+  var name=/^https:\/\/[^\s"'<>]+$/i.test(x.ref||"")?'<a href="'+attr(x.ref)+'" target="_blank" rel="noopener noreferrer" data-no-translate>'+esc(t)+'</a>':'<b data-no-translate>'+esc(t)+'</b>';
+  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' title="'+attr(x.reason)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name+'<span class="scr-doc-st">'+esc(txt)+'</span></li>'; }
+/* only where the AI is asked for some score; reading off: nothing, or one quiet line for whoever may turn it on */
+function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocList(tk);
+  if(!list.length||a&&a.external===false||!mods.some(function(m){ return scoringMode(m)!=="math_only"; })) return "";
+  if(!scrDocsWs(tk)) return canI.scoringConfigure()?'<p class="hint scr-docs-off" data-scr-docs="off">'+tr("Reading brief documents is off for this workspace")+' · <button type="button" class="scr-link" onclick="go(\'settings\',\'scoring/ai\')">'+tr("Change it in Settings")+'</button></p>':'';
+  var used=scrDocsUsed(tk), can=d&&typeof d.canToggle==="boolean"?d.canToggle:canI.editTask(tk), s=scoringSettings(), lim=scrNum(d&&d.charsLimit);
+  if(lim==null&&s&&s.ai) lim=scrNum(s.ai.docsChars);
+  var read=list.filter(function(x){ return x.status==="read"; }), sum=read.reduce(function(t,x){ return t+(scrNum(x.chars)||0); },0);
+  var tot=used&&read.length?'<span class="hint" data-scr-docs-sum>'+esc(lim?fmt(tr("read {n} of {m} characters"),{n:scrInt(sum),m:scrInt(lim)}):fmt(tr("read {n} characters"),{n:scrInt(sum)}))+'</span>':'';
+  return '<div class="scr-docs" data-scr-docs="'+(used?"on":"excluded")+'"><div class="scr-docs-head">'+SCR_DOC_ICO.file+'<b>'+tr("Documents for the AI")+'</b>'+tot
+    +'<span class="scr-docs-use"><span>'+tr("Use this task's documents")+'</span><button type="button" class="switch'+(used?" on":"")+'" role="switch" aria-checked="'+used+'" aria-label="'+attr(tr("Use this task's documents"))+'" data-scr-act="docs-use"'+(can?' onclick="scrDocsUse('+jsq(tk.id)+')"':' disabled')+'></button></span></div>'
+    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used); }).join("")+'</ul></div>'; }
+/* left out or used again: meta.aiReadDocs false, or no word (the workspace's), saved as any change to the task */
+function scrDocsUse(id){ var tk=task(id); if(!tk) return; var on=!scrDocsUsed(tk);
+  editTaskWith(tk,function(t){ var m=taskMeta(t); if(on) delete m.aiReadDocs; else m.aiReadDocs=false; }).then(function(r){ if(r!==false) toast(tr(on?"This task's documents are read when the AI is asked":"This task's documents will not be sent to the AI")); }); }
 
 /* ---------- the task's scoring history (the last 50 changes) ---------- */
 function scrAuditValue(v){ var j=scrJson(v); if(j) v=scrPick(j,["lockedValue","locked_value","finalValue","final_value","value","mathValue","math_value"]); var n=scrNum(v); return n==null?"":String(n); }
@@ -25941,7 +26003,14 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "The AI suggests {v}":"AI menyarankan {v}","The AI's ratings":"Penilaian AI","It assumes":"Asumsinya","Missing inputs":"Masukan yang kurang",
   "The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.":"Estimasi sudah dikunci: saran AI hanya ditampilkan di sampingnya, tidak pernah diterapkan. Lakukan baseline ulang untuk mengubahnya.",
   "The AI's suggestion is ready":"Saran AI sudah siap","Accept the AI's suggestion":"Terima saran AI","Propose the AI's suggestion":"Usulkan saran AI","{module}: {v}, the AI's suggestion.":"{module}: {v}, saran AI.",
-  "It becomes the final value, from the AI, with your reason in the history.":"Ini menjadi nilai final, dari AI, dengan alasanmu di riwayat.","Why take a value far from the calculation?":"Mengapa memakai nilai yang jauh dari hitungan?","Why take this value?":"Mengapa memakai nilai ini?"
+  "It becomes the final value, from the AI, with your reason in the history.":"Ini menjadi nilai final, dari AI, dengan alasanmu di riwayat.","Why take a value far from the calculation?":"Mengapa memakai nilai yang jauh dari hitungan?","Why take this value?":"Mengapa memakai nilai ini?",
+  /* the documents in the brief */
+  "Documents for the AI":"Dokumen untuk AI","Use this task's documents":"Pakai dokumen task ini","read when the AI is asked":"dibaca saat AI ditanya",
+  "not shared publicly — set it to “anyone with the link”":"tidak dibagikan secara publik — atur ke “siapa saja yang memiliki link”","too large":"terlalu besar","not supported":"tidak didukung",
+  "could not be read":"tidak dapat dibaca","not read: the limit for one ask was reached":"tidak dibaca: batas untuk sekali tanya sudah tercapai","will not be sent":"tidak akan dikirim",
+  "read · {n} characters":"dibaca · {n} karakter","read":"dibaca","cut to fit":"dipotong agar muat","read {n} of {m} characters":"dibaca {n} dari {m} karakter","read {n} characters":"dibaca {n} karakter",
+  "Reading brief documents is off for this workspace":"Membaca dokumen brief dimatikan untuk workspace ini","Change it in Settings":"Ubah di Pengaturan",
+  "This task's documents are read when the AI is asked":"Dokumen task ini dibaca saat AI ditanya","This task's documents will not be sent to the AI":"Dokumen task ini tidak akan dikirim ke AI"
 });
 /* the engine's sentences (ScoringEngine.SENTENCES, the keys of every explanation step) in Indonesian, by their name there */
 (function(E,d){ if(!E||!E.SENTENCES) return; Object.keys(d).forEach(function(k){ var en=E.SENTENCES[k]; if(en&&!(en in UI_ID)) UI_ID[en]=d[k]; }); })(typeof ScoringEngine!=="undefined"?ScoringEngine:null,{
@@ -26086,6 +26155,23 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-spin{display:inline-block;width:11px;height:11px;margin-right:5px;border:2px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;vertical-align:-1px;animation:scr-spin .8s linear infinite}
 @keyframes scr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.scr-spin{animation:none}}
+.scr-docs{display:flex;flex-direction:column;gap:7px;padding-top:10px;border-top:1px solid var(--color-border);min-width:0}
+.scr-docs-head{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:var(--fs-sm);min-width:0}
+.scr-docs-head>svg{width:14px;height:14px;flex:none}
+.scr-docs-head b{font-weight:650}
+.scr-docs-head .hint{margin:0;font-size:11.5px}
+.scr-docs-use{display:inline-flex;align-items:center;gap:8px;margin-left:auto;color:var(--color-text-secondary)}
+.scr-docs-list{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;min-width:0}
+.scr-doc{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 6px;max-width:100%;min-width:0;padding:3px 10px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken);font-size:12px}
+.scr-doc svg{width:13px;height:13px;flex:none;color:var(--color-text-secondary)}
+.scr-doc>a,.scr-doc>b{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--color-text-primary);text-decoration:none}
+.scr-doc>a:hover{text-decoration:underline}
+.scr-doc-st{min-width:0;color:var(--color-text-secondary);overflow-wrap:anywhere}
+.scr-doc[data-kind="gdoc"] svg{color:var(--color-info)}.scr-doc[data-kind="gslides"] svg{color:var(--color-warning)}.scr-doc[data-kind="gsheet"] svg{color:var(--color-success)}
+.scr-doc[data-st="read"] .scr-doc-st{color:var(--color-success)}
+.scr-doc[data-st="not_public"] .scr-doc-st,.scr-doc[data-st="too_large"] .scr-doc-st,.scr-doc[data-st="error"] .scr-doc-st,.scr-doc[data-st="limit"] .scr-doc-st{color:var(--color-warning)}
+.scr-doc[data-st="off"]{opacity:.7}
+.scr-docs-off{margin:0;padding-top:8px;border-top:1px solid var(--color-border)}
 @media(max-width:640px){.scr-vals{grid-template-columns:repeat(2,minmax(0,1fr))}.scr-val[data-scr-v="final"]{grid-column:1/-1}}
 </style>
 <script>

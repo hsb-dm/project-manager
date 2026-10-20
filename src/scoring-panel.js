@@ -36,11 +36,17 @@
      far) or Dismiss (this person's view only). The AI's own words stay as it wrote them; everything around them is in
      English or Indonesian. An answer from the cache, a quota used up, external AI processing off, an answer that could
      not be used: said in plain words, and the math stands. A spinner while it is asked; nothing else moves.
+   - The documents in the brief (Oct 2026): while the workspace lets the AI read them (Settings → Smart Scoring → AI,
+     ai.readDocs) and the task has some (GET …/scoring ai.docs.found), a "Documents for the AI" line under the rows: each
+     one a chip with its kind and title, and what happened to it at the last ask (aiResult.docs: read and how much of it,
+     cut to fit, not shared publicly — private Google documents are never read — too large, not supported), with
+     "Use this task's documents" for whoever may edit the task (meta.aiReadDocs false leaves them out; saved as any
+     change to the task). With reading off, only a quiet line for whoever may change it.
    - Without a server (the offline demo) the same routes are answered in the page (scrDemo), with the same rules.
    While Smart Scoring is off (scoringOn() in src/scoring-core.js) the Effort line is exactly as it always was, and
    nothing here runs.
    ============================================================ */
-var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null,aiBusy:{},aiNote:{},aiHide:null};
+var SCR={cache:{},busy:{},err:{},demo:{},why:{},shown:null,base:null,rate:null,aiBusy:{},aiNote:{},aiHide:null,docRun:{}};
 var SCR_MODULES=["hours","story","weighted"];
 var SCR_NAMES={hours:"Effort Hours",story:"Story Points",weighted:"Weighted Points"};
 var SCR_SRC={math:"Math",ai:"AI",manual:"Manual",legacy:"Legacy"};
@@ -197,7 +203,7 @@ function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ retu
     +'<button type="button" class="scr-head" aria-expanded="'+(open?"true":"false")+'" onclick="scrToggle(this)">'+I.gauge+'<b>'+tr("Scoring & Intelligence")+'</b><span class="scr-sum">'+sum+'</span>'+I.chevd+'</button>'
     +'<div class="scr-body">'+inner+'</div></section>'; }
 function scrBodyHtml(tk,mods,timeRow){ var c=SCR.cache[tk.id];
-  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("");
+  var rows=mods.map(function(m){ return scrRowHtml(tk,m)+(m==="hours"&&timeRow?'<div class="scr-hook" data-scr-hook="time">'+timeRow+'</div>':''); }).join("")+scrDocsHtml(tk,mods);
   var assets=scrHook("scoringAssetsRowHtml",tk), outcomes=scrHook("scoringOutcomesRowHtml",tk);
   /* Phase 3, the efficiency bonus line goes here — "Estimated 8h · Actual 5h · Saved 3h · Base 8 pts · Efficiency Bonus
      +1.10 pts · Earned 9.10 pts · Pending/Approved" — from GET …/scoring `efficiency`, which the server sends only to
@@ -458,7 +464,7 @@ function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?eff
 function scrAskAi(id,m){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; SCR.aiBusy[id]=m; delete SCR.aiNote[id+"|"+m]; scrPaint(id);
   scrApi("POST",scrPath(id,"ai"),{module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}).then(function(d){ delete SCR.aiBusy[id];
       var r=d&&d.aiResult||{}, n=scrAiNoteFrom(r,m); if(n) SCR.aiNote[id+"|"+m]=n; scrAiHideSet(id,m,null);
-      scrAfter(tk,m,d,null); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
+      scrAfter(tk,m,d,null); if(Array.isArray(r.docs)) scrDocsRun(id,r.docs); if(r.status==="ok"&&!n) toast(tr("The AI's suggestion is ready")); })
     .catch(function(e){ delete SCR.aiBusy[id]; scrFail(tk,e); }); }
 function scrAiDismiss(id,m){ var tk=task(id), s=tk&&scrAiOf(tk,m); if(!s) return; scrAiHideSet(id,m,s.runId); scrPaint(id); }
 function scrAiShow(id,m){ scrAiHideSet(id,m,null); scrPaint(id); }
@@ -475,6 +481,39 @@ function scrAiAcceptGo(id,m,need){ var tk=task(id); if(!tk) return closeModal();
   var r=scrView(tk,m), b=document.getElementById("scrGo"); if(b) b.disabled=true;
   scrApi("PUT",scrPath(tk.id,m),{use:"ai",reason:why,rev:r.rev||0}).then(function(d){ if(need) closeModal(); var proposed=!!(d&&d.applied===false); scrAfter(tk,m,d,proposed?"Change proposed — an approver will look at it":"Saved"); })
     .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
+
+/* ---------- the documents in the brief the AI may read (GET …/scoring ai.docs, POST …/ai aiResult.docs) ---------- */
+var SCR_DOC_ICO={gdoc:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4"/></svg>',gslides:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M12 17v3M8 21h8"/></svg>',
+  gsheet:'<svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>',file:'<svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg>'};
+var SCR_DOC_ST={ready:"read when the AI is asked",not_public:"not shared publicly — set it to “anyone with the link”",too_large:"too large",unsupported:"not supported",error:"could not be read",limit:"not read: the limit for one ask was reached",off:"will not be sent"};
+function scrDocs(tk){ var a=scrAiInfo(tk), d=a&&a.docs; return d&&typeof d==="object"?d:null; }
+/* the workspace's switch: the settings' own word when they have it, else the server's */
+function scrDocsWs(tk){ var s=scoringSettings(), v=s&&s.ai&&s.ai.readDocs, d=scrDocs(tk); return typeof v==="boolean"?v:!!(d&&d.on); }
+function scrDocsUsed(tk){ return (tk.meta||{}).aiReadDocs!==false; }
+function scrInt(n){ n=Math.round(+n||0); try{ return n.toLocaleString(UI_LANG==="id"?"id-ID":"en-US"); }catch(e){ return String(n); } }
+/* what the server found, each with what the last ask in this page said of it — unless the server answered since with
+   more than "ready" */
+function scrDocList(tk){ var d=scrDocs(tk), f=d&&Array.isArray(d.found)?d.found:[], run=SCR.docRun[tk.id], c=SCR.cache[tk.id];
+  return (f.length?f:run?run.list:[]).filter(function(x){ return x&&typeof x==="object"; }).map(function(x){ var r=run&&run.by[x.ref]; return r&&(x.status==="ready"||!c||run.at>=c.at)?Object.assign({},x,r):x; }); }
+function scrDocsRun(id,list){ var c=SCR.cache[id], by={}; list.forEach(function(x){ if(x&&x.ref) by[x.ref]=x; }); SCR.docRun[id]={at:c?c.at:Date.now(),list:list,by:by}; scrPaint(id); }
+function scrDocChip(x,used){ var st=used?String(x.status||""):"off", k=x.kind==="gdrive"||Object.prototype.hasOwnProperty.call(SCR_DOC_ICO,x.kind)?x.kind:"file", n=scrNum(x.chars), t=String(x.title||x.ref||"");
+  var txt=st==="read"?(n!=null?fmt(tr("read · {n} characters"),{n:scrInt(n)}):tr("read"))+(x.cut?" · "+tr("cut to fit"):""):tr(SCR_DOC_ST[st]||SCR_DOC_ST.error);
+  var name=/^https:\/\/[^\s"'<>]+$/i.test(x.ref||"")?'<a href="'+attr(x.ref)+'" target="_blank" rel="noopener noreferrer" data-no-translate>'+esc(t)+'</a>':'<b data-no-translate>'+esc(t)+'</b>';
+  return '<li class="scr-doc" data-scr-doc="'+attr(x.ref||"")+'" data-kind="'+k+'" data-st="'+attr(st)+'"'+(x.reason?' title="'+attr(x.reason)+'"':'')+'>'+(k==="gdrive"?I.cloud||SCR_DOC_ICO.file:SCR_DOC_ICO[k])+name+'<span class="scr-doc-st">'+esc(txt)+'</span></li>'; }
+/* only where the AI is asked for some score; reading off: nothing, or one quiet line for whoever may turn it on */
+function scrDocsHtml(tk,mods){ var a=scrAiInfo(tk), d=scrDocs(tk), list=scrDocList(tk);
+  if(!list.length||a&&a.external===false||!mods.some(function(m){ return scoringMode(m)!=="math_only"; })) return "";
+  if(!scrDocsWs(tk)) return canI.scoringConfigure()?'<p class="hint scr-docs-off" data-scr-docs="off">'+tr("Reading brief documents is off for this workspace")+' · <button type="button" class="scr-link" onclick="go(\'settings\',\'scoring/ai\')">'+tr("Change it in Settings")+'</button></p>':'';
+  var used=scrDocsUsed(tk), can=d&&typeof d.canToggle==="boolean"?d.canToggle:canI.editTask(tk), s=scoringSettings(), lim=scrNum(d&&d.charsLimit);
+  if(lim==null&&s&&s.ai) lim=scrNum(s.ai.docsChars);
+  var read=list.filter(function(x){ return x.status==="read"; }), sum=read.reduce(function(t,x){ return t+(scrNum(x.chars)||0); },0);
+  var tot=used&&read.length?'<span class="hint" data-scr-docs-sum>'+esc(lim?fmt(tr("read {n} of {m} characters"),{n:scrInt(sum),m:scrInt(lim)}):fmt(tr("read {n} characters"),{n:scrInt(sum)}))+'</span>':'';
+  return '<div class="scr-docs" data-scr-docs="'+(used?"on":"excluded")+'"><div class="scr-docs-head">'+SCR_DOC_ICO.file+'<b>'+tr("Documents for the AI")+'</b>'+tot
+    +'<span class="scr-docs-use"><span>'+tr("Use this task's documents")+'</span><button type="button" class="switch'+(used?" on":"")+'" role="switch" aria-checked="'+used+'" aria-label="'+attr(tr("Use this task's documents"))+'" data-scr-act="docs-use"'+(can?' onclick="scrDocsUse('+jsq(tk.id)+')"':' disabled')+'></button></span></div>'
+    +'<ul class="scr-docs-list">'+list.map(function(x){ return scrDocChip(x,used); }).join("")+'</ul></div>'; }
+/* left out or used again: meta.aiReadDocs false, or no word (the workspace's), saved as any change to the task */
+function scrDocsUse(id){ var tk=task(id); if(!tk) return; var on=!scrDocsUsed(tk);
+  editTaskWith(tk,function(t){ var m=taskMeta(t); if(on) delete m.aiReadDocs; else m.aiReadDocs=false; }).then(function(r){ if(r!==false) toast(tr(on?"This task's documents are read when the AI is asked":"This task's documents will not be sent to the AI")); }); }
 
 /* ---------- the task's scoring history (the last 50 changes) ---------- */
 function scrAuditValue(v){ var j=scrJson(v); if(j) v=scrPick(j,["lockedValue","locked_value","finalValue","final_value","value","mathValue","math_value"]); var n=scrNum(v); return n==null?"":String(n); }
@@ -607,7 +646,14 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "The AI suggests {v}":"AI menyarankan {v}","The AI's ratings":"Penilaian AI","It assumes":"Asumsinya","Missing inputs":"Masukan yang kurang",
   "The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.":"Estimasi sudah dikunci: saran AI hanya ditampilkan di sampingnya, tidak pernah diterapkan. Lakukan baseline ulang untuk mengubahnya.",
   "The AI's suggestion is ready":"Saran AI sudah siap","Accept the AI's suggestion":"Terima saran AI","Propose the AI's suggestion":"Usulkan saran AI","{module}: {v}, the AI's suggestion.":"{module}: {v}, saran AI.",
-  "It becomes the final value, from the AI, with your reason in the history.":"Ini menjadi nilai final, dari AI, dengan alasanmu di riwayat.","Why take a value far from the calculation?":"Mengapa memakai nilai yang jauh dari hitungan?","Why take this value?":"Mengapa memakai nilai ini?"
+  "It becomes the final value, from the AI, with your reason in the history.":"Ini menjadi nilai final, dari AI, dengan alasanmu di riwayat.","Why take a value far from the calculation?":"Mengapa memakai nilai yang jauh dari hitungan?","Why take this value?":"Mengapa memakai nilai ini?",
+  /* the documents in the brief */
+  "Documents for the AI":"Dokumen untuk AI","Use this task's documents":"Pakai dokumen task ini","read when the AI is asked":"dibaca saat AI ditanya",
+  "not shared publicly — set it to “anyone with the link”":"tidak dibagikan secara publik — atur ke “siapa saja yang memiliki link”","too large":"terlalu besar","not supported":"tidak didukung",
+  "could not be read":"tidak dapat dibaca","not read: the limit for one ask was reached":"tidak dibaca: batas untuk sekali tanya sudah tercapai","will not be sent":"tidak akan dikirim",
+  "read · {n} characters":"dibaca · {n} karakter","read":"dibaca","cut to fit":"dipotong agar muat","read {n} of {m} characters":"dibaca {n} dari {m} karakter","read {n} characters":"dibaca {n} karakter",
+  "Reading brief documents is off for this workspace":"Membaca dokumen brief dimatikan untuk workspace ini","Change it in Settings":"Ubah di Pengaturan",
+  "This task's documents are read when the AI is asked":"Dokumen task ini dibaca saat AI ditanya","This task's documents will not be sent to the AI":"Dokumen task ini tidak akan dikirim ke AI"
 });
 /* the engine's sentences (ScoringEngine.SENTENCES, the keys of every explanation step) in Indonesian, by their name there */
 (function(E,d){ if(!E||!E.SENTENCES) return; Object.keys(d).forEach(function(k){ var en=E.SENTENCES[k]; if(en&&!(en in UI_ID)) UI_ID[en]=d[k]; }); })(typeof ScoringEngine!=="undefined"?ScoringEngine:null,{
@@ -752,5 +798,22 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-spin{display:inline-block;width:11px;height:11px;margin-right:5px;border:2px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;vertical-align:-1px;animation:scr-spin .8s linear infinite}
 @keyframes scr-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.scr-spin{animation:none}}
+.scr-docs{display:flex;flex-direction:column;gap:7px;padding-top:10px;border-top:1px solid var(--color-border);min-width:0}
+.scr-docs-head{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:var(--fs-sm);min-width:0}
+.scr-docs-head>svg{width:14px;height:14px;flex:none}
+.scr-docs-head b{font-weight:650}
+.scr-docs-head .hint{margin:0;font-size:11.5px}
+.scr-docs-use{display:inline-flex;align-items:center;gap:8px;margin-left:auto;color:var(--color-text-secondary)}
+.scr-docs-list{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;min-width:0}
+.scr-doc{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 6px;max-width:100%;min-width:0;padding:3px 10px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken);font-size:12px}
+.scr-doc svg{width:13px;height:13px;flex:none;color:var(--color-text-secondary)}
+.scr-doc>a,.scr-doc>b{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--color-text-primary);text-decoration:none}
+.scr-doc>a:hover{text-decoration:underline}
+.scr-doc-st{min-width:0;color:var(--color-text-secondary);overflow-wrap:anywhere}
+.scr-doc[data-kind="gdoc"] svg{color:var(--color-info)}.scr-doc[data-kind="gslides"] svg{color:var(--color-warning)}.scr-doc[data-kind="gsheet"] svg{color:var(--color-success)}
+.scr-doc[data-st="read"] .scr-doc-st{color:var(--color-success)}
+.scr-doc[data-st="not_public"] .scr-doc-st,.scr-doc[data-st="too_large"] .scr-doc-st,.scr-doc[data-st="error"] .scr-doc-st,.scr-doc[data-st="limit"] .scr-doc-st{color:var(--color-warning)}
+.scr-doc[data-st="off"]{opacity:.7}
+.scr-docs-off{margin:0;padding-top:8px;border-top:1px solid var(--color-border)}
 @media(max-width:640px){.scr-vals{grid-template-columns:repeat(2,minmax(0,1fr))}.scr-val[data-scr-v="final"]{grid-column:1/-1}}
 </style>

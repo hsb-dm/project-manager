@@ -16,6 +16,10 @@
    - scAdvanced(body, {id, hint, open}) → a closed "Advanced" fold, remembered per person by id.
    - scHelp(text, example) → a help line, with "Example: …". scRepaint() → the group drawn again in place.
    - Fields go through scPut/scInput/scSwitch (data-sc paths), so the Save bar sees every change.
+   The AI group's "AI suggestions" also holds whether the AI may read the documents in a brief (ai.readDocs, off by
+   default; disabled with the reason while external AI processing is off) and how much of their text one ask sends
+   (ai.docsChars: 5,000, 15,000 or 30,000 characters, disabled while reading is off); each task can be left out from
+   its own panel (src/scoring-panel.js, meta.aiReadDocs).
    The longer sentences are kept once in each language in SC_T.
    ============================================================ */
 var SC={draft:null,saved:null,base:0,dirty:false,audit:null,loading:false,loadedAt:0,saving:false,owner:null,gFor:null,leave:null};
@@ -85,6 +89,11 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   aiBrief:["Never on every keystroke or when a task is opened.","Tidak pernah di setiap ketikan atau saat task dibuka."],
   aiConf:["Below that confidence, a suggestion is shown with a warning.","Di bawah tingkat keyakinan itu, saran ditampilkan dengan peringatan."],
   aiSees:["What the AI sees: the title, brief, number of deliverables, labels, team and up to 800 characters of the description (no links or e-mail addresses); similar finished tasks only while the workspace shares its data with the AI.","Yang dilihat AI: judul, brief, jumlah deliverable, label, tim, dan hingga 800 karakter deskripsi (tanpa link atau alamat email); task serupa yang sudah selesai hanya selama workspace berbagi datanya dengan AI."],
+  docs:["When the AI is asked, it also reads the documents linked in the brief or attached to the task, to judge the scope. Off by default.","Saat AI ditanya, AI juga membaca dokumen yang ditautkan di brief atau dilampirkan ke task, untuk menilai cakupannya. Bawaannya mati."],
+  docsEx:["A brief linking a Google Slides deck shared with “anyone with the link”: the AI reads its slides to judge the scope.","Brief yang menautkan deck Google Slides yang dibagikan ke “siapa saja yang memiliki link”: AI membaca slide-nya untuk menilai cakupannya."],
+  docsWhat:["Read: Google Docs, Slides, Sheets and Drive files shared with “anyone with the link”, and PDF, Word, PowerPoint and text files attached to the task. Not read: private Google documents — share them with “anyone with the link”, or attach the file to the task. Each task can be left out under its Scoring & Intelligence.","Dibaca: Google Docs, Slides, Sheets, dan file Drive yang dibagikan ke “siapa saja yang memiliki link”, serta file PDF, Word, PowerPoint, dan teks yang dilampirkan ke task. Tidak dibaca: dokumen Google yang privat — bagikan ke “siapa saja yang memiliki link”, atau lampirkan filenya ke task. Tiap task bisa dikecualikan di Skor & Intelijen-nya."],
+  docsExt:["External AI processing is off in Settings → AI, so no document can be sent to the AI. Turn it on there first.","Pemrosesan AI eksternal dimatikan di Pengaturan → AI, jadi tidak ada dokumen yang bisa dikirim ke AI. Nyalakan dulu di sana."],
+  docsChars:["More text can make suggestions more accurate but uses more AI credit per Ask AI; documents share this budget evenly.","Teks yang lebih banyak bisa membuat saran lebih akurat, tetapi memakai lebih banyak kredit AI per Ask AI; dokumen-dokumen berbagi jatah ini secara merata."],
   manual:["What happens when someone changes a calculated score by hand.","Apa yang terjadi bila seseorang mengubah skor hasil hitungan secara manual."],
   manualEx:["An estimate changed from 6 h to 8 h needs a reason, and with approval on, it waits for an approver.","Estimasi yang diubah dari 6 jam ke 8 jam perlu alasan, dan bila persetujuan dinyalakan, perubahan itu menunggu penyetuju."],
   reason:["Kept in the task's scoring history with who made the change.","Disimpan di riwayat skor task beserta siapa yang mengubahnya."],
@@ -102,7 +111,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
 /* [id, name, icon, one line] */
 var SC_GROUPS=[["overview","Overview","gauge",SC_T.gOverview],["estimating","Estimating","clock",SC_T.gEstimating],["output","Output & goals","target",SC_T.gOutput],["ai","AI","sparkle",SC_T.gAi],
   ["review","Review & bonus","star",SC_T.gReview],["access","Access & visibility","lock",SC_T.gAccess],["history","History","list",SC_T.gHistory]];
-var SC_NAMED={"ai.onCreate":"Suggest when a task is created","ai.onBriefRevision":"Suggest again when the brief changes a lot","ai.minConfidence":"Warn below confidence","ai.perUserDaily":"Suggestions per person a day","ai.workspaceDaily":"Suggestions for the workspace a day","ai.comparables":"Similar finished tasks as examples",
+var SC_NAMED={"ai.onCreate":"Suggest when a task is created","ai.onBriefRevision":"Suggest again when the brief changes a lot","ai.minConfidence":"Warn below confidence","ai.perUserDaily":"Suggestions per person a day","ai.workspaceDaily":"Suggestions for the workspace a day","ai.comparables":"Similar finished tasks as examples","ai.readDocs":"Let the AI read documents in the brief","ai.docsChars":"Document text per Ask AI",
   "overrides.requireReason":"A reason for every manual change","overrides.requireApproval":"Manual changes wait for approval","overrides.allowSelfApproveEstimate":"Someone assigned to a task may approve its estimate",
   "hours.bounds.min":"Fewest hours","hours.bounds.max":"Most hours","hours.lockPolicy":"An estimate is locked","primaryCapacity":"Primary capacity metric","enabled":"Smart Scoring"};
 
@@ -125,8 +134,9 @@ function scInput(el){ if(!SC.draft) return; var k=el.getAttribute("data-k"), p=e
 function scSwitch(b){ if(!SC.draft||b.disabled) return; var on=!b.classList.contains("on"); b.classList.toggle("on",on); b.setAttribute("aria-checked",String(on)); scPut(b.getAttribute("data-sc"),on); }
 /* modules switched on while Smart Scoring itself is off show nowhere: Overview says so while it is the case */
 function scMasterOff(){ var d=SC.draft||{}, m=d.modules||{}; return !d.enabled&&Object.keys(m).some(function(k){ return m[k]&&m[k].on; }); }
-function scLivePaint(){ var el=document.querySelector(".scr-master-off"), st=document.getElementById("scrMasterState");
-  if(el) el.style.display=scMasterOff()?"":"none"; if(st) st.textContent=tr(SC.draft&&SC.draft.enabled?SC_T.on:SC_T.offAll); scBarPaint(); }
+function scLivePaint(){ var el=document.querySelector(".scr-master-off"), st=document.getElementById("scrMasterState"), dc=document.getElementById("sc_ai_docs_chars");
+  if(el) el.style.display=scMasterOff()?"":"none"; if(st) st.textContent=tr(SC.draft&&SC.draft.enabled?SC_T.on:SC_T.offAll);
+  if(dc) dc.disabled=!canI.scoringConfigure()||scDocsExtOff()||!scGet("ai.readDocs"); scBarPaint(); }
 
 /* ---------- the pieces every section is made of (the contract above) ---------- */
 function scSection(id,title,intro,body,o){ o=o||{}; var p=o.onModule?(String(o.onModule).indexOf(".")<0?"modules."+o.onModule+".on":o.onModule):"";
@@ -243,8 +253,17 @@ function scAiPanel(ro){ var num=function(id,p,o){ return scNumHtml(id,p,SC_NAMED
     '<div class="banner scr-ai-model">'+I.sparkle+'<span>'+tr(SC_T.aiModel)+'</span><button type="button" class="btn xs" onclick="S.aiSettingsSection=\'models\';go(\'settings\',\'ai\')">'+tr("Open Chat models")+'</button></div>'
     + scPrefHtml("ai.onCreate",SC_T.aiCreate,ro)+scPrefHtml("ai.onBriefRevision",SC_T.aiBrief,ro)
     + '<div class="scr-grid">'+num("sc_ai_conf","ai.minConfidence",{pct:true,max:100,step:5,unit:"%"})+num("sc_ai_user","ai.perUserDaily",{max:1000})+num("sc_ai_ws","ai.workspaceDaily",{max:100000})+'</div>'+scHelp(SC_T.aiConf)
-    + fieldHtml("sc_ai_cmp","Similar finished tasks as examples",scSelectHtml("sc_ai_cmp","ai.comparables",[["team","Of the same team"],["none","None"]],ro))+scHelp(SC_T.aiSees),
+    + fieldHtml("sc_ai_cmp","Similar finished tasks as examples",scSelectHtml("sc_ai_cmp","ai.comparables",[["team","Of the same team"],["none","None"]],ro))+scHelp(SC_T.aiSees)+scDocsSetHtml(ro),
     {icon:I.sparkle,example:SC_T.aiEx}); }
+/* the documents in the brief (off by default) and how much of their text one ask sends; nothing can be sent while
+   external AI processing is off (Settings → AI → Permissions), so both are disabled then and say why */
+var SC_DOCS_CHARS=[[5000,"5,000 characters (≈1.5 pages)"],[15000,"15,000 characters (≈5 pages, default)"],[30000,"30,000 characters (≈10 pages)"]];
+function scDocsExtOff(){ return typeof aiCfg==="function"&&!aiCfg().processing.externalEnabled; }
+function scDocsSetHtml(ro){ var ext=scDocsExtOff(), cur=String(+scGet("ai.docsChars")||15000), off=ro||ext||!scGet("ai.readDocs");
+  return '<div class="scr-docs-set" data-scr-docs-set>'+scPrefHtml("ai.readDocs",SC_T.docs,ro||ext)
+    + (ext?'<div class="banner warn scr-docs-ext" role="status"><span>'+tr(SC_T.docsExt)+'</span><button type="button" class="btn xs" onclick="S.aiSettingsSection=\'permissions\';go(\'settings\',\'ai\')">'+tr("Open AI permissions")+'</button></div>':'')
+    + fieldHtml("sc_ai_docs_chars","Document text per Ask AI",selectHtml("sc_ai_docs_chars",SC_DOCS_CHARS.map(function(o){ return [String(o[0]),tr(o[1])]; }),cur,'data-sc="ai.docsChars" data-k="num" onchange="scInput(this)"'+(off?" disabled":"")))
+    + scHelp(SC_T.docsChars)+scHelp(SC_T.docsWhat,SC_T.docsEx)+'</div>'; }
 function scOverridesPanel(ro){
   return scSection("overrides","Manual changes",SC_T.manual,
     scPrefHtml("overrides.requireReason",SC_T.reason,ro)+scPrefHtml("overrides.requireApproval",SC_T.approval,ro)+scPrefHtml("overrides.allowSelfApproveEstimate",SC_T.self,ro),
@@ -263,6 +282,7 @@ function scHoldersPanel(){
 /* ---------- History: each save with who, when and every field from → to ---------- */
 function scVal(path,v){ if(v===null||v===undefined) return "—"; if(typeof v==="boolean") return tr(v?"on":"off");
   if(/\.mode$/.test(path)) return tr(SC_MODE_LABEL[v]||v); if(path==="primaryCapacity") return tr(SC_PRIMARY_LABEL[v]||v);
+  if(path==="ai.docsChars"){ var dc=SC_DOCS_CHARS.filter(function(o){ return o[0]===+v; })[0]; if(dc) return tr(dc[1]); }
   if(Array.isArray(v)) return v.map(function(x){ return Array.isArray(x)?x.join("→"):x; }).join(", ");
   if(/\.weights\./.test(path)||/minConfidence|grace|maxRate|reviewBelowRatio/.test(path)) return scPct(v)+"%";
   return String(v); }
@@ -358,6 +378,8 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "Suggest when a task is created":"Beri saran saat task dibuat","Suggest again when the brief changes a lot":"Beri saran lagi bila brief banyak berubah",
   "Warn below confidence":"Peringatkan di bawah tingkat keyakinan","Suggestions per person a day":"Saran per orang per hari","Suggestions for the workspace a day":"Saran untuk workspace per hari",
   "Similar finished tasks as examples":"Task serupa yang selesai sebagai contoh","Of the same team":"Dari tim yang sama",
+  "Let the AI read documents in the brief":"Izinkan AI membaca dokumen di brief","Open AI permissions":"Buka izin AI","Document text per Ask AI":"Teks dokumen per Ask AI",
+  "5,000 characters (≈1.5 pages)":"5.000 karakter (±1,5 halaman)","15,000 characters (≈5 pages, default)":"15.000 karakter (±5 halaman, bawaan)","30,000 characters (≈10 pages)":"30.000 karakter (±10 halaman)",
   "Manual changes":"Perubahan manual","A reason for every manual change":"Alasan untuk setiap perubahan manual","Manual changes wait for approval":"Perubahan manual menunggu persetujuan",
   "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
   "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring","and, on top of their role:":"dan, di luar role-nya:",

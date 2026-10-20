@@ -1,6 +1,7 @@
 /* The sections other modules add to Settings → Smart Scoring (Oct 2026): Asset points (src/scoring-assets.js), KPIs
    and OKRs (src/scoring-outcomes.js), the efficiency bonus (src/scoring-awards.js) and who sees the Teams screen's
-   bars (src/scoring-teams.js), drawn as the page draws them, in the tab's file (src/scoring-settings.js) with the
+   bars (src/scoring-teams.js) — and, in the tab's own AI group, whether the AI reads the documents in a brief and how
+   much of their text one ask sends — drawn as the page draws them, in the tab's file (src/scoring-settings.js) with the
    page's own small helpers. Each shows first what is usually changed, with a plain line and an example, and keeps
    the technical fields under a closed "Advanced"; every setting is still there with the path it is saved under;
    none has a Save button of its own (the tab has one Save bar). Drawn by the tab's own section, fold and help line
@@ -105,6 +106,36 @@ test('the bands are drawn again in place when one is added or removed, inside th
   assert.match(el.innerHTML, /data-band="6"/);
   c.sceBandDel(0);
   assert.equal(c.SC.draft.bonus.hourMapping.bands.length, 6); assert.doesNotMatch(el.innerHTML, /data-band="6"/);
+});
+
+test('AI suggestions: the AI reading the documents in a brief (off by default) and how much of their text one ask sends; disabled while reading or external AI processing is off, and read-only; in Indonesian', () => {
+  const c = page(), sw = h => h.match(/<button[^>]*data-sc="ai\.readDocs"[^>]*>/)[0], sel = h => h.match(/<select id="sc_ai_docs_chars"[^>]*>/)[0];
+  let h = c.scAiPanel(false);
+  assert.ok(paths(h).includes('ai.readDocs') && paths(h).includes('ai.docsChars'), 'both saved through the Save bar, by their paths');
+  assert.match(sw(h), /aria-checked="false"/, 'off by default'); assert.doesNotMatch(sw(h), /disabled/);
+  assert.match(sel(h), /disabled/, 'the text budget waits for the switch'); assert.match(h, /<option value="15000" selected>15,000 characters \(≈5 pages, default\)/);
+  assert.ok(h.indexOf('data-sc="ai.readDocs"') < h.indexOf('id="sc_ai_docs_chars"'), 'the budget under the switch');
+  assert.match(h, /More text can make suggestions more accurate but uses more AI credit per Ask AI; documents share this budget evenly\./);
+  assert.match(h, /Not read: private Google documents — share them with “anyone with the link”, or attach the file to the task\./);
+  assert.match(h, /Example: A brief linking a Google Slides deck shared with “anyone with the link”: the AI reads its slides to judge the scope\./);
+  vm.runInContext('SC.draft.ai.readDocs=true; SC.draft.ai.docsChars=30000;', c);
+  h = c.scAiPanel(false);
+  assert.doesNotMatch(sel(h), /disabled/); assert.match(sel(h), /data-k="num" onchange="scInput\(this\)"/); assert.match(h, /<option value="30000" selected>/);
+  const changed = Settings.diffSettings(Settings.defaults(), JSON.parse(JSON.stringify(c.SC.draft))).map(x => x.path);
+  assert.ok(changed.includes('ai.readDocs') && changed.includes('ai.docsChars'), 'each counts as a change for the Save bar: ' + changed.join(', '));
+  assert.equal(c.scPathLabel('ai.readDocs'), 'Let the AI read documents in the brief'); assert.equal(c.scPathLabel('ai.docsChars'), 'Document text per Ask AI');
+  assert.equal(c.scVal('ai.docsChars', 5000), '5,000 characters (≈1.5 pages)');
+  /* external AI processing off (Settings → AI → Permissions): nothing can be sent, so both wait, and it says where to turn it on */
+  c.aiCfg = () => ({ processing: { externalEnabled: false } });
+  h = c.scAiPanel(false);
+  assert.match(sw(h), /disabled/); assert.match(sel(h), /disabled/);
+  assert.match(h, /class="banner warn scr-docs-ext"[^]*External AI processing is off in Settings → AI[^]*S\.aiSettingsSection='permissions';go\('settings','ai'\)/);
+  c.aiCfg = () => ({ processing: { externalEnabled: true } });
+  h = c.scAiPanel(true);
+  assert.match(sw(h), /disabled/, 'read-only'); assert.match(sel(h), /disabled/); assert.doesNotMatch(h, /scr-docs-ext/);
+  c.UI_LANG = 'id'; h = c.scAiPanel(false);
+  for (const id of ['Izinkan AI membaca dokumen di brief', 'Teks dokumen per Ask AI', '30.000 karakter (±10 halaman)', '15.000 karakter (±5 halaman, bawaan)', 'memakai lebih banyak kredit AI per Ask AI', 'dokumen Google yang privat'])
+    assert.ok(h.includes(id), 'Indonesian: ' + id);
 });
 
 test('Teams screen: the two choices as radio cards with their trade-offs, saved under the same path', () => {

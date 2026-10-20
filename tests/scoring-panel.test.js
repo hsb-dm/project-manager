@@ -1,8 +1,9 @@
 /* The task's Scoring & Intelligence panel, src/scoring-panel.js (Oct 2026), run as the page runs it: what it reads from
    the server in either spelling (camelCase or snake_case, a summary or a whole row), how it shows numbers (hours to the
    half hour, Story Points whole, Weighted Points with two decimals), when an estimate counts as locked, and that every
-   word it shows — every sentence of the engine's explanations too — has its Indonesian. The panel in the browser:
-   e2e/scoring-panel.spec.js. */
+   word it shows — every sentence of the engine's explanations too — has its Indonesian; and the "Documents for the AI"
+   line (what the server found, what the last ask did with each, a task left out). The panel in the browser:
+   e2e/scoring-panel.spec.js, e2e/scoring-ai-docs.spec.js. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
@@ -42,7 +43,7 @@ test('every word the panel shows has its Indonesian', () => {
   for (const m of JS.matchAll(/openModal\((?:mine\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrAfter\(tk,m,d,(?:proposed\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?\)/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
   for (const m of JS.matchAll(/scrBtn\(tk,m,"\w+",(?:r\.proposal\?)?"((?:[^"\\]|\\.)*)"(?::"((?:[^"\\]|\\.)*)")?/g)) { literals.add(m[1]); if (m[2]) literals.add(m[2]); }
-  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS, c.SCR_AI_WARN, c.SCR_AI_GAPS, c.SCR_AI_NOTE]) Object.values(map).forEach(v => literals.add(v));
+  for (const map of [c.SCR_NAMES, c.SCR_SRC, c.SCR_SRC_WHY, c.SCR_ST, c.SCR_FACTOR_NAMES, c.SCR_ACTIONS, c.SCR_AI_WARN, c.SCR_AI_GAPS, c.SCR_AI_NOTE, c.SCR_DOC_ST]) Object.values(map).forEach(v => literals.add(v));
   /* the AI's reason placeholders */
   for (const m of JS.matchAll(/scrReasonField\(true,s\.far\?"((?:[^"\\]|\\.)*)":"((?:[^"\\]|\\.)*)"\)/g)) { literals.add(m[1]); literals.add(m[2]); }
   Object.values(c.SCR_LEVELS).forEach(l => l.forEach(v => literals.add(v)));
@@ -138,6 +139,60 @@ test('an estimate is locked when approved, frozen or changed after its lock, or 
   assert.equal(who({ status: 'locked', lockedBy: 'u2' }), 'Locked by Budi · not approved yet', 'changed after its lock');
   assert.equal(who({ status: 'rebaseline_needed', approvedBy: 'u1' }), 'Approved and locked by Ayu · the scope changed since: it needs a new baseline');
 });
+test('the documents in the brief: only while the workspace reads them and the AI is asked; each says what the last ask did with it; a task can leave them out', async () => {
+  const tasks = { 'T-1': { id: 'T-1', meta: {} } }, base = Settings.normalizeSettings({}), on = { configure: true, mode: 'hybrid' };
+  let settings = base;
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const c = load({ task: id => tasks[id], API: { on: true }, S: { drawerTask: null }, scoringSettings: () => settings, scoringMode: () => on.mode, esc, attr: esc, jsq: s => "'" + s + "'",
+    fmt: (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (o[k] !== undefined ? o[k] : m)), canI: { scoringConfigure: () => on.configure, editTask: () => true },
+    taskMeta: t => (t.meta = t.meta || {}), editTaskWith: (t, fn) => { fn(t); return Promise.resolve(t); }, toast: () => {} });
+  /* the workspace's switch as the settings say (ai.readDocs, the server's side), else as GET …/scoring says */
+  const ws = v => { settings = Object.assign({}, base, { ai: Object.assign({}, base.ai) }); if (v === undefined) delete settings.ai.readDocs; else settings.ai.readDocs = v; };
+  const found = [{ ref: 'https://docs.google.com/presentation/d/abc/edit', kind: 'gslides', title: 'Ramadan deck', status: 'ready' }, { ref: 'https://docs.google.com/document/d/p/edit', kind: 'gdoc', title: 'Private brief', status: 'not_public' },
+    { ref: 'file:f1', kind: 'file', title: 'Spec.pdf', status: 'too_large' }, { ref: 'file:f2', kind: 'toString', title: 'logo.ai', status: 'unsupported' }];
+  c.SCR.cache['T-1'] = { rows: {}, at: 100, ai: { external: true, docs: { on: false, allowed: false, canToggle: true, charsLimit: 15000, found } } };
+  const html = () => c.scrDocsHtml(tasks['T-1'], ['hours']), chip = (h, ref) => { const at = h.indexOf('data-scr-doc="' + ref + '"'); return at < 0 ? null : h.slice(at, h.indexOf('</li>', at)); };
+  const stOf = (h, ref) => { const x = chip(h, ref); return x && x.slice(x.indexOf('scr-doc-st">') + 12, x.lastIndexOf('</span>')); };
+  ws(false);
+  assert.match(html(), /data-scr-docs="off"/, 'reading off: one quiet line for whoever may turn it on');
+  assert.doesNotMatch(html(), /scr-doc"/);
+  on.configure = false; assert.equal(html(), '', '…and nothing for anyone else'); on.configure = true;
+  ws(undefined); assert.match(html(), /data-scr-docs="off"/, 'no word in the settings: the server\'s');
+  c.SCR.cache['T-1'].ai.docs.on = true; assert.match(html(), /data-scr-docs="on"/);
+  ws(true); c.SCR.cache['T-1'].ai.docs.on = false; let h = html();
+  assert.match(h, /data-scr-docs="on"/, 'the settings\' word counts first');
+  assert.equal(stOf(h, found[0].ref), 'read when the AI is asked'); assert.equal(stOf(h, found[1].ref), 'not shared publicly — set it to “anyone with the link”');
+  assert.equal(stOf(h, 'file:f1'), 'too large'); assert.equal(stOf(h, 'file:f2'), 'not supported');
+  assert.match(chip(h, 'file:f2'), /data-kind="file"/, 'a kind it does not know is a file');
+  assert.match(chip(h, found[0].ref), /<a href="https:\/\/docs\.google\.com\/presentation\/d\/abc\/edit" target="_blank" rel="noopener noreferrer"/);
+  assert.doesNotMatch(chip(h, 'file:f1'), /<a /, 'a file on this server is not a link');
+  assert.doesNotMatch(h, /data-scr-docs-sum/, 'nothing read yet');
+  /* after an ask: what it read, how much of the budget, what was cut */
+  c.scrDocsRun('T-1', [{ ref: found[0].ref, kind: 'gslides', title: 'Ramadan deck', status: 'read', chars: 4200 }, { ref: found[1].ref, status: 'not_public' }, { ref: 'file:f1', status: 'read', chars: 9000, cut: true }]);
+  h = html();
+  assert.equal(stOf(h, found[0].ref), 'read · 4,200 characters'); assert.equal(stOf(h, 'file:f1'), 'read · 9,000 characters · cut to fit');
+  assert.match(h, /data-scr-docs-sum>read 13,200 of 15,000 characters</);
+  delete c.SCR.cache['T-1'].ai.docs.charsLimit; settings.ai.docsChars = 30000;
+  assert.match(html(), />read 13,200 of 30,000 characters</, 'no charsLimit from the server: the settings\' budget');
+  delete settings.ai.docsChars; assert.match(html(), />read 13,200 characters</, 'neither: how much was read');
+  /* the server answering later with more than "ready" is newer; "ready" says nothing new */
+  c.SCR.cache['T-1'].at = 200; found[0].status = 'not_public';
+  assert.equal(stOf(html(), found[0].ref), 'not shared publicly — set it to “anyone with the link”');
+  found[0].status = 'ready'; assert.equal(stOf(html(), found[0].ref), 'read · 4,200 characters');
+  c.UI_LANG = 'id'; assert.equal(stOf(html(), found[0].ref), 'dibaca · 4.200 karakter'); c.UI_LANG = 'en';
+  /* left out on this task: every chip says it will not be sent */
+  await c.scrDocsUse('T-1'); assert.equal(tasks['T-1'].meta.aiReadDocs, false);
+  h = html(); assert.match(h, /data-scr-docs="excluded"/); for (const x of found) assert.equal(stOf(h, x.ref), 'will not be sent', x.ref);
+  assert.doesNotMatch(h, /data-scr-docs-sum/); assert.match(h, /class="switch" role="switch" aria-checked="false"/);
+  await c.scrDocsUse('T-1'); assert.equal('aiReadDocs' in tasks['T-1'].meta, false, 'used again: no word of its own, the workspace\'s');
+  /* not where nothing asks the AI, nor while external AI processing is off, nor without documents */
+  on.mode = 'math_only'; assert.equal(html(), ''); on.mode = 'hybrid';
+  c.SCR.cache['T-1'].ai.external = false; assert.equal(html(), ''); c.SCR.cache['T-1'].ai.external = true;
+  c.SCR.cache['T-1'].ai.docs.found = []; delete c.SCR.docRun['T-1']; assert.equal(html(), '');
+  c.SCR.cache['T-1'].ai.docs.canToggle = false; c.SCR.cache['T-1'].ai.docs.found = found;
+  assert.match(html(), /data-scr-act="docs-use" disabled/, 'whoever may not edit the task sees the switch, not to be changed');
+});
+
 test('the explanation of a stored row is the engine\'s, in Indonesian too, with a kind\'s and a factor\'s name in their words', () => {
   const c = load({ estKindName: id => (c.UI_LANG === 'id' ? { feed: 'post feed' } : { feed: 'feed post' })[id] || id, scoringSettings: () => Settings.normalizeSettings({}) });
   const res = Engine.hours(Settings.DEFAULTS.hours, { kind: 'feed', units: 5, complexity1to5: 4, openDeps: 0 });

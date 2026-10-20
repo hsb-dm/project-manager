@@ -393,6 +393,24 @@ menguncinya.
 **Rating** untuk Story/Weighted Points: empat faktor dinilai 1–5. Nilai **Scope** disarankan dari jumlah aset
 (1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13+ → 5) dan bisa diubah.
 
+**Dokumen untuk AI.** Kalau admin mengizinkan AI membaca dokumen di brief, dan task punya dokumen, panel menampilkan
+baris **Documents for the AI** (Dokumen untuk AI) di bawah baris skor. Tiap dokumen tampil sebagai chip dengan ikon
+jenisnya (Google Docs, Slides, Sheets, file Drive, atau file yang dilampirkan) dan judulnya. Setelah **Ask AI**, tiap
+chip menyebut apa yang terjadi: **read · 4,200 characters** (dibaca, berapa karakter), **cut to fit** (dipotong agar
+muat dalam jatah teks per Ask AI), **not shared publicly** (tidak dibagikan publik), **too large** (terlalu besar),
+atau **not supported** (jenis file tidak didukung). Di sebelah judul baris tampil berapa karakter yang dibaca dari
+jatahnya, misalnya "read 14,200 of 15,000 characters".
+
+- Yang dibaca: Google Docs, Slides, Sheets, dan file Drive yang dibagikan ke **"Anyone with the link"**, serta file
+  PDF, Word, PowerPoint, dan teks yang dilampirkan ke task (disimpan di server ZenCrevia).
+- **Dokumen Google yang privat tidak dibaca.** Supaya terbaca: di Google, buka **Share** → **General access** →
+  **Anyone with the link** (Viewer), atau unduh filenya lalu lampirkan ke task.
+- Sakelar **Use this task's documents** (Pakai dokumen task ini) mematikan pembacaan dokumen untuk task ini saja;
+  chip lalu bertuliskan **will not be sent** (tidak akan dikirim). Sakelar ini bisa diubah oleh siapa pun yang boleh
+  mengedit task, dan tersimpan bersama task.
+- Kalau fitur ini dimatikan untuk workspace, tidak ada yang tampil tentang dokumen (admin melihat satu baris kecil
+  dengan tautan ke pengaturannya).
+
 **Log waktu.** Selama Effort Hours aktif, kolom **Actual** diganti total jam yang dicatat, dengan tombol
 **Log time**. Catat jam kerjamu per tanggal sebagai Kerja, Revisi, atau Terblokir. Actual = kerja + revisi,
 dibulatkan ke 15 menit. Waktu terblokir dicatat tapi tidak dihitung. Kamu hanya mencatat jam milikmu sendiri.

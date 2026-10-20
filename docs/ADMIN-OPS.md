@@ -702,6 +702,25 @@ kelompok **AI**, begitu juga AI saat task dibuat dan AI saat brief direvisi besa
 Saran yang jauh dari hitungan diberi peringatan dan butuh alasan untuk dipakai. AI tidak pernah mengunci,
 meng-approve, atau memberi bonus.
 
+**Dokumen di brief.** Di kelompok **AI**, bagian **AI suggestions**, switch **Let the AI read documents in the brief**
+(Izinkan AI membaca dokumen di brief) — **OFF secara default**. Kalau ON, saat AI ditanya ia juga membaca dokumen yang
+ditautkan di brief atau dilampirkan ke task, untuk menilai cakupan pekerjaan. Contoh: brief yang menautkan deck Google
+Slides yang dibagikan ke "Anyone with the link" — AI membaca slide-nya.
+
+- Yang dibaca: Google Docs, Slides, Sheets, dan file Drive yang dibagikan ke **"Anyone with the link"**, serta file
+  PDF, Word, PowerPoint, dan teks yang dilampirkan ke task dan tersimpan di server ini.
+- **Dokumen Google yang privat tidak dibaca** — ZenCrevia tidak masuk ke akun Google siapa pun. Di panel task, chip
+  dokumen itu bertuliskan "not shared publicly". Jalan keluarnya: ubah aksesnya di Google ke **Anyone with the link**
+  (Viewer), atau unduh filenya dan lampirkan ke task.
+- Di bawahnya, **Document text per Ask AI** (Teks dokumen per Ask AI): 5.000, 15.000 (default), atau 30.000 karakter
+  — kira-kira 1,5, 5, atau 10 halaman. Teks lebih banyak bisa membuat saran lebih akurat, tapi memakai lebih banyak
+  kredit AI per Ask AI; beberapa dokumen berbagi jatah ini sama rata. Pilihan ini nonaktif selama switch-nya OFF.
+- Keduanya disimpan lewat bar **Save** seperti pengaturan lain dan tercatat di **History**.
+- Selama **external processing** di Settings → AI → Permissions OFF, keduanya nonaktif dengan penjelasan dan tombol
+  **Open AI permissions**: tidak ada dokumen yang bisa dikirim ke AI.
+- Tiap task bisa dikecualikan dari panel Scoring & Intelligence-nya (sakelar **Use this task's documents**), oleh
+  siapa pun yang boleh mengedit task itu.
+
 ### Bar di layar Teams
 
 Selama Smart Scoring ON, layar Teams menampilkan bar kecil di bawah bar utilisasi (4 minggu terakhir): poin selesai
