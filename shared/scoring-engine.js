@@ -162,7 +162,7 @@
     },
     story: { weights: factorWeights(), thresholds: [1.5, 2.5, 3.5, 4.25, 4.75] },
     weighted: { weights: factorWeights(), scaleMax: 10, mappingVersion: 1 },
-    ai: { minConfidence: 0.6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200, comparables: 'team' },
+    ai: { minConfidence: 0.6, onCreate: false, onBriefRevision: false, perUserDaily: 20, workspaceDaily: 200, comparables: 'team', readDocs: false, docsChars: 15000 },
     bonus: {
       on: false, enabledAt: null, grace: 0.10, rewardFactor: 0.5, maxRate: 0.20, minE: 1, minA: 0.25, reviewBelowRatio: 0.4,
       materialChangeHours: 0.25, baseSource: 'weighted_else_mapping',
