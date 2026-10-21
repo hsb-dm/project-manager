@@ -198,19 +198,31 @@ setiap custom field. Tombol **Fields** memilih kolom mana yang tampil.
 arsiran akhir pekan, bar grup project, bar milestone (◆), dan satu bar per task.
 Seret bar untuk menggeser kedua tanggal; seret ujung kiri/kanannya untuk mengubah durasi.
 
-**Saat task-nya banyak** — List dan Grid menggambar 100 baris pertama (saat dikelompokkan: 100
-pertama di tiap grup), Kanban 30 kartu pertama di tiap kolom, dan Timeline 30 task pertama di tiap
-project. Di bawahnya tertulis berapa yang tampil (*100 dari 1577 tampil*) dan tombol
-**Show 100 more** (*Tampilkan 100 lagi*; di Kanban dan Timeline *Tampilkan 30 lagi*) menambahkan
-berikutnya di tempat, tanpa menggambar ulang layar.
-- Berapa yang sudah ditampilkan diingat untuk view, urutan, filter, dan grup itu, juga setelah refresh.
+**Saat task-nya banyak** — List dan Grid tampil per halaman: 100 baris per halaman, atau saat
+dikelompokkan 25 baris per grup, dan tiap grup punya halamannya sendiri. Di bawah baris (di bawah
+tiap grup) ada pager: **‹ Prev** (*Sebelumnya*), nomor halaman dengan **…** untuk halaman yang
+dilewati (1 2 3 4 5 … 16; klik **…** untuk ke halaman di tengah-tengahnya), **Next ›**
+(*Berikutnya*), dan rentangnya (*1–100 of 1,526* / *1–100 dari 1.526*). Pindah halaman hanya
+menggambar ulang baris tabel atau grup itu, bukan seluruh layar; fokus keyboard tetap di pager, dan
+bagian atas grup atau tabel digulir ke layar bila sedang tak terlihat. Di ponsel pager-nya ringkas:
+rentang di barisnya sendiri, lalu **‹** dan **›** di kedua ujung dengan nomor di antaranya.
+Kanban tetap menggambar 30 kartu pertama di tiap kolom dan Timeline 30 task pertama di tiap project,
+dengan tulisan berapa yang tampil (*30 dari 205 tampil*) dan tombol **Show 30 more**
+(*Tampilkan 30 lagi*) yang menambahkan berikutnya di tempat.
+- Halaman yang sedang dibuka (List, Grid) atau berapa yang sudah ditampilkan (Kanban, Timeline)
+  diingat untuk view, urutan, filter, dan grup itu: setelah task disimpan, setelah pindah ke view
+  atau layar lain lalu kembali, dan setelah refresh.
+- Mengganti filter, urutan, grup, atau Mine/All di List atau Grid kembali ke halaman 1. Bila task-nya
+  berkurang sampai halaman itu tak ada lagi, yang tampil halaman terakhir.
 - Jumlah task di judul halaman, angka di header grup, dan angka di header kolom selalu jumlah penuh.
-- **Select all** di mode pilih memilih semua task di view itu, termasuk yang belum digambar.
+- **Select all** di mode pilih memilih semua task di view itu, di semua halaman.
+- Baris bisa diseret ke baris lain di halaman itu atau ke header grup lain, dari halaman mana pun;
+  posisinya dihitung dari urutan seluruh daftar, bukan hanya yang tampil.
 - Kartu yang diseret ke ruang kosong kolom yang panjang jatuh setelah kartu terakhir yang tampil
   (Sort Manual), jadi tetap terlihat.
 - Task yang dibuka dari pencarian, tautan, atau notifikasi tetap terbuka di panelnya walau barisnya
-  belum tampil; List tidak ikut bertambah.
-- **Print** dari browser tetap mencetak semua baris.
+  ada di halaman lain; List tetap di halamannya.
+- **Print** dari browser mencetak semua baris dari semua halaman, tanpa pager.
 
 ### Toolbar
 

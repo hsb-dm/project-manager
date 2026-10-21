@@ -85,41 +85,121 @@ function taskViewBody(list){ var out=S.taskView==="kanban"?kanban(list):S.taskVi
 
 /* ---------- DRAWING ONLY WHAT CAN BE SEEN (Oct 2026) ----------
    With 1,500 tasks the List drew 62,000 elements, the Kanban 28,500, the Timeline 79,000 and the Grid 135,000, and
-   every sort, filter or group drew them all again: 1.3–1.6 s on a laptop, some 9 s on a slow phone. Now the List and
-   the Grid draw their first 100 rows (each group its first 100 when grouped), a Kanban column its first 30 cards and a
-   Timeline project its first 30 tasks. A row after them says how many of how many are shown, and "Show 100 more" puts
-   the next ones in where they belong, without drawing the screen again. How many are shown is kept for that view, sort,
-   filter and group (S.vpage, so a refresh keeps it too): any later redraw draws as many again.
+   every sort, filter or group drew them all again: 1.3–1.6 s on a laptop, some 9 s on a slow phone.
+   The List and the Grid show a page at a time: 100 rows, or when grouped 25 rows of each group, each group paging on
+   its own (grouped by status, 100 rows a group still drew up to 1,000 rows: 2.1 s, 17 s on a slow phone; the owner
+   chose pages). Under the rows (of each group) a pager: "‹ Prev", the page numbers with a "…" for those skipped (it
+   goes to the middle of them), "Next ›" and "1–100 of 1,526". A page change draws only that table's or that group's
+   rows and the pager, never the screen; the focus stays on the pager, and the top of the group or the table is
+   scrolled into sight when it is out of it. A Kanban column draws its first 30 cards and a Timeline project its first
+   30 tasks, then "Show 30 more" puts the next ones in where they belong. The page (List, Grid) or how many are shown
+   (Kanban, Timeline) is kept for that view, sort, filter and group (S.vpage, so any redraw and a refresh keep it); a
+   change of the List's or the Grid's filter, sort, group or scope goes back to page 1, and a page past the last (the
+   tasks fewer now) becomes the last.
    - Counts, group totals and column counts are always the full numbers.
-   - Select all (select mode) takes every task the view holds, drawn or not (bulkSelectAll).
+   - Select all (select mode) takes every task the view holds, on every page (bulkSelectAll).
    - A row or card dropped on another lands before it, as always, reading the whole list's order, not only the rows
      drawn; one dropped on a Kanban column's free space lands after the last card drawn there, where it can be seen.
-   - A task opened from search, a link or a notification opens in its panel by id, drawn or not; the List does not grow.
+   - A task opened from search, a link or a notification opens in its panel by id, drawn or not; the List stays on
+     its page.
+   - The browser's Print prints every row of every page.
    The Timeline also draws its day grid once, behind every row (tl-days), instead of 42 cells in each row. */
-var VPAGE_SIZE={list:100,grid:100,kanban:30,timeline:30};
-var VPAGE={g:{},roots:{},seq:0};
+var VPAGE_SIZE={list:100,grid:100,kanban:30,timeline:30}, VPAGE_GROUP=25;
+var VPAGE={g:{},roots:{},seq:0,last:{}};
 function vpageHash(s){ var h=5381; for (var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return (h>>>0).toString(36); }
 /* what a count belongs to: the screen (and its project or team), the view, its scope, sort, grouping and filters (those
    set, in one order: the filters object does not always carry the empty ones) */
 function vpageViewKey(view){ var f=S.filters||{}, fs=Object.keys(f).filter(function(k){ return f[k]; }).sort().map(function(k){ return k+"="+f[k]; }).join("&");
   return [S.screen,S.screen==="projects"?S.projectId||"":"",S.screen==="teams"?S.teamId||"":"",view,S.taskScope,S.sort,S.sortDir,view==="list"||view==="grid"?S.group||"":"",fs].join("|"); }
-/* a new drawing of a paged view (its element carries data-vroot); groups of drawings no longer on the page are forgotten */
+/* the same place without what sends the List or the Grid back to page 1 when it changes (scope, sort, group, filters) */
+function vpageSlot(view){ return [S.screen,S.screen==="projects"?S.projectId||"":"",S.screen==="teams"?S.teamId||"":"",view].join("|"); }
+/* a new drawing of a paged view (its element carries data-vroot); groups of drawings no longer on the page are forgotten.
+   The List and the Grid page (R.paged): 100 rows a page, 25 a group when grouped */
 function vpageBegin(view){ Object.keys(VPAGE.roots).forEach(function(r){ if (!document.querySelector('[data-vroot="'+r+'"]')) delete VPAGE.roots[r]; });
   Object.keys(VPAGE.g).forEach(function(id){ if (!VPAGE.roots[VPAGE.g[id].root]) delete VPAGE.g[id]; });
-  var r="vr"+(++VPAGE.seq); VPAGE.roots[r]={view:view,key:vpageViewKey(view),order:null}; return r; }
-/* one group's rows as drawn now: its first page, or as many as were shown last for this view and group */
-function vpageGroup(root,gk,list,row){ var R=VPAGE.roots[root], size=VPAGE_SIZE[R.view]||100, key=vpageHash(R.key+"|"+gk), was=(S.vpage&&S.vpage[key])|0;
-  var id="vg"+(++VPAGE.seq), e=VPAGE.g[id]={root:root,key:key,list:list,size:size,row:row,shown:Math.min(list.length,Math.max(size,was))};
+  var r="vr"+(++VPAGE.seq), key=vpageViewKey(view), R=VPAGE.roots[r]={view:view,key:key,order:null,paged:view==="list"||view==="grid"};
+  if (R.paged){ R.pkey="p"+vpageHash(key); R.size=S.group?VPAGE_GROUP:(VPAGE_SIZE[view]||100);
+    /* drawn last with another filter, sort, group or scope: page 1 (a refresh, a redraw or coming back keeps the page) */
+    var slot=vpageSlot(view); if (VPAGE.last[slot]!==undefined&&VPAGE.last[slot]!==key) vpageStore(R.pkey,null); VPAGE.last[slot]=key; }
+  return r; }
+/* one group's rows as drawn now. List, Grid: the page kept for this view and group (1 at first; the last when the tasks
+   are fewer now). Kanban, Timeline: the first 30, or as many as were shown last */
+function vpageGroup(root,gk,list,row){ var R=VPAGE.roots[root], id="vg"+(++VPAGE.seq), e;
+  if (R.paged){ var was=vpagePageOf(R.pkey,gk), page=Math.min(Math.max(1,was),Math.max(1,Math.ceil(list.length/R.size)));
+    if (was>page) vpageSetPage(R.pkey,gk,page);
+    e=VPAGE.g[id]={root:root,key:R.pkey,gk:gk,list:list,size:R.size,row:row,page:page,paged:true};
+    return {id:id,e:e,html:list.slice((page-1)*R.size,page*R.size).map(function(t){ return row(t); }).join("")}; }
+  var size=VPAGE_SIZE[R.view]||100, key=vpageHash(R.key+"|"+gk), was2=(S.vpage&&S.vpage[key])|0;
+  e=VPAGE.g[id]={root:root,key:key,list:list,size:size,row:row,shown:Math.min(list.length,Math.max(size,was2))};
   return {id:id,e:e,html:list.slice(0,e.shown).map(function(t){ return row(t); }).join("")}; }
 function vpageCountText(e){ return tr("{n} of {total} shown").replace("{n}",e.shown).replace("{total}",e.list.length); }
 function vpageBtnText(e){ return tr("Show {n} more").replace("{n}",Math.min(e.size,e.list.length-e.shown)); }
-/* after a group's drawn rows, while some are not drawn: a table row (List, Grid), a box in a Kanban column, a Timeline row */
-function vpageMoreHtml(g,kind,extra){ if (g.e.shown>=g.e.list.length) return "";
+/* ---- the List's and the Grid's pager ---- */
+/* numbers as the app writes them elsewhere: 1,526 / 1.526 */
+function vpageNum(n){ try { return Number(n).toLocaleString(UI_LANG==="id"?"id-ID":"en-US"); } catch(x){ return String(n); } }
+function vpagePages(e){ return Math.max(1,Math.ceil(e.list.length/e.size)); }
+function vpageRangeText(e){ return fmt(tr("{from}–{to} of {total}"),{from:vpageNum(Math.min(e.list.length,(e.page-1)*e.size+1)),to:vpageNum(Math.min(e.list.length,e.page*e.size)),total:vpageNum(e.list.length)}); }
+/* every page up to 7, else seven places: the first and the last, the page shown with one each side, and a gap [from,to]
+   for the pages skipped (1 2 3 4 5 … 16 · 1 … 7 8 9 … 16 · 1 … 12 13 14 15 16), so Prev and Next keep their places */
+function vpageItems(page,pages){ var out=[]; if (pages<=7){ for (var i=1;i<=pages;i++) out.push(i); return out; }
+  if (page<=4) return [1,2,3,4,5,[6,pages-1],pages];
+  if (page>=pages-3) return [1,[2,pages-5],pages-4,pages-3,pages-2,pages-1,pages];
+  return [1,[2,page-2],page-1,page,page+1,[page+2,pages-1],pages]; }
+function vpageNumsHtml(e){ return vpageItems(e.page,vpagePages(e)).map(function(p){
+    if (Array.isArray(p)){ var mid=Math.floor((p[0]+p[1])/2), t=fmt(tr("Pages {from}–{to}: go to page {n}"),{from:vpageNum(p[0]),to:vpageNum(p[1]),n:vpageNum(mid)});
+      return '<button type="button" class="vpager-num vpager-gap" data-pg="'+mid+'" aria-label="'+attr(t)+'" title="'+attr(t)+'" onclick="vpageGo(this)">…</button>'; }
+    return '<button type="button" class="vpager-num'+(p===e.page?' on" aria-current="page':'')+'" data-pg="'+p+'" aria-label="'+attr(fmt(tr("Page {n}"),{n:vpageNum(p)}))+'" onclick="vpageGo(this)">'+vpageNum(p)+'</button>'; }).join(""); }
+function vpagePagerHtml(e,label){ var pages=vpagePages(e);
+  return '<nav class="vpager" aria-label="'+attr(label)+'"><button type="button" class="btn sm vpager-step vpager-prev" data-pg="'+(e.page-1)+'"'+(e.page<=1?' disabled':'')+' aria-label="'+attr(tr("Previous page"))+'" onclick="vpageGo(this)"><span aria-hidden="true">‹</span><span class="vpager-txt">'+esc(tr("Prev"))+'</span></button>'
+    +'<span class="vpager-nums">'+vpageNumsHtml(e)+'</span>'
+    +'<button type="button" class="btn sm vpager-step vpager-next" data-pg="'+(e.page+1)+'"'+(e.page>=pages?' disabled':'')+' aria-label="'+attr(tr("Next page"))+'" onclick="vpageGo(this)"><span class="vpager-txt">'+esc(tr("Next"))+'</span><span aria-hidden="true">›</span></button>'
+    +'<span class="vpage-n vpager-range" role="status">'+esc(vpageRangeText(e))+'</span></nav>'; }
+/* the pager after its page changed: in place, so the range line (role=status) reads the new one out */
+function vpagerUpdate(host,e){ var pages=vpagePages(e), p=host.querySelector(".vpager-prev"), n=host.querySelector(".vpager-next"), nums=host.querySelector(".vpager-nums"), r=host.querySelector(".vpager-range");
+  if (p){ p.disabled=e.page<=1; p.setAttribute("data-pg",e.page-1); } if (n){ n.disabled=e.page>=pages; n.setAttribute("data-pg",e.page+1); }
+  if (nums) nums.innerHTML=vpageNumsHtml(e); if (r) r.textContent=vpageRangeText(e); }
+/* one group's (or the table's) rows: the page asked for — or every page (all: printing) — in place of those shown,
+   between the group's header (or the table's top) and its pager; nothing else is drawn again */
+function vpageShow(host,e,page,all){ page=Math.min(Math.max(1,page|0),vpagePages(e));
+  for (var n=host.previousElementSibling; n&&!n.classList.contains("grp")&&!n.classList.contains("vpage-row"); n=host.previousElementSibling) n.remove();
+  var part=(all?e.list:e.list.slice((page-1)*e.size,page*e.size)).map(function(t){ return task(t.id); }).filter(Boolean), prev=host.previousSibling, added=[];
+  host.insertAdjacentHTML("beforebegin",part.map(function(t){ return e.row(t); }).join(""));
+  for (var m=prev?prev.nextSibling:host.parentNode.firstChild; m&&m!==host; m=m.nextSibling) if (m.nodeType===1) added.push(m);
+  added.forEach(function(x){ localizeVisibleText(x); });
+  if (!all){ e.page=page; vpageSetPage(e.key,e.gk,page); vpagerUpdate(host,e); }
+  if (typeof ENH!=="undefined"&&ENH.bulk&&typeof bulkInject==="function") bulkInject(); }
+/* a pager's button: Prev, Next, a page or a "…". The focus stays on the pager — on Prev or Next while it can still be
+   used, else on the page now shown — and the top of the group (its header) or of the table comes into sight */
+function vpageGo(btn){ var host=btn&&btn.closest?btn.closest("[data-vpage]"):null, e=host&&VPAGE.g[host.getAttribute("data-vpage")]; if (!e||!e.paged||!host.parentNode||btn.disabled) return;
+  var step=btn.classList.contains("vpager-prev")?"prev":btn.classList.contains("vpager-next")?"next":"", had=host.contains(document.activeElement);
+  vpageShow(host,e,+btn.getAttribute("data-pg")||1);
+  var to=(step&&host.querySelector(".vpager-"+step+":not([disabled])"))||host.querySelector('.vpager-num[aria-current="page"]');
+  if (had&&to) try { to.focus({preventScroll:true}); } catch(x){}
+  vpageReveal(host); }
+/* the group's header row, or the table, scrolled into sight when its top is out of it — in the Grid's own box (under
+   its sticky header) and in the page */
+function vpageReveal(host){ var n=host.previousElementSibling; while (n&&!n.classList.contains("grp")&&!n.classList.contains("vpage-row")) n=n.previousElementSibling;
+  var el=n&&n.classList.contains("grp")?n:host.closest("table"); if (!el) return;
+  var th=el.tagName==="TR"?el.closest("table").querySelector("thead th"):null;
+  for (var p=el.parentElement; p&&p!==document.body&&p!==document.documentElement; p=p.parentElement){ if (p.scrollHeight<=p.clientHeight+1||!/(auto|scroll)/.test(getComputedStyle(p).overflowY)) continue;
+    var pr=p.getBoundingClientRect(), r=el.getBoundingClientRect(), lim=pr.top+(th&&p.contains(th)&&getComputedStyle(th).position==="sticky"?th.getBoundingClientRect().height:0);
+    if (r.top<lim||r.top>pr.bottom-48) p.scrollTop+=r.top-lim-8; }
+  var w=el.getBoundingClientRect(); if (w.top<0||w.top>window.innerHeight-48) window.scrollBy(0,w.top-8); }
+/* after a group's drawn rows: List, Grid — the pager, while there is more than one page (a table row; label names the
+   group); Kanban, Timeline — while some are not drawn, a box in a column or a Timeline row with "Show 30 more" */
+function vpageMoreHtml(g,kind,extra,label){ if (g.e.paged){ if (vpagePages(g.e)<=1) return "";
+    return '<tr class="vpage-row vpager-row" data-vpage="'+g.id+'"><td colspan="'+extra+'">'+vpagePagerHtml(g.e,label?tr("Pages")+": "+tr(label):tr("Pages"))+'</td></tr>'; }
+  if (g.e.shown>=g.e.list.length) return "";
   var inner='<span class="vpage-n" role="status">'+esc(vpageCountText(g.e))+'</span><button type="button" class="btn sm vpage-btn" onclick="vpageMore(this)">'+esc(vpageBtnText(g.e))+'</button>';
   if (kind==="tr") return '<tr class="vpage-row" data-vpage="'+g.id+'"><td colspan="'+extra+'"><div class="vpage">'+inner+'</div></td></tr>';
   if (kind==="tl") return '<div class="tl-row vpage-tl" data-vpage="'+g.id+'" style="grid-template-columns:'+extra.cols+'"><div class="tl-lbl vpage">'+inner+'</div>'+extra.today+'</div>';
   return '<div class="vpage vpage-k" data-vpage="'+g.id+'">'+inner+'</div>'; }
-function vpageKeep(key,n){ var m=S.vpage&&typeof S.vpage==="object"&&!Array.isArray(S.vpage)?S.vpage:{}; delete m[key]; m[key]=n; var ks=Object.keys(m); while (ks.length>40) delete m[ks.shift()]; S.vpage=m; }
+/* S.vpage: how many are shown (Kanban, Timeline: a number) or the pages (List, Grid: {group: page}, page 1 left out),
+   the 40 used last */
+function vpageStore(key,v){ var m=S.vpage&&typeof S.vpage==="object"&&!Array.isArray(S.vpage)?S.vpage:{}; delete m[key]; if (v!=null) m[key]=v; var ks=Object.keys(m); while (ks.length>40) delete m[ks.shift()]; S.vpage=m; }
+function vpageKeep(key,n){ vpageStore(key,n); }
+function vpagePageOf(pkey,gk){ var o=S.vpage&&S.vpage[pkey]; return o&&typeof o==="object"&&Object.prototype.hasOwnProperty.call(o,gk)?(o[gk]|0):0; }
+function vpageSetPage(pkey,gk,page){ var o=S.vpage&&S.vpage[pkey], c={}; if (o&&typeof o==="object"&&!Array.isArray(o)) Object.keys(o).forEach(function(k){ c[k]=o[k]; }); if (page>1) c[gk]=page; else delete c[gk]; vpageStore(pkey,Object.keys(c).length?c:null); }
 /* "Show N more": the next rows go in just before this row, in place; the screen is not drawn again.
    all: every row left, not kept (printing) */
 function vpageMore(btn,all){ var host=btn&&btn.closest?btn.closest("[data-vpage]"):null, e=host&&VPAGE.g[host.getAttribute("data-vpage")]; if (!e||!host.parentNode) return;
@@ -131,9 +211,11 @@ function vpageMore(btn,all){ var host=btn&&btn.closest?btn.closest("[data-vpage]
   if (to>=e.list.length){ var had=host.contains(document.activeElement), next=added.length?added[0].querySelector("button,input,select,[tabindex]"):null; host.remove(); if (had&&next) try { next.focus({preventScroll:true}); } catch(x){} }
   else { var c=host.querySelector(".vpage-n"), b=host.querySelector(".vpage-btn"); if (c) c.textContent=vpageCountText(e); if (b) b.textContent=vpageBtnText(e); }
   if (typeof ENH!=="undefined"&&ENH.bulk&&typeof bulkInject==="function") bulkInject(); }
-/* the browser's Print still prints every row: the rest is drawn first, in place, and not kept (the next redraw draws
-   as many as before) */
-window.addEventListener("beforeprint",function(){ document.querySelectorAll("#content [data-vpage]").forEach(function(h){ vpageMore(h,true); }); });
+/* the browser's Print still prints every row: the rest is drawn first, in place, and not kept — a List's or a Grid's
+   group goes back to its page after printing, a Kanban column or a Timeline project at the next redraw */
+window.addEventListener("beforeprint",function(){ document.querySelectorAll("#content [data-vpage]").forEach(function(h){ var e=VPAGE.g[h.getAttribute("data-vpage")];
+  if (e&&e.paged){ vpageShow(h,e,e.page,true); h.setAttribute("data-vprint","1"); } else vpageMore(h,true); }); });
+window.addEventListener("afterprint",function(){ document.querySelectorAll("#content [data-vprint]").forEach(function(h){ var e=VPAGE.g[h.getAttribute("data-vpage")]; h.removeAttribute("data-vprint"); if (e) vpageShow(h,e,e.page); }); });
 /* the whole list's order, drawn or not, for a drop on a row (lDrop) */
 function vpageOrder(el){ var r=el&&el.closest?el.closest("[data-vroot]"):null, R=r&&VPAGE.roots[r.getAttribute("data-vroot")]; return R&&R.order?R.order:null; }
 /* every task the view on the page holds, drawn or not */
@@ -192,15 +274,15 @@ var LIST_COLS=[
   {k:"tags",l:"Tags",td:function(x){ return '<td class="lcol-tags">'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td>'; }}
 ];
 var LIST_COL_BY={}; LIST_COLS.forEach(function(c){ LIST_COL_BY[c.k]=c; });
-function taskTable(list){ var k=S.sort;
+function taskTable(list){ var k=S.sort, root=vpageBegin("list");   /* begun when empty too: a filter that empties the List and is taken off again still starts at page 1 */
   if (!list.length) return '<div class="panel">'+emptyBox("No tasks match these filters","Clear a filter or switch to All tasks.")+'</div>';
   var cols=listColShown().map(function(c){ return LIST_COL_BY[c]; }), min=LIST_COL_W.check+LIST_COL_W.drag, sized=listColSized(), tip=attr(tr("Drag to move · drag the edge to resize"));
   var head=cols.map(function(c){ var w=listColWidth(c.k), on=!!c.sort&&k===c.k; min+=w;
     return '<th data-col="'+c.k+'" class="lcol-th'+(c.sort?" lcol-sortable":"")+(on?" on":"")+'"'+(c.k==="title"&&sized?"":' style="width:'+w+'px"')+' tabindex="0" aria-describedby="lcolHelp" title="'+tip+'"'+(on?' aria-sort="'+(S.sortDir>0?"ascending":"descending")+'"':"")+(c.sort?' onclick="lcolSort(event,'+jsq(c.k)+')"':"")+' onpointerdown="lcolDown(event,this)" onkeydown="lcolKey(event,this)"><span class="lcol-lbl">'+esc(tr(c.l))+'</span>'+(on?'<span class="lcol-dir" aria-hidden="true">'+(S.sortDir>0?" ↑":" ↓")+'</span>':"")+'<span class="lcol-rz" aria-hidden="true" onpointerdown="lcolRzDown(event,this)" ondblclick="lcolRzReset(event,this)" onclick="event.stopPropagation()"></span></th>'; }).join("");
   var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" onclick="openTask(taskIdFrom(this))" class="'+(taskChecked(x.id)?'checked':'')+'"><td class="tcheck-col" onclick="event.stopPropagation()">'+taskCheckBtn(x.id)+'</td><td class="drag-h">'+I.drag+'</td>'+cols.map(function(c){ return c.td(x); }).join("")+'</tr>'; };
-  /* the first 100 rows (of each group), then "Show 100 more" — see DRAWING ONLY WHAT CAN BE SEEN */
-  var root=vpageBegin("list"), span=2+cols.length, order=[], body="";
-  if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group), pg=vpageGroup(root,"g:"+g.key,g.tasks,row); order=order.concat(g.tasks); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="'+span+'"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span>'+(S.group==="assignee"&&g.key?'<span class="hint mono">'+assigned(g.key)+'h / '+person(g.key).cap+'h</span>':'')+'</span></td></tr>'+pg.html+vpageMoreHtml(pg,"tr",span); }); }
+  /* a page of 100 rows, or 25 of each group, and the pager under them — see DRAWING ONLY WHAT CAN BE SEEN */
+  var span=2+cols.length, order=[], body="";
+  if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group), pg=vpageGroup(root,"g:"+g.key,g.tasks,row); order=order.concat(g.tasks); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="'+span+'"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span>'+(S.group==="assignee"&&g.key?'<span class="hint mono">'+assigned(g.key)+'h / '+person(g.key).cap+'h</span>':'')+'</span></td></tr>'+pg.html+vpageMoreHtml(pg,"tr",span,gl.l); }); }
   else { order=sortedTasks(list); var pg=vpageGroup(root,"",order,row); body=pg.html+vpageMoreHtml(pg,"tr",span); }
   VPAGE.roots[root].order=order.map(function(x){ return x.id; });
   return '<div class="panel"><div class="tbl-wrap"><table class="tbl tbl-fixed lcol-tbl'+(sized?" lcol-sized":"")+'" data-vroot="'+root+'" style="--tbl-min:'+min+'px"><thead ontouchmove="lcolTouch(event)" oncontextmenu="lcolMenu(event)"><tr><th class="tcheck-col" style="width:'+LIST_COL_W.check+'px"></th><th style="width:'+LIST_COL_W.drag+'px"></th>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Drag rows to reorder (Manual sort) or drop them on a group header to change status, team, assignee, project or priority. Click a status or priority to change it.</div><span id="lcolHelp" class="zc-sr">'+esc(tr("Drag a header to move its column, or its right edge to size it; double-click the edge for the usual width. On a focused header: Alt+Left/Right moves it, Alt+Shift+Left/Right sizes it, Enter sorts, Shift+F10 opens its menu to hide it or choose the columns."))+'</span></div>'; }
@@ -220,7 +302,7 @@ function setStatus(id,st,done){ var tk=task(id); if (tk.status===st) return; con
 function setPrio(id,p){ var tk=task(id); moveTask(tk,{type:"MOVE_TASK_PRIORITY",priority:p},function(t){ t.prio=p; }); }
 
 /* ---------- GRID (spreadsheet: every cell edits the same task record, §31) ---------- */
-function taskGrid(list){ if (!list.length) return '<div class="panel">'+emptyBox("No tasks match these filters","")+'</div>'; var cols=S.gridFields; var cf=WS.customFields||[];
+function taskGrid(list){ var root=vpageBegin("grid"); if (!list.length) return '<div class="panel">'+emptyBox("No tasks match these filters","")+'</div>'; var cols=S.gridFields; var cf=WS.customFields||[];
   var cell=function(x,k){ var ed=canI.editTask(x); var dis=ed?"":" disabled", set='gridSet(taskIdFrom(this),\''+k+'\',this.value)'; if (k==="status") return '<select'+dis+' onchange="'+set+'">'+localStages().map(function(s){ return '<option value="'+attr(s.id)+'"'+(x.status===s.id?" selected":"")+'>'+esc(s.name)+'</option>'; }).join("")+'</select>'; if (k==="team") return '<select'+dis+' onchange="'+set+'">'+teamOpts(true).map(function(o){ return '<option value="'+attr(o[0])+'"'+((x.team||"")===o[0]?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>';
     if (k==="assignee"||k==="reviewer") return '<select'+dis+' onchange="'+set+'">'+peopleOpts().map(function(o){ return '<option value="'+attr(o[0])+'"'+(x[k]===o[0]?" selected":"")+'>'+esc(o[1])+'</option>'; }).join("")+'</select>'; if (k==="proj") return '<select'+dis+' onchange="'+set+'">'+PROJECTS.map(function(p){ return '<option value="'+attr(p.id)+'"'+(x.proj===p.id?" selected":"")+'>'+esc(p.name)+'</option>'; }).join("")+'</select>';
     if (k==="prio") return '<select'+dis+' onchange="'+set+'">'+PRIOS.map(function(p){ return '<option value="'+attr(p[0])+'"'+(x.prio===p[0]?" selected":"")+'>'+p[1]+'</option>'; }).join("")+'</select>'; if (k==="start") return '<input'+dis+' type="date" value="'+iso(x.due-x.span)+'" onchange="'+set+'">'; if (k==="due") return '<input'+dis+' type="date" value="'+iso(x.due)+'" onchange="'+set+'">';
@@ -228,9 +310,9 @@ function taskGrid(list){ if (!list.length) return '<div class="panel">'+emptyBox
     if (k.indexOf("cf:")===0){ var f=byId(cf,k.slice(3)); if (!f) return ""; var v=x.custom[f.id]; if (f.type==="checkbox") return '<input'+dis+' type="checkbox" '+(v?"checked":"")+' onchange="gridSet(taskIdFrom(this),\''+k+'\',this.checked)">'; if (f.type==="select") return '<select'+dis+' onchange="'+set+'"><option value="">—</option>'+f.options.map(function(o){ return '<option'+(v===o?" selected":"")+'>'+esc(o)+'</option>'; }).join("")+'</select>'; return '<input'+dis+' type="'+(f.type==="number"?"number":"text")+'" value="'+attr(v==null?"":v)+'" onchange="'+set+'">'; } return ""; };
   var head='<tr><th style="width:'+GRID_COL_W.drag+'px"></th><th style="width:'+GRID_COL_W.title+'px">Task</th>'+cols.map(function(k){ var f=GRID_FIELDS.concat(cf.map(function(c){ return ["cf:"+c.id,locName(c)]; })).filter(function(g){ return g[0]===k; })[0]; return '<th style="width:'+colW(GRID_COL_W,k)+'px">'+esc(f?f[1]:k)+'</th>'; }).join("")+'</tr>', gridMin=GRID_COL_W.drag+GRID_COL_W.title+cols.reduce(function(s,k){ return s+colW(GRID_COL_W,k); },0);
   var row=function(x){ return '<tr draggable="true" data-id="'+attr(x.id)+'" ondragstart="kStart(event,taskIdFrom(this))" ondragend="lEnd(this)" ondragover="lRowOver(event,this)" ondragleave="this.classList.remove(\'drop-before\')" ondrop="lDrop(event,this)" style="cursor:default"><td class="drag-h">'+I.drag+'</td><td><div class="cell"><input value="'+attr(x.title)+'" '+(canI.editTask(x)?'':'disabled')+' onchange="gridSet(taskIdFrom(this),\'title\',this.value)" style="font-weight:600"><button class="iconbtn flat" style="width:26px;height:26px" onclick="openTask(taskIdFrom(this))" title="Open">'+I.ext+'</button></div></td>'+cols.map(function(k){ return '<td><div class="cell">'+cell(x,k)+'</div></td>'; }).join("")+'</tr>'; };
-  /* 100 rows a page (of each group), as the List — see DRAWING ONLY WHAT CAN BE SEEN */
-  var root=vpageBegin("grid"), span=cols.length+2, order=[], body="";
-  if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group), pg=vpageGroup(root,"g:"+g.key,g.tasks,row); order=order.concat(g.tasks); body+='<tr class="grp" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="'+span+'"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span></span></td></tr>'+pg.html+vpageMoreHtml(pg,"tr",span); }); }
+  /* pages as the List's: 100 rows, or 25 of each group — see DRAWING ONLY WHAT CAN BE SEEN */
+  var span=cols.length+2, order=[], body="";
+  if (S.group){ groupedTasks(sortedTasks(list),S.group).forEach(function(g){ var gl=groupLabel(g.key,S.group), pg=vpageGroup(root,"g:"+g.key,g.tasks,row); order=order.concat(g.tasks); body+='<tr class="grp" data-group="'+attr(g.key)+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="lGroupDrop(event,this,'+jsq(g.key)+')"><td colspan="'+span+'"><span style="display:inline-flex;align-items:center;gap:8px">'+(gl.c?'<span class="tdot" style="--tc:'+gl.c+'"></span>':'')+esc(gl.l)+'<span class="cnt">'+g.tasks.length+'</span></span></td></tr>'+pg.html+vpageMoreHtml(pg,"tr",span,gl.l); }); }
   else { order=sortedTasks(list); var pg=vpageGroup(root,"",order,row); body=pg.html+vpageMoreHtml(pg,"tr",span); }
   VPAGE.roots[root].order=order.map(function(x){ return x.id; });
   return '<div class="panel"><div class="tbl-wrap" style="max-height:70vh"><table class="tbl gridv tbl-fixed" data-vroot="'+root+'" style="--tbl-min:'+gridMin+'px"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div><div class="panel-foot hint">Every cell writes straight to the task record — the same one Kanban, Calendar and Timeline show.</div></div>'; }
@@ -327,16 +409,31 @@ function createDraft(){ var tk=task("T-new"); if (!tk) return; if(typeof descWys
   /* the task, once the server has numbered it (or false): the AI chat waits for it */
   return createTask(t).then(function(saved){ if(saved===false)return false; toast(isReq&&!t.assignee?"Request "+t.id+" submitted — it is in the inbox for triage":"Task "+t.id+" created"); if (t.assignee) notify("assigned",assigneesOf(t),t.id); notify("reviewer",reviewersOf(t).filter(function(r){ return !isAssignee(t,r); }),t.id); if (isReq&&!t.assignee) notify("request",Object.keys(PEOPLE).filter(function(id){ var r=byId(ROLES,PEOPLE[id].perm); return PEOPLE[id].perm==="admin"||(r&&(r.permissions||[]).indexOf("decide_request")>=0); }),t.id); if (onCreated) onCreated(t); openTask(t.id); return t; }).catch(function(){ return false; }); }
 function submitNewTask(){ createDraft(); }
-(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({ "Show {n} more":"Tampilkan {n} lagi", "{n} of {total} shown":"{n} dari {total} tampil" });
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({ "Show {n} more":"Tampilkan {n} lagi", "{n} of {total} shown":"{n} dari {total} tampil",
+  /* the List's and the Grid's pager */
+  "Prev":"Sebelumnya", "Next":"Berikutnya", "Previous page":"Halaman sebelumnya", "Next page":"Halaman berikutnya", "Pages":"Halaman", "Page {n}":"Halaman {n}",
+  "{from}–{to} of {total}":"{from}–{to} dari {total}", "Pages {from}–{to}: go to page {n}":"Halaman {from}–{to}: buka halaman {n}" });
 function deleteTask(id){ var linked=TASKS.filter(function(t){return (t.dependencies||[]).some(function(d){return d.taskId===id;});}); var msg=tr("This removes the task, its versions, files and comments. Workspace activity is kept.")+(linked.length?" "+tr("It is currently blocking")+" "+linked.length+" "+tr(linked.length===1?"task":"tasks")+": "+linked.map(function(t){return esc(t.title);}).join(", ")+". "+tr("Their dependency links will be removed."):""); confirmModal(tr("Delete task")+" "+id+"?",msg,function(){ closeDrawer(); deleteTaskById(id).then(function(saved){ if(saved===false)return false; toast(tr("Task deleted"),"bad"); }); },true); }
 </script>
 <style>
-/* "Show 100 more" after the rows drawn (DRAWING ONLY WHAT CAN BE SEEN, above) */
+/* "Show 30 more" after the cards and rows drawn, and the List's and the Grid's pager (DRAWING ONLY WHAT CAN BE SEEN, above) */
 .vpage{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:10px 12px}
 .vpage-n{font-size:12px;color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
 .tbl tbody tr.vpage-row{cursor:default}
 .tbl tbody tr.vpage-row:hover{background:none}
 .tbl tbody tr.vpage-row>td{padding:0;border-bottom:0}
+/* the pager: Prev, the numbers and Next keep their places (seven numbers at most); it stays at the left of what can
+   be seen when a wide table is scrolled sideways */
+.vpager{display:flex;align-items:center;flex-wrap:wrap;gap:6px 6px;padding:8px 12px 10px;position:sticky;left:0;width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box}
+.vpager .vpager-step{margin:0;gap:4px;min-height:30px}
+.vpager .vpager-step>span[aria-hidden]{font-size:15px;line-height:1}
+.vpager-nums{display:inline-flex;align-items:center;gap:2px}
+.vpager-num{min-width:30px;height:30px;padding:0 7px;border:0;border-radius:var(--pill);background:none;color:var(--color-text-secondary);font:inherit;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:30px;text-align:center;cursor:pointer}
+@media (hover:hover){ .vpager-num:hover{background:var(--color-surface-hover);color:var(--color-text-primary)} }
+.vpager-num.on{background:var(--color-ink);color:var(--color-ink-text);cursor:default}
+.vpager-gap{letter-spacing:1px;color:var(--color-text-tertiary)}
+.vpager button:focus-visible{outline:2px solid var(--color-primary);outline-offset:2px}
+.vpager-range{margin-left:6px;white-space:nowrap}
 .kcol-body .vpage-k{flex-direction:column;gap:6px;padding:2px 0 0}
 .kcol-body .vpage-k .vpage-btn{width:100%;justify-content:center}
 .tl-row .tl-lbl.vpage{cursor:default;white-space:normal;flex-wrap:wrap;justify-content:flex-start;gap:4px 10px;padding:6px 12px}
@@ -345,10 +442,18 @@ function deleteTask(id){ var linked=TASKS.filter(function(t){return (t.dependenc
 .tl-days{position:absolute;top:0;bottom:0;right:0;z-index:-1;display:grid;pointer-events:none}
 .tl-days>i{border-right:1px solid var(--color-border)}
 .tl-days>i.we{background:var(--color-surface-sunken)}
-/* a phone draws the List as cards (src/responsive.css): this row stays one plain line under them */
+/* a phone draws the List as cards (src/responsive.css): the pager stays one plain block under them, in a compact form —
+   the range on a line of its own, then ‹ and › at the two ends with the numbers between (their names are still said) */
 @media (max-width:760px){
   .lcol-tbl tbody tr.vpage-row{display:block!important;padding:0!important;border-bottom:0!important}
   .lcol-tbl tbody tr.vpage-row>td{display:block!important;padding:0!important}
+  .vpager{width:auto;max-width:none;justify-content:space-between;gap:6px 2px;padding:8px 10px 12px}
+  .gridv .vpager{width:calc(100vw - 32px)}
+  .vpager-range{order:-1;flex:1 0 100%;margin:0;text-align:center}
+  .vpager .vpager-step{min-width:36px;min-height:34px;padding:0 10px;justify-content:center}
+  .vpager .vpager-txt{display:none}
+  .vpager .vpager-step>span[aria-hidden]{font-size:19px}
+  .vpager-num{min-width:32px;height:34px;line-height:34px;padding:0 5px}
 }
-@media print{ .vpage-btn{display:none!important} }
+@media print{ .vpage-btn,.vpager-row{display:none!important} }
 </style>
