@@ -22,14 +22,23 @@ function aiFontNameFrom(file){
   for(var i=2,base=n.slice(0,56); taken[n.toLowerCase()]; i++) n=base+" "+i;
   return n;
 }
-/* each file as its own face, for any weight asked of it, so a Black file is never made bolder still */
+/* each file as its own face, for any weight asked of it, so a Black file is never made bolder still. The faces are
+   known to the browser once the workspace arrives, but a file is fetched only when something first needs it
+   (Oct 2026): a canvas (AI Hub's, a download, an export — aiCompose waits for them, below), the previews in
+   Settings → Brand fonts, or text on the page set in one. Not at every sign-in, for everyone: a file can be 5 MB. */
 function aiFontsLoad(){
   if(typeof FontFace==="undefined"||typeof document==="undefined"||!document.fonts) return;
   var want={};
   aiUploadedFonts().forEach(function(f){ var key=f.name+"|"+f.url; want[key]=1; if(AI_FONT_FACES[key]) return;
     try{ var face=new FontFace(f.name,'url("'+f.url+'")',{weight:"1 1000",style:"normal",display:"swap"}); AI_FONT_FACES[key]=face; document.fonts.add(face);
-      face.load().then(function(){ if(typeof S!=="undefined"&&S.screen==="aihub"&&typeof aiPreviewSoon==="function") aiPreviewSoon(); }).catch(function(){}); }catch(e){} });
+      face.loaded.then(function(){ if(typeof S!=="undefined"&&S.screen==="aihub"&&typeof aiPreviewSoon==="function") aiPreviewSoon(); }).catch(function(){}); }catch(e){} });
   Object.keys(AI_FONT_FACES).forEach(function(key){ if(want[key]) return; try{ document.fonts.delete(AI_FONT_FACES[key]); }catch(e){} delete AI_FONT_FACES[key]; });
+}
+/* every brand font fetched: null when all are in already (or could not be read), else a promise of when they are */
+function aiFontsReady(){
+  aiFontsLoad(); var waits=[];
+  Object.keys(AI_FONT_FACES).forEach(function(key){ var face=AI_FONT_FACES[key]; if(face.status==="loaded"||face.status==="error") return; try{ waits.push(face.load().catch(function(){})); }catch(e){} });
+  return waits.length?Promise.all(waits):null;
 }
 /* the first bytes of a font file */
 function aiFontKind(bytes){ var b=new Uint8Array(bytes), s=String.fromCharCode.apply(null,Array.prototype.slice.call(b,0,4));
@@ -37,7 +46,7 @@ function aiFontKind(bytes){ var b=new Uint8Array(bytes), s=String.fromCharCode.a
 
 /* ---------- Settings: the admin's list ---------- */
 function setAIFonts(){
-  var ed=canI.manageWorkspace(), list=aiFontsAll(); aiFontsLoad();
+  var ed=canI.manageWorkspace(), list=aiFontsAll(); aiFontsReady();   /* each row previews its font */
   var rows=list.map(function(f){ var id=jsq(f.id), ext=(String(f.url).match(/\.(woff2|woff|ttf|otf)$/)||[])[1]||f.kind||"";   /* kind: read from the file at upload, until the server's copy arrives */
     return '<div class="ai-font-row"><div class="ai-font-sample" style="font-family:\''+attr(aiFontCleanName(f.name))+'\',sans-serif" data-no-trans>Aa Bb 123 · TESTIMONI NASABAH</div>'
       + '<div class="field"><input value="'+attr(f.name||"")+'" maxlength="60" aria-label="'+attr(tr("Font name"))+'"'+(ed?'':' disabled')+' onchange="aiFontRename('+id+',this.value)"></div>'
@@ -83,8 +92,14 @@ function aiFontDelete(id){
     WS.ai.fonts=aiFontsAll().filter(function(f){ return f.id!==id; }); aiFontsLoad(); renderScreen(false); aiFontSave("Font deleted");
   },true);
 }
-/* loaded as soon as the workspace arrives, so the first canvas already draws in them */
+/* known to the browser as soon as the workspace arrives; fetched when first needed (aiFontsLoad) */
 (function(){ if(typeof loadBootstrap!=="function") return; var base=loadBootstrap; loadBootstrap=function(){ var r=base.apply(this,arguments); try{ aiFontsLoad(); }catch(e){} return r; }; })();
+/* a canvas is drawn once the brand fonts are in, so it never draws in a stand-in font, and they are fetched the first
+   time one is drawn. A font that has not arrived after 8 s (30 s for a download or an export) does not hold the
+   drawing up any longer; the preview is drawn again when it arrives (aiFontsLoad). */
+(function(){ if(typeof aiCompose!=="function") return; var base=aiCompose;
+  aiCompose=function(cb,previewOnly){ var self=this, args=arguments, wait=aiFontsReady(); if(!wait) return base.apply(self,args);
+    var done=false, draw=function(){ if(done) return; done=true; base.apply(self,args); }; wait.then(draw); setTimeout(draw,previewOnly?8000:30000); }; })();
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Brand fonts":"Font brand",
   "Fonts uploaded here appear in every font list in AI Hub and draw in every export. TTF, OTF, WOFF or WOFF2, up to 5 MB. Each file is one font: upload the weights you use as separate files (Bold, Black Italic…). Only upload fonts your licence lets the team use this way.":"Font yang di-upload di sini muncul di semua pilihan font AI Hub dan ikut di setiap ekspor. TTF, OTF, WOFF, atau WOFF2, maksimal 5 MB. Satu file adalah satu font: upload setiap ketebalan yang dipakai sebagai file terpisah (Bold, Black Italic…). Upload hanya font yang lisensinya mengizinkan tim memakainya seperti ini.",

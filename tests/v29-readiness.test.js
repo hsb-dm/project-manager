@@ -121,8 +121,11 @@ test('notification sound is a real, small, audio-only MP3', () => {
   assert.equal((mp3[off + 1] & 0xE0), 0xE0, 'MPEG audio frame sync');
   assert.equal((mp3[off + 1] >> 1) & 0x3, 1, 'Layer III');
   assert.notEqual(mp3.readUInt32BE(0), 0x000001BA, 'not an MPEG program stream');
+  /* Oct 2026: the served page plays it as a file of its own (public/assets/, kept a year by the browser); the standalone file carries it inside */
   const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
-  assert.ok(html.includes('data:audio/mpeg;base64,' + mp3.toString('base64')), 'build inlines the new chime');
+  const url = (html.match(/"(\/assets\/zen-chime\.[0-9a-f]{10}\.mp3)"/) || [])[1];
+  assert.ok(url && fs.readFileSync(path.join(root, 'public', url)).equals(mp3), 'the served page plays the new chime');
+  assert.ok(fs.readFileSync(path.join(root, 'dist', 'creative-os-standalone.html'), 'utf8').includes('data:audio/mpeg;base64,' + mp3.toString('base64')), 'the standalone file inlines it');
 });
 
 test('authorization and validation hardening', { timeout: 20000 }, async t => {

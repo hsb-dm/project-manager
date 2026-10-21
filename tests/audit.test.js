@@ -42,9 +42,10 @@ test('analytics excludes archived projects and splits shared assignments', () =>
  assert.equal(after.byTeam.find(x=>x.id===team.id).assigned-before.byTeam.find(x=>x.id===team.id).assigned,5*[p1,p2].filter(id=>memberIds.includes(id)).length);
  db.prepare("UPDATE projects SET status='archived' WHERE id=?").run(t.proj);assert.ok(!analytics.compute(db,demo.ws.id,8).byProject.some(p=>p.id===t.proj));
 });
-test('generated server and standalone HTML are identical and parse',()=>{
- const root=path.join(__dirname,'..');const a=fs.readFileSync(path.join(root,'public/index.html'),'utf8'),b=fs.readFileSync(path.join(root,'dist/creative-os-standalone.html'),'utf8');assert.equal(a,b);
- for(const m of a.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
+test('generated server and standalone HTML are the same page and parse',()=>{
+ /* Oct 2026: the standalone file is the served page with the files the served page fetches (pictures, the chime, the whole demo data, Google's Poppins link) put inside it, build.js standaloneFrom */
+ const root=path.join(__dirname,'..');const a=fs.readFileSync(path.join(root,'public/index.html'),'utf8'),b=fs.readFileSync(path.join(root,'dist/creative-os-standalone.html'),'utf8');assert.equal(require('../build.js').standaloneFrom(a),b);
+ for(const h of [a,b])for(const m of h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
 });
 test('Google Drive setup explains every credential and the mandatory Picker grant',()=>{
  const root=path.join(__dirname,'..');const assets=fs.readFileSync(path.join(root,'src/assets.js'),'utf8'),picker=fs.readFileSync(path.join(root,'src/gdrive-picker.js'),'utf8'),guide=fs.readFileSync(path.join(root,'GOOGLE_DRIVE_SETUP.md'),'utf8');

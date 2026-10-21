@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* Asked at once (Oct 2026): the session, and the workspace of whoever was signed in on this browser last time, are
+   asked for here, while the rest of the page is still downloading and running, not once every script has run.
+   boot() and afterLogin() in src/core.js take these answers instead of asking again. The workspace is asked for only
+   when this browser was signed in (cos.signedIn, the account's id: set when a workspace arrives, removed when the
+   server says nobody is or on signing out) and is not acting as someone else (cos.actAs), and it is used only for
+   the account the session names.
+   Signed out, the sign-in page's flag is fetched with the page instead (it is a file of its own, build.js). */
+(function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
+  var signedIn=false; try{ var who=localStorage.getItem("cos.signedIn"), act=localStorage.getItem("cos.actAs"); signedIn=!!who&&(!act||act===who); }catch(e){}
+  try{ Z.ctrl=new AbortController(); }catch(e){}
+  Z.session=fetch("/api/auth/session",{credentials:"same-origin",signal:Z.ctrl&&Z.ctrl.signal}); Z.session.catch(function(){});
+  if(signedIn){ Z.bootstrap=fetch("/api/bootstrap",{method:"GET",credentials:"same-origin",headers:{"Content-Type":"application/json"}}); Z.bootstrap.catch(function(){}); }
+  else try{ (new Image()).src="__FLAG_EN_DATA__"; }catch(e){}
+})();
+</script>
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
@@ -13,7 +29,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ZenCrevia">
 <title>ZenCrevia</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!--zc-fonts: Poppins goes here. build.js puts src/fonts.css in the served page (the app serves the font files, public/fonts/) and the Google Fonts link in the standalone file. -->
 <link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232F5BFF'/%3E%3Cpath d='M9 20l6-9 4 6 4-3' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* ============================================================

@@ -47,7 +47,13 @@ Dua artefak yang dihasilkan dari source yang sama:
 | `public/index.html` | disajikan oleh API server (`npm start`) |
 | `dist/creative-os-standalone.html` | dibuka langsung dari disk, mode demo offline |
 
-Keduanya **byte-identical**. Yang membedakan perilaku adalah runtime, bukan build:
+Keduanya halaman yang sama (sejak Oktober 2026 tidak lagi byte-identical): `dist/` adalah `public/index.html`
+dengan file yang diambil halaman server dimasukkan ke dalamnya (`standaloneFrom` di `build.js`) — logo Google
+Drive, bendera EN dan suara notifikasi (di server: `public/assets/`, nama file mengikuti isinya, disimpan browser
+setahun), data demo lengkap (halaman server hanya membawa pengaturan awalnya; datanya `public/assets/demo-data.*.js`,
+dibaca hanya oleh halaman tanpa API, misalnya host statis) dan font Poppins (di server: `public/fonts/`, lisensi
+`public/fonts/OFL.txt`; di `dist/`: tautan Google Fonts). Komentar di `src/` dibuang saat build (`build-strip.js`);
+`shared/*` masuk apa adanya. Yang membedakan perilaku adalah runtime, bukan build:
 `API.on === true` ketika `GET /api/auth/session` berhasil, `false` kalau gagal.
 
 Stack:
@@ -61,7 +67,8 @@ Stack:
 ### Peta direktori
 
 ```
-build.js                  concatenator: src/* -> public/index.html + dist/*.html
+build.js                  concatenator: src/* -> public/index.html + dist/*.html (+ public/assets/)
+build-strip.js            membuang komentar JS/CSS dari src/ saat build (tests/build-strip.test.js)
 package.json              scripts, engines (node >= 22.13), zero deps
 .env.example              seluruh environment variable
 db/schema.sql             seluruh CREATE TABLE (dieksekusi tiap boot, idempotent)

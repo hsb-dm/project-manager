@@ -35,9 +35,10 @@ test("Font is a family, Style its files or weights; the design and a template ke
     await expect.poll(() => page.evaluate(() => [AIF.headlineFont, AIF.headlineWeight])).toEqual(["Stolzl Bold", 700]);
     await page.locator(".ai-props .fp-style").first().selectOption({ label: "Light" });
     await expect.poll(() => page.evaluate(() => [AIF.headlineFont, AIF.headlineWeight])).toEqual(["Stolzl Light", 300]);
-    /* Poppins: the weights Google has; Light carries over */
+    /* Poppins: the weights the browser has for it — Google's, and since Oct 2026 the app's own 500 and 800 too (the
+       page's Poppins is no longer a Google stylesheet this test can empty: src/fonts.css, public/fonts/); Light carries over */
     await page.locator(".ai-props .fp-family").first().selectOption({ label: "Poppins" });
-    await expect.poll(() => page.locator(".ai-props .fp-style").first().locator("option").allTextContents()).toEqual(["Light", "Regular", "SemiBold", "Bold"]);
+    await expect.poll(() => page.locator(".ai-props .fp-style").first().locator("option").allTextContents()).toEqual(["Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold"]);
     await expect.poll(() => page.evaluate(() => [AIF.headlineFont, AIF.headlineWeight])).toEqual(["Poppins", 300]);
     await page.locator(".ai-props .fp-style").first().selectOption({ label: "SemiBold" });
     await expect.poll(() => page.evaluate(() => AI_TEXT_SPECS.headline && [AI_TEXT_SPECS.headline.font, AI_TEXT_SPECS.headline.weight])).toEqual(["Poppins", 600]);

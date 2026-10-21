@@ -136,8 +136,10 @@ function pageAiSoon(){ clearTimeout(PAGE_AI_T); PAGE_AI_T=setTimeout(pageAiSave,
   if(typeof afterLogin!=="function") return;
   var base=afterLogin;
   afterLogin=function(){ var self=this, args=arguments;
-    /* the design is read before the workspace arrives, so the first AI Hub drawn is already the right one */
-    var pre=pageReloaded()&&VIEW_RESTORED===null?pageDb("readonly",function(st){ return st.get(PAGE_TAB); }).then(function(d){ PAGE_AI_DOC=d||null; }):Promise.resolve();
+    /* the design is read before the workspace arrives, so the first AI Hub drawn is already the right one; the
+       workspace is already on its way meanwhile (bootstrapSoon in src/core.js), not asked for once this is read */
+    var reading=pageReloaded()&&VIEW_RESTORED===null; if(reading&&typeof bootstrapSoon==="function") bootstrapSoon();
+    var pre=reading?pageDb("readonly",function(st){ return st.get(PAGE_TAB); }).then(function(d){ PAGE_AI_DOC=d||null; }):Promise.resolve();
     return pre.then(function(){ return base.apply(self,args); }).then(function(v){ try{ pageAfterRoute(); }catch(e){} return v; }); };
 })();
 </script>

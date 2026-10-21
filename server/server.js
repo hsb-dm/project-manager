@@ -28,7 +28,10 @@ if (process.platform !== "win32") process.umask(0o077);
    starts here, on libuv's thread pool, while the database opens and the modules load, so it is usually ready before
    the server listens; its smallest copy is kept in the data folder (page-cache) for the next start. */
 const delivery = require("./delivery");
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json" };
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
+/* what build.js writes to public/assets/ is named after its content, and public/fonts/ after the font's version: a
+   name never stands for anything else, so the browser keeps those a year without asking (Oct 2026) */
+const KEPT_A_YEAR = /^(assets|fonts)[\\/][^\\/]+$/;
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
 const staticFiles = delivery.createStatic({ mime: MIME, compressible: COMPRESSIBLE, cacheDir: path.join(require("./db").DATA_DIR, "page-cache") });
 try { staticFiles.entry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
@@ -2128,7 +2131,7 @@ route("GET", "/api/auth/status", () => { const ws = db.prepare("SELECT name, log
    smallest copy is kept in the data folder for the next start. */
 function sendStatic(req, res, file) {
   security.applyHeaders(res);
-  staticFiles.send(req, res, file, e => ({ "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : "public, max-age=3600, must-revalidate" })); /* the service worker checks for itself on every load, so an update reaches everyone at once */
+  staticFiles.send(req, res, file, e => ({ "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : KEPT_A_YEAR.test(path.relative(PUBLIC, file)) ? "public, max-age=31536000, immutable" : "public, max-age=3600, must-revalidate" })); /* the service worker checks for itself on every load, so an update reaches everyone at once */
 }
 /* The version of the page being served, as build.js stamps it (<meta name="zc-build">). Every API reply says it, so a
    tab left open across an update — which keeps running the page it loaded — offers to reload (src/new-version.js).
