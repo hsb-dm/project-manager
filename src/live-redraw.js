@@ -22,17 +22,28 @@ function redrawKey(el,root){ var parts=[], n=el;
     var d=n.getAttribute?(n.getAttribute("data-status")||n.getAttribute("data-sec")||n.getAttribute("data-col")||n.getAttribute("data-team")||n.getAttribute("data-day")||""):"";
     parts.unshift(n.tagName+(n.id?"#"+n.id:"")+(cls?"."+cls:"")+(d?"["+d+"]":"")); n=n.parentElement; }
   return parts.join(">"); }
-/* the elements that can scroll, each with its key and its place among those sharing the key */
+/* The app's scrollers, by name: the board and its columns, tables, the timeline, the calendar's lists, Messages,
+   the rows of tabs, chips and buttons that scroll sideways on a phone, the AI Hub's panels, text boxes. Any other
+   element keeps its place too when it carries data-keep-scroll. Every element on the screen used to be measured
+   four ways before and after each redraw to find the ones that scroll. */
+var REDRAW_SCROLLERS=[".kanban",".kcol-body",".tbl-wrap",".tlw",".cal-more-list",".calendar-mobile-controls",".cal-mobile-actions",
+  ".msg-timeline",".msg-nav-scroll",".msg-tabs",".msg-derived",".msg-dbody",".msg-shared-tabs",
+  ".tabs",".ptabs",".snav",".scr-nav",".rail-track",".task-stage-rail",".seg",".actions",".toolbar",".wb-chips",".panel-body",
+  ".ai-setup",".ai-props",".ai-layer-list",".ai-zoom-viewport",".ai-hs-track",".ai-expand-ratios",".ai-expand-stage-wrap",".ag-note p",
+  ".md-view pre",".md-wysiwyg pre",".ce-list",".annot-scroll",".scr-time-list",".scr-kdd-list",".ann-preview",".ann-pick-list",".cap-grant-list",
+  ".kb-folder-options",".tag-pick-list",".dependency-picker-results",".demo-user-list","textarea","[data-keep-scroll]"].join(",");
+/* each scroller with its key and its place among those sharing the key */
 function redrawScrollers(root,fn){ var seen={};
-  Array.prototype.forEach.call(root.querySelectorAll("*"),function(el){
-    if(el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1) return;
+  Array.prototype.forEach.call(root.querySelectorAll(REDRAW_SCROLLERS),function(el){
     var k=redrawKey(el,root); seen[k]=(seen[k]||0)+1; fn(el,k+"#"+seen[k]); }); }
+/* is any of them scrolled? (only then are keys worked out) */
+function redrawAnyScrolled(root){ var l=root.querySelectorAll(REDRAW_SCROLLERS); for(var i=0;i<l.length;i++) if(l[i].scrollTop||l[i].scrollLeft) return true; return false; }
 function redrawFieldDirty(el){ if(el.type==="checkbox"||el.type==="radio") return el.checked!==el.defaultChecked;
   if(el.tagName==="SELECT"){ var d=Array.prototype.filter.call(el.options,function(o){ return o.defaultSelected; })[0]; return (d?d.value:(el.options[0]||{}).value)!==el.value; }
   return el.value!==el.defaultValue; }
 function redrawCapture(){ var root=document.getElementById("content"); if(!root) return null;
   var st={view:redrawView(),scroll:{},any:false,fields:null,focus:null};
-  redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
+  if(redrawAnyScrolled(root)) redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
   if(BG_REDRAW){ st.fields={};
     Array.prototype.forEach.call(root.querySelectorAll("input[id],select[id],textarea[id]"),function(el){ if(el.type==="file"||el.type==="hidden") return; if(redrawFieldDirty(el)) st.fields[el.id]={v:el.value,c:el.checked}; });
     var a=document.activeElement; if(a&&a.id&&root.contains(a)) st.focus={id:a.id,s:a.selectionStart,e:a.selectionEnd}; }

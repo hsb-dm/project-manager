@@ -139,23 +139,49 @@ document.addEventListener("keydown",function(e){
    and the textarea's own letters are made transparent, leaving its caret and selection. The layer
    copies the textarea's measured font and padding rather than trusting the stylesheet, so the two
    cannot drift apart. The textarea's letters go transparent only once the layer is in place; if
-   anything here failed, the text would still be visible as ordinary text. */
+   anything here failed, the text would still be visible as ordinary text.
+   The measured font and padding are kept until the window is resized or the look changes (theme, density, font,
+   corners, panel position: attributes of <html>), and the scrollbar's width is read on the next frame: reading
+   them at every keystroke and every redraw made the browser work out the page's styles and layout there and then,
+   each time. (A web font finishing loading changes none of these values, only how the same text is drawn, in the
+   box and its layer alike.) */
+var CMT_MIRROR_KEYS=["fontFamily","fontSize","fontWeight","lineHeight","letterSpacing","paddingTop","paddingRight","paddingBottom","paddingLeft","borderTopWidth","borderRightWidth","borderBottomWidth","borderLeftWidth","textIndent","wordSpacing"];
+var CMT_MIRROR_GEN=0, CMT_MIRROR_CACHE={gen:-1,map:{}};
+(function(){ var bump=function(){ CMT_MIRROR_GEN++; };
+  window.addEventListener("resize",bump);
+  if(typeof MutationObserver!=="undefined") new MutationObserver(bump).observe(document.documentElement,{attributes:true});
+})();
+function cmtMirrorStyle(ta){
+  if(CMT_MIRROR_CACHE.gen!==CMT_MIRROR_GEN) CMT_MIRROR_CACHE={gen:CMT_MIRROR_GEN,map:{}};
+  var dr=ta.closest("#drawer"), key=[ta.id,String(ta.className).replace("cmt-mirrored","").trim(),dr?dr.className:"",ta.closest(".cmt-edit-box")?1:0,ta.closest(".pd-box")?1:0].join("|");
+  var c=CMT_MIRROR_CACHE.map[key]; if(c) return c;
+  var cs=getComputedStyle(ta), v={}; CMT_MIRROR_KEYS.forEach(function(k){ v[k]=cs[k]; });
+  return CMT_MIRROR_CACHE.map[key]={v:v,bl:parseFloat(cs.borderLeftWidth)||0,br:parseFloat(cs.borderRightWidth)||0,pr:parseFloat(cs.paddingRight)||0};
+}
+/* A scrolling box loses its scrollbar's width to the text; the layer, which never scrolls, has to give up the same
+   width or its lines wrap in different places. Measured on the next frame, when the page is laid out anyway. */
+function cmtMirrorBarSoon(ta,mirror){ if(mirror._cmtBarSoon) return; mirror._cmtBarSoon=true;
+  requestAnimationFrame(function(){ mirror._cmtBarSoon=false; var st=mirror._cmtMs; if(!st||!ta.isConnected||!mirror.isConnected) return;
+    var bar=ta.offsetWidth-ta.clientWidth-st.bl-st.br; if(!(bar>0)) bar=0;
+    if(bar!==mirror._cmtBar){ mirror._cmtBar=bar; mirror.style.paddingRight=bar?(st.pr+bar)+"px":st.v.paddingRight; }
+    if(mirror.scrollTop!==ta.scrollTop) mirror.scrollTop=ta.scrollTop; }); }
 function cmtMirrorEnsure(){
   var ta=cmtInput(); if(!ta) return null;
   var wrap=ta.parentNode;
   if(!wrap.classList||!wrap.classList.contains("cmt-ta-wrap")){
+    /* a box moved into its wrapper loses the focus: one being typed in keeps it, and its caret (the first letter
+       typed in a project's discussion box used to be the only one, the rest typed into nothing) */
+    var had=document.activeElement===ta, s0=had?ta.selectionStart:null, s1=had?ta.selectionEnd:null, sd=had?ta.selectionDirection:null;
     wrap=document.createElement("div"); wrap.className="cmt-ta-wrap";
     ta.parentNode.insertBefore(wrap,ta); wrap.appendChild(ta);
     var m=document.createElement("div"); m.className="cmt-ta-mirror"; m.setAttribute("aria-hidden","true");
     wrap.insertBefore(m,ta);
     ta.addEventListener("scroll",function(){ m.scrollTop=ta.scrollTop; });
+    if(had&&document.activeElement!==ta){ try{ ta.focus({preventScroll:true}); if(s0!=null) ta.setSelectionRange(s0,s1,sd||"none"); }catch(e){} }
   }
-  var mirror=wrap.querySelector(".cmt-ta-mirror"), cs=getComputedStyle(ta);
-  ["fontFamily","fontSize","fontWeight","lineHeight","letterSpacing","paddingTop","paddingRight","paddingBottom","paddingLeft","borderTopWidth","borderRightWidth","borderBottomWidth","borderLeftWidth","textIndent","wordSpacing"].forEach(function(k){ mirror.style[k]=cs[k]; });
-  /* A scrolling box loses its scrollbar's width to the text; the layer, which never scrolls, has to
-     give up the same width or its lines wrap in different places. */
-  var bar=ta.offsetWidth-ta.clientWidth-(parseFloat(cs.borderLeftWidth)||0)-(parseFloat(cs.borderRightWidth)||0);
-  if(bar>0) mirror.style.paddingRight=((parseFloat(cs.paddingRight)||0)+bar)+"px";
+  var mirror=wrap.querySelector(".cmt-ta-mirror"), st=cmtMirrorStyle(ta);
+  if(mirror._cmtMs!==st){ CMT_MIRROR_KEYS.forEach(function(k){ mirror.style[k]=st.v[k]; }); mirror._cmtMs=st; mirror._cmtBar=0; }
+  cmtMirrorBarSoon(ta,mirror);
   return {ta:ta,mirror:mirror};
 }
 function cmtMirrorSync(){
@@ -167,7 +193,6 @@ function cmtMirrorSync(){
     html=html.replace(new RegExp(e+"(?=\\s|$|[.,!?;:])","g"),'<span class="msg-mention" data-no-translate>'+esc("@"+n)+'</span>');
   });
   x.mirror.innerHTML=html+(/\n$/.test(text)?"<br>":"")+"&#8203;";
-  x.mirror.scrollTop=x.ta.scrollTop;
   x.ta.classList.add("cmt-mirrored");
 }
 /* The comment box is drawn fresh with each redraw of the drawer; give it its layer each time. */

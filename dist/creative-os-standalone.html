@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="ddcfef0a023d">
+<meta name="zc-build" content="769dd2463212">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -8151,15 +8151,18 @@ function clearWorkspaceData(){
      Empty the panes and the toasts so nothing of the last session is left to read. */
   ["drHead","drBody","drFoot","toasts"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML=""; });
 }
-function renderScreen(withLoading){ var c=document.getElementById("content");
+/* true once renderScreen has drawn the screen and translated it: what is added to it afterwards (src/enhance.js)
+   is translated on its own instead of the whole screen being walked a second time */
+var RENDER_LOCALIZED=false;
+function renderScreen(withLoading){ var c=document.getElementById("content"); RENDER_LOCALIZED=false;
   /* The single place every screen is drawn. Without this guard the login overlay was the only
      thing in the way, and anything that re-rendered — clicking the logo, go(), a live update —
      painted the workspace straight over it. */
   if(!signedIn()){ if(typeof showLogin==="function") showLogin(); return; } c.className="content"+(S.screen==="tasks"||S.screen==="calendar"||S.screen==="projects"||S.screen==="messages"?" wide":"");
   if (withLoading){ c.innerHTML=skeleton(); return; }
-  if (S.search) return renderSearch();
+  if (S.search){ SEARCH_FROM_SCREEN=true; try { return renderSearch(); } finally { SEARCH_FROM_SCREEN=false; } }
   var map={home:renderDashboard,tasks:renderTasks,projects:renderProjects,calendar:renderCalendarScreen,teams:renderTeams,team:renderMember,assets:renderAssets,knowledge:renderKnowledge,aihub:renderAIHub,aigallery:renderAIGallery,messages:renderMessages,analytics:renderAnalytics,notifications:renderNotifScreen,settings:renderSettings};
-  try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); } catch(e){ console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
+  try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); RENDER_LOCALIZED=true; } catch(e){ RENDER_LOCALIZED=false; console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
 function refresh(){ refreshTaken(); AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
 function skeleton(){ var p='<div class="panel loading"><div class="panel-head"><div class="skel" style="width:140px"></div></div><div class="panel-body"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:85%"></div></div></div>'; return '<div class="pagehead"><div><div class="skel" style="width:120px;margin-bottom:8px"></div><div class="skel" style="width:260px;height:22px"></div></div></div><div class="grid g-2-1">'+p+p+'</div>'; }
 function panel(title,count,body,link,extra,icon,cls){ return '<section class="panel'+(cls?" "+cls:"")+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+title+'</h2>'+(count!==null&&count!==undefined?'<span class="cnt">'+count+'</span>':'')+'<span class="spacer"></span>'+(extra||'')+(link?'<span class="link" onclick="'+link+'">View all</span>':'')+'</div><div class="panel-body">'+body+'</div></section>'; }
@@ -8179,20 +8182,34 @@ function scheduleSearch(q){ clearTimeout(_searchTimer); if(!q.trim())return onSe
 /* Reached from the topbar input rather than renderScreen, so it carries its own guard. */
 function onSearch(q){ if(!signedIn()) return; clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
 function renderSearch(){ var q=S.search.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; };
-  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(typeof descPlainText==="function"?descPlainText(x.description):x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
+  if(SEARCH_OPEN.q!==S.search) SEARCH_OPEN={q:S.search,keys:{}}; SEARCH_OPEN.localized=SEARCH_FROM_SCREEN; SEARCH_SECTIONS={};
+  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||searchDescText(x).indexOf(q)>=0; }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
   var ps=PROJECTS.filter(function(x){ return m(x.name)||m(x.description); }); var tm=activeTeams().filter(function(t){ return m(t.name)||m(t.description); }); var us=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role)||m(PEOPLE[id].email); });
   var fs=[]; TASKS.forEach(function(t){ t.files.forEach(function(f){ if (m(f.name)) fs.push({t:t,f:f}); }); }); var as=ASSETS.filter(function(x){ return m(x.name)||m(x.tags.join(" ")); }); var ks=KNOWLEDGE.filter(function(x){ return m(x.title)||m(x.body); });
   var h='<div class="pagehead"><div><h1>Search</h1><div class="muted mono" style="margin-top:4px">“'+esc(S.search)+'”</div></div></div>'; var any=ts.length||ps.length||tm.length||us.length||fs.length||as.length||ks.length||bs.length;
   if (!any) h+='<div class="panel">'+emptyBox("Nothing matches “"+esc(S.search)+"”","Try a task id, a tag, a person, a team, a file name or a page title.")+'</div>';
-  if (ts.length) h+=panel("Tasks",ts.length,ts.map(function(x){ return taskRow(x); }).join(""));
-  if (bs.length) h+=panel("Briefs",bs.length,bs.map(function(x){ return taskRow(x); }).join(""));
-  if (ps.length) h+=panel("Projects",ps.length,projRows(ps));
-  if (tm.length) h+=panel("Teams",tm.length,tm.map(function(t){ return '<div class="row" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div class="t">'+esc(t.name)+'</div><div class="m">'+esc(t.description)+'</div></div><span class="due">'+teamMembers(t.id).length+' members</span></div>'; }).join(""));
-  if (us.length) h+=panel("People",us.length,us.map(function(id){ var p=PEOPLE[id]; return '<div class="row" onclick="go(\'team\',\''+id+'\')">'+av(id)+'<div style="min-width:0"><div class="t">'+esc(p.name)+'</div><div class="m">'+esc(p.role)+' · '+teamBadge(primaryTeam(id))+'</div></div><span></span></div>'; }).join(""));
-  if (fs.length) h+=panel("Files",fs.length,fs.map(function(x){ return '<div class="row" onclick="openTask(\''+x.t.id+'\');setTab(\'files\')"><span class="ficon" style="background:#475569">'+esc((x.f.name.match(/\.(\w+)$/)||["","file"])[1].slice(0,4))+'</span><div style="min-width:0"><div class="t">'+esc(x.f.name)+'</div><div class="m">'+esc(x.t.id)+' · '+esc(x.t.title)+'</div></div><span class="due">'+ago(x.f.ago,x.f.createdAt)+'</span></div>'; }).join(""));
-  if (as.length) h+=panel("Assets",as.length,as.map(function(a){ return '<div class="row" onclick="openAsset(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+assetChip(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(a.source)+' <span>'+esc(a.size)+'</span></div></div><span class="due">'+ago(a.ago,a.createdAt)+'</span></div>'; }).join(""));
-  if (ks.length) h+=panel("Knowledge",ks.length,ks.map(function(k){ return '<div class="row" onclick="go(\'knowledge\',\''+k.id+'\')"><span class="ficon" style="background:var(--color-ink)">doc</span><div style="min-width:0"><div class="t">'+esc(k.title)+'</div><div class="m">'+esc(k.folder)+'</div></div><span class="due">'+ago(k.ago,k.updatedAt)+'</span></div>'; }).join(""));
+  if (ts.length) h+=searchSection("tasks","Tasks",ts,function(x){ return taskRow(x); });
+  if (bs.length) h+=searchSection("briefs","Briefs",bs,function(x){ return taskRow(x); });
+  if (ps.length) h+=searchSection("projects","Projects",ps,function(p){ return projRows([p]); });
+  if (tm.length) h+=searchSection("teams","Teams",tm,function(t){ return '<div class="row" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div class="t">'+esc(t.name)+'</div><div class="m">'+esc(t.description)+'</div></div><span class="due">'+teamMembers(t.id).length+' members</span></div>'; });
+  if (us.length) h+=searchSection("people","People",us,function(id){ var p=PEOPLE[id]; return '<div class="row" onclick="go(\'team\',\''+id+'\')">'+av(id)+'<div style="min-width:0"><div class="t">'+esc(p.name)+'</div><div class="m">'+esc(p.role)+' · '+teamBadge(primaryTeam(id))+'</div></div><span></span></div>'; });
+  if (fs.length) h+=searchSection("files","Files",fs,function(x){ return '<div class="row" onclick="openTask(\''+x.t.id+'\');setTab(\'files\')"><span class="ficon" style="background:#475569">'+esc((x.f.name.match(/\.(\w+)$/)||["","file"])[1].slice(0,4))+'</span><div style="min-width:0"><div class="t">'+esc(x.f.name)+'</div><div class="m">'+esc(x.t.id)+' · '+esc(x.t.title)+'</div></div><span class="due">'+ago(x.f.ago,x.f.createdAt)+'</span></div>'; });
+  if (as.length) h+=searchSection("assets","Assets",as,function(a){ return '<div class="row" onclick="openAsset(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+assetChip(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(a.source)+' <span>'+esc(a.size)+'</span></div></div><span class="due">'+ago(a.ago,a.createdAt)+'</span></div>'; });
+  if (ks.length) h+=searchSection("knowledge","Knowledge",ks,function(k){ return '<div class="row" onclick="go(\'knowledge\',\''+k.id+'\')"><span class="ficon" style="background:var(--color-ink)">doc</span><div style="min-width:0"><div class="t">'+esc(k.title)+'</div><div class="m">'+esc(k.folder)+'</div></div><span class="due">'+ago(k.ago,k.updatedAt)+'</span></div>'; });
   document.getElementById("content").innerHTML=h; }
+/* At most SEARCH_LIMIT results are drawn per section, with "Show all (N)" drawing the rest of that section where
+   the button was, without drawing the page again: a single letter matched every task, and all of them were drawn
+   twice (Tasks and Briefs) at each keystroke. A section opened stays open while the same words are searched.
+   A task's description is made plain text once per change of the task, not for every task at every keystroke. */
+var SEARCH_LIMIT=50, SEARCH_SECTIONS={}, SEARCH_OPEN={q:null,keys:{},localized:false}, SEARCH_DESC={}, SEARCH_FROM_SCREEN=false;
+function searchDescText(x){ var c=SEARCH_DESC[x.id]; if(c&&c.u===x.updatedAt&&c.d===x.description) return c.v;
+  var v=String((typeof descPlainText==="function"?descPlainText(x.description):x.description)||"").toLowerCase(); SEARCH_DESC[x.id]={u:x.updatedAt,d:x.description,v:v}; return v; }
+function searchSection(key,title,list,row){ SEARCH_SECTIONS[key]={list:list,row:row}; var all=SEARCH_OPEN.keys[key]||list.length<=SEARCH_LIMIT;
+  return panel(title,list.length,(all?list:list.slice(0,SEARCH_LIMIT)).map(row).join("")+(all?"":'<button type="button" class="btn sm ghost search-more" style="margin:8px 4px 2px" onclick="searchShowAll('+jsq(key)+',this)">'+tr("Show all")+' ('+list.length+')</button>')); }
+function searchShowAll(key,btn){ var sec=SEARCH_SECTIONS[key]; if(!sec||!btn||!btn.parentNode) return; SEARCH_OPEN.keys[key]=true;
+  var stop=btn.previousSibling, nodes=[]; btn.insertAdjacentHTML("beforebegin",sec.list.slice(SEARCH_LIMIT).map(sec.row).join(""));
+  for(var n=btn.previousSibling;n&&n!==stop;n=n.previousSibling) nodes.push(n);
+  btn.remove(); if(SEARCH_OPEN.localized) nodes.forEach(function(x){ if(x.nodeType===1) localizeVisibleText(x); }); }
 
 /* ---------- shared row renderers ---------- */
 /* §399 A personal "I have looked at this" tick.
@@ -8324,8 +8341,11 @@ function appScrollEl(){ return document.getElementById("appScroll")||document.sc
 function appScrollTop(y){ var el=appScrollEl(); if (y===undefined) return el?el.scrollTop:0; if (el) el.scrollTop=y; }
 /* §647 remember where each screen was left, restore it when coming back */
 var SCROLL_MEMORY={};
-function rememberScroll(){ if (S&&S.screen) SCROLL_MEMORY[S.screen]=appScrollTop(); }
-function restoreScroll(screen){ appScrollTop(SCROLL_MEMORY[screen]||0); }
+/* go() reads where the page is before drawing the next screen and sets it afterwards only when that differs:
+   setting it, even to the same place, made the browser lay the new screen out there and then. */
+var SCROLL_BEFORE=null;
+function rememberScroll(){ SCROLL_BEFORE=null; if (S&&S.screen) SCROLL_MEMORY[S.screen]=SCROLL_BEFORE=appScrollTop(); }
+function restoreScroll(screen){ var y=SCROLL_MEMORY[screen]||0, was=SCROLL_BEFORE; SCROLL_BEFORE=null; if (was===y) return; appScrollTop(y); }
 
 /* §386 default is Right, which is the behaviour every existing user has. */
 var TASK_PANEL_POSITIONS=["right","center","left"];
@@ -9055,7 +9075,8 @@ function pillSelChoose(option){ var root=option.closest(".pillsel-custom"), sele
 function upgradePillSelects(root){ (root||document).querySelectorAll(".pillsel:not(.pillsel-custom) select").forEach(function(select){ var wrap=select.closest(".pillsel"), current=select.options[select.selectedIndex]||select.options[0]; if(!wrap||!current)return; wrap.classList.add("pillsel-custom"); var trigger=document.createElement("button"); trigger.type="button"; trigger.className="pillsel-trigger"; trigger.innerHTML='<span class="pillsel-value">'+esc(current.textContent)+'</span><span class="pillsel-chevron"></span>'; trigger.onclick=function(e){e.preventDefault();e.stopPropagation();pillSelToggle(wrap);}; var menu=document.createElement("span"); menu.className="pillsel-menu"; menu.setAttribute("role","listbox"); Array.prototype.forEach.call(select.options,function(o){var b=document.createElement("button");b.type="button";b.setAttribute("role","option");b.setAttribute("data-value",o.value);b.setAttribute("aria-selected",o.selected?"true":"false");b.textContent=o.textContent;b.onclick=function(){pillSelChoose(b);};menu.appendChild(b);}); select.className="pillsel-native"; wrap.insertBefore(trigger,select); wrap.appendChild(menu); }); }
 document.addEventListener("pointerdown",function(e){if(!e.target.closest(".pillsel-custom"))document.querySelectorAll(".pillsel-custom.open").forEach(pillSelClose);});
 document.addEventListener("keydown",function(e){if(e.key==="Escape")document.querySelectorAll(".pillsel-custom.open").forEach(pillSelClose);});
-if(typeof MutationObserver!=="undefined"&&document.body) new MutationObserver(function(){upgradePillSelects(document);}).observe(document.body,{childList:true,subtree:true});
+/* only what was just added is looked at (the first time, the whole page): the whole page was searched at every change */
+if(typeof MutationObserver!=="undefined"&&document.body){ var PILL_SEEN_ALL=false; new MutationObserver(function(recs){ if(!PILL_SEEN_ALL){ PILL_SEEN_ALL=true; upgradePillSelects(document); return; } for(var i=0;i<recs.length;i++){ var a=recs[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1||!n.isConnected) continue; if(n.tagName==="SELECT"){ if(n.matches(".pillsel:not(.pillsel-custom) select")) upgradePillSelects(n.parentNode); } else if(n.firstElementChild) upgradePillSelects(n); } } }).observe(document.body,{childList:true,subtree:true}); }
 function viewSwitch(views){ var all={kanban:["Kanban",I.kanban],list:["List",I.list],grid:["Grid",I.grid],calendar:["Calendar",I.calendar.replace('class="i"','')],timeline:["Timeline",I.timeline]}; return '<div class="seg" data-tour="task-views">'+(views||["kanban","list","grid","calendar","timeline"]).map(function(k){ return '<button data-view="'+k+'" class="'+(S.taskView===k?"on":"")+'" onclick="S.taskView=\''+k+'\';renderScreen(false)">'+all[k][1]+all[k][0]+'</button>'; }).join("")+'</div>'; }
 var FILTER_DEFS=function(opts){ var tags=WS.tags.slice(); TASKS.forEach(function(x){ x.tags.forEach(function(g){ if (tags.indexOf(g)<0) tags.push(g); }); }); var defs=[
   ["status","Status",[["","Any"]].concat(localStages().map(function(s){ return [s.id,s.name]; }))],["team","Team",[["","Any"]].concat(activeTeams().map(function(x){ return [x.id,x.name]; }))],["assignee","Assignee",[["","Any"]].concat(peopleOpts())],["reviewer","Reviewer",[["","Any"]].concat(peopleOpts())],
@@ -17147,14 +17168,26 @@ function uiDynamicText(text){
  return out.split(" · ").map(function(part){return UI_ID[part]||part;}).join(" · ");
 }
 var UI_TEXT_SOURCE=new WeakMap(),UI_ATTR_SOURCE=new WeakMap();
-function uiContentNode(el){return !!el.closest('textarea,script,style,pre,code,[contenteditable],[data-no-translate],.md,.t,.kt,.at,.tn,.td,.lbl,.me-name,#wsName,#wsLogo,.tbadge,.av,.kb-tree button span');}
+var UI_CONTENT_SEL='textarea,script,style,pre,code,[contenteditable],[data-no-translate],.md,.t,.kt,.at,.tn,.td,.lbl,.me-name,#wsName,#wsLogo,.tbadge,.av,.kb-tree button span';
+function uiContentNode(el){return !!el.closest(UI_CONTENT_SEL);}
+/* Has Indonesian been shown in this page? Until it has, English text is already what it should be and there is
+   nothing to put back, so the walk is skipped. Once it has, English walks go on: they restore what was translated. */
+var UI_ID_SHOWN=false;
 function localizeVisibleText(root){
  if(!root)return;
- var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[],n;
- while(n=w.nextNode())nodes.push(n);
+ if(UI_LANG==="id")UI_ID_SHOWN=true;else if(!UI_ID_SHOWN)return;
+ /* user content (names, titles, written text) is skipped a whole subtree at a time */
+ var skipText=root.nodeType===1&&!!root.closest(UI_CONTENT_SEL);
+ var w=document.createTreeWalker(root,1|4/* SHOW_ELEMENT|SHOW_TEXT */,function(n){return n.nodeType===1?(n.matches(UI_CONTENT_SEL)?2/* REJECT */:3/* SKIP */):1/* ACCEPT */;}),nodes=[],n;
+ if(!skipText)while(n=w.nextNode())if(n.nodeType!==1)nodes.push(n);
+ var ids=null;/* the ids of projects, teams, pages and labels, once per call: an <option> naming one is user content */
  nodes.forEach(function(node){
-  var el=node.parentElement;if(!el||uiContentNode(el))return;
-  if(el.tagName==="OPTION"&&!el.closest('[data-ui-translate]')&&!(el.parentElement.getAttribute('onchange')||'').includes('.kind=')&&(PEOPLE[el.value]||[PROJECTS,TEAMS,KNOWLEDGE,WS.labels||[]].some(function(list){return list.some(function(x){return x.id===el.value;});})))return;
+  var el=node.parentElement;if(!el)return;
+  if(el.tagName==="OPTION"&&!el.closest('[data-ui-translate]')&&!(el.parentElement.getAttribute('onchange')||'').includes('.kind=')){
+   if(PEOPLE[el.value])return;
+   if(!ids){ids=new Set();[PROJECTS,TEAMS,KNOWLEDGE,WS.labels||[]].forEach(function(list){list.forEach(function(x){ids.add(x.id);});});}
+   if(ids.has(el.value))return;
+  }
   var previous=UI_TEXT_SOURCE.get(node),raw=previous&&node.nodeValue===previous.rendered?previous.source:node.nodeValue,trim=raw.trim();
   if(!trim)return;
   var translated=UI_LANG==="id"?_idt(UI_ID[trim]||uiDynamicText(trim)):trim,rendered=raw.replace(trim,translated);
@@ -19132,17 +19165,28 @@ function quickAddMenuHtml(){ var proj=S.screen==="projects"&&S.projectId?S.proje
   var _msgBootSync=typeof msgBootSync==="function"?msgBootSync:null; if(_msgBootSync) msgBootSync=function(){ _msgBootSync(); availabilityDemoSeed(); setTimeout(deepLinkHandle,0); setTimeout(reminderTick,1500); };
 })();
 /* v39 a11y net: switches without an accessible name take the label of their settings row */
-function a11ySwitchNames(root){ (root||document).querySelectorAll('.switch:not([aria-label])').forEach(function(sw){ var row=sw.closest('.pref,.row,li,div'); var lb=row&&row.querySelector('b,.pl,label,strong'); var t=lb&&lb.innerText.trim(); if(t) sw.setAttribute('aria-label',t.split('\n')[0].slice(0,60)); }); }
-function enhanceAfterRender(){ var c=document.getElementById("content"); if(!c) return; a11ySwitchNames(c);
-  if((S.screen==="projects"&&S.projectId)||(S.screen==="teams"&&S.teamId)||(S.screen==="team"&&S.memberId)){ var legacyBack=c.querySelector(":scope > div:first-child > .btn.ghost.sm"); if(legacyBack&&!legacyBack.classList.contains("nav-context-back"))legacyBack.outerHTML=navBackButton(S.screen==="projects"?"projects":"teams"); }
+function a11ySwitchNames(root,named){ (root||document).querySelectorAll('.switch:not([aria-label])').forEach(function(sw){ var row=sw.closest('.pref,.row,li,div'); var lb=row&&row.querySelector('b,.pl,label,strong'); var t=lb&&lb.innerText.trim(); if(t){ sw.setAttribute('aria-label',t.split('\n')[0].slice(0,60)); if(named) named.push(sw); } }); }
+/* Inserts markup and notes what it put on the page. The screen and the task panel are translated when they are
+   drawn; what is added to them here is then translated on its own, instead of walking all of it a second time. */
+function enhInsert(el,where,html,fresh){ var stop=where==="afterbegin"?el.firstChild:where==="afterend"?el.nextSibling:null, last=where==="beforeend"?el.lastChild:null;
+  el.insertAdjacentHTML(where,html);
+  var n=where==="afterbegin"?el.firstChild:where==="afterend"?el.nextSibling:(last?last.nextSibling:el.firstChild);
+  for(;n&&n!==stop;n=n.nextSibling) fresh.push(n); }
+function enhLocalize(fresh){ fresh.forEach(function(n){ if(!n.isConnected) return; if(n.nodeType===1) localizeVisibleText(n); else if(n.nodeType===3&&n.nodeValue.trim()&&n.parentElement) localizeVisibleText(n.parentElement); }); }
+function enhanceAfterRender(){ var c=document.getElementById("content"); if(!c) return; var fresh=[]; a11ySwitchNames(c,fresh);
+  if((S.screen==="projects"&&S.projectId)||(S.screen==="teams"&&S.teamId)||(S.screen==="team"&&S.memberId)){ var legacyBack=c.querySelector(":scope > div:first-child > .btn.ghost.sm"); if(legacyBack&&!legacyBack.classList.contains("nav-context-back"))enhInsert(legacyBack,"afterend",navBackButton(S.screen==="projects"?"projects":"teams"),fresh),legacyBack.remove(); }
   /* v19.4 My space now renders as the first Home card (see dashboard.js sec.myspace) — nothing to inject here */
-  if(S.screen==="projects"&&S.projectId){ var tabs=c.querySelector(".ptabs"); if(S.projectTab==="activity"){ var pnl=c.querySelector(".ptabs ~ .panel .panel-body, .ptabs ~ section .panel-body"); var d=digestHtml(ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&inProject(t,S.projectId))||a.a.project===S.projectId; })); if(pnl&&d&&!c.querySelector(".digest")) pnl.insertAdjacentHTML("afterbegin",d); } var ph=c.querySelector(".pagehead .actions"); if(ph&&!ph.querySelector(".enh-proj")){ ph.insertAdjacentHTML("afterbegin",'<button class="iconbtn enh enh-proj star'+(isSaved("project",S.projectId)?" is-on":"")+'" title="'+attr(tr(isSaved("project",S.projectId)?"Unsave":"Save"))+'" onclick="toggleSaved(\'project\',\''+S.projectId+'\')">'+I.star+'</button><button class="iconbtn enh enh-proj" title="'+attr(tr("Copy link"))+'" aria-label="'+attr(tr("Copy link"))+'" onclick="copyDeepLink(\'project\',\''+S.projectId+'\',null,this)">'+I.link+'</button>'); } }
-  if(bulkSurface()){ var act2=c.querySelector(".pagehead .actions"); if(act2&&!act2.querySelector(".bulk-btn")) act2.insertAdjacentHTML("afterbegin",'<button class="btn sm bulk-btn'+(ENH.bulk?" ink":"")+'" aria-label="'+attr(tr(ENH.bulk?"Selecting…":"Select"))+'" onclick="bulkToggle()">'+I.check+'<span class="bulk-label">'+tr(ENH.bulk?"Selecting…":"Select")+'</span></button>'); bulkInject(); } else if(ENH.bulk){ ENH.bulk=false; ENH.bulkSel={}; bulkInject(); }
-  localizeVisibleText(c); }
-function enhanceDrawer(){ var tk=task(S.drawerTask); var d=document.getElementById("drawer"); if(!tk||!d) return; var ed=canI.editTask(tk)&&!tk._draft; var head=d.querySelector(".dr-top .spacer"); if(head&&!d.querySelector(".enh-task")&&!tk._draft){ head.insertAdjacentHTML("afterend",'<span class="enh-tools"><button class="iconbtn enh enh-task watch'+(isWatching(tk.id)?" is-on":"")+'" aria-pressed="'+(isWatching(tk.id)?"true":"false")+'" title="'+attr(tr(isWatching(tk.id)?"Unwatch":"Watch"))+'" onclick="toggleWatch(\''+tk.id+'\')">'+I.bell+'</button><button class="iconbtn enh enh-task star'+(isSaved("task",tk.id)?" is-on":"")+'" aria-pressed="'+(isSaved("task",tk.id)?"true":"false")+'" title="'+attr(tr(isSaved("task",tk.id)?"Unsave":"Save"))+'" onclick="toggleSaved(\'task\',\''+tk.id+'\')">'+I.star+'</button><button class="iconbtn enh enh-task remind'+(hasReminder("task",tk.id)?" is-on":"")+'" aria-pressed="'+(hasReminder("task",tk.id)?"true":"false")+'" title="'+attr(tr(hasReminder("task",tk.id)?"Reminder set":"Remind me"))+'" onclick="remindMenu(this,\'task\',\''+tk.id+'\')">'+I.clock+'</button></span>'); }
+  if(S.screen==="projects"&&S.projectId){ var tabs=c.querySelector(".ptabs"); if(S.projectTab==="activity"){ var pnl=c.querySelector(".ptabs ~ .panel .panel-body, .ptabs ~ section .panel-body"); var d=digestHtml(ACTIVITY.filter(function(a){ var t=a.a.task?task(a.a.task):null; return (t&&inProject(t,S.projectId))||a.a.project===S.projectId; })); if(pnl&&d&&!c.querySelector(".digest")) enhInsert(pnl,"afterbegin",d,fresh); } var ph=c.querySelector(".pagehead .actions"); if(ph&&!ph.querySelector(".enh-proj")){ enhInsert(ph,"afterbegin",'<button class="iconbtn enh enh-proj star'+(isSaved("project",S.projectId)?" is-on":"")+'" title="'+attr(tr(isSaved("project",S.projectId)?"Unsave":"Save"))+'" onclick="toggleSaved(\'project\',\''+S.projectId+'\')">'+I.star+'</button><button class="iconbtn enh enh-proj" title="'+attr(tr("Copy link"))+'" aria-label="'+attr(tr("Copy link"))+'" onclick="copyDeepLink(\'project\',\''+S.projectId+'\',null,this)">'+I.link+'</button>',fresh); } }
+  if(bulkSurface()){ var act2=c.querySelector(".pagehead .actions"); if(act2&&!act2.querySelector(".bulk-btn")) enhInsert(act2,"afterbegin",'<button class="btn sm bulk-btn'+(ENH.bulk?" ink":"")+'" aria-label="'+attr(tr(ENH.bulk?"Selecting…":"Select"))+'" onclick="bulkToggle()">'+I.check+'<span class="bulk-label">'+tr(ENH.bulk?"Selecting…":"Select")+'</span></button>',fresh); bulkInject(); if(ENH.bulk) Array.prototype.push.apply(fresh,c.querySelectorAll(".bulk-check")); } else if(ENH.bulk){ ENH.bulk=false; ENH.bulkSel={}; bulkInject(); }
+  /* drawn and translated by renderScreen: only what was added here is translated; otherwise (search results, the
+     loading skeleton, an error) the screen was not translated yet, so all of it is */
+  if(typeof RENDER_LOCALIZED!=="undefined"&&RENDER_LOCALIZED) enhLocalize(fresh); else localizeVisibleText(c); }
+function enhanceDrawer(){ var tk=task(S.drawerTask); var d=document.getElementById("drawer"); if(!tk||!d) return; var ed=canI.editTask(tk)&&!tk._draft, fresh=[]; var head=d.querySelector(".dr-top .spacer"); if(head&&!d.querySelector(".enh-task")&&!tk._draft){ enhInsert(head,"afterend",'<span class="enh-tools"><button class="iconbtn enh enh-task watch'+(isWatching(tk.id)?" is-on":"")+'" aria-pressed="'+(isWatching(tk.id)?"true":"false")+'" title="'+attr(tr(isWatching(tk.id)?"Unwatch":"Watch"))+'" onclick="toggleWatch(\''+tk.id+'\')">'+I.bell+'</button><button class="iconbtn enh enh-task star'+(isSaved("task",tk.id)?" is-on":"")+'" aria-pressed="'+(isSaved("task",tk.id)?"true":"false")+'" title="'+attr(tr(isSaved("task",tk.id)?"Unsave":"Save"))+'" onclick="toggleSaved(\'task\',\''+tk.id+'\')">'+I.star+'</button><button class="iconbtn enh enh-task remind'+(hasReminder("task",tk.id)?" is-on":"")+'" aria-pressed="'+(hasReminder("task",tk.id)?"true":"false")+'" title="'+attr(tr(hasReminder("task",tk.id)?"Reminder set":"Remind me"))+'" onclick="remindMenu(this,\'task\',\''+tk.id+'\')">'+I.clock+'</button></span>',fresh); }
   /* the checklist, effort and related items are the task's details: they live on the Brief tab only — not under its
      assets, comments, progress note or activity */
-  if(S.drawerTab==="brief"&&!tk._draft&&!d.querySelector(".related")){ var body=document.getElementById("drBody"); if(body) body.insertAdjacentHTML("beforeend",'<div class="enh-blocks">'+checklistHtml(tk,ed)+effortHtml(tk,ed)+relatedSectionHtml("task",tk.id)+'</div>'); } localizeVisibleText(d); }
+  if(S.drawerTab==="brief"&&!tk._draft&&!d.querySelector(".related")){ var body=document.getElementById("drBody"); if(body) enhInsert(body,"beforeend",'<div class="enh-blocks">'+checklistHtml(tk,ed)+effortHtml(tk,ed)+relatedSectionHtml("task",tk.id)+'</div>',fresh); }
+  /* renderDrawer translated the panel as it drew it (it draws nothing when nobody is signed in) */
+  if(typeof signedIn==="function"&&!signedIn()) localizeVisibleText(d); else enhLocalize(fresh); }
 /* the existing task menu (…) gains Watch / Save / Remind / Copy link without a second menu */
 (function(){ if(typeof taskMenu!=="function") return; var _tm=taskMenu; taskMenu=function(a){ _tm(a); var m=document.getElementById("ctxMenu"), id=S.drawerTask; if(!m||!id) return; m.insertAdjacentHTML("afterbegin",'<button onclick="closePops();copyDeepLink(\'task\',\''+id+'\')">'+I.link+tr("Copy link")+'</button><button onclick="closePops();toggleWatch(\''+id+'\')">'+I.bell+tr(isWatching(id)?"Unwatch":"Watch")+'</button><button onclick="closePops();toggleSaved(\'task\',\''+id+'\')">'+I.star+tr(isSaved("task",id)?"Unsave":"Save")+'</button><button onclick="closePops();remindMenu(this,\'task\',\''+id+'\')">'+I.clock+tr("Remind me…")+'</button><div class="mh"></div>'); localizeVisibleText(m); place(m,a); }; })();
 /* messages: save / remind from a message; availability in DM header + member rows */
@@ -19461,23 +19505,49 @@ Object.assign(UI_ID,{
 /* ---------- Form labels (v29 a11y) ----------
    Many forms render <div class="field"><label>Name</label><input id="x"></div> without
    for= on the label, so screen readers announce an unnamed field. Link each such label
-   to the single control in its field (and name unlabeled selects from their label). */
+   to the single control in its field (and name unlabeled selects from their label).
+   Only what was added since the last frame is looked at — the nodes put on the page, and any field whose
+   controls changed — never the whole page again. A select's own .labels was read for every select on the
+   page at each frame, and each read walked the whole page: with 1,500 tasks the Grid's thousands of
+   selects took 34 of its 39 seconds. Whether a <label> names a select is now answered from the select's
+   own ancestors and the page's label[for] list, which is what .labels says. A select already handled is
+   marked and not looked at again unless its field changes. */
 (function(){
-  var pending=false;
-  function link(root){
-    (root||document).querySelectorAll(".field > label:not([for]), .field-row .field > label:not([for])").forEach(function(l){
-      var f=l.parentElement, ctl=f.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea");
+  var LABELS=".field > label:not([for])", SELECTS="select:not([aria-label]):not([aria-labelledby])",
+      CONTROLS="input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea";
+  var pending=false, whole=true, roots=[], handled=new WeakSet();
+  function each(root,sel,fn){ if(root.matches&&root.matches(sel)) fn(root); var l=root.querySelectorAll(sel); for(var i=0;i<l.length;i++) fn(l[i]); }
+  /* what select.labels.length>0 says: a <label> ancestor whose control is this select, or a label[for] its id */
+  function labelled(s,ctx){
+    for(var a=s.parentElement;a;a=a.parentElement) if(a.tagName==="LABEL"&&a.control===s) return true;
+    if(!s.id) return false;
+    if(!ctx.forIds){ ctx.forIds=new Set(); var ls=document.querySelectorAll("label[for]"); for(var i=0;i<ls.length;i++) ctx.forIds.add(ls[i].htmlFor); }
+    return ctx.forIds.has(s.id)&&document.getElementById(s.id)===s;
+  }
+  function link(list){
+    var ctx={}, seenL=new Set(), seenS=new Set();
+    list.forEach(function(r){ each(r.el,LABELS,function(l){ if(seenL.has(l)) return; seenL.add(l);
+      var f=l.parentElement, ctl=f.querySelectorAll(CONTROLS);
       if(ctl.length!==1) return; var c=ctl[0];
       if(!c.id) c.id="zcf_"+Math.random().toString(36).slice(2,9);
       l.htmlFor=c.id;
-    });
-    (root||document).querySelectorAll("select:not([aria-label]):not([aria-labelledby])").forEach(function(s){
-      if(s.labels&&s.labels.length) return;
+    }); });
+    list.forEach(function(r){ each(r.el,SELECTS,function(s){ if(seenS.has(s)||(!r.field&&handled.has(s))) return; seenS.add(s); handled.add(s);
+      if(labelled(s,ctx)) return;
       var f=s.closest(".field,.pref"), l=f&&f.querySelector("label,.pl b,b");
       if(l&&l.textContent.trim()) s.setAttribute("aria-label",l.textContent.trim().slice(0,80));
-    });
+    }); });
   }
-  new MutationObserver(function(){ if(pending) return; pending=true; requestAnimationFrame(function(){ pending=false; try{ link(document); }catch(e){} }); }).observe(document.documentElement,{childList:true,subtree:true});
+  new MutationObserver(function(recs){
+    /* the first frame looks at the whole page once, as before; after that only what changed */
+    if(!whole) for(var i=0;i<recs.length;i++){ var a=recs[i].addedNodes, t=recs[i].target;
+      for(var j=0;j<a.length;j++) if(a[j].nodeType===1) roots.push({el:a[j],field:false});
+      var f=t.nodeType===1&&t.closest(".field,.pref"); if(f) roots.push({el:f,field:true}); }
+    if(pending) return; pending=true;
+    requestAnimationFrame(function(){ pending=false; var list=roots; roots=[];
+      if(whole){ whole=false; list=[{el:document.documentElement,field:true}]; }
+      try{ link(list.filter(function(r){ return r.el.isConnected; })); }catch(e){} });
+  }).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 <script>
@@ -19523,23 +19593,35 @@ Object.assign(UI_ID,{"Can't reach the ZenCrevia server":"Server ZenCrevia tidak 
 })();
 /* 3. Dialog semantics + focus return. The modal and task drawer trapped focus and closed on
    Esc, but screen readers were not told they were dialogs, and focus was left on a hidden
-   button after closing instead of returning to what opened it. */
+   button after closing instead of returning to what opened it.
+   Focus goes back once, when the last open dialog closes — not after every redraw. This used to run on
+   any class change anywhere on the page and, whenever focus had fallen to the page itself (a redraw
+   replaced the focused control), pulled it onto a control found by scanning every [onclick] element,
+   so focus moved by itself. What opened the dialog is remembered when the dialog opens. */
 (function(){
-  var last=null;
+  var last=null, lastSig=null, wasOpen=false;
+  function set(el,k,v){ if(el.getAttribute(k)!==v) el.setAttribute(k,v); }
   function mark(){ var m=document.getElementById("modal"), d=document.getElementById("drawer");
-    if(m){ m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); var h=m.querySelector("h2,h3,.modal-title,.mh b,.mh h2"); if(h){ if(!h.id) h.id="modalTitle"; m.setAttribute("aria-labelledby",h.id); } }
-    if(d){ d.setAttribute("role","dialog"); d.setAttribute("aria-modal","true"); var t=d.querySelector(".dr-title"); if(t){ if(!t.id) t.id="drawerTitle"; d.setAttribute("aria-labelledby",t.id); } } }
-  var lastSig=null;
-  document.addEventListener("focusin",function(e){ var t=e.target; if(t&&t.closest&&!t.closest("#modalWrap,#drawer,#overlay")){ last=t; lastSig={id:t.id,click:t.getAttribute&&t.getAttribute("onclick"),text:(t.innerText||"").trim().slice(0,40)}; } },true);
+    if(m){ set(m,"role","dialog"); set(m,"aria-modal","true"); var h=m.querySelector("h2,h3,.modal-title,.mh b,.mh h2"); if(h){ if(!h.id) h.id="modalTitle"; set(m,"aria-labelledby",h.id); } }
+    if(d){ set(d,"role","dialog"); set(d,"aria-modal","true"); var t=d.querySelector(".dr-title"); if(t){ if(!t.id) t.id="drawerTitle"; set(d,"aria-labelledby",t.id); } } }
+  function isOpen(){ var m=document.getElementById("modalWrap"), d=document.getElementById("drawer"); return !!((m&&m.classList.contains("open"))||(d&&d.classList.contains("open"))); }
+  function sig(t){ return t?{id:t.id,click:t.getAttribute&&t.getAttribute("onclick"),text:(t.innerText||"").trim().slice(0,40)}:null; }
+  document.addEventListener("focusin",function(e){ var t=e.target; if(t&&t.closest&&!t.closest("#modalWrap,#drawer,#overlay")){ last=t; lastSig=wasOpen?sig(t):null; } },true);
   /* the opener is often re-rendered while the dialog is open; find its replacement */
   function opener(){ if(last&&document.contains(last)) return last; if(!lastSig) return null;
     if(lastSig.id){ var byId=document.getElementById(lastSig.id); if(byId) return byId; }
-    if(lastSig.click){ var c=[].slice.call(document.querySelectorAll("[onclick]")).filter(function(x){ return x.getAttribute("onclick")===lastSig.click&&x.offsetParent&&!x.closest("#modalWrap,#drawer"); }); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===lastSig.text; }); if(t.length) return t[0]; }
+    if(lastSig.click){ var c=[].slice.call(document.querySelectorAll('[onclick="'+CSS.escape(lastSig.click)+'"]')).filter(function(x){ return x.offsetParent&&!x.closest("#modalWrap,#drawer"); }); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===lastSig.text; }); if(t.length) return t[0]; }
     return null; }
-  new MutationObserver(function(){ mark();
-    var open=document.querySelector("#modalWrap.open,#drawer.open");
-    if(!open&&(document.activeElement===document.body||!document.activeElement||document.activeElement.closest&&document.activeElement.closest("#modalWrap,#drawer"))){ var o=opener(); if(o){ try{ o.focus({preventScroll:true}); }catch(e){} } }
-  }).observe(document.body,{attributes:true,subtree:true,attributeFilter:["class"],childList:false});
+  function changed(recs){ mark(); var now=isOpen(), was=wasOpen||(recs||[]).some(function(r){ return /(^|\s)open(\s|$)/.test(r.oldValue||""); });
+    if(!was&&now) lastSig=sig(last);
+    if(was&&!now){ var a=document.activeElement;
+      if(a===document.body||!a||a.closest&&a.closest("#modalWrap,#drawer")){ if(!lastSig) lastSig=sig(last); var o=opener(); if(o){ try{ o.focus({preventScroll:true}); }catch(e){} } } }
+    wasOpen=now; }
+  var opens=new MutationObserver(changed), parts=new MutationObserver(function(){ mark(); });
+  ["modalWrap","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) opens.observe(el,{attributes:true,attributeFilter:["class"],attributeOldValue:true}); });
+  /* the dialog's title is drawn again with its content */
+  ["modal","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) parts.observe(el,{childList:true,subtree:true}); });
+  mark(); wasOpen=isOpen();
 })();
 </script>
 <script>
@@ -19931,7 +20013,12 @@ function pwToggleAttach(inp){ if(inp._pwt||!inp.parentNode) return; inp._pwt=tru
   var b=document.createElement("button"); b.type="button"; b.className="pw-eye"; b.tabIndex=0; b.setAttribute("aria-label",tr("Show password")); b.title=tr("Show password"); b.innerHTML=I.eye;
   b.onclick=function(e){ e.preventDefault(); var show=inp.type==="password"; inp.type=show?"text":"password"; b.classList.toggle("on",show); b.innerHTML=show?I.eyeoff:I.eye; b.setAttribute("aria-label",tr(show?"Hide password":"Show password")); b.title=tr(show?"Hide password":"Show password"); inp.focus(); };
   wrap.appendChild(b); }
-new MutationObserver(function(){ document.querySelectorAll('input[type="password"]:not([data-no-eye])').forEach(pwToggleAttach); }).observe(document.documentElement,{childList:true,subtree:true});
+/* only what was just added is looked at (the first time, the whole page): the whole page was searched at every change */
+var PW_EYE_SEEN_ALL=false;
+new MutationObserver(function(recs){ var sel='input[type="password"]:not([data-no-eye])', add=function(i){ pwToggleAttach(i); };
+  if(!PW_EYE_SEEN_ALL){ PW_EYE_SEEN_ALL=true; document.querySelectorAll(sel).forEach(add); return; }
+  for(var i=0;i<recs.length;i++){ var a=recs[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1||!n.isConnected) continue; if(n.tagName==="INPUT"){ if(n.matches(sel)) add(n); } else if(n.firstElementChild) n.querySelectorAll(sel).forEach(add); } }
+}).observe(document.documentElement,{childList:true,subtree:true});
 
 /* ---------- #5 creating a task: the panel closes, failures keep the draft ---------- */
 (function(){
@@ -20678,13 +20765,20 @@ window.addEventListener("resize",function(){ if(PASTE_TOOLS) pastePlaceTools(); 
    answering a moment after a tap redrew the panel and took the handle away until the mouse moved. */
 var PASTE_PTR={x:-1,y:-1};
 document.addEventListener("mousemove",function(e){ PASTE_PTR.x=e.clientX; PASTE_PTR.y=e.clientY; },true);
+/* Only when the panel holds a picture the handles could be for, and on the next frame: asking the page what is
+   under the pointer right after a redraw made the browser lay the whole page out there and then, at every redraw. */
+var PASTE_REDRAW_PEEK=false;
+function pasteEditableImages(){ var src=document.getElementById("descSrc"); if(!src) return false; var all=src.querySelectorAll("img.desc-img"); for(var i=0;i<all.length;i++) if(all[i].closest('[contenteditable="true"]')) return true; return false; }
+function pastePeekAfterRedraw(){ PASTE_REDRAW_PEEK=false;
+  if(PASTE_PTR.x<0||PASTE_SIZING||PASTE_TOOLS||!pasteEditableImages()) return;
+  var el=document.elementFromPoint(PASTE_PTR.x,PASTE_PTR.y), img=el&&el.closest?el.closest('#descSrc img.desc-img'):null;
+  if(!img&&el&&el.closest&&el.closest(".desc-img-size,.desc-img-x")){ var all=document.querySelectorAll("#descSrc img.desc-img"); for(var i=0;i<all.length;i++){ var r=all[i].getBoundingClientRect(); if(PASTE_PTR.x>=r.left-4&&PASTE_PTR.x<=r.right+4&&PASTE_PTR.y>=r.top-4&&PASTE_PTR.y<=r.bottom+4){ img=all[i]; break; } } }
+  if(img) pasteShowImageX(img,img.getAttribute("data-zc-att")); }
 (function(){
   if(typeof renderDrawer!=="function") return;
   var base=renderDrawer;
   renderDrawer=function(){ pasteHideImageX(); var out=base.apply(this,arguments);
-    if(PASTE_PTR.x>=0&&!PASTE_SIZING){ var el=document.elementFromPoint(PASTE_PTR.x,PASTE_PTR.y), img=el&&el.closest?el.closest('#descSrc img.desc-img'):null;
-      if(!img&&el&&el.closest&&el.closest(".desc-img-size,.desc-img-x")){ var all=document.querySelectorAll("#descSrc img.desc-img"); for(var i=0;i<all.length;i++){ var r=all[i].getBoundingClientRect(); if(PASTE_PTR.x>=r.left-4&&PASTE_PTR.x<=r.right+4&&PASTE_PTR.y>=r.top-4&&PASTE_PTR.y<=r.bottom+4){ img=all[i]; break; } } }
-      if(img) pasteShowImageX(img,img.getAttribute("data-zc-att")); }
+    if(PASTE_PTR.x>=0&&!PASTE_SIZING&&!PASTE_REDRAW_PEEK&&pasteEditableImages()){ PASTE_REDRAW_PEEK=true; requestAnimationFrame(pastePeekAfterRedraw); }
     return out; };
 })();
 
@@ -20986,7 +21080,12 @@ function driveChipsFill(){
     driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector(".lc-name")||a.querySelector("span"); if(s) s.textContent=name; });
   });
 }
-new MutationObserver(function(){ if(!DRIVE_CHIP_SCAN&&document.querySelector('[data-drive-pending="1"]')) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
+/* only what was just added is looked at (the first time, the whole page): the whole page was searched at every change */
+var DRIVE_CHIP_SEEN_ALL=false;
+new MutationObserver(function(recs){ if(DRIVE_CHIP_SCAN) return; var sel='[data-drive-pending="1"]', hit=false;
+  if(!DRIVE_CHIP_SEEN_ALL){ DRIVE_CHIP_SEEN_ALL=true; hit=!!document.querySelector(sel); }
+  for(var i=0;!hit&&i<recs.length;i++){ var a=recs[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType===1&&(n.matches(sel)||(n.firstElementChild&&n.querySelector(sel)))){ hit=true; break; } } }
+  if(hit) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
   .observe(document.documentElement,{childList:true,subtree:true});
 
 /* ---------- the comment box's toolbar ---------- */
@@ -21362,23 +21461,49 @@ document.addEventListener("keydown",function(e){
    and the textarea's own letters are made transparent, leaving its caret and selection. The layer
    copies the textarea's measured font and padding rather than trusting the stylesheet, so the two
    cannot drift apart. The textarea's letters go transparent only once the layer is in place; if
-   anything here failed, the text would still be visible as ordinary text. */
+   anything here failed, the text would still be visible as ordinary text.
+   The measured font and padding are kept until the window is resized or the look changes (theme, density, font,
+   corners, panel position: attributes of <html>), and the scrollbar's width is read on the next frame: reading
+   them at every keystroke and every redraw made the browser work out the page's styles and layout there and then,
+   each time. (A web font finishing loading changes none of these values, only how the same text is drawn, in the
+   box and its layer alike.) */
+var CMT_MIRROR_KEYS=["fontFamily","fontSize","fontWeight","lineHeight","letterSpacing","paddingTop","paddingRight","paddingBottom","paddingLeft","borderTopWidth","borderRightWidth","borderBottomWidth","borderLeftWidth","textIndent","wordSpacing"];
+var CMT_MIRROR_GEN=0, CMT_MIRROR_CACHE={gen:-1,map:{}};
+(function(){ var bump=function(){ CMT_MIRROR_GEN++; };
+  window.addEventListener("resize",bump);
+  if(typeof MutationObserver!=="undefined") new MutationObserver(bump).observe(document.documentElement,{attributes:true});
+})();
+function cmtMirrorStyle(ta){
+  if(CMT_MIRROR_CACHE.gen!==CMT_MIRROR_GEN) CMT_MIRROR_CACHE={gen:CMT_MIRROR_GEN,map:{}};
+  var dr=ta.closest("#drawer"), key=[ta.id,String(ta.className).replace("cmt-mirrored","").trim(),dr?dr.className:"",ta.closest(".cmt-edit-box")?1:0,ta.closest(".pd-box")?1:0].join("|");
+  var c=CMT_MIRROR_CACHE.map[key]; if(c) return c;
+  var cs=getComputedStyle(ta), v={}; CMT_MIRROR_KEYS.forEach(function(k){ v[k]=cs[k]; });
+  return CMT_MIRROR_CACHE.map[key]={v:v,bl:parseFloat(cs.borderLeftWidth)||0,br:parseFloat(cs.borderRightWidth)||0,pr:parseFloat(cs.paddingRight)||0};
+}
+/* A scrolling box loses its scrollbar's width to the text; the layer, which never scrolls, has to give up the same
+   width or its lines wrap in different places. Measured on the next frame, when the page is laid out anyway. */
+function cmtMirrorBarSoon(ta,mirror){ if(mirror._cmtBarSoon) return; mirror._cmtBarSoon=true;
+  requestAnimationFrame(function(){ mirror._cmtBarSoon=false; var st=mirror._cmtMs; if(!st||!ta.isConnected||!mirror.isConnected) return;
+    var bar=ta.offsetWidth-ta.clientWidth-st.bl-st.br; if(!(bar>0)) bar=0;
+    if(bar!==mirror._cmtBar){ mirror._cmtBar=bar; mirror.style.paddingRight=bar?(st.pr+bar)+"px":st.v.paddingRight; }
+    if(mirror.scrollTop!==ta.scrollTop) mirror.scrollTop=ta.scrollTop; }); }
 function cmtMirrorEnsure(){
   var ta=cmtInput(); if(!ta) return null;
   var wrap=ta.parentNode;
   if(!wrap.classList||!wrap.classList.contains("cmt-ta-wrap")){
+    /* a box moved into its wrapper loses the focus: one being typed in keeps it, and its caret (the first letter
+       typed in a project's discussion box used to be the only one, the rest typed into nothing) */
+    var had=document.activeElement===ta, s0=had?ta.selectionStart:null, s1=had?ta.selectionEnd:null, sd=had?ta.selectionDirection:null;
     wrap=document.createElement("div"); wrap.className="cmt-ta-wrap";
     ta.parentNode.insertBefore(wrap,ta); wrap.appendChild(ta);
     var m=document.createElement("div"); m.className="cmt-ta-mirror"; m.setAttribute("aria-hidden","true");
     wrap.insertBefore(m,ta);
     ta.addEventListener("scroll",function(){ m.scrollTop=ta.scrollTop; });
+    if(had&&document.activeElement!==ta){ try{ ta.focus({preventScroll:true}); if(s0!=null) ta.setSelectionRange(s0,s1,sd||"none"); }catch(e){} }
   }
-  var mirror=wrap.querySelector(".cmt-ta-mirror"), cs=getComputedStyle(ta);
-  ["fontFamily","fontSize","fontWeight","lineHeight","letterSpacing","paddingTop","paddingRight","paddingBottom","paddingLeft","borderTopWidth","borderRightWidth","borderBottomWidth","borderLeftWidth","textIndent","wordSpacing"].forEach(function(k){ mirror.style[k]=cs[k]; });
-  /* A scrolling box loses its scrollbar's width to the text; the layer, which never scrolls, has to
-     give up the same width or its lines wrap in different places. */
-  var bar=ta.offsetWidth-ta.clientWidth-(parseFloat(cs.borderLeftWidth)||0)-(parseFloat(cs.borderRightWidth)||0);
-  if(bar>0) mirror.style.paddingRight=((parseFloat(cs.paddingRight)||0)+bar)+"px";
+  var mirror=wrap.querySelector(".cmt-ta-mirror"), st=cmtMirrorStyle(ta);
+  if(mirror._cmtMs!==st){ CMT_MIRROR_KEYS.forEach(function(k){ mirror.style[k]=st.v[k]; }); mirror._cmtMs=st; mirror._cmtBar=0; }
+  cmtMirrorBarSoon(ta,mirror);
   return {ta:ta,mirror:mirror};
 }
 function cmtMirrorSync(){
@@ -21390,7 +21515,6 @@ function cmtMirrorSync(){
     html=html.replace(new RegExp(e+"(?=\\s|$|[.,!?;:])","g"),'<span class="msg-mention" data-no-translate>'+esc("@"+n)+'</span>');
   });
   x.mirror.innerHTML=html+(/\n$/.test(text)?"<br>":"")+"&#8203;";
-  x.mirror.scrollTop=x.ta.scrollTop;
   x.ta.classList.add("cmt-mirrored");
 }
 /* The comment box is drawn fresh with each redraw of the drawer; give it its layer each time. */
@@ -28488,17 +28612,28 @@ function redrawKey(el,root){ var parts=[], n=el;
     var d=n.getAttribute?(n.getAttribute("data-status")||n.getAttribute("data-sec")||n.getAttribute("data-col")||n.getAttribute("data-team")||n.getAttribute("data-day")||""):"";
     parts.unshift(n.tagName+(n.id?"#"+n.id:"")+(cls?"."+cls:"")+(d?"["+d+"]":"")); n=n.parentElement; }
   return parts.join(">"); }
-/* the elements that can scroll, each with its key and its place among those sharing the key */
+/* The app's scrollers, by name: the board and its columns, tables, the timeline, the calendar's lists, Messages,
+   the rows of tabs, chips and buttons that scroll sideways on a phone, the AI Hub's panels, text boxes. Any other
+   element keeps its place too when it carries data-keep-scroll. Every element on the screen used to be measured
+   four ways before and after each redraw to find the ones that scroll. */
+var REDRAW_SCROLLERS=[".kanban",".kcol-body",".tbl-wrap",".tlw",".cal-more-list",".calendar-mobile-controls",".cal-mobile-actions",
+  ".msg-timeline",".msg-nav-scroll",".msg-tabs",".msg-derived",".msg-dbody",".msg-shared-tabs",
+  ".tabs",".ptabs",".snav",".scr-nav",".rail-track",".task-stage-rail",".seg",".actions",".toolbar",".wb-chips",".panel-body",
+  ".ai-setup",".ai-props",".ai-layer-list",".ai-zoom-viewport",".ai-hs-track",".ai-expand-ratios",".ai-expand-stage-wrap",".ag-note p",
+  ".md-view pre",".md-wysiwyg pre",".ce-list",".annot-scroll",".scr-time-list",".scr-kdd-list",".ann-preview",".ann-pick-list",".cap-grant-list",
+  ".kb-folder-options",".tag-pick-list",".dependency-picker-results",".demo-user-list","textarea","[data-keep-scroll]"].join(",");
+/* each scroller with its key and its place among those sharing the key */
 function redrawScrollers(root,fn){ var seen={};
-  Array.prototype.forEach.call(root.querySelectorAll("*"),function(el){
-    if(el.scrollHeight<=el.clientHeight+1&&el.scrollWidth<=el.clientWidth+1) return;
+  Array.prototype.forEach.call(root.querySelectorAll(REDRAW_SCROLLERS),function(el){
     var k=redrawKey(el,root); seen[k]=(seen[k]||0)+1; fn(el,k+"#"+seen[k]); }); }
+/* is any of them scrolled? (only then are keys worked out) */
+function redrawAnyScrolled(root){ var l=root.querySelectorAll(REDRAW_SCROLLERS); for(var i=0;i<l.length;i++) if(l[i].scrollTop||l[i].scrollLeft) return true; return false; }
 function redrawFieldDirty(el){ if(el.type==="checkbox"||el.type==="radio") return el.checked!==el.defaultChecked;
   if(el.tagName==="SELECT"){ var d=Array.prototype.filter.call(el.options,function(o){ return o.defaultSelected; })[0]; return (d?d.value:(el.options[0]||{}).value)!==el.value; }
   return el.value!==el.defaultValue; }
 function redrawCapture(){ var root=document.getElementById("content"); if(!root) return null;
   var st={view:redrawView(),scroll:{},any:false,fields:null,focus:null};
-  redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
+  if(redrawAnyScrolled(root)) redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
   if(BG_REDRAW){ st.fields={};
     Array.prototype.forEach.call(root.querySelectorAll("input[id],select[id],textarea[id]"),function(el){ if(el.type==="file"||el.type==="hidden") return; if(redrawFieldDirty(el)) st.fields[el.id]={v:el.value,c:el.checked}; });
     var a=document.activeElement; if(a&&a.id&&root.contains(a)) st.focus={id:a.id,s:a.selectionStart,e:a.selectionEnd}; }

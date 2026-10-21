@@ -144,7 +144,12 @@ function pwToggleAttach(inp){ if(inp._pwt||!inp.parentNode) return; inp._pwt=tru
   var b=document.createElement("button"); b.type="button"; b.className="pw-eye"; b.tabIndex=0; b.setAttribute("aria-label",tr("Show password")); b.title=tr("Show password"); b.innerHTML=I.eye;
   b.onclick=function(e){ e.preventDefault(); var show=inp.type==="password"; inp.type=show?"text":"password"; b.classList.toggle("on",show); b.innerHTML=show?I.eyeoff:I.eye; b.setAttribute("aria-label",tr(show?"Hide password":"Show password")); b.title=tr(show?"Hide password":"Show password"); inp.focus(); };
   wrap.appendChild(b); }
-new MutationObserver(function(){ document.querySelectorAll('input[type="password"]:not([data-no-eye])').forEach(pwToggleAttach); }).observe(document.documentElement,{childList:true,subtree:true});
+/* only what was just added is looked at (the first time, the whole page): the whole page was searched at every change */
+var PW_EYE_SEEN_ALL=false;
+new MutationObserver(function(recs){ var sel='input[type="password"]:not([data-no-eye])', add=function(i){ pwToggleAttach(i); };
+  if(!PW_EYE_SEEN_ALL){ PW_EYE_SEEN_ALL=true; document.querySelectorAll(sel).forEach(add); return; }
+  for(var i=0;i<recs.length;i++){ var a=recs[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1||!n.isConnected) continue; if(n.tagName==="INPUT"){ if(n.matches(sel)) add(n); } else if(n.firstElementChild) n.querySelectorAll(sel).forEach(add); } }
+}).observe(document.documentElement,{childList:true,subtree:true});
 
 /* ---------- #5 creating a task: the panel closes, failures keep the draft ---------- */
 (function(){

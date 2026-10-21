@@ -40,6 +40,18 @@ test("a colleague's save keeps the board where it was scrolled, and what is type
     expect(await board.evaluate(el => el.scrollLeft), "sideways").toBe(before.left);
     expect(await col.evaluate(el => el.scrollTop), "down the column").toBe(before.top);
 
+    /* the Grid's table, scrolled down and sideways (Oct 2026: only the app's own scrollers are measured now) */
+    await page.evaluate(() => { S.taskView = "grid"; go("tasks", "grid"); });
+    const table = page.locator("#content .tbl-wrap").first();
+    await expect(table.locator("tbody tr").first()).toBeVisible();
+    await table.evaluate(el => { el.scrollTop = 200; el.scrollLeft = 120; });
+    const was = await table.evaluate(el => [el.scrollTop, el.scrollLeft]);
+    expect(was[0], "the table scrolls down").toBeGreaterThan(100);
+    await change(ids[5], "Live 5 — renamed while the Grid is scrolled");
+    await expect(page.locator('#content .tbl-wrap input[value="Live 5 — renamed while the Grid is scrolled"]')).toHaveCount(1, { timeout: 10000 });
+    expect(await page.locator("#content .tbl-wrap").first().evaluate(el => [el.scrollTop, el.scrollLeft]), "the table stays where it was").toEqual(was);
+    await page.evaluate(() => { S.taskView = "kanban"; });
+
     /* Settings: the SMTP password being typed survives a colleague's save, and goes out with Test connection */
     await page.goto("/settings/notifications"); await ready(page);
     const sent = [];

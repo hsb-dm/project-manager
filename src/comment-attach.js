@@ -91,7 +91,12 @@ function driveChipsFill(){
     driveLinkName(url).then(function(name){ if(!name) return; var s=a.querySelector(".lc-name")||a.querySelector("span"); if(s) s.textContent=name; });
   });
 }
-new MutationObserver(function(){ if(!DRIVE_CHIP_SCAN&&document.querySelector('[data-drive-pending="1"]')) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
+/* only what was just added is looked at (the first time, the whole page): the whole page was searched at every change */
+var DRIVE_CHIP_SEEN_ALL=false;
+new MutationObserver(function(recs){ if(DRIVE_CHIP_SCAN) return; var sel='[data-drive-pending="1"]', hit=false;
+  if(!DRIVE_CHIP_SEEN_ALL){ DRIVE_CHIP_SEEN_ALL=true; hit=!!document.querySelector(sel); }
+  for(var i=0;!hit&&i<recs.length;i++){ var a=recs[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType===1&&(n.matches(sel)||(n.firstElementChild&&n.querySelector(sel)))){ hit=true; break; } } }
+  if(hit) DRIVE_CHIP_SCAN=setTimeout(driveChipsFill,60); })
   .observe(document.documentElement,{childList:true,subtree:true});
 
 /* ---------- the comment box's toolbar ---------- */

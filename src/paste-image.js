@@ -327,13 +327,20 @@ window.addEventListener("resize",function(){ if(PASTE_TOOLS) pastePlaceTools(); 
    answering a moment after a tap redrew the panel and took the handle away until the mouse moved. */
 var PASTE_PTR={x:-1,y:-1};
 document.addEventListener("mousemove",function(e){ PASTE_PTR.x=e.clientX; PASTE_PTR.y=e.clientY; },true);
+/* Only when the panel holds a picture the handles could be for, and on the next frame: asking the page what is
+   under the pointer right after a redraw made the browser lay the whole page out there and then, at every redraw. */
+var PASTE_REDRAW_PEEK=false;
+function pasteEditableImages(){ var src=document.getElementById("descSrc"); if(!src) return false; var all=src.querySelectorAll("img.desc-img"); for(var i=0;i<all.length;i++) if(all[i].closest('[contenteditable="true"]')) return true; return false; }
+function pastePeekAfterRedraw(){ PASTE_REDRAW_PEEK=false;
+  if(PASTE_PTR.x<0||PASTE_SIZING||PASTE_TOOLS||!pasteEditableImages()) return;
+  var el=document.elementFromPoint(PASTE_PTR.x,PASTE_PTR.y), img=el&&el.closest?el.closest('#descSrc img.desc-img'):null;
+  if(!img&&el&&el.closest&&el.closest(".desc-img-size,.desc-img-x")){ var all=document.querySelectorAll("#descSrc img.desc-img"); for(var i=0;i<all.length;i++){ var r=all[i].getBoundingClientRect(); if(PASTE_PTR.x>=r.left-4&&PASTE_PTR.x<=r.right+4&&PASTE_PTR.y>=r.top-4&&PASTE_PTR.y<=r.bottom+4){ img=all[i]; break; } } }
+  if(img) pasteShowImageX(img,img.getAttribute("data-zc-att")); }
 (function(){
   if(typeof renderDrawer!=="function") return;
   var base=renderDrawer;
   renderDrawer=function(){ pasteHideImageX(); var out=base.apply(this,arguments);
-    if(PASTE_PTR.x>=0&&!PASTE_SIZING){ var el=document.elementFromPoint(PASTE_PTR.x,PASTE_PTR.y), img=el&&el.closest?el.closest('#descSrc img.desc-img'):null;
-      if(!img&&el&&el.closest&&el.closest(".desc-img-size,.desc-img-x")){ var all=document.querySelectorAll("#descSrc img.desc-img"); for(var i=0;i<all.length;i++){ var r=all[i].getBoundingClientRect(); if(PASTE_PTR.x>=r.left-4&&PASTE_PTR.x<=r.right+4&&PASTE_PTR.y>=r.top-4&&PASTE_PTR.y<=r.bottom+4){ img=all[i]; break; } } }
-      if(img) pasteShowImageX(img,img.getAttribute("data-zc-att")); }
+    if(PASTE_PTR.x>=0&&!PASTE_SIZING&&!PASTE_REDRAW_PEEK&&pasteEditableImages()){ PASTE_REDRAW_PEEK=true; requestAnimationFrame(pastePeekAfterRedraw); }
     return out; };
 })();
 

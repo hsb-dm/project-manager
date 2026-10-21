@@ -197,23 +197,49 @@ Object.assign(UI_ID,{
 /* ---------- Form labels (v29 a11y) ----------
    Many forms render <div class="field"><label>Name</label><input id="x"></div> without
    for= on the label, so screen readers announce an unnamed field. Link each such label
-   to the single control in its field (and name unlabeled selects from their label). */
+   to the single control in its field (and name unlabeled selects from their label).
+   Only what was added since the last frame is looked at — the nodes put on the page, and any field whose
+   controls changed — never the whole page again. A select's own .labels was read for every select on the
+   page at each frame, and each read walked the whole page: with 1,500 tasks the Grid's thousands of
+   selects took 34 of its 39 seconds. Whether a <label> names a select is now answered from the select's
+   own ancestors and the page's label[for] list, which is what .labels says. A select already handled is
+   marked and not looked at again unless its field changes. */
 (function(){
-  var pending=false;
-  function link(root){
-    (root||document).querySelectorAll(".field > label:not([for]), .field-row .field > label:not([for])").forEach(function(l){
-      var f=l.parentElement, ctl=f.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea");
+  var LABELS=".field > label:not([for])", SELECTS="select:not([aria-label]):not([aria-labelledby])",
+      CONTROLS="input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea";
+  var pending=false, whole=true, roots=[], handled=new WeakSet();
+  function each(root,sel,fn){ if(root.matches&&root.matches(sel)) fn(root); var l=root.querySelectorAll(sel); for(var i=0;i<l.length;i++) fn(l[i]); }
+  /* what select.labels.length>0 says: a <label> ancestor whose control is this select, or a label[for] its id */
+  function labelled(s,ctx){
+    for(var a=s.parentElement;a;a=a.parentElement) if(a.tagName==="LABEL"&&a.control===s) return true;
+    if(!s.id) return false;
+    if(!ctx.forIds){ ctx.forIds=new Set(); var ls=document.querySelectorAll("label[for]"); for(var i=0;i<ls.length;i++) ctx.forIds.add(ls[i].htmlFor); }
+    return ctx.forIds.has(s.id)&&document.getElementById(s.id)===s;
+  }
+  function link(list){
+    var ctx={}, seenL=new Set(), seenS=new Set();
+    list.forEach(function(r){ each(r.el,LABELS,function(l){ if(seenL.has(l)) return; seenL.add(l);
+      var f=l.parentElement, ctl=f.querySelectorAll(CONTROLS);
       if(ctl.length!==1) return; var c=ctl[0];
       if(!c.id) c.id="zcf_"+Math.random().toString(36).slice(2,9);
       l.htmlFor=c.id;
-    });
-    (root||document).querySelectorAll("select:not([aria-label]):not([aria-labelledby])").forEach(function(s){
-      if(s.labels&&s.labels.length) return;
+    }); });
+    list.forEach(function(r){ each(r.el,SELECTS,function(s){ if(seenS.has(s)||(!r.field&&handled.has(s))) return; seenS.add(s); handled.add(s);
+      if(labelled(s,ctx)) return;
       var f=s.closest(".field,.pref"), l=f&&f.querySelector("label,.pl b,b");
       if(l&&l.textContent.trim()) s.setAttribute("aria-label",l.textContent.trim().slice(0,80));
-    });
+    }); });
   }
-  new MutationObserver(function(){ if(pending) return; pending=true; requestAnimationFrame(function(){ pending=false; try{ link(document); }catch(e){} }); }).observe(document.documentElement,{childList:true,subtree:true});
+  new MutationObserver(function(recs){
+    /* the first frame looks at the whole page once, as before; after that only what changed */
+    if(!whole) for(var i=0;i<recs.length;i++){ var a=recs[i].addedNodes, t=recs[i].target;
+      for(var j=0;j<a.length;j++) if(a[j].nodeType===1) roots.push({el:a[j],field:false});
+      var f=t.nodeType===1&&t.closest(".field,.pref"); if(f) roots.push({el:f,field:true}); }
+    if(pending) return; pending=true;
+    requestAnimationFrame(function(){ pending=false; var list=roots; roots=[];
+      if(whole){ whole=false; list=[{el:document.documentElement,field:true}]; }
+      try{ link(list.filter(function(r){ return r.el.isConnected; })); }catch(e){} });
+  }).observe(document.documentElement,{childList:true,subtree:true});
 })();
 </script>
 <script>
@@ -259,22 +285,34 @@ Object.assign(UI_ID,{"Can't reach the ZenCrevia server":"Server ZenCrevia tidak 
 })();
 /* 3. Dialog semantics + focus return. The modal and task drawer trapped focus and closed on
    Esc, but screen readers were not told they were dialogs, and focus was left on a hidden
-   button after closing instead of returning to what opened it. */
+   button after closing instead of returning to what opened it.
+   Focus goes back once, when the last open dialog closes — not after every redraw. This used to run on
+   any class change anywhere on the page and, whenever focus had fallen to the page itself (a redraw
+   replaced the focused control), pulled it onto a control found by scanning every [onclick] element,
+   so focus moved by itself. What opened the dialog is remembered when the dialog opens. */
 (function(){
-  var last=null;
+  var last=null, lastSig=null, wasOpen=false;
+  function set(el,k,v){ if(el.getAttribute(k)!==v) el.setAttribute(k,v); }
   function mark(){ var m=document.getElementById("modal"), d=document.getElementById("drawer");
-    if(m){ m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); var h=m.querySelector("h2,h3,.modal-title,.mh b,.mh h2"); if(h){ if(!h.id) h.id="modalTitle"; m.setAttribute("aria-labelledby",h.id); } }
-    if(d){ d.setAttribute("role","dialog"); d.setAttribute("aria-modal","true"); var t=d.querySelector(".dr-title"); if(t){ if(!t.id) t.id="drawerTitle"; d.setAttribute("aria-labelledby",t.id); } } }
-  var lastSig=null;
-  document.addEventListener("focusin",function(e){ var t=e.target; if(t&&t.closest&&!t.closest("#modalWrap,#drawer,#overlay")){ last=t; lastSig={id:t.id,click:t.getAttribute&&t.getAttribute("onclick"),text:(t.innerText||"").trim().slice(0,40)}; } },true);
+    if(m){ set(m,"role","dialog"); set(m,"aria-modal","true"); var h=m.querySelector("h2,h3,.modal-title,.mh b,.mh h2"); if(h){ if(!h.id) h.id="modalTitle"; set(m,"aria-labelledby",h.id); } }
+    if(d){ set(d,"role","dialog"); set(d,"aria-modal","true"); var t=d.querySelector(".dr-title"); if(t){ if(!t.id) t.id="drawerTitle"; set(d,"aria-labelledby",t.id); } } }
+  function isOpen(){ var m=document.getElementById("modalWrap"), d=document.getElementById("drawer"); return !!((m&&m.classList.contains("open"))||(d&&d.classList.contains("open"))); }
+  function sig(t){ return t?{id:t.id,click:t.getAttribute&&t.getAttribute("onclick"),text:(t.innerText||"").trim().slice(0,40)}:null; }
+  document.addEventListener("focusin",function(e){ var t=e.target; if(t&&t.closest&&!t.closest("#modalWrap,#drawer,#overlay")){ last=t; lastSig=wasOpen?sig(t):null; } },true);
   /* the opener is often re-rendered while the dialog is open; find its replacement */
   function opener(){ if(last&&document.contains(last)) return last; if(!lastSig) return null;
     if(lastSig.id){ var byId=document.getElementById(lastSig.id); if(byId) return byId; }
-    if(lastSig.click){ var c=[].slice.call(document.querySelectorAll("[onclick]")).filter(function(x){ return x.getAttribute("onclick")===lastSig.click&&x.offsetParent&&!x.closest("#modalWrap,#drawer"); }); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===lastSig.text; }); if(t.length) return t[0]; }
+    if(lastSig.click){ var c=[].slice.call(document.querySelectorAll('[onclick="'+CSS.escape(lastSig.click)+'"]')).filter(function(x){ return x.offsetParent&&!x.closest("#modalWrap,#drawer"); }); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===lastSig.text; }); if(t.length) return t[0]; }
     return null; }
-  new MutationObserver(function(){ mark();
-    var open=document.querySelector("#modalWrap.open,#drawer.open");
-    if(!open&&(document.activeElement===document.body||!document.activeElement||document.activeElement.closest&&document.activeElement.closest("#modalWrap,#drawer"))){ var o=opener(); if(o){ try{ o.focus({preventScroll:true}); }catch(e){} } }
-  }).observe(document.body,{attributes:true,subtree:true,attributeFilter:["class"],childList:false});
+  function changed(recs){ mark(); var now=isOpen(), was=wasOpen||(recs||[]).some(function(r){ return /(^|\s)open(\s|$)/.test(r.oldValue||""); });
+    if(!was&&now) lastSig=sig(last);
+    if(was&&!now){ var a=document.activeElement;
+      if(a===document.body||!a||a.closest&&a.closest("#modalWrap,#drawer")){ if(!lastSig) lastSig=sig(last); var o=opener(); if(o){ try{ o.focus({preventScroll:true}); }catch(e){} } } }
+    wasOpen=now; }
+  var opens=new MutationObserver(changed), parts=new MutationObserver(function(){ mark(); });
+  ["modalWrap","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) opens.observe(el,{attributes:true,attributeFilter:["class"],attributeOldValue:true}); });
+  /* the dialog's title is drawn again with its content */
+  ["modal","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) parts.observe(el,{childList:true,subtree:true}); });
+  mark(); wasOpen=isOpen();
 })();
 </script>

@@ -685,14 +685,26 @@ function uiDynamicText(text){
  return out.split(" · ").map(function(part){return UI_ID[part]||part;}).join(" · ");
 }
 var UI_TEXT_SOURCE=new WeakMap(),UI_ATTR_SOURCE=new WeakMap();
-function uiContentNode(el){return !!el.closest('textarea,script,style,pre,code,[contenteditable],[data-no-translate],.md,.t,.kt,.at,.tn,.td,.lbl,.me-name,#wsName,#wsLogo,.tbadge,.av,.kb-tree button span');}
+var UI_CONTENT_SEL='textarea,script,style,pre,code,[contenteditable],[data-no-translate],.md,.t,.kt,.at,.tn,.td,.lbl,.me-name,#wsName,#wsLogo,.tbadge,.av,.kb-tree button span';
+function uiContentNode(el){return !!el.closest(UI_CONTENT_SEL);}
+/* Has Indonesian been shown in this page? Until it has, English text is already what it should be and there is
+   nothing to put back, so the walk is skipped. Once it has, English walks go on: they restore what was translated. */
+var UI_ID_SHOWN=false;
 function localizeVisibleText(root){
  if(!root)return;
- var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[],n;
- while(n=w.nextNode())nodes.push(n);
+ if(UI_LANG==="id")UI_ID_SHOWN=true;else if(!UI_ID_SHOWN)return;
+ /* user content (names, titles, written text) is skipped a whole subtree at a time */
+ var skipText=root.nodeType===1&&!!root.closest(UI_CONTENT_SEL);
+ var w=document.createTreeWalker(root,1|4/* SHOW_ELEMENT|SHOW_TEXT */,function(n){return n.nodeType===1?(n.matches(UI_CONTENT_SEL)?2/* REJECT */:3/* SKIP */):1/* ACCEPT */;}),nodes=[],n;
+ if(!skipText)while(n=w.nextNode())if(n.nodeType!==1)nodes.push(n);
+ var ids=null;/* the ids of projects, teams, pages and labels, once per call: an <option> naming one is user content */
  nodes.forEach(function(node){
-  var el=node.parentElement;if(!el||uiContentNode(el))return;
-  if(el.tagName==="OPTION"&&!el.closest('[data-ui-translate]')&&!(el.parentElement.getAttribute('onchange')||'').includes('.kind=')&&(PEOPLE[el.value]||[PROJECTS,TEAMS,KNOWLEDGE,WS.labels||[]].some(function(list){return list.some(function(x){return x.id===el.value;});})))return;
+  var el=node.parentElement;if(!el)return;
+  if(el.tagName==="OPTION"&&!el.closest('[data-ui-translate]')&&!(el.parentElement.getAttribute('onchange')||'').includes('.kind=')){
+   if(PEOPLE[el.value])return;
+   if(!ids){ids=new Set();[PROJECTS,TEAMS,KNOWLEDGE,WS.labels||[]].forEach(function(list){list.forEach(function(x){ids.add(x.id);});});}
+   if(ids.has(el.value))return;
+  }
   var previous=UI_TEXT_SOURCE.get(node),raw=previous&&node.nodeValue===previous.rendered?previous.source:node.nodeValue,trim=raw.trim();
   if(!trim)return;
   var translated=UI_LANG==="id"?_idt(UI_ID[trim]||uiDynamicText(trim)):trim,rendered=raw.replace(trim,translated);

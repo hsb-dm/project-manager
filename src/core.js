@@ -852,15 +852,18 @@ function clearWorkspaceData(){
      Empty the panes and the toasts so nothing of the last session is left to read. */
   ["drHead","drBody","drFoot","toasts"].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML=""; });
 }
-function renderScreen(withLoading){ var c=document.getElementById("content");
+/* true once renderScreen has drawn the screen and translated it: what is added to it afterwards (src/enhance.js)
+   is translated on its own instead of the whole screen being walked a second time */
+var RENDER_LOCALIZED=false;
+function renderScreen(withLoading){ var c=document.getElementById("content"); RENDER_LOCALIZED=false;
   /* The single place every screen is drawn. Without this guard the login overlay was the only
      thing in the way, and anything that re-rendered — clicking the logo, go(), a live update —
      painted the workspace straight over it. */
   if(!signedIn()){ if(typeof showLogin==="function") showLogin(); return; } c.className="content"+(S.screen==="tasks"||S.screen==="calendar"||S.screen==="projects"||S.screen==="messages"?" wide":"");
   if (withLoading){ c.innerHTML=skeleton(); return; }
-  if (S.search) return renderSearch();
+  if (S.search){ SEARCH_FROM_SCREEN=true; try { return renderSearch(); } finally { SEARCH_FROM_SCREEN=false; } }
   var map={home:renderDashboard,tasks:renderTasks,projects:renderProjects,calendar:renderCalendarScreen,teams:renderTeams,team:renderMember,assets:renderAssets,knowledge:renderKnowledge,aihub:renderAIHub,aigallery:renderAIGallery,messages:renderMessages,analytics:renderAnalytics,notifications:renderNotifScreen,settings:renderSettings};
-  try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); } catch(e){ console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
+  try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); RENDER_LOCALIZED=true; } catch(e){ RENDER_LOCALIZED=false; console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
 function refresh(){ refreshTaken(); AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
 function skeleton(){ var p='<div class="panel loading"><div class="panel-head"><div class="skel" style="width:140px"></div></div><div class="panel-body"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:85%"></div></div></div>'; return '<div class="pagehead"><div><div class="skel" style="width:120px;margin-bottom:8px"></div><div class="skel" style="width:260px;height:22px"></div></div></div><div class="grid g-2-1">'+p+p+'</div>'; }
 function panel(title,count,body,link,extra,icon,cls){ return '<section class="panel'+(cls?" "+cls:"")+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+title+'</h2>'+(count!==null&&count!==undefined?'<span class="cnt">'+count+'</span>':'')+'<span class="spacer"></span>'+(extra||'')+(link?'<span class="link" onclick="'+link+'">View all</span>':'')+'</div><div class="panel-body">'+body+'</div></section>'; }
@@ -880,20 +883,34 @@ function scheduleSearch(q){ clearTimeout(_searchTimer); if(!q.trim())return onSe
 /* Reached from the topbar input rather than renderScreen, so it carries its own guard. */
 function onSearch(q){ if(!signedIn()) return; clearTimeout(_searchTimer); _searchTimer=null; S.search=q.trim(); if (!S.search){ renderScreen(false); return; } renderSearch(); }
 function renderSearch(){ var q=S.search.toLowerCase(); var m=function(s){ return String(s||"").toLowerCase().indexOf(q)>=0; };
-  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||m(typeof descPlainText==="function"?descPlainText(x.description):x.description); }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
+  if(SEARCH_OPEN.q!==S.search) SEARCH_OPEN={q:S.search,keys:{}}; SEARCH_OPEN.localized=SEARCH_FROM_SCREEN; SEARCH_SECTIONS={};
+  var ts=TASKS.filter(function(x){ return m(x.title)||m(x.id)||m(x.tags.join(" "))||searchDescText(x).indexOf(q)>=0; }); var bs=TASKS.filter(function(x){ return x.brief&&Object.keys(x.brief).some(function(k){ return k!=="tpl"&&m(x.brief[k]); }); });
   var ps=PROJECTS.filter(function(x){ return m(x.name)||m(x.description); }); var tm=activeTeams().filter(function(t){ return m(t.name)||m(t.description); }); var us=Object.keys(PEOPLE).filter(function(id){ return m(PEOPLE[id].name)||m(PEOPLE[id].role)||m(PEOPLE[id].email); });
   var fs=[]; TASKS.forEach(function(t){ t.files.forEach(function(f){ if (m(f.name)) fs.push({t:t,f:f}); }); }); var as=ASSETS.filter(function(x){ return m(x.name)||m(x.tags.join(" ")); }); var ks=KNOWLEDGE.filter(function(x){ return m(x.title)||m(x.body); });
   var h='<div class="pagehead"><div><h1>Search</h1><div class="muted mono" style="margin-top:4px">“'+esc(S.search)+'”</div></div></div>'; var any=ts.length||ps.length||tm.length||us.length||fs.length||as.length||ks.length||bs.length;
   if (!any) h+='<div class="panel">'+emptyBox("Nothing matches “"+esc(S.search)+"”","Try a task id, a tag, a person, a team, a file name or a page title.")+'</div>';
-  if (ts.length) h+=panel("Tasks",ts.length,ts.map(function(x){ return taskRow(x); }).join(""));
-  if (bs.length) h+=panel("Briefs",bs.length,bs.map(function(x){ return taskRow(x); }).join(""));
-  if (ps.length) h+=panel("Projects",ps.length,projRows(ps));
-  if (tm.length) h+=panel("Teams",tm.length,tm.map(function(t){ return '<div class="row" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div class="t">'+esc(t.name)+'</div><div class="m">'+esc(t.description)+'</div></div><span class="due">'+teamMembers(t.id).length+' members</span></div>'; }).join(""));
-  if (us.length) h+=panel("People",us.length,us.map(function(id){ var p=PEOPLE[id]; return '<div class="row" onclick="go(\'team\',\''+id+'\')">'+av(id)+'<div style="min-width:0"><div class="t">'+esc(p.name)+'</div><div class="m">'+esc(p.role)+' · '+teamBadge(primaryTeam(id))+'</div></div><span></span></div>'; }).join(""));
-  if (fs.length) h+=panel("Files",fs.length,fs.map(function(x){ return '<div class="row" onclick="openTask(\''+x.t.id+'\');setTab(\'files\')"><span class="ficon" style="background:#475569">'+esc((x.f.name.match(/\.(\w+)$/)||["","file"])[1].slice(0,4))+'</span><div style="min-width:0"><div class="t">'+esc(x.f.name)+'</div><div class="m">'+esc(x.t.id)+' · '+esc(x.t.title)+'</div></div><span class="due">'+ago(x.f.ago,x.f.createdAt)+'</span></div>'; }).join(""));
-  if (as.length) h+=panel("Assets",as.length,as.map(function(a){ return '<div class="row" onclick="openAsset(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+assetChip(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(a.source)+' <span>'+esc(a.size)+'</span></div></div><span class="due">'+ago(a.ago,a.createdAt)+'</span></div>'; }).join(""));
-  if (ks.length) h+=panel("Knowledge",ks.length,ks.map(function(k){ return '<div class="row" onclick="go(\'knowledge\',\''+k.id+'\')"><span class="ficon" style="background:var(--color-ink)">doc</span><div style="min-width:0"><div class="t">'+esc(k.title)+'</div><div class="m">'+esc(k.folder)+'</div></div><span class="due">'+ago(k.ago,k.updatedAt)+'</span></div>'; }).join(""));
+  if (ts.length) h+=searchSection("tasks","Tasks",ts,function(x){ return taskRow(x); });
+  if (bs.length) h+=searchSection("briefs","Briefs",bs,function(x){ return taskRow(x); });
+  if (ps.length) h+=searchSection("projects","Projects",ps,function(p){ return projRows([p]); });
+  if (tm.length) h+=searchSection("teams","Teams",tm,function(t){ return '<div class="row" onclick="go(\'teams\',\''+t.id+'\')">'+teamIcon(t,true)+'<div style="min-width:0"><div class="t">'+esc(t.name)+'</div><div class="m">'+esc(t.description)+'</div></div><span class="due">'+teamMembers(t.id).length+' members</span></div>'; });
+  if (us.length) h+=searchSection("people","People",us,function(id){ var p=PEOPLE[id]; return '<div class="row" onclick="go(\'team\',\''+id+'\')">'+av(id)+'<div style="min-width:0"><div class="t">'+esc(p.name)+'</div><div class="m">'+esc(p.role)+' · '+teamBadge(primaryTeam(id))+'</div></div><span></span></div>'; });
+  if (fs.length) h+=searchSection("files","Files",fs,function(x){ return '<div class="row" onclick="openTask(\''+x.t.id+'\');setTab(\'files\')"><span class="ficon" style="background:#475569">'+esc((x.f.name.match(/\.(\w+)$/)||["","file"])[1].slice(0,4))+'</span><div style="min-width:0"><div class="t">'+esc(x.f.name)+'</div><div class="m">'+esc(x.t.id)+' · '+esc(x.t.title)+'</div></div><span class="due">'+ago(x.f.ago,x.f.createdAt)+'</span></div>'; });
+  if (as.length) h+=searchSection("assets","Assets",as,function(a){ return '<div class="row" onclick="openAsset(\''+a.id+'\')"><span class="ficon" style="background:'+attr(a.color)+'">'+assetChip(a)+'</span><div style="min-width:0"><div class="t">'+esc(a.name)+'</div><div class="m">'+srcBadge(a.source)+' <span>'+esc(a.size)+'</span></div></div><span class="due">'+ago(a.ago,a.createdAt)+'</span></div>'; });
+  if (ks.length) h+=searchSection("knowledge","Knowledge",ks,function(k){ return '<div class="row" onclick="go(\'knowledge\',\''+k.id+'\')"><span class="ficon" style="background:var(--color-ink)">doc</span><div style="min-width:0"><div class="t">'+esc(k.title)+'</div><div class="m">'+esc(k.folder)+'</div></div><span class="due">'+ago(k.ago,k.updatedAt)+'</span></div>'; });
   document.getElementById("content").innerHTML=h; }
+/* At most SEARCH_LIMIT results are drawn per section, with "Show all (N)" drawing the rest of that section where
+   the button was, without drawing the page again: a single letter matched every task, and all of them were drawn
+   twice (Tasks and Briefs) at each keystroke. A section opened stays open while the same words are searched.
+   A task's description is made plain text once per change of the task, not for every task at every keystroke. */
+var SEARCH_LIMIT=50, SEARCH_SECTIONS={}, SEARCH_OPEN={q:null,keys:{},localized:false}, SEARCH_DESC={}, SEARCH_FROM_SCREEN=false;
+function searchDescText(x){ var c=SEARCH_DESC[x.id]; if(c&&c.u===x.updatedAt&&c.d===x.description) return c.v;
+  var v=String((typeof descPlainText==="function"?descPlainText(x.description):x.description)||"").toLowerCase(); SEARCH_DESC[x.id]={u:x.updatedAt,d:x.description,v:v}; return v; }
+function searchSection(key,title,list,row){ SEARCH_SECTIONS[key]={list:list,row:row}; var all=SEARCH_OPEN.keys[key]||list.length<=SEARCH_LIMIT;
+  return panel(title,list.length,(all?list:list.slice(0,SEARCH_LIMIT)).map(row).join("")+(all?"":'<button type="button" class="btn sm ghost search-more" style="margin:8px 4px 2px" onclick="searchShowAll('+jsq(key)+',this)">'+tr("Show all")+' ('+list.length+')</button>')); }
+function searchShowAll(key,btn){ var sec=SEARCH_SECTIONS[key]; if(!sec||!btn||!btn.parentNode) return; SEARCH_OPEN.keys[key]=true;
+  var stop=btn.previousSibling, nodes=[]; btn.insertAdjacentHTML("beforebegin",sec.list.slice(SEARCH_LIMIT).map(sec.row).join(""));
+  for(var n=btn.previousSibling;n&&n!==stop;n=n.previousSibling) nodes.push(n);
+  btn.remove(); if(SEARCH_OPEN.localized) nodes.forEach(function(x){ if(x.nodeType===1) localizeVisibleText(x); }); }
 
 /* ---------- shared row renderers ---------- */
 /* §399 A personal "I have looked at this" tick.
@@ -1025,8 +1042,11 @@ function appScrollEl(){ return document.getElementById("appScroll")||document.sc
 function appScrollTop(y){ var el=appScrollEl(); if (y===undefined) return el?el.scrollTop:0; if (el) el.scrollTop=y; }
 /* §647 remember where each screen was left, restore it when coming back */
 var SCROLL_MEMORY={};
-function rememberScroll(){ if (S&&S.screen) SCROLL_MEMORY[S.screen]=appScrollTop(); }
-function restoreScroll(screen){ appScrollTop(SCROLL_MEMORY[screen]||0); }
+/* go() reads where the page is before drawing the next screen and sets it afterwards only when that differs:
+   setting it, even to the same place, made the browser lay the new screen out there and then. */
+var SCROLL_BEFORE=null;
+function rememberScroll(){ SCROLL_BEFORE=null; if (S&&S.screen) SCROLL_MEMORY[S.screen]=SCROLL_BEFORE=appScrollTop(); }
+function restoreScroll(screen){ var y=SCROLL_MEMORY[screen]||0, was=SCROLL_BEFORE; SCROLL_BEFORE=null; if (was===y) return; appScrollTop(y); }
 
 /* §386 default is Right, which is the behaviour every existing user has. */
 var TASK_PANEL_POSITIONS=["right","center","left"];
