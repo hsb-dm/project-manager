@@ -191,7 +191,7 @@ Builder bersama yang harus dipakai ulang (semua di `core.js`):
 | `auth.js` | layar login/register, `demoLogin` |
 | `gdrive.js` | Google Drive OAuth + upload |
 | `dashboard.js` | layar Home, kartu, preset layout |
-| `tasks.js` | 5 view task, filter bar, kanban, table, grid, calendar, timeline |
+| `tasks.js` | 5 view task, filter bar, kanban, table, grid, calendar, timeline; List/Grid/Kanban/Timeline hanya menggambar halaman pertama tiap grup (`VPAGE_SIZE`: 100 / 100 / 30 / 30) lalu "Show N more" menambah di tempat (`vpageGroup`, `vpageMore`; jumlah yang tampil disimpan di `S.vpage` per view, sort, filter, grup); `vpageAllIds()` = semua task view itu (Select all), `vpageOrder(el)` = urutan penuh untuk drop; grid hari Timeline digambar sekali (`.tl-days`) |
 | `drawer.js` | task drawer: header, meta, tab, versions, comments, activity, dependencies, gear menu |
 | `projects.js`, `teams.js`, `assets.js`, `knowledge.js` | layar masing-masing |
 | `ai.js` | AI Hub, generation, canvas compositor dasar, AI Intelligence chat |

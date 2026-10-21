@@ -198,6 +198,20 @@ setiap custom field. Tombol **Fields** memilih kolom mana yang tampil.
 arsiran akhir pekan, bar grup project, bar milestone (◆), dan satu bar per task.
 Seret bar untuk menggeser kedua tanggal; seret ujung kiri/kanannya untuk mengubah durasi.
 
+**Saat task-nya banyak** — List dan Grid menggambar 100 baris pertama (saat dikelompokkan: 100
+pertama di tiap grup), Kanban 30 kartu pertama di tiap kolom, dan Timeline 30 task pertama di tiap
+project. Di bawahnya tertulis berapa yang tampil (*100 dari 1577 tampil*) dan tombol
+**Show 100 more** (*Tampilkan 100 lagi*; di Kanban dan Timeline *Tampilkan 30 lagi*) menambahkan
+berikutnya di tempat, tanpa menggambar ulang layar.
+- Berapa yang sudah ditampilkan diingat untuk view, urutan, filter, dan grup itu, juga setelah refresh.
+- Jumlah task di judul halaman, angka di header grup, dan angka di header kolom selalu jumlah penuh.
+- **Select all** di mode pilih memilih semua task di view itu, termasuk yang belum digambar.
+- Kartu yang diseret ke ruang kosong kolom yang panjang jatuh setelah kartu terakhir yang tampil
+  (Sort Manual), jadi tetap terlihat.
+- Task yang dibuka dari pencarian, tautan, atau notifikasi tetap terbuka di panelnya walau barisnya
+  belum tampil; List tidak ikut bertambah.
+- **Print** dari browser tetap mencetak semua baris.
+
 ### Toolbar
 
 - **Mine / All** — cakupan
