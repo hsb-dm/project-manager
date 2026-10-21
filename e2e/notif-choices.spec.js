@@ -41,6 +41,12 @@ test("each person chooses what reaches them; the bell keeps to it; a role withou
     await expect(admin.locator('#modal [data-cap="choose_notifications"]')).toHaveClass(/\bon\b/);
     await admin.evaluate(() => closeModal());
 
+    /* the member has been shown around before: the Workspace Quest welcome opens 180 ms after a first sign-in and
+       would cover the checkbox below when the spec reaches it first */
+    const first = await browser.newContext(), fp = await first.newPage();
+    await signIn(fp, other);
+    await fp.evaluate(() => { myPrefs().onboardingDone = true; return saveMyPrefs(); });
+    await first.close();
     /* the member turns "Assigned to me" off in the bell; it goes from the bell at once */
     const two = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
     await signIn(two, other);
