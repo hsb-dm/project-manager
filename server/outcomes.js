@@ -144,6 +144,7 @@ module.exports = function outcomes(db, WS_ID, d) {
   const { route, HttpError, forbid, can, uid, now, tx, act, scoring, readTask, bumpData } = d;
   const META_KEY = "outcomes_sweep_v1";
   const SWEEP_MS = 10 * 60000;
+  const SWEEP_BATCH = 50;   /* changed tasks a step of the timers' sweep counts before the server may answer again */
   db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)");
 
   /* ---------- small helpers ---------- */
@@ -256,11 +257,13 @@ module.exports = function outcomes(db, WS_ID, d) {
     if (n) { touched.add(m.id); audit(actor, { action: "evidence_recounted", newValue: { counted: tally.evidence_counted || 0, changed: tally.evidence_updated || 0, revoked: tally.evidence_revoked || 0 }, meta: { metricId: m.id, kind: m.kind, type: m.rule.type } }); }
     return n;
   }
-  /* each metric whose counted total changed keeps its new actual in its history */
+  /* each metric whose counted total changed keeps its new actual in its history. snappedAt: when (a count, not a time)
+     each metric last got one, so a sweep that runs in steps adds one only for what changed after it (sweepInSteps) */
+  let snapSeq = 0; const snappedAt = new Map();
   function snapshot(touched, actor) {
     if (!touched.size) return;
     const T = tallies();
-    touched.forEach(id => { const r = metricRow(id); if (!r) return; const m = metricOut(metricRec(r), T); if (m.source !== "evidence" || m.actual === null) return;
+    touched.forEach(id => { snappedAt.set(id, ++snapSeq); const r = metricRow(id); if (!r) return; const m = metricOut(metricRec(r), T); if (m.source !== "evidence" || m.actual === null) return;
       db.prepare("INSERT INTO outcome_values (id,workspace_id,metric_id,value,source,reason,actor_id,created_at) VALUES (?,?,?,?,?,?,?,?)").run(uid("ov"), WS_ID, id, m.actual, "evidence", null, actor ? actor.id : null, now()); });
   }
   /* after a task is written (registered with server/scoring.js's onTaskWritten): that task, against every counting metric */
@@ -284,25 +287,73 @@ module.exports = function outcomes(db, WS_ID, d) {
   /* The sweep: the tasks changed since the last one, against the metrics of each switch that stayed on; a switch that
      has come on since counts its metrics again from scratch. Remembers when it ran and what was on (app_meta). */
   function cursor() { try { const r = db.prepare("SELECT value FROM app_meta WHERE key=?").get(META_KEY); return r ? J(r.value, {}) : {}; } catch (e) { return {}; } }
+  const writeCursor = (started, k) => db.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(META_KEY, JSON.stringify({ at: started, kpi: !!k.kpi, kr: !!k.kr }));
+  let sweeps = 0;   /* how many sweeps have run whole (sweepInSteps leaves the cursor to one that ran meanwhile) */
   function sweep(user) {
     if (!scoring.featureOn()) return 0;
+    sweeps++;
     const k = kinds(), c = cursor(), started = now(), touched = new Set(); let n = 0;
     run(() => {
       const fresh = ["kpi", "kr"].filter(x => k[x] && !(c.at && c[x])), kept = ["kpi", "kr"].filter(x => k[x] && c.at && c[x]);
       if (fresh.length) counting(k).filter(m => fresh.indexOf(m.kind) >= 0).forEach(m => { n += metricInner(m, user || null, touched); });
       if (kept.length) { const ms = counting(k).filter(m => kept.indexOf(m.kind) >= 0); if (ms.length) tasks("t.updated_at >= ?", [c.at]).forEach(t => { n += taskInner(t, ms, user || null, touched); }); }
       snapshot(touched, user || null);
-      db.prepare("INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(META_KEY, JSON.stringify({ at: started, kpi: !!k.kpi, kr: !!k.kr }));
+      writeCursor(started, k);
     });
     if (n && bumpData) bumpData();
     return n;
+  }
+  /* The timers' sweep (Oct 2026, performance): the same work in steps — a metric counted again from scratch, or
+     SWEEP_BATCH changed tasks — each its own transaction, with the server free to answer in between (setImmediate), so
+     a sweep over many tasks never holds a request for half a second. Each step reads the metrics again (one edited or
+     removed meanwhile is counted as it is now); every step is idempotent, as the sweep is. At the end, the history of
+     each metric it changed — unless something else has recorded it since — and the cursor; the cursor stays as it was
+     when a switch changed or a whole sweep (a read's catch-up) ran meanwhile, so the next sweep looks again. */
+  let stepping = false;
+  function sweepInSteps(done) {
+    const finish = n => { stepping = false; if (n && bumpData) bumpData(); if (done) done(n); };
+    if (stepping || !scoring.featureOn()) { if (done) done(0); return; }
+    stepping = true;
+    let n = 0, i = 0, plan = null;
+    const touchedSeq = new Map(), mark = touched => touched.forEach(id => touchedSeq.set(id, snapSeq));
+    const make = () => {
+      const k = kinds(), c = cursor(), started = now(), jobs = [];
+      const fresh = ["kpi", "kr"].filter(x => k[x] && !(c.at && c[x])), kept = ["kpi", "kr"].filter(x => k[x] && c.at && c[x]);
+      if (fresh.length) counting(k).filter(m => fresh.indexOf(m.kind) >= 0).forEach(m0 => jobs.push(() => {
+        const r = metricRow(m0.id); if (!r) return;
+        const m = metricRec(r); if (fresh.indexOf(m.kind) < 0) return;
+        const touched = new Set(); n += metricInner(m, null, touched); mark(touched);
+      }));
+      if (kept.length && counting(k).some(m => kept.indexOf(m.kind) >= 0)) {
+        const list = tasks("t.updated_at >= ?", [c.at]);
+        for (let at = 0; at < list.length; at += SWEEP_BATCH) {
+          const part = list.slice(at, at + SWEEP_BATCH);
+          jobs.push(() => {
+            const ms = counting(kinds()).filter(m => kept.indexOf(m.kind) >= 0); if (!ms.length) return;
+            const touched = new Set(); part.forEach(t => { n += taskInner(t, ms, null, touched); }); mark(touched);
+          });
+        }
+      }
+      return { k, started, sweeps, jobs };
+    };
+    const step = () => {
+      try {
+        if (!plan) plan = make();
+        if (i < plan.jobs.length) { run(plan.jobs[i++]); return setImmediate(step); }
+        const due = new Set(); touchedSeq.forEach((seq, id) => { if ((snappedAt.get(id) || 0) <= seq) due.add(id); });
+        const k = kinds(), same = k.kpi === plan.k.kpi && k.kr === plan.k.kr && sweeps === plan.sweeps;
+        run(() => { snapshot(due, null); if (same) writeCursor(plan.started, plan.k); });
+        finish(n);
+      } catch (e) { console.error("[outcomes] " + e.message); finish(n); }
+    };
+    step();
   }
   /* before a read: never behind, and a failure here never stops the read (what it counts is the server's doing, not the
      reader's: no actor) */
   function catchUp() { try { sweep(null); } catch (e) { console.error("[outcomes] " + e.message); } }
   if (scoring.onTaskWritten) scoring.onTaskWritten((taskId, user) => { try { evaluateTask(taskId, user); } catch (e) { console.error("[outcomes] " + e.message); } });
-  setTimeout(() => catchUp(), 3000).unref();
-  setInterval(() => catchUp(), SWEEP_MS).unref();
+  setTimeout(() => sweepInSteps(), 3000).unref();
+  setInterval(() => sweepInSteps(), SWEEP_MS).unref();
 
   /* ---------- what is sent in ---------- */
   const text = (v, max, what, need) => { const s = String(v == null ? "" : v).replace(/\r\n/g, "\n").trim(); if (need && !s) throw new HttpError(400, "A " + what + " is required"); if (s.length > max) throw new HttpError(400, "The " + what + " is too long (" + max.toLocaleString("en-US") + " characters at most)"); return s; };
@@ -556,7 +607,7 @@ module.exports = function outcomes(db, WS_ID, d) {
     return forTask(u, p.id);
   });
 
-  return { evaluateTask, evaluateMetric, sweep, forTask, state };
+  return { evaluateTask, evaluateMetric, sweep, sweepInSteps, forTask, state };
 };
 /* the arithmetic, without a database, for the tests (tests/scoring-sanity.test.js, tests/outcomes.test.js) */
 module.exports.pure = { wanted, metricProgress, objectiveProgress, filterMatches, successful, inPeriod, localDay, ruleOf, SENTENCES };

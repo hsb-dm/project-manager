@@ -24,6 +24,14 @@ const SCORING_FEATURE = process.env.COS_SCORING !== "0";
 const PUBLIC = path.join(__dirname, "..", "public");
 /* v36: files the server creates (database, logs, backups, outbox) are owner-only. */
 if (process.platform !== "win32") process.umask(0o077);
+/* Static files and large JSON replies, compressed in the background (server/delivery.js). The page's compression
+   starts here, on libuv's thread pool, while the database opens and the modules load, so it is usually ready before
+   the server listens; its smallest copy is kept in the data folder (page-cache) for the next start. */
+const delivery = require("./delivery");
+const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json" };
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
+const staticFiles = delivery.createStatic({ mime: MIME, compressible: COMPRESSIBLE, cacheDir: path.join(require("./db").DATA_DIR, "page-cache") });
+try { staticFiles.entry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
 let db = open();
 const FIRST_START = !db.prepare("SELECT 1 FROM workspaces LIMIT 1").get();
 require("./preflight").run({ firstStart: FIRST_START });
@@ -791,12 +799,17 @@ function bootstrapTasksFresh() {
   return { tasks, taskWindow: { hotDays: HOT_DAYS, slim: cold.length, full: hot.length } };
 }
 route("GET", "/api/tasks/:id", (u, p) => { const t = sz.readTask(db, p.id); if (!t || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found"); return forViewer(u, t); });
-route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), {
+/* Oct 2026 (performance): the shared task list is also written as JSON once per change (some 13 ms at 1,500 tasks),
+   kept with the list it was written from; whoever sees it filtered (a stakeholder, or someone without progress notes)
+   still has their own written each time. The reply's text is the same as JSON.stringify of the whole (server/delivery.js). */
+const TASKS_JSON = new WeakMap();
+function bootstrapTasksJson(bt) { let j = TASKS_JSON.get(bt); if (j === undefined) { j = JSON.stringify(bt.tasks); TASKS_JSON.set(bt, j); } return j; }
+route("GET", "/api/bootstrap", (u) => (sz.sweepArchive(db, WS_ID), delivery.withParts({
   me: u, ws: workspaceFor(u), teams: sz.readTeams(db, WS_ID), people: sz.readPeople(db, WS_ID), projects: sz.readProjects(db, WS_ID),
-  ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : bt)(bootstrapTasks()),
+  ...((bt) => (u.stakeholder || !can.progressView(u)) ? Object.assign({}, bt, { tasks: bt.tasks.map(t => forViewer(u, t)) }) : Object.assign({}, bt, { tasks: delivery.rawJson(bootstrapTasksJson(bt)) }))(bootstrapTasks()),
   requests: sz.readRequests(db, WS_ID), folders: sz.readFolders(db, WS_ID), assets: sz.readAssets(db, WS_ID), knowledge: sz.readKnowledge(db, WS_ID), knowledgeFolders: sz.readKnowledgeFolders(db, WS_ID),
   savedViews: sz.readViews(db, WS_ID, u.id), notifs: readNotifsFor(u.id), customEmoji: readEmoji(), activity: sz.readActivity(db, WS_ID, 200), roles: readRoles(), caps: CAPS, capGrants: can.manageRoles(u) ? capGrantsAll() : [], pendingMembers: can.approveMembers(u) ? sz.readPending(db, WS_ID) : [], mail: { transport: mailer.activeConfig().transport }, features: { impersonation: ALLOW_IMPERSONATION, scoring: SCORING_FEATURE },
-}));
+})));
 route("GET", "/api/analytics", (u, p, q) => { forbid(can.viewAnalytics(u), "view analytics"); return analytics.compute(db, WS_ID, +(q.weeks || 8), /^\d{4}-\d{2}-\d{2}$/.test(q.to || "") ? q.to : null); });
 /* ---------- AI proxies: the browser never sees the provider key ---------- */
 const aiConf = (kind, purpose, chatModelId) => {
@@ -2095,73 +2108,34 @@ route("POST", "/api/reset", (u, p, q, b, ctx) => { forbid(can.manageWorkspace(u)
 route("GET", "/api/auth/status", () => { const ws = db.prepare("SELECT name, logo, allow_registration, invite_code FROM workspaces WHERE id=?").get(WS_ID); return { workspace: ws.name, logo: ws.logo, allowRegistration: !!ws.allow_registration, joinCodeRequired: !!ws.invite_code }; });
 
 /* ---------- server ---------- */
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json" };
-/* v29 static delivery: the app shell is ~1.7 MB of text. Serve it compressed
-   (brotli, then gzip), with a strong ETag so repeat visits cost one 304 instead of a
-   full download. The shell revalidates every load (no-cache) so deploys show up
-   immediately; nothing is cached without revalidation. Compressed bodies are cached
-   in memory per file and rebuilt when the file's mtime or size changes. */
-const zlib = require("zlib");
-const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
-const BR_BEST_FROM = 256 * 1024;   /* files above this are compressed again at the highest quality, in the background */
-const staticCache = new Map();
-function staticEntry(file) {
-  const st = fs.statSync(file), key = st.mtimeMs + ":" + st.size, hit = staticCache.get(file);
-  if (hit && hit.key === key) return hit;
-  const raw = fs.readFileSync(file), ext = path.extname(file);
-  const entry = { key, raw, type: MIME[ext] || "application/octet-stream", etag: '"' + crypto.createHash("sha1").update(raw).digest("base64url") + '"' };
-  if (COMPRESSIBLE.has(ext) && raw.length > 1024) {
-    entry.br = zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } });
-    entry.gzip = zlib.gzipSync(raw, { level: 9 });
-    /* A large file — the page itself, about 3.5 MB — is compressed again at brotli's highest quality in the background
-       (Oct 2026): quality 11 takes some 8 s for it, too long to hold a request, and sends about 8% less (790 KB
-       where quality 9 sends 858 KB). Until it is ready the quality-9 copy above is sent; it is taken only if the file
-       has not changed meanwhile, and only if it is smaller. */
-    if (raw.length > BR_BEST_FROM) {
-      entry.brBest = false;
-      zlib.brotliCompress(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length } }, (err, best) => {
-        if (!err && staticCache.get(file) === entry && best.length < entry.br.length) entry.br = best;
-        entry.brBest = true;
-      });
-    }
-  }
-  staticCache.set(file, entry); return entry;
-}
-function acceptedEncoding(req, entry) {
-  const ae = String(req.headers["accept-encoding"] || "");
-  if (entry.br && /\bbr\b/.test(ae)) return "br";
-  if (entry.gzip && /\bgzip\b/.test(ae)) return "gzip";
-  return null;
-}
+/* v29 static delivery: the app shell, 3.6 MB of text, is sent compressed (brotli, else gzip) with a strong ETag, so
+   repeat visits cost one 304 instead of a full download. The shell revalidates every load (no-cache) so deploys show
+   up immediately; nothing is cached without revalidation. Since Oct 2026 every copy is compressed in the background
+   (server/delivery.js, started at the top of this file) — never on this thread inside a request — and the page's
+   smallest copy is kept in the data folder for the next start. */
 function sendStatic(req, res, file) {
-  const e = staticEntry(file);
   security.applyHeaders(res);
-  const headers = { "Content-Type": e.type, "ETag": e.etag, "Vary": "Accept-Encoding", "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : "public, max-age=3600, must-revalidate" }; /* the service worker checks for itself on every load, so an update reaches everyone at once */
-  if (req.headers["if-none-match"] === e.etag) { res.writeHead(304, headers); return res.end(); }
-  const enc = acceptedEncoding(req, e), body = enc ? e[enc] : e.raw;
-  if (enc) headers["Content-Encoding"] = enc;
-  headers["Content-Length"] = body.length;
-  res.writeHead(200, headers); res.end(req.method === "HEAD" ? undefined : body);
+  staticFiles.send(req, res, file, e => ({ "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : "public, max-age=3600, must-revalidate" })); /* the service worker checks for itself on every load, so an update reaches everyone at once */
 }
 /* The version of the page being served, as build.js stamps it (<meta name="zc-build">). Every API reply says it, so a
    tab left open across an update — which keeps running the page it loaded — offers to reload (src/new-version.js).
-   Read again whenever the file changes, so a `git pull` is enough for the page. */
+   Read again whenever the file changes, so a `git pull` is enough for the page (its compression then starts in the
+   background; this reply does not wait for it). */
 let PAGE_BUILD = { key: "", id: "" };
 function pageBuild() {
   try {
-    const e = staticEntry(path.join(PUBLIC, "index.html"));
+    const e = staticFiles.entry(path.join(PUBLIC, "index.html"));
     if (e.key !== PAGE_BUILD.key) { const m = /<meta name="zc-build" content="([\w-]{1,40})">/.exec(e.raw.toString("utf8", 0, 4096)); PAGE_BUILD = { key: e.key, id: m ? m[1] : "" }; }
     return PAGE_BUILD.id;
   } catch (e) { return ""; }
 }
+/* a large reply is compressed in the background (server/delivery.js); the start-up data's task list is written as JSON
+   once per change (bootstrapTasksJson) */
 function sendJson(req, res, status, obj) {
   security.applyHeaders(res);
-  let body = Buffer.from(JSON.stringify(obj));
   const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "Vary": "Accept-Encoding" };
   const build = pageBuild(); if (build) headers["X-ZC-Build"] = build;
-  if (body.length > 2048 && /\bgzip\b/.test(String(req.headers["accept-encoding"] || ""))) { body = zlib.gzipSync(body, { level: 6 }); headers["Content-Encoding"] = "gzip"; }
-  headers["Content-Length"] = body.length;
-  res.writeHead(status, headers); res.end(body);
+  delivery.sendJson(req, res, status, obj, headers);
 }
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
@@ -2253,8 +2227,8 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(PORT, () => {
   console.log("ZenCrevia running at http://localhost:" + server.address().port + "  (db: " + require("./db").DB_PATH + ")");
-  /* the page's background compression starts now, not on the first visit */
-  try { staticEntry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
+  /* the page's background compression started when this file was loaded; a page built since starts its own now */
+  try { staticFiles.entry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
 });
 /* v36 graceful shutdown (systemd/pm2 stop, deploys): stop accepting connections, end live
    streams, let requests in flight finish (max 8 s), then checkpoint and close the database so

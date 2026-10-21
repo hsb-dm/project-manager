@@ -72,8 +72,11 @@ const NAME = { hours: "Effort Hours", story: "Story Points", weighted: "Weighted
 const LOCKED = new Set(["approved", "locked", "rebaseline_needed"]);
 /* the stages where work has started */
 const WORK_KINDS = new Set(["work", "review", "revision"]);
+const SWEEP_BATCH = 50;   /* tasks the timers' sweep re-evaluates before it lets the server answer again */
 const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
 const parse = (v, dflt) => { if (v == null || v === "") return dflt; try { return JSON.parse(v); } catch (e) { return dflt; } };
+/* an object and everything in it made read-only (the settings every caller shares) */
+function deepFreeze(v) { if (v && typeof v === "object" && !Object.isFrozen(v)) { Object.freeze(v); Object.keys(v).forEach(k => deepFreeze(v[k])); } return v; }
 
 /* The kind of work a task's title names, from the workspace's kinds of work (settings.kinds; without them the engine's
    built-ins) through the engine's one matcher (the page's too): keywords as whole words, the first kind in the list
@@ -163,7 +166,19 @@ module.exports = function scoring(db, WS_ID, d) {
   const TASK_AUDIT = 50;   /* the changes a task's scores show */
   const STALE = "Someone else changed this score in the meantime. Reload it and try again.";
 
-  function settings() { const r = db.prepare("SELECT scoring_settings FROM workspaces WHERE id=?").get(WS_ID); return model.normalizeSettings(r ? r.scoring_settings : null); }
+  /* The settings, read on every call — a task save asks some ten times, a sweep once per task — but parsed and normalized
+     only when the stored text changes (Oct 2026, performance: normalizing took about 0.15 ms each time). Whoever writes
+     the column — PUT /api/scoring/settings, a restore, an import — needs to do nothing: a different text is normalized
+     again. The object is shared, so it is frozen all the way down; a caller that wants to change it copies it first. */
+  let settingsStmt = null, settingsMemo = { text: undefined, value: null };
+  function settings() {
+    if (!settingsStmt) settingsStmt = db.prepare("SELECT scoring_settings FROM workspaces WHERE id=?");
+    const r = settingsStmt.get(WS_ID), text = r ? r.scoring_settings : null;
+    if (settingsMemo.value && settingsMemo.text === text) return settingsMemo.value;
+    const value = deepFreeze(model.normalizeSettings(text));
+    settingsMemo = { text, value };
+    return value;
+  }
   /* one row of the audit: what was done to what, by whom (and who was acting as them), the old and new value, why */
   function audit(e) {
     const id = uid("sa"), json = v => v === undefined || v === null ? null : JSON.stringify(v);
@@ -454,19 +469,47 @@ module.exports = function scoring(db, WS_ID, d) {
   }
   /* the tasks changed since the last sweep (and those whose time log changed), re-evaluated; nothing while it is off,
      so turning it on catches up with everything changed in between */
-  function sweep() {
-    if (!isOn()) return 0;
+  function sweepPlan() {
     db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)");
     const since = (db.prepare("SELECT value FROM app_meta WHERE key='scoring_sweep_at'").get() || {}).value || "", started = now();
     const ids = new Set(db.prepare("SELECT id FROM tasks WHERE workspace_id=? AND coalesce(updated_at,'') > ?").all(WS_ID, since).map(r => r.id));
     try { db.prepare("SELECT DISTINCT task_id FROM task_time_entries WHERE workspace_id=? AND (created_at > ? OR coalesce(edited_at,'') > ? OR coalesce(deleted_at,'') > ?)").all(WS_ID, since, since, since).forEach(r => ids.add(r.task_id)); } catch (e) { /* no time log */ }
-    const changed = [];
-    ids.forEach(id => { try { if (evaluate(id, null, { via: "sweep" })) changed.push(id); } catch (e) { console.error("[scoring] sweep " + id + ": " + (e && e.message)); } });
-    db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('scoring_sweep_at', ?)").run(started);
+    return { ids: [...ids], started, changed: [] };
+  }
+  const sweepOne = (plan, id) => { try { if (evaluate(id, null, { via: "sweep" })) plan.changed.push(id); } catch (e) { console.error("[scoring] sweep " + id + ": " + (e && e.message)); } };
+  function sweepDone(plan) {
+    const changed = plan.changed;
+    db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('scoring_sweep_at', ?)").run(plan.started);
     if (changed.length) { bumpData(); if (changed.length <= 50) changed.forEach(id => { try { announce(id); } catch (e) { /* best effort */ } }); console.log("[scoring] sweep: " + changed.length + " task(s) re-evaluated with changes"); }
     return changed.length;
   }
-  const sweepSafe = () => { try { sweep(); } catch (e) { console.error("[scoring] sweep: " + (e && e.message)); } };
+  function sweep() {
+    if (!isOn()) return 0;
+    const plan = sweepPlan();
+    plan.ids.forEach(id => sweepOne(plan, id));
+    return sweepDone(plan);
+  }
+  /* The timers' sweep (Oct 2026, performance): the same, SWEEP_BATCH tasks at a time with the server free to answer in
+     between (setImmediate), so a sweep over many tasks — every task, on the first start after an update — never holds
+     a request for half a second. Each task is its own transaction, as above; the time it remembers is taken at the
+     start, so a task written while it runs is looked at again next time. One at a time. */
+  let sweeping = false;
+  function sweepInBatches(done) {
+    if (sweeping || !isOn()) { if (done) done(0); return; }
+    sweeping = true;
+    let plan, i = 0;
+    const finish = n => { sweeping = false; if (done) done(n); };
+    const step = () => {
+      try {
+        if (!plan) plan = sweepPlan();
+        for (const end = Math.min(plan.ids.length, i + SWEEP_BATCH); i < end; i++) sweepOne(plan, plan.ids[i]);
+        if (i < plan.ids.length) return setImmediate(step);
+        finish(sweepDone(plan));
+      } catch (e) { console.error("[scoring] sweep: " + (e && e.message)); finish(0); }
+    };
+    step();
+  }
+  const sweepSafe = () => sweepInBatches();
 
   /* Once: an Effort Hours row for every task with an estimate, from that estimate and where it came from — unverified,
      nothing locked, the task's own number never rewritten. In one transaction; the counts are logged and kept. */
@@ -799,7 +842,7 @@ module.exports = function scoring(db, WS_ID, d) {
     extendView: fn => { if (typeof fn === "function") extenders.push(fn); },
     liveCollection: (kind, fn) => { if (typeof fn === "function") live[kind] = fn; },
     liveRead: (kind, u) => (Object.prototype.hasOwnProperty.call(live, kind) ? live[kind](u) : null),
-    sweep, backfill, scopeFromAssets,
+    sweep, sweepInBatches, backfill, scopeFromAssets,
     /* a task's kind of work with the workspace's kinds: the one chosen on it, else its title's */
     kindOf: title => kindOf(title, settings().kinds), kindOfTask: t => engine.kindOfTask(t, settings().kinds),
     /* for server/scoring-ai.js: the checks and answers of the task scoring routes, the task as the scores read it, the

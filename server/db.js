@@ -14,6 +14,10 @@ function open() {
      meaningful (e.g. Windows). busy_timeout lets a backup and a write wait instead of failing. */
   if (process.platform !== "win32") { try { fs.chmodSync(path.dirname(DB_PATH), 0o700); } catch {} for (const f of [DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"]) { try { fs.chmodSync(f, 0o600); } catch {} } }
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  /* Oct 2026 (performance): a 64 MB page cache (SQLite's default is 2 MB), so the hot tables of a large workspace stay
+     in memory between requests. WAL and synchronous (FULL, SQLite's default) are unchanged. SQLite's own pragmas: this
+     module is the SQLite adapter, and a PostgreSQL one has none of them (sqlitePragma ignores one SQLite refuses). */
+  sqlitePragma(db, "PRAGMA cache_size = -65536");
   db.exec(fs.readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8"));
   // migrations for databases created before a column existed (CREATE TABLE IF NOT EXISTS never adds one)
   [
@@ -55,7 +59,18 @@ function open() {
     /* Smart Scoring's settings (Oct 2026): one JSON object, written only by PUT /api/scoring/settings (server/scoring.js) */
     "ALTER TABLE workspaces ADD COLUMN scoring_settings TEXT DEFAULT '{}'",
   ].forEach((sql) => { try { db.exec(sql); } catch { /* already there */ } });
+  /* the query planner's statistics, as SQLite advises for a connection that stays open: at open with 0x10002 (every
+     table whose indexes have none yet, or that grew a lot — a few ms, under 1 ms once there are some), then hourly */
+  sqlitePragma(db, "PRAGMA optimize = 0x10002");
+  const hourly = setInterval(() => { if (!sqlitePragma(db, "PRAGMA optimize")) clearInterval(hourly); }, OPTIMIZE_EVERY_MS);
+  if (hourly.unref) hourly.unref();
   return db;
+}
+const OPTIMIZE_EVERY_MS = 3600000;
+/* a SQLite-only pragma: true when it ran; false (nothing thrown) on a connection that is closed or refuses it */
+function sqlitePragma(db, sql) {
+  if (!(db instanceof DatabaseSync)) return false;
+  try { db.exec(sql); return true; } catch { return false; }
 }
 function tx(db, fn) { db.exec("BEGIN"); try { const r = fn(); db.exec("COMMIT"); return r; } catch (e) { db.exec("ROLLBACK"); throw e; } }
 const uid = (p) => (p || "id") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -63,4 +78,4 @@ const now = () => new Date().toISOString();
 const J = (v, d) => { if (v == null || v === "") return d; try { return JSON.parse(v); } catch { return d; } };
 const S = (v) => JSON.stringify(v == null ? null : v);
 
-module.exports = { open, tx, uid, now, J, S, DB_PATH };
+module.exports = { open, tx, uid, now, J, S, DB_PATH, DATA_DIR };

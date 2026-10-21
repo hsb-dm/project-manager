@@ -207,6 +207,16 @@ CREATE INDEX IF NOT EXISTS idx_project_comments_feed ON project_comments(workspa
 CREATE INDEX IF NOT EXISTS idx_project_comments_parent ON project_comments(project_id, parent_id);
 CREATE INDEX IF NOT EXISTS idx_files_task ON files(task_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_notif_recipient_time ON notifications(recipient_id, created_at);
+-- Oct 2026 (performance): the columns other rows point at, so a cascade or a lookup searches instead of reading the whole
+-- table. Every task save rewrites its comments, and each comment removed made SQLite read every comment for its replies
+-- (comments.parent_id, ON DELETE CASCADE); a version removed read every approval and revision request; a task removed
+-- read every task for its subtasks; each person's teams read every membership. This file runs at every start, so a
+-- database made before these lines gets them then.
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_version ON approvals(version_id);
+CREATE INDEX IF NOT EXISTS idx_revision_requests_version ON revision_requests(version_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id);
+CREATE INDEX IF NOT EXISTS idx_team_memberships_user ON team_memberships(user_id);
 
 -- custom emoji: a workspace's own, made from a PNG or JPG and stored like any file (/files/d/...).
 CREATE TABLE IF NOT EXISTS custom_emoji (
@@ -254,6 +264,8 @@ CREATE TABLE IF NOT EXISTS scoring_audit (
 );
 CREATE INDEX IF NOT EXISTS idx_scoring_audit_task ON scoring_audit(task_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_scoring_audit_ws ON scoring_audit(workspace_id, created_at);
+-- a task's history as its Scoring & Intelligence panel reads it (workspace and task, newest first; server/scoring.js view)
+CREATE INDEX IF NOT EXISTS idx_scoring_audit_ws_task ON scoring_audit(workspace_id, task_id, created_at);
 -- Time worked on a task, by the person who did it: work, blocked (waiting, kept apart) or revision. Edits and deletes are
 -- soft and audited. A legacy entry (the single "Actual" number from before) may be longer than a day.
 CREATE TABLE IF NOT EXISTS task_time_entries (

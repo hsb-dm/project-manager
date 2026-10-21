@@ -1042,6 +1042,7 @@ Anggota demo lain belum punya password sampai admin mengaturnya.
 | Backup + audit | `COS_BACKUP_DIR`, default `<COS_DATA_DIR>/backups` |
 | Security log | `COS_SECURITY_LOG`, default `<COS_DATA_DIR>/security.log` |
 | Outbox email (transport `log`) | `<COS_DATA_DIR>/outbox/*.eml` |
+| Halaman aplikasi yang sudah dikompres (brotli 11 + gzip, dinamai menurut SHA-1 halaman; boleh dihapus, dibuat lagi otomatis) | `<COS_DATA_DIR>/page-cache/` |
 | Static | `public/`, plus `/shared/*` dari root repo |
 
 ### Memperbarui instalasi lama
