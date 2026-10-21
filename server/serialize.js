@@ -1,6 +1,7 @@
 // Row ↔ document mapping. The API speaks in documents (what the UI renders); the database stays normalized.
 const { uid, now, J, S } = require("./db");
 const secrets = require("./secrets");
+const avatars = require("./avatars");
 const scoringSettings = require("../shared/scoring-settings");
 const aiChatModels = require("./ai-chat-models").pure;
 
@@ -227,7 +228,9 @@ function readPending(db, wsId) {
     .map(r => ({ id: r.id, name: r.name, email: r.email || "", ini: r.initials, c: r.avatar_color, role: r.job_title || "", perm: r.role_id, createdAt: at(r.created_at), teams: db.prepare("SELECT team_id FROM team_memberships WHERE user_id=?").all(r.id).map(t => t.team_id) }));
 }
 function writePerson(db, wsId, id, p) {
-  db.prepare("INSERT INTO users (id,name,email,initials,avatar_color,avatar_data) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, email=excluded.email, initials=excluded.initials, avatar_color=excluded.avatar_color, avatar_data=CASE WHEN excluded.avatar_data IS NULL THEN users.avatar_data ELSE excluded.avatar_data END").run(id, p.name, p.email || null, p.ini, p.c || 0, p.avatar === undefined ? null : (p.avatar || ""));
+  /* a photo is a stored file, "/files/<sha>.<ext>" (server/avatars.js); the member routes have turned a
+     data URL into one already, and one from the seed or an import becomes one here */
+  db.prepare("INSERT INTO users (id,name,email,initials,avatar_color,avatar_data) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, email=excluded.email, initials=excluded.initials, avatar_color=excluded.avatar_color, avatar_data=CASE WHEN excluded.avatar_data IS NULL THEN users.avatar_data ELSE excluded.avatar_data END").run(id, p.name, p.email || null, p.ini, p.c || 0, p.avatar === undefined ? null : (avatars.toFile(db, p.avatar || "") || ""));
   db.prepare("INSERT INTO workspace_members (id,workspace_id,user_id,role_id,job_title,capacity_hours,hours_per_day,is_stakeholder,prefs) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(workspace_id,user_id) DO UPDATE SET role_id=excluded.role_id, job_title=excluded.job_title, capacity_hours=excluded.capacity_hours, hours_per_day=excluded.hours_per_day, is_stakeholder=excluded.is_stakeholder, prefs=excluded.prefs")
     .run("wm_" + wsId + "_" + id, wsId, id, p.perm || "member", p.role || "", p.cap == null ? 40 : p.cap, p.hoursPerDay || 8, p.stakeholder ? 1 : 0, S(p.prefs || {}));
   if (p.teams) { db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(id); p.teams.forEach(([team, primary]) => db.prepare("INSERT OR IGNORE INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,?)").run("tm_" + team + "_" + id, team, id, primary ? 1 : 0)); }

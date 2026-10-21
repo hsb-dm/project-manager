@@ -93,7 +93,7 @@ test("an @mention in a comment opens the person's card; the card's photo opens l
     await expect(card.getByRole("button", { name: /Message/ })).toBeVisible();
     /* the photo on the card opens large */
     await card.locator(".pp-top .av.img").click();
-    await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^data:image\/png/);
+    await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^\/files\/[a-f0-9]{64}\.png$/);
     await expect(page.locator("#modal .modal-head h3")).toHaveText(QUINN.name);
     await page.evaluate(() => closeModal());
   } finally {
@@ -125,7 +125,7 @@ test("someone else's photo opens large from their profile", async ({ browser }) 
   await expect(photo).toBeVisible();
   await expect(page.locator(".mp-avatar-edit")).toHaveCount(0);   /* not hers to change */
   await photo.click();
-  await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^data:image\/png/);
+  await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^\/files\/[a-f0-9]{64}\.png$/);
   await page.evaluate(() => closeModal());
   /* someone without a photo: nothing to open */
   await page.evaluate(() => go("team", ME));
@@ -171,11 +171,12 @@ test("a new profile photo is cropped first: drag and zoom, and the circle is wha
     await page.mouse.up();
     await page.locator("#avcSave").click();
     await expect(page.locator("#modalWrap.open")).toHaveCount(0);
-    await expect.poll(() => page.evaluate(() => (PEOPLE[ME].avatar || "").slice(0, 15))).toBe("data:image/jpeg");
+    /* the cropped JPEG, kept by the server as a file whose URL comes back (server/avatars.js) */
+    await expect.poll(() => page.evaluate(() => PEOPLE[ME].avatar || "")).toMatch(/^\/files\/[a-f0-9]{64}\.jpg$/);
     const look = await page.evaluate(() => new Promise(res => { const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); const row = g.getImageData(0, 128, im.width, 1).data; let red = 0; for (let x = 0; x < im.width; x++) if (row[x * 4] > 200 && row[x * 4 + 2] < 60) red++; res({ w: im.width, h: im.height, red: red / im.width }); }; im.src = PEOPLE[ME].avatar; }));
     expect(look.w).toBe(256); expect(look.h).toBe(256);
     expect(look.red).toBeGreaterThan(0.7); expect(look.red).toBeLessThan(0.8);   /* 300 of the 400 kept are red */
-    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => (d.people[ME].avatar || "").slice(0, 15)))).toBe("data:image/jpeg");
+    await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => d.people[ME].avatar || ""))).toMatch(/^\/files\/[a-f0-9]{64}\.jpg$/);
     /* Cancel keeps the photo there was */
     const before = await page.evaluate(() => PEOPLE[ME].avatar);
     const again = page.waitForEvent("filechooser");

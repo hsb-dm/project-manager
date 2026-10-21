@@ -42,11 +42,12 @@ test("Settings → Profile: a photo that is there can be changed, looked at and 
   /* there is one now: change it */
   await change(page, "#content", "#d00000");
   await expect.poll(() => middle(page, "admin")).toBe("red");
-  await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => (d.people[ME].avatar || "").length))).toBeGreaterThan(100);
+  /* the server keeps a photo as a file and sends its URL (server/avatars.js) */
+  await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(d => d.people[ME].avatar || ""))).toMatch(/^\/files\/[a-f0-9]{64}\.jpg$/);
   /* look at it */
   await page.locator("#content .mp-avatar").first().click();
   await page.locator("#ctxMenu.open").getByRole("button", { name: "View photo" }).click();
-  await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^data:image\/jpeg/);
+  await expect(page.locator("#modalWrap.open #modal .modal-body img")).toHaveAttribute("src", /^\/files\/[a-f0-9]{64}\.jpg$/);
   await page.evaluate(() => closeModal());
   /* remove it */
   await page.locator("#content .mp-avatar").first().click();

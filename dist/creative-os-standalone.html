@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="2bbd2ae047c3">
+<meta name="zc-build" content="058e61e4b5ad">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -7410,7 +7410,32 @@ function isAssignee(t,id){ return assigneesOf(t).indexOf(id)>=0; } function isRe
    reviews that belong to other people. */
 function reviewMine(t){ return isReviewer(t,ME)||isAssignee(t,ME)||(!reviewersOf(t).length&&leadsTeam(t.team)); }
 function avStack(ids,max){ ids=ids||[]; max=max||3; return '<span class="av-stack">'+ids.slice(0,max).map(function(id){ return av(id); }).join("")+(ids.length>max?'<span class="av" style="background:var(--color-border-strong);color:var(--color-text-primary)">+'+(ids.length-max)+'</span>':"")+'</span>'; }
-function av(id,cls){ var p=person(id); if (p.avatar) return '<span class="av img'+(cls?' '+cls:'')+'" style="background-image:url(&quot;'+attr(p.avatar)+'&quot;)" title="'+attr(p.name)+'"></span>'; return '<span class="av c'+p.c+(cls?' '+cls:'')+'" title="'+attr(p.name)+'">'+p.ini+'</span>'; }
+function av(id,cls){ var p=person(id), u=""; if (p.avatar) u=avSrc(id,String(p.avatar)); else if (AV_LAST[id]) AV_LAST[id]=""; if (u) return '<span class="av img'+(cls?' '+cls:'')+'" style="background-image:url(&quot;'+attr(u)+'&quot;)" title="'+attr(p.name)+'"></span>'; return '<span class="av c'+p.c+(cls?' '+cls:'')+'" title="'+attr(p.name)+'">'+p.ini+'</span>'; }
+/* Profile photos (Oct 2026): from the server a photo is a stored file, "/files/<sha>.<ext>"; a data URL
+   still comes from the standalone demo, a photo just cropped, or a server that has not moved it yet. Both
+   draw the same. A file that cannot load (signed out, missing) gives the initials instead, and while a
+   person's new photo loads the one shown before stays, so nothing blinks. */
+var AV_IMG={}, AV_LAST={};
+function avSrc(id,u){
+  if (/^data:/i.test(u)) { AV_LAST[id]=u; return u; }
+  var st=AV_IMG[u];
+  if (!st) { st=AV_IMG[u]={s:0}; var im=new Image(); im.onload=function(){ st.s=1; avLoaded(u,true); }; im.onerror=function(){ st.s=2; avLoaded(u,false); }; im.src=u; }
+  if (st.s===2) return "";
+  var prev=AV_LAST[id];
+  if (st.s===0&&prev&&prev!==u&&(/^data:/i.test(prev)||(AV_IMG[prev]||{}).s===1)) return prev;
+  AV_LAST[id]=u; return u;
+}
+/* a photo has loaded (or failed): what still shows the one before it, or the photo that failed, is put right in place */
+function avLoaded(u,ok){
+  Object.keys(PEOPLE||{}).forEach(function(id){ var p=PEOPLE[id]; if (!p||p.avatar!==u) return;
+    var prev=AV_LAST[id], olds=(ok?[prev]:[u,prev]).filter(function(x){ return x&&(!ok||x!==u); });
+    if (ok) AV_LAST[id]=u; else delete AV_LAST[id];
+    if (!olds.length) return;
+    Array.prototype.forEach.call(document.querySelectorAll(".av.img"),function(el){ var bg=el.style.backgroundImage||"";
+      if (!olds.some(function(x){ return bg.indexOf(x)>=0; })) return;
+      if (ok) { el.style.backgroundImage='url("'+u+'")'; return; }
+      el.classList.remove("img"); el.classList.add("c"+p.c); el.style.backgroundImage=""; if (!el.getAttribute("style")) el.removeAttribute("style"); el.textContent=p.ini||""; }); });
+}
 /* When something happened, as a date and time that can be tracked — "Oct 2, 2026, 11:06 AM (today)"
    — with how long ago only in brackets. "2d ago" on its own did not say which day.
    iso is the real timestamp and is used whenever there is one. m (minutes ago, measured when the
