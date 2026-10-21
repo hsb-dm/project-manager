@@ -806,8 +806,15 @@ function renderAIHub(){
   var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div>'+aiHistoryStrip()+'<div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
   var canvasColumn='<div class="ai-canvas-column">'+center+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
-  document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
+  document.getElementById("content").innerHTML=h; aiHubPageSync(); setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
 }
+/* .ai-hub-page on #content while the AI Hub's .ai-studio is one of its children, and only then (the desktop layout in
+   src/v38.css; it replaced .content:has(>.ai-studio), which restyled the whole page on every change): set as the Hub is
+   drawn, and kept true by watching #content's children, so it also goes when a search, the sign-in or another screen
+   takes the content's place without renderScreen */
+function aiHubPageSync(){ var c=document.getElementById("content"); if(!c) return; var on=false; for(var i=0;i<c.children.length;i++) if(c.children[i].classList.contains("ai-studio")){ on=true; break; }
+  if(c.classList.contains("ai-hub-page")!==on) c.classList.toggle("ai-hub-page",on); }
+(function(){ var c=document.getElementById("content"); if(c&&window.MutationObserver) new MutationObserver(aiHubPageSync).observe(c,{childList:true}); })();
 function aiSetBrief(v){ AIF.brief=v; AIF.template=""; }
 function aiClearForm(){
   AG_EDIT=null; AIF.logoText="";
@@ -844,6 +851,9 @@ function aiChatToggle(on){
 function aiChatSuggestions(){ return aiChatTemplates(); }
 function renderAIChat(){
   var el = document.getElementById("aiChat");
+  /* body.aichat-open while the panel is .aichat.open (it is only ever set here): the floating buttons hide by it, in
+     place of body:has(.aichat.open), which made every "open" class anywhere — a tab, a menu — search the whole page */
+  document.body.classList.toggle("aichat-open", !!el && !!AI_CHAT.open);
   if (!el) return;
   if (!AI_CHAT.open){ el.className = "aichat"; el.innerHTML=""; return; }
   el.className = "aichat open";

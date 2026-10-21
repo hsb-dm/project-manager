@@ -21,7 +21,7 @@
    demo has no server to count evidence, and says so.
    ============================================================ */
 I.target=I.target||'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>';
-var SCO={data:null,html:null,loading:false,loadedAt:0,err:false,archived:false,open:{},tasks:{},taskHtml:{},taskAt:{},taskLoading:{},owner:null,saving:false};
+var SCO={data:null,html:null,loading:false,loadedAt:0,err:false,archived:false,open:{},tasks:{},taskHtml:{},taskAt:{},taskLoading:{},owner:null,saving:false,shown:null,again:{}};
 var SCO_RULE_LABEL={approved_assets:"Approved assets",tasks_completed:"Completed tasks",manual:"Entered by hand"};
 var SCO_STATUS_LABEL={draft:"Draft",active:"Active",closed:"Closed",archived:"Archived"};
 /* why a task does not count (yet) towards something it is linked to or covered by */
@@ -55,7 +55,7 @@ function scoIconBtn(icon,label,onclick){ return '<button type="button" class="ic
 /* ---------- Settings → Smart Scoring: the section ---------- */
 function scoringOutcomesSettingsHtml(ro,ed){
   if(!scoringFeature()||typeof scSection!=="function") return "";
-  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
+  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; SCO.shown=null; }
   var title=tr("KPIs and OKRs"), intro=tr("Goals whose progress comes from real work — never from points."), o={icon:I.target,cls:"scr-out-panel"};
   if(!API.on) return scSection("outcomes",title,intro,scHelp(tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")),o);
   /* opened afresh: fetched now; drawn again while open (a redraw, the language): at most every few seconds */
@@ -222,8 +222,13 @@ function scoConfirm(taskId,linkId,metricId){
 /* ---------- a task's panel: what the task counts towards ---------- */
 function scoringOutcomesRowHtml(tk){
   if(!tk||!API.on||!scoringOn()||!(scoringModuleOn("kpi")||scoringModuleOn("okr"))||scoringStakeholder()) return "";
-  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
-  var id=tk.id, fresh=!document.querySelector('.scr-out-row[data-out-task="'+CSS.escape(id)+'"]'); setTimeout(function(){ scoTaskLoad(id,fresh); },0);
+  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; SCO.shown=null; }
+  /* the task open in the task panel: asked for once each time it is opened (closing the panel forgets SCO.shown) and
+     again on a live change to it (task_changed, below), not on each redraw (until an answer came, at most every 5 s);
+     a row drawn anywhere else is asked for as it first appears, then at most every 5 s */
+  var id=tk.id;
+  if(typeof S!=="undefined"&&S.drawerTask===id){ var first=SCO.shown!==id; SCO.shown=id; if(first||!SCO.tasks[id]) setTimeout(function(){ scoTaskLoad(id,first); },0); }
+  else { var fresh=!document.querySelector('.scr-out-row[data-out-task="'+CSS.escape(id)+'"]'); setTimeout(function(){ scoTaskLoad(id,fresh); },0); }
   var h=scoTaskInner(id); SCO.taskHtml[id]=h;
   return '<div class="scr-out-row" data-out-task="'+attr(id)+'">'+h+'</div>'; }
 function scoTaskInner(id){
@@ -246,8 +251,19 @@ function scoTaskPaint(id){ var prev=SCO.taskHtml[id], h=scoTaskInner(id); SCO.ta
 function scoTaskLoad(id,force){
   if(!API.on||SCO.taskLoading[id]||(!force&&SCO.taskAt[id]&&Date.now()-SCO.taskAt[id]<5000)) return;
   SCO.taskLoading[id]=true;
-  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)+"/outcomes").then(function(r){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); SCO.tasks[id]=r; scoTaskPaint(id); })
-    .catch(function(){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); }); }
+  var again=function(){ if(SCO.again[id]){ delete SCO.again[id]; scoTaskLoad(id,true); } };
+  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)+"/outcomes").then(function(r){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); SCO.tasks[id]=r; scoTaskPaint(id); again(); })
+    .catch(function(){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); again(); }); }
+/* a live change to the task open in the task panel (task_changed, from anyone, a save of our own too) asks for its row
+   again: at once while it is shown, else the next time it is drawn */
+(function(){ var ES=typeof window!=="undefined"?window.EventSource:null, wait={}; if(typeof ES!=="function") return;
+  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="task_changed"||ev.deleted||!ev.id||!API.on) return; var id=String(ev.id);
+    clearTimeout(wait[id]); wait[id]=setTimeout(function(){ delete wait[id];
+      if(S.drawerTask===id&&document.querySelector('#drawer .scr-out-row[data-out-task="'+CSS.escape(id)+'"]')){ if(SCO.taskLoading[id]) SCO.again[id]=true; else scoTaskLoad(id,true); }
+      else if(SCO.shown===id) SCO.shown=null; },300); }
+  window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
+  window.EventSource.prototype=ES.prototype; ["CONNECTING","OPEN","CLOSED"].forEach(function(k){ window.EventSource[k]=ES[k]; }); })();
+(function(){ if(typeof closeDrawer!=="function") return; var base=closeDrawer; closeDrawer=function(){ SCO.shown=null; return base.apply(this,arguments); }; })();
 function scoTaskRefreshAll(){ document.querySelectorAll(".scr-out-row[data-out-task]").forEach(function(el){ scoTaskLoad(el.getAttribute("data-out-task"),true); }); }
 function scoLinkPick(btn,id){ var d=SCO.tasks[id]; if(!d) return;
   entityPicker({kind:"metric",anchor:btn,title:tr("Link to a KPI or key result"),placeholder:tr("Find a KPI or key result…"),

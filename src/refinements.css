@@ -227,6 +227,13 @@ body{overflow:hidden}
 .topbar{position:relative;top:auto}
 .app-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain}
 .app-scroll>.content{flex:none}
+/* The screen is its own stacking context, so what changes over it — the task panel as it is typed in, a menu, a toast —
+   no longer repaints it: with 1,577 tasks in the List every key in the task panel repainted the whole List (about
+   100 ms a key). isolation clips nothing and leaves position:fixed where it was. Every layer outside the screen (the
+   floating buttons 44, tab bar 45, overlay 100, task panel 110, menus, dialogs, toasts) is above everything in it,
+   except on Messages, where the details pane (z-index 70) may lie over the tab bar on a short phone: there it stays as
+   it was. e2e/drawer-perf.spec.js */
+body:not([data-screen="messages"]) #content{isolation:isolate}
 /* §636 sticky panels measure from the scroll container, not the viewport */
 .app-scroll .ai-setup,.app-scroll .ai-props{top:14px;max-height:calc(100dvh - var(--topbar-h) - 30px)}
 .app-scroll .snav{top:16px}

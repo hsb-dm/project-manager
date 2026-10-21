@@ -320,7 +320,7 @@ span.emj{width:auto;height:auto;vertical-align:baseline}
 .msgfab .cnt{position:absolute;top:-4px;right:-4px;font-size:10.5px;font-weight:700;background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;border:2px solid var(--color-surface)}
 .msgfab.active{background:var(--color-primary);color:var(--color-primary-ink)}
 .msgfab:hover{transform:scale(1.06)}
-body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
+body.auth .msgfab,body.aichat-open .msgfab{display:none!important}
 @media (max-width:980px){.msgfab{display:grid;bottom:134px;right:14px;width:46px;height:46px}.msgfab svg{width:20px;height:20px}}
 
 /* ---------- v18.2 in-app chat toast ---------- */

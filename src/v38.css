@@ -1458,11 +1458,14 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-hs-peek svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
 .ai-hs-item:hover .ai-hs-peek,.ai-hs-peek:focus-visible{opacity:1}
 @media (hover:none){.ai-hs-peek{opacity:1}}
-/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself */
+/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself.
+   .ai-hub-page is on #content exactly while the AI Hub's .ai-studio is one of its children (aiHubPageSync, src/ai.js);
+   it was .content:has(>.ai-studio), whose ">*" made every change anywhere on the page, the task panel's too, restyle
+   the whole screen (about 200 ms a tab switch with 1,577 tasks in the List) */
 @media (min-width:1181px) and (min-height:620px){
-  .content:has(>.ai-studio){height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
-  .content:has(>.ai-studio)>*{flex:none;margin-top:0;margin-bottom:0}
-  .content:has(>.ai-studio)>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+  .content.ai-hub-page{height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+  .content.ai-hub-page>*{flex:none;margin-top:0;margin-bottom:0}
+  .content.ai-hub-page>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
   .ai-studio>.ai-setup,.ai-studio>.ai-props{position:static!important;top:auto!important;max-height:none!important;min-height:0;height:auto;overflow:auto;overscroll-behavior:contain}
   .ai-studio>.ai-setup>.panel-head,.ai-studio>.ai-props>.panel-head{position:sticky;top:0;z-index:3;background:var(--color-surface)}
   .ai-studio>.ai-props>.panel-body{padding-bottom:84px}   /* room above the floating AI button */

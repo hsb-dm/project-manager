@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="769dd2463212">
+<meta name="zc-build" content="8d1c04f95295">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -431,7 +431,7 @@ select:focus{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in
 .aichat-sugg button{display:inline-flex;align-items:center;gap:6px}
 .aichat-sugg button svg{width:11px;height:11px;fill:var(--color-primary);stroke:none}
 .aifab:hover{filter:brightness(1.08);transform:scale(1.06)}
-body:has(.aichat.open) .aifab{display:none}
+body.aichat-open .aifab{display:none}
 .aichat{position:fixed;right:0;bottom:0;top:0;width:min(540px,100vw);background:var(--color-surface);border-left:1px solid var(--color-border);box-shadow:var(--shadow-lg);z-index:46;display:none;flex-direction:column}
 .aichat.open{display:flex}
 .aichat-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--color-border);flex:none}
@@ -715,6 +715,13 @@ body{overflow:hidden}
 .topbar{position:relative;top:auto}
 .app-scroll{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;overscroll-behavior:contain}
 .app-scroll>.content{flex:none}
+/* The screen is its own stacking context, so what changes over it — the task panel as it is typed in, a menu, a toast —
+   no longer repaints it: with 1,577 tasks in the List every key in the task panel repainted the whole List (about
+   100 ms a key). isolation clips nothing and leaves position:fixed where it was. Every layer outside the screen (the
+   floating buttons 44, tab bar 45, overlay 100, task panel 110, menus, dialogs, toasts) is above everything in it,
+   except on Messages, where the details pane (z-index 70) may lie over the tab bar on a short phone: there it stays as
+   it was. e2e/drawer-perf.spec.js */
+body:not([data-screen="messages"]) #content{isolation:isolate}
 /* §636 sticky panels measure from the scroll container, not the viewport */
 .app-scroll .ai-setup,.app-scroll .ai-props{top:14px;max-height:calc(100dvh - var(--topbar-h) - 30px)}
 .app-scroll .snav{top:16px}
@@ -1911,7 +1918,7 @@ span.emj{width:auto;height:auto;vertical-align:baseline}
 .msgfab .cnt{position:absolute;top:-4px;right:-4px;font-size:10.5px;font-weight:700;background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;border:2px solid var(--color-surface)}
 .msgfab.active{background:var(--color-primary);color:var(--color-primary-ink)}
 .msgfab:hover{transform:scale(1.06)}
-body.auth .msgfab,body:has(.aichat.open) .msgfab{display:none!important}
+body.auth .msgfab,body.aichat-open .msgfab{display:none!important}
 @media (max-width:980px){.msgfab{display:grid;bottom:134px;right:14px;width:46px;height:46px}.msgfab svg{width:20px;height:20px}}
 
 /* ---------- v18.2 in-app chat toast ---------- */
@@ -5660,11 +5667,14 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-hs-peek svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
 .ai-hs-item:hover .ai-hs-peek,.ai-hs-peek:focus-visible{opacity:1}
 @media (hover:none){.ai-hs-peek{opacity:1}}
-/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself */
+/* a laptop or desktop (three columns, from 1181px): the page stays still, each panel scrolls inside itself.
+   .ai-hub-page is on #content exactly while the AI Hub's .ai-studio is one of its children (aiHubPageSync, src/ai.js);
+   it was .content:has(>.ai-studio), whose ">*" made every change anywhere on the page, the task panel's too, restyle
+   the whole screen (about 200 ms a tab switch with 1,577 tasks in the List) */
 @media (min-width:1181px) and (min-height:620px){
-  .content:has(>.ai-studio){height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
-  .content:has(>.ai-studio)>*{flex:none;margin-top:0;margin-bottom:0}
-  .content:has(>.ai-studio)>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
+  .content.ai-hub-page{height:calc(100dvh - var(--topbar-h));box-sizing:border-box;padding-top:14px!important;padding-bottom:14px!important;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+  .content.ai-hub-page>*{flex:none;margin-top:0;margin-bottom:0}
+  .content.ai-hub-page>.ai-studio{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr)}
   .ai-studio>.ai-setup,.ai-studio>.ai-props{position:static!important;top:auto!important;max-height:none!important;min-height:0;height:auto;overflow:auto;overscroll-behavior:contain}
   .ai-studio>.ai-setup>.panel-head,.ai-studio>.ai-props>.panel-head{position:sticky;top:0;z-index:3;background:var(--color-surface)}
   .ai-studio>.ai-props>.panel-body{padding-bottom:84px}   /* room above the floating AI button */
@@ -8172,7 +8182,7 @@ function emptyBox(h,p,ico,cta){ return '<div class="empty"><div class="ico">'+(i
 function notifRows(){ var l=NOTIFS.slice().sort(function(a,b){ return a.ago-b.ago; }); if (!l.length) return emptyBox("No notifications","Assignments, mentions, approvals, requests and deadlines land here.");
   return l.map(function(n){ var tk=task(n.t); var rq=null; var title=tk?tk.title:n.t; var click=tk?'markRead(\''+n.t+'\');openTask(\''+tk.id+'\')':''; if (n.entityType==="message"){ var cv=typeof conv==="function"?conv(n.t):null; title=cv?convTitle(cv):n.t; click='closePops();markRead('+jsq(n.t)+');openConversation('+jsq(n.t)+','+(n.msg?''+jsq(n.msg)+'':'null')+')'; } else if (n.entityType==="gallery"){ click='closePops();markRead('+jsq(n.t)+');go(\'aigallery\')'; } return '<div class="notif'+(n.read?"":" unread")+'" onclick="'+click+'">'+(n.who?av(n.who):'<span class="av" style="background:var(--color-primary)">!</span>')+'<div><div>'+fmt(ntext(n.k),{who:n.who?esc(first(n.who)):"",t:esc(title)})+(n.entityType==="message"&&n.text?'<div class="notif-preview" data-no-translate>'+esc(String(n.text).slice(0,90))+'</div>':'')+'</div><div class="when">'+ago(n.ago,n.createdAt)+'</div></div></div>'; }).join(""); }
 function renderNotifs(){ document.getElementById("notifList").innerHTML=notifRows(); }
-function markRead(t){ var any=false; NOTIFS.forEach(function(n){ if (n.t===t&&!n.read){ n.read=true; any=true; } }); syncNotifDot(); renderNav(); if (any&&API.on) apiFetch("POST","/api/notifications/read",{entityId:t}).catch(function(){}); }
+function markRead(t){ var any=false; NOTIFS.forEach(function(n){ if (n.t===t&&!n.read){ n.read=true; any=true; } }); syncNotifDot(); if (!any) return; /* every task opened comes here: the menu is drawn again only when something was unread */ renderNav(); if (API.on) apiFetch("POST","/api/notifications/read",{entityId:t}).catch(function(){}); }
 function markAllRead(){ NOTIFS.forEach(function(n){ n.read=true; }); syncNotifDot(); renderNav(); renderNotifs(); if (S.screen==="notifications") renderScreen(false); if (API.on) apiFetch("POST","/api/notifications/read",{all:true}).catch(function(){}); toast("All marked as read"); }
 function renderNotifScreen(){ document.getElementById("content").innerHTML='<div class="pagehead"><div><h1>Notifications</h1><div class="muted" style="margin-top:4px">'+NOTIFS.filter(function(n){return !n.read;}).length+' unread</div></div><div class="actions"><button class="btn" onclick="markAllRead()">Mark all read</button><button class="btn" onclick="go(\'settings\',\'notifications\')">Preferences</button></div></div>'+panel("All notifications",NOTIFS.length,notifRows()); }
 
@@ -11216,8 +11226,15 @@ function renderAIHub(){
   var center='<section class="panel ai-artboard"><div class="panel-head"><span class="sq blue">'+I.grid+'</span><h2>Canvas</h2><span class="cnt">'+sz.w+'×'+sz.h+'</span><span class="spacer"></span><div class="seg"><button class="'+(AIF.editMode!==false?"on":"")+'" onclick="AIF.editMode=true;renderScreen(false)">Edit</button><button class="'+(AIF.editMode===false?"on":"")+'" onclick="AIF.editMode=false;renderScreen(false)">Preview</button></div></div><div class="panel-body pad"><div id="aiCanvas" class="ai-artboard-canvas">'+(AI_BUSY?'<span class="hint">Generating visual…</span>':'<span class="hint">Canvas renders here</span>')+'</div><div class="ai-canvas-toolbar"><button class="btn xs'+(AIF.showSafeZones?" ink":"")+'" onclick="AIF.showSafeZones=!AIF.showSafeZones;aiPreviewSoon()">'+I.eye+(AIF.showSafeZones?"Hide safe zones":"Show safe zones")+'</button><button class="btn ai-view-pill'+(expandReason?' is-blocked':'')+'" title="'+attr(expandReason||tr("Crop the picture, or grow the canvas and let AI fill the new area"))+'" onclick="aiExpandOpen()">'+I.expand+tr("Expand")+'</button><span class="hint">Drag to move layers. Double-click text to edit.</span></div></div>'+aiHistoryStrip()+'<div class="panel-foot">'+(agCanSave()?'<button class="btn" onclick="agSaveModal()">'+I.gallery+tr('Save to AI Gallery')+'</button>':'')+'<button class="btn" onclick="aiSaveToAssets()">'+saveIcon+saveLabel+'</button><span class="spacer"></span><button class="btn primary" onclick="aiDownload()">'+I.download+tr('Download')+'</button></div></section>';
   var canvasColumn='<div class="ai-canvas-column">'+center+'</div>';
   h+='<div class="ai-studio">'+left+canvasColumn+aiStudioProperties()+'</div>';
-  document.getElementById("content").innerHTML=h; setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
+  document.getElementById("content").innerHTML=h; aiHubPageSync(); setTimeout(function(){aiBindHistoryInputs();aiPreview(); if(innerWidth<=760&&typeof aiViewZoom==="function") setTimeout(function(){ try{ aiViewZoom("fit"); }catch(e){} },60);},0);
 }
+/* .ai-hub-page on #content while the AI Hub's .ai-studio is one of its children, and only then (the desktop layout in
+   src/v38.css; it replaced .content:has(>.ai-studio), which restyled the whole page on every change): set as the Hub is
+   drawn, and kept true by watching #content's children, so it also goes when a search, the sign-in or another screen
+   takes the content's place without renderScreen */
+function aiHubPageSync(){ var c=document.getElementById("content"); if(!c) return; var on=false; for(var i=0;i<c.children.length;i++) if(c.children[i].classList.contains("ai-studio")){ on=true; break; }
+  if(c.classList.contains("ai-hub-page")!==on) c.classList.toggle("ai-hub-page",on); }
+(function(){ var c=document.getElementById("content"); if(c&&window.MutationObserver) new MutationObserver(aiHubPageSync).observe(c,{childList:true}); })();
 function aiSetBrief(v){ AIF.brief=v; AIF.template=""; }
 function aiClearForm(){
   AG_EDIT=null; AIF.logoText="";
@@ -11254,6 +11271,9 @@ function aiChatToggle(on){
 function aiChatSuggestions(){ return aiChatTemplates(); }
 function renderAIChat(){
   var el = document.getElementById("aiChat");
+  /* body.aichat-open while the panel is .aichat.open (it is only ever set here): the floating buttons hide by it, in
+     place of body:has(.aichat.open), which made every "open" class anywhere — a tab, a menu — search the whole page */
+  document.body.classList.toggle("aichat-open", !!el && !!AI_CHAT.open);
   if (!el) return;
   if (!AI_CHAT.open){ el.className = "aichat"; el.innerHTML=""; return; }
   el.className = "aichat open";
@@ -25890,7 +25910,7 @@ function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)]
    makes the suggestion one for the task as it was (stale), and only the server can say so */
 function scrAiSig(tk){ var c=SCR.cache[tk.id], r=c&&c.ai&&c.ai.rows; return r&&(r.hours||r.story||r.weighted)?"|ai:"+(tk.updatedAt||""):""; }
 function scrRespRow(d,m){ if(!d) return null; if(d.row) return scrRowNorm(d.row,m); if(d.rows&&d.rows[m]) return scrRowNorm(d.rows[m],m); return null; }
-function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""});
+function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""}); c.raw=null;
   /* a slow answer never puts back an older row: rev only grows */
   var put=function(k,r){ var old=c.rows[k]; if(r&&old&&r.rev<old.rev) return; c.rows[k]=r; };
   var rows=Array.isArray(d.rows)?d.rows.reduce(function(o,x){ if(x&&x.module) o[x.module]=x; return o; },{}):d.rows;
@@ -25901,12 +25921,18 @@ function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[i
   if(d.context&&typeof d.context==="object") c.context=d.context; if(d.on&&typeof d.on==="object") c.on=d.on; c.local=!API.on; c.at=Date.now();
   /* the task's summaries follow, so every view of the task (grid, details) agrees with the panel */
   var tk=task(id); if(tk){ tk.scoring=tk.scoring&&typeof tk.scoring==="object"?tk.scoring:{}; SCR_MODULES.forEach(function(k){ var x=c.rows[k]; if(x) tk.scoring[k]={finalValue:x.finalValue,status:x.status,source:x.source,lockedValue:x.lockedValue,lockedAt:x.lockedAt,lockedBy:x.lockedBy,approvedBy:x.approvedBy,approvedAt:x.approvedAt,rev:x.rev}; }); c.sig=scrSig(tk); } }
+/* stale-while-revalidate: the panel is drawn at once from what is cached, then asked for again in the background; an
+   answer the same as the last one (c.raw, which any write clears) draws nothing again, another one only the panel,
+   in place (scrPaint) */
+function scrRaw(d){ try{ return JSON.stringify(d); }catch(e){ return null; } }
 function scrLoad(tk,force){ var id=tk.id; if(SCR.busy[id]&&!force) return SCR.busy[id];
-  var p=scrApi("GET",scrPath(id)).then(function(d){ var before=scoringEstimateLock(task(id)); scrStore(id,d); delete SCR.err[id]; scrPaint(id,!!before!==!!scoringEstimateLock(task(id))); })
+  var p=scrApi("GET",scrPath(id)).then(function(d){ var c=SCR.cache[id], raw=scrRaw(d), same=!!c&&raw!=null&&c.raw===raw&&!SCR.err[id], before=scoringEstimateLock(task(id));
+      scrStore(id,d); if(SCR.cache[id]) SCR.cache[id].raw=raw; delete SCR.err[id]; var lc=!!before!==!!scoringEstimateLock(task(id)); if(!same||lc) scrPaint(id,lc); })
     .catch(function(e){ var t=task(id); SCR.err[id]={msg:e&&e.message||String(e),at:Date.now(),sig:t?scrSig(t):""}; scrPaint(id); })
     .then(function(){ if(SCR.busy[id]===p) delete SCR.busy[id]; });
   SCR.busy[id]=p; return p; }
-/* asked for once when the task is opened, and again when it changed (its summaries, estimate or assets) */
+/* asked for each time the task is opened (closing the panel forgets SCR.shown), and again when it changed (its
+   summaries, estimate or assets) */
 function scrMaybeLoad(tk){ var c=SCR.cache[tk.id], sig=scrSig(tk), e=SCR.err[tk.id], want=!c||c.sig!==sig||SCR.shown!==tk.id; SCR.shown=tk.id; if(!want||SCR.busy[tk.id]) return;
   if(!c&&e&&e.sig===sig&&Date.now()-e.at<30000) return; scrLoad(tk); }
 
@@ -25919,7 +25945,8 @@ function scrHook(name,tk,arg){ var f=window[name]; if(typeof f!=="function") ret
 function scrSummaryLine(tk,mods){ var parts=mods.map(function(m){ var r=scrView(tk,m), lk=scrLocked(r), v=lk?scrLockedValue(r):r.finalValue; return v==null?"":scrFmt(m,v)+(lk?" "+I.lock:""); }).filter(Boolean);
   var props=mods.filter(function(m){ return scrView(tk,m).proposal; }).length;
   return (parts.length?parts.join(" · "):tr("Not scored yet"))+(props?" · "+props+" "+tr(props===1?"proposal waiting":"proposals waiting"):""); }
-function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), open=scrOpen(), sum=scrSummaryLine(tk,mods), inner=scrBodyHtml(tk,mods,timeRow);
+/* folded, the body is left empty (it is hidden then): it is drawn as the panel is opened (scrToggle) */
+function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), open=scrOpen(), sum=scrSummaryLine(tk,mods), inner=open?scrBodyHtml(tk,mods,timeRow):"";
   return '<section class="scr-panel'+(open?' open':'')+'" data-scr-task="'+attr(tk.id)+'" data-scr-h="'+scrHash(sum+inner)+'">'
     +'<button type="button" class="scr-head" aria-expanded="'+(open?"true":"false")+'" onclick="scrToggle(this)">'+I.gauge+'<b>'+tr("Scoring & Intelligence")+'</b><span class="scr-sum">'+sum+'</span>'+I.chevd+'</button>'
     +'<div class="scr-body">'+inner+'</div></section>'; }
@@ -25999,7 +26026,14 @@ function scrLockInput(inp,lk,ed){ if(!inp) return; var wrap=inp.parentNode, ico=
 function scrPaintLock(tk){ var lk=scoringEstimateLock(tk), ed=canI.editTask(tk)&&!tk._draft;
   scrLockInput(document.querySelector('#drawer [data-meta="effort"] .v input'),lk,ed);
   var line=document.querySelector("#drawer .enh-blocks .effort"); if(line) scrLockInput(line.querySelector("input"),lk,ed); }
-function scrToggle(btn){ var p=myPrefs(), on=!p.scoringPanelOpen; p.scoringPanelOpen=on; saveMyPrefs(); var el=btn.closest(".scr-panel"); if(el) el.classList.toggle("open",on); btn.setAttribute("aria-expanded",on?"true":"false"); }
+/* the body is drawn as the panel opens and emptied as it folds, as a folded panel is drawn (scrPanelHtml); the head
+   button, which has the focus, stays */
+function scrToggle(btn){ var p=myPrefs(), on=!p.scoringPanelOpen; p.scoringPanelOpen=on; saveMyPrefs(); var el=btn.closest(".scr-panel");
+  if(el){ var tk=task(el.getAttribute("data-scr-task")), body=el.querySelector(".scr-body");
+    if(tk&&body){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), inner=on?scrBodyHtml(tk,mods,scrTimeRow(tk)):"";
+      body.innerHTML=inner; if(on&&typeof localizeVisibleText==="function") localizeVisibleText(body); el.setAttribute("data-scr-h",scrHash(scrSummaryLine(tk,mods)+inner)); }
+    el.classList.toggle("open",on); }
+  btn.setAttribute("aria-expanded",on?"true":"false"); }
 function scrWhyToggle(id,m){ var k=id+"|"+m; SCR.why[k]=!SCR.why[k]; scrPaint(id); }
 
 /* ---------- Calculate: the hour estimate's inputs, or the four ratings, with the result worked out as they change ---------- */
@@ -27918,7 +27952,7 @@ function scoringTeamsSettingsHtml(ro,ed){
    demo has no server to count evidence, and says so.
    ============================================================ */
 I.target=I.target||'<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>';
-var SCO={data:null,html:null,loading:false,loadedAt:0,err:false,archived:false,open:{},tasks:{},taskHtml:{},taskAt:{},taskLoading:{},owner:null,saving:false};
+var SCO={data:null,html:null,loading:false,loadedAt:0,err:false,archived:false,open:{},tasks:{},taskHtml:{},taskAt:{},taskLoading:{},owner:null,saving:false,shown:null,again:{}};
 var SCO_RULE_LABEL={approved_assets:"Approved assets",tasks_completed:"Completed tasks",manual:"Entered by hand"};
 var SCO_STATUS_LABEL={draft:"Draft",active:"Active",closed:"Closed",archived:"Archived"};
 /* why a task does not count (yet) towards something it is linked to or covered by */
@@ -27952,7 +27986,7 @@ function scoIconBtn(icon,label,onclick){ return '<button type="button" class="ic
 /* ---------- Settings → Smart Scoring: the section ---------- */
 function scoringOutcomesSettingsHtml(ro,ed){
   if(!scoringFeature()||typeof scSection!=="function") return "";
-  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
+  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; SCO.shown=null; }
   var title=tr("KPIs and OKRs"), intro=tr("Goals whose progress comes from real work — never from points."), o={icon:I.target,cls:"scr-out-panel"};
   if(!API.on) return scSection("outcomes",title,intro,scHelp(tr("KPIs and OKRs are kept on the ZenCrevia server, which counts their evidence; this offline copy does not track them.")),o);
   /* opened afresh: fetched now; drawn again while open (a redraw, the language): at most every few seconds */
@@ -28119,8 +28153,13 @@ function scoConfirm(taskId,linkId,metricId){
 /* ---------- a task's panel: what the task counts towards ---------- */
 function scoringOutcomesRowHtml(tk){
   if(!tk||!API.on||!scoringOn()||!(scoringModuleOn("kpi")||scoringModuleOn("okr"))||scoringStakeholder()) return "";
-  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; }
-  var id=tk.id, fresh=!document.querySelector('.scr-out-row[data-out-task="'+CSS.escape(id)+'"]'); setTimeout(function(){ scoTaskLoad(id,fresh); },0);
+  if(SCO.owner!==ME){ SCO.data=null; SCO.html=null; SCO.tasks={}; SCO.taskHtml={}; SCO.owner=ME; SCO.shown=null; }
+  /* the task open in the task panel: asked for once each time it is opened (closing the panel forgets SCO.shown) and
+     again on a live change to it (task_changed, below), not on each redraw (until an answer came, at most every 5 s);
+     a row drawn anywhere else is asked for as it first appears, then at most every 5 s */
+  var id=tk.id;
+  if(typeof S!=="undefined"&&S.drawerTask===id){ var first=SCO.shown!==id; SCO.shown=id; if(first||!SCO.tasks[id]) setTimeout(function(){ scoTaskLoad(id,first); },0); }
+  else { var fresh=!document.querySelector('.scr-out-row[data-out-task="'+CSS.escape(id)+'"]'); setTimeout(function(){ scoTaskLoad(id,fresh); },0); }
   var h=scoTaskInner(id); SCO.taskHtml[id]=h;
   return '<div class="scr-out-row" data-out-task="'+attr(id)+'">'+h+'</div>'; }
 function scoTaskInner(id){
@@ -28143,8 +28182,19 @@ function scoTaskPaint(id){ var prev=SCO.taskHtml[id], h=scoTaskInner(id); SCO.ta
 function scoTaskLoad(id,force){
   if(!API.on||SCO.taskLoading[id]||(!force&&SCO.taskAt[id]&&Date.now()-SCO.taskAt[id]<5000)) return;
   SCO.taskLoading[id]=true;
-  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)+"/outcomes").then(function(r){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); SCO.tasks[id]=r; scoTaskPaint(id); })
-    .catch(function(){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); }); }
+  var again=function(){ if(SCO.again[id]){ delete SCO.again[id]; scoTaskLoad(id,true); } };
+  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)+"/outcomes").then(function(r){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); SCO.tasks[id]=r; scoTaskPaint(id); again(); })
+    .catch(function(){ SCO.taskLoading[id]=false; SCO.taskAt[id]=Date.now(); again(); }); }
+/* a live change to the task open in the task panel (task_changed, from anyone, a save of our own too) asks for its row
+   again: at once while it is shown, else the next time it is drawn */
+(function(){ var ES=typeof window!=="undefined"?window.EventSource:null, wait={}; if(typeof ES!=="function") return;
+  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="task_changed"||ev.deleted||!ev.id||!API.on) return; var id=String(ev.id);
+    clearTimeout(wait[id]); wait[id]=setTimeout(function(){ delete wait[id];
+      if(S.drawerTask===id&&document.querySelector('#drawer .scr-out-row[data-out-task="'+CSS.escape(id)+'"]')){ if(SCO.taskLoading[id]) SCO.again[id]=true; else scoTaskLoad(id,true); }
+      else if(SCO.shown===id) SCO.shown=null; },300); }
+  window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
+  window.EventSource.prototype=ES.prototype; ["CONNECTING","OPEN","CLOSED"].forEach(function(k){ window.EventSource[k]=ES[k]; }); })();
+(function(){ if(typeof closeDrawer!=="function") return; var base=closeDrawer; closeDrawer=function(){ SCO.shown=null; return base.apply(this,arguments); }; })();
 function scoTaskRefreshAll(){ document.querySelectorAll(".scr-out-row[data-out-task]").forEach(function(el){ scoTaskLoad(el.getAttribute("data-out-task"),true); }); }
 function scoLinkPick(btn,id){ var d=SCO.tasks[id]; if(!d) return;
   entityPicker({kind:"metric",anchor:btn,title:tr("Link to a KPI or key result"),placeholder:tr("Find a KPI or key result…"),

@@ -176,7 +176,7 @@ function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)]
    makes the suggestion one for the task as it was (stale), and only the server can say so */
 function scrAiSig(tk){ var c=SCR.cache[tk.id], r=c&&c.ai&&c.ai.rows; return r&&(r.hours||r.story||r.weighted)?"|ai:"+(tk.updatedAt||""):""; }
 function scrRespRow(d,m){ if(!d) return null; if(d.row) return scrRowNorm(d.row,m); if(d.rows&&d.rows[m]) return scrRowNorm(d.rows[m],m); return null; }
-function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""});
+function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""}); c.raw=null;
   /* a slow answer never puts back an older row: rev only grows */
   var put=function(k,r){ var old=c.rows[k]; if(r&&old&&r.rev<old.rev) return; c.rows[k]=r; };
   var rows=Array.isArray(d.rows)?d.rows.reduce(function(o,x){ if(x&&x.module) o[x.module]=x; return o; },{}):d.rows;
@@ -187,12 +187,18 @@ function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[i
   if(d.context&&typeof d.context==="object") c.context=d.context; if(d.on&&typeof d.on==="object") c.on=d.on; c.local=!API.on; c.at=Date.now();
   /* the task's summaries follow, so every view of the task (grid, details) agrees with the panel */
   var tk=task(id); if(tk){ tk.scoring=tk.scoring&&typeof tk.scoring==="object"?tk.scoring:{}; SCR_MODULES.forEach(function(k){ var x=c.rows[k]; if(x) tk.scoring[k]={finalValue:x.finalValue,status:x.status,source:x.source,lockedValue:x.lockedValue,lockedAt:x.lockedAt,lockedBy:x.lockedBy,approvedBy:x.approvedBy,approvedAt:x.approvedAt,rev:x.rev}; }); c.sig=scrSig(tk); } }
+/* stale-while-revalidate: the panel is drawn at once from what is cached, then asked for again in the background; an
+   answer the same as the last one (c.raw, which any write clears) draws nothing again, another one only the panel,
+   in place (scrPaint) */
+function scrRaw(d){ try{ return JSON.stringify(d); }catch(e){ return null; } }
 function scrLoad(tk,force){ var id=tk.id; if(SCR.busy[id]&&!force) return SCR.busy[id];
-  var p=scrApi("GET",scrPath(id)).then(function(d){ var before=scoringEstimateLock(task(id)); scrStore(id,d); delete SCR.err[id]; scrPaint(id,!!before!==!!scoringEstimateLock(task(id))); })
+  var p=scrApi("GET",scrPath(id)).then(function(d){ var c=SCR.cache[id], raw=scrRaw(d), same=!!c&&raw!=null&&c.raw===raw&&!SCR.err[id], before=scoringEstimateLock(task(id));
+      scrStore(id,d); if(SCR.cache[id]) SCR.cache[id].raw=raw; delete SCR.err[id]; var lc=!!before!==!!scoringEstimateLock(task(id)); if(!same||lc) scrPaint(id,lc); })
     .catch(function(e){ var t=task(id); SCR.err[id]={msg:e&&e.message||String(e),at:Date.now(),sig:t?scrSig(t):""}; scrPaint(id); })
     .then(function(){ if(SCR.busy[id]===p) delete SCR.busy[id]; });
   SCR.busy[id]=p; return p; }
-/* asked for once when the task is opened, and again when it changed (its summaries, estimate or assets) */
+/* asked for each time the task is opened (closing the panel forgets SCR.shown), and again when it changed (its
+   summaries, estimate or assets) */
 function scrMaybeLoad(tk){ var c=SCR.cache[tk.id], sig=scrSig(tk), e=SCR.err[tk.id], want=!c||c.sig!==sig||SCR.shown!==tk.id; SCR.shown=tk.id; if(!want||SCR.busy[tk.id]) return;
   if(!c&&e&&e.sig===sig&&Date.now()-e.at<30000) return; scrLoad(tk); }
 
@@ -205,7 +211,8 @@ function scrHook(name,tk,arg){ var f=window[name]; if(typeof f!=="function") ret
 function scrSummaryLine(tk,mods){ var parts=mods.map(function(m){ var r=scrView(tk,m), lk=scrLocked(r), v=lk?scrLockedValue(r):r.finalValue; return v==null?"":scrFmt(m,v)+(lk?" "+I.lock:""); }).filter(Boolean);
   var props=mods.filter(function(m){ return scrView(tk,m).proposal; }).length;
   return (parts.length?parts.join(" · "):tr("Not scored yet"))+(props?" · "+props+" "+tr(props===1?"proposal waiting":"proposals waiting"):""); }
-function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), open=scrOpen(), sum=scrSummaryLine(tk,mods), inner=scrBodyHtml(tk,mods,timeRow);
+/* folded, the body is left empty (it is hidden then): it is drawn as the panel is opened (scrToggle) */
+function scrPanelHtml(tk,timeRow){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), open=scrOpen(), sum=scrSummaryLine(tk,mods), inner=open?scrBodyHtml(tk,mods,timeRow):"";
   return '<section class="scr-panel'+(open?' open':'')+'" data-scr-task="'+attr(tk.id)+'" data-scr-h="'+scrHash(sum+inner)+'">'
     +'<button type="button" class="scr-head" aria-expanded="'+(open?"true":"false")+'" onclick="scrToggle(this)">'+I.gauge+'<b>'+tr("Scoring & Intelligence")+'</b><span class="scr-sum">'+sum+'</span>'+I.chevd+'</button>'
     +'<div class="scr-body">'+inner+'</div></section>'; }
@@ -285,7 +292,14 @@ function scrLockInput(inp,lk,ed){ if(!inp) return; var wrap=inp.parentNode, ico=
 function scrPaintLock(tk){ var lk=scoringEstimateLock(tk), ed=canI.editTask(tk)&&!tk._draft;
   scrLockInput(document.querySelector('#drawer [data-meta="effort"] .v input'),lk,ed);
   var line=document.querySelector("#drawer .enh-blocks .effort"); if(line) scrLockInput(line.querySelector("input"),lk,ed); }
-function scrToggle(btn){ var p=myPrefs(), on=!p.scoringPanelOpen; p.scoringPanelOpen=on; saveMyPrefs(); var el=btn.closest(".scr-panel"); if(el) el.classList.toggle("open",on); btn.setAttribute("aria-expanded",on?"true":"false"); }
+/* the body is drawn as the panel opens and emptied as it folds, as a folded panel is drawn (scrPanelHtml); the head
+   button, which has the focus, stays */
+function scrToggle(btn){ var p=myPrefs(), on=!p.scoringPanelOpen; p.scoringPanelOpen=on; saveMyPrefs(); var el=btn.closest(".scr-panel");
+  if(el){ var tk=task(el.getAttribute("data-scr-task")), body=el.querySelector(".scr-body");
+    if(tk&&body){ var mods=SCR_MODULES.filter(function(m){ return scoringModuleOn(m); }), inner=on?scrBodyHtml(tk,mods,scrTimeRow(tk)):"";
+      body.innerHTML=inner; if(on&&typeof localizeVisibleText==="function") localizeVisibleText(body); el.setAttribute("data-scr-h",scrHash(scrSummaryLine(tk,mods)+inner)); }
+    el.classList.toggle("open",on); }
+  btn.setAttribute("aria-expanded",on?"true":"false"); }
 function scrWhyToggle(id,m){ var k=id+"|"+m; SCR.why[k]=!SCR.why[k]; scrPaint(id); }
 
 /* ---------- Calculate: the hour estimate's inputs, or the four ratings, with the result worked out as they change ---------- */
