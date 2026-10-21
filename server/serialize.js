@@ -366,9 +366,17 @@ function writeTask(db, wsId, d, actorId) {
   (d.files || []).forEach(f => db.prepare("INSERT INTO files (id,workspace_id,task_id,filename,file_type,size_label,storage_provider,external_url,preview_data,drive_id,uploaded_by,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").run(f.id || uid("file"), wsId, d.id, f.name, f.type || "other", f.size || "", f.source || "local", f.url || null, f.preview || null, f.driveId || null, f.by || actorId, f.createdAt || now()));
   db.prepare("DELETE FROM comments WHERE task_id=?").run(d.id);
   const ordered = (d.comments || []).slice().sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0));
-  ordered.forEach(c => db.prepare("INSERT INTO comments (id,workspace_id,task_id,parent_id,author_id,visibility,body,attachments,created_at,edited_at) VALUES (?,?,?,?,?,?,?,?,?,?)").run(c.id || uid("cm"), wsId, d.id, c.parent || null, c.by || actorId, c.vis || "internal", c.text, S(c.attachments || []), c.createdAt || now(), c.editedAt || null));
+  ordered.forEach(c => insertComment(db, wsId, d.id, c, actorId));
   (d.activity || []).forEach(a => { if (!a.id || !db.prepare("SELECT 1 FROM activity_logs WHERE id=?").get(a.id)) appendActivity(db, wsId, { id: a.id, who: a.who || actorId, k: a.k, a: Object.assign({}, a.a, { task: d.id }), createdAt: a.createdAt }, "task", d.id); });
   return existing;
+}
+/* One comment's row, written as writeTask writes each of them. Posting or editing a comment (its own routes) writes
+   just that row (Oct 2026); it used to rewrite the whole task, every comment deleted and put back. */
+function insertComment(db, wsId, taskId, c, actorId) {
+  db.prepare("INSERT INTO comments (id,workspace_id,task_id,parent_id,author_id,visibility,body,attachments,created_at,edited_at) VALUES (?,?,?,?,?,?,?,?,?,?)").run(c.id || uid("cm"), wsId, taskId, c.parent || null, c.by || actorId, c.vis || "internal", c.text, S(c.attachments || []), c.createdAt || now(), c.editedAt || null);
+}
+function updateComment(db, taskId, c) {
+  db.prepare("UPDATE comments SET body=?, attachments=?, edited_at=? WHERE id=? AND task_id=?").run(c.text, S(c.attachments || []), c.editedAt || null, c.id, taskId);
 }
 function appendActivity(db, wsId, a, entityType, entityId) {
   const id = a.id || uid("act");
@@ -440,3 +448,4 @@ function readTaskSlimRows(db, wsId, where, params) {
 function mergeSlimTask(stored, incoming) { const out = Object.assign({}, stored); SLIM_FIELDS.forEach(k => { if (incoming[k] !== undefined) out[k] = incoming[k]; }); out.id = stored.id; return out; }
 
 module.exports = { smtpStored, readPending, stageRules, readTasksBatch, readTaskSlimRows, mergeSlimTask, SLIM_FIELDS, sweepArchive, readAIRaw, readSmtp, readSmtpRaw, writeSmtp, smtpRuntime, readWorkspace, writeWorkspace, readTeams, writeTeam, readPeople, writePerson, readProjects, writeProject, readTask, writeTask, appendActivity, readActivity, readRequests, writeRequest, readAssets, writeAsset, readFolders, writeFolder, readKnowledge, writePage, readKnowledgeFolders, writeKnowledgeFolder, readViews, writeView, readNotifs, writeNotif };
+Object.assign(module.exports, { insertComment, updateComment });

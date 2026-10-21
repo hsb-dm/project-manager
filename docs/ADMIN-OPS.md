@@ -834,6 +834,14 @@ Tanpa itu muncul banner *Setup required*.
 4. Tulis sidecar berisi metadata dan **SHA-256** dari file terenkripsi
 5. Pangkas backup lama sesuai retention
 
+Backup manual dan terjadwal mengerjakan langkah 1–3, checksum langkah 4, dan cermin terenkripsi gambar
+serta dokumen di *worker thread* dengan koneksi database sendiri, jadi server tetap menjawab selama
+backup dibuat. Pemeriksaan checksum di Backup History juga berjalan di sana. Satu
+backup menurunkan kuncinya sekali: satu salt untuk database dan semua file yang dicerminkannya, dengan
+iv baru untuk tiap file. Formatnya tidak berubah, jadi backup lama tetap bisa di-restore. Safety copy
+sebelum restore atau impor tetap dibuat langsung, supaya tidak ada tulisan yang terselip di antara
+salinan dan langkah sesudahnya.
+
 Nama file: `zencrevia-[kind-]<timestamp>.db.enc`, mode `0o600`.
 Jenis: `manual`, `scheduled`, `pre-restore`, `pre-import`.
 

@@ -398,10 +398,12 @@ const readBody = (req) => new Promise((res, rej) => { let b = "", rejected = fal
    and the history entries it wrote name that copy (a.snap). An admin can put the task or project
    back to any such point (POST /api/restore/...). Comments and the history itself stay as they are;
    the restore is a point in the history too, so it can be undone the same way. The last
-   SNAP_KEEP copies of each are kept. */
+   SNAP_KEEP copies of each are kept. A point whose restorable content is the same as the copy before
+   it (a comment, say) does not store that copy again: server/snapshots.js. */
+const snaps = require("./snapshots");
 const SNAP_KEEP = 300;
 let SNAP_NOW = null;
-function snapTable() { if (snapTable.ready === db) return; db.exec("CREATE TABLE IF NOT EXISTS entity_snapshots (id TEXT PRIMARY KEY, workspace_id TEXT, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, taken_at TEXT NOT NULL, actor_id TEXT, doc TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_entity_snapshots ON entity_snapshots(entity_type, entity_id, taken_at);"); snapTable.ready = db; }
+function snapTable() { snaps.ensure(db); }
 function snapshotDoc(type, id) {
   if (type === "task") { const t = sz.readTask(db, id); if (!t) return null; const c = Object.assign({}, t); delete c.comments; delete c.activity; return c; }
   return sz.readProjects(db, WS_ID).find(x => x.id === id) || null;
@@ -409,7 +411,7 @@ function snapshotDoc(type, id) {
 function withSnapshot(user, type, id, fn) {
   const prev = SNAP_NOW, mine = { type, id, snap: uid("snap"), used: false }; SNAP_NOW = mine;
   let out; try { out = fn(); } finally { SNAP_NOW = prev; }
-  if (mine.used) { try { const doc = snapshotDoc(type, id); if (doc) { snapTable(); db.prepare("INSERT INTO entity_snapshots (id,workspace_id,entity_type,entity_id,taken_at,actor_id,doc) VALUES (?,?,?,?,?,?,?)").run(mine.snap, WS_ID, type, id, now(), user && user.id || null, JSON.stringify(doc)); db.prepare("DELETE FROM entity_snapshots WHERE entity_type=? AND entity_id=? AND id NOT IN (SELECT id FROM entity_snapshots WHERE entity_type=? AND entity_id=? ORDER BY taken_at DESC LIMIT " + SNAP_KEEP + ")").run(type, id, type, id); } } catch (e) { /* history copies are best effort: the write itself stands */ } }
+  if (mine.used) { try { const doc = snapshotDoc(type, id); if (doc) snaps.put(db, { id: mine.snap, wsId: WS_ID, type, entityId: id, takenAt: now(), actorId: user && user.id || null, doc }, SNAP_KEEP); } catch (e) { /* history copies are best effort: the write itself stands */ } }
   return out;
 }
 const act = (user, k, entityType, entityId, a) => { a = a || {}; if (SNAP_NOW && SNAP_NOW.type === entityType && SNAP_NOW.id === entityId) { a = Object.assign({}, a, { snap: SNAP_NOW.snap }); SNAP_NOW.used = true; } return sz.appendActivity(db, WS_ID, { who: user.id, k, a }, entityType, entityId); };
@@ -1417,10 +1419,11 @@ const importer = require("./importer").makeImporter({ db, wsId: WS_ID, sz, tx, u
 const importBackupReady = () => String(process.env.COS_BACKUP_KEY || "").length >= 32;
 const importGuard = (u, b) => { forbid(can.manageWorkspace(u), "import data"); if (Array.isArray(b.sections) && b.sections.includes("people")) forbid(can.manageMembers(u), "import members"); };
 route("POST", "/api/admin/import/preview", (u, p, q, b) => { importGuard(u, b); const r = importer.preview(b, u.id); r.backup = { available: importBackupReady() }; return r; });
-route("POST", "/api/admin/import", (u, p, q, b, ctx) => {
+route("POST", "/api/admin/import", async (u, p, q, b, ctx) => {
   importGuard(u, b);
   let safety = null;
-  if (importBackupReady()) safety = backups.create(db, { kind: "pre-import", userId: u.id, reason: "Safety copy taken automatically before a JSON import", settings: backupSettings() });
+  /* a backup running in its worker finishes first; the safety copy and the import then run in one go, as before */
+  if (importBackupReady()) { await backups.idle(); safety = backups.create(db, { kind: "pre-import", userId: u.id, reason: "Safety copy taken automatically before a JSON import", settings: backupSettings() }); }
   else if (b.confirmNoBackup !== true) throw new HttpError(409, "Backups are not configured, so no safety copy can be taken first. Confirm to import without one.");
   const r = importer.apply(b, u.id);
   r.backup = safety ? { name: safety.name } : null;
@@ -1814,7 +1817,9 @@ route("POST", "/api/tasks/:id/comments", (u, p, q, b) => {
   if (cur.comments.some(c => c.id === added.id)) added.id = uid("cm");
   const next = Object.assign({}, cur, { comments: cur.comments.concat([added]) });
   validateStoredFiles(next, u.id);
-  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); }));
+  /* just the new comment's row and the task's updated time (Oct 2026): writeTask rewrote the whole task — every
+     comment deleted and put back — for one comment. The history entry, its copy and the live update are as before. */
+  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.insertComment(db, WS_ID, p.id, added, u.id); progressTouched(p.id); recordTaskChanges(u, cur, next); }));
   return forViewer(u, sz.readTask(db, p.id));
 });
 /* Whoever wrote a comment changes what it says (an admin may too); it is stamped as edited. Its attachments, who
@@ -1830,9 +1835,11 @@ route("PUT", "/api/tasks/:id/comments/:cid", (u, p, q, b) => {
   if (!text && !att.length) throw new HttpError(400, "Write something first");
   tooLong("comment", text, 10000);
   if (text === c.text && JSON.stringify(att) === JSON.stringify(c.attachments || [])) return forViewer(u, cur);
-  const next = Object.assign({}, cur, { comments: cur.comments.map(x => x.id === c.id ? Object.assign({}, x, { text, attachments: att, editedAt: now() }) : x) });
+  const edited = Object.assign({}, c, { text, attachments: att, editedAt: now() });
+  const next = Object.assign({}, cur, { comments: cur.comments.map(x => x.id === c.id ? edited : x) });
   validateStoredFiles(next, u.id);   /* a picture checked and stored, a link https or ours — as when posting */
-  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.writeTask(db, WS_ID, next, u.id); recordTaskChanges(u, cur, next); }));
+  /* only that comment's row changes, and the task's updated time (it rewrote the whole task) */
+  withSnapshot(u, "task", p.id, () => tx(db, () => { sz.updateComment(db, p.id, edited); progressTouched(p.id); recordTaskChanges(u, cur, next); }));
   return forViewer(u, sz.readTask(db, p.id));
 });
 /* The copy a history entry names, for the admin to see what going back there changes. */
@@ -1841,11 +1848,11 @@ function snapshotFor(type, id, activityId) {
   if (!row) throw new HttpError(404, "That point in the history was not found");
   const snap = (J(row.payload, {}) || {}).snap; if (!snap) throw new HttpError(400, "There is no saved copy for that point in the history");
   snapTable(); const s = db.prepare("SELECT * FROM entity_snapshots WHERE id=? AND entity_type=? AND entity_id=?").get(snap, type, id);
-  if (!s) throw new HttpError(410, "The saved copy for that point is no longer kept");
-  return { doc: J(s.doc, null), takenAt: s.taken_at, by: s.actor_id };
+  const doc = snaps.docOf(db, s);   /* a point that shares the copy before it is put back together with it */
+  if (!s || doc === undefined) throw new HttpError(410, "The saved copy for that point is no longer kept");
+  return { doc, takenAt: s.taken_at, by: s.actor_id };
 }
-const TASK_RESTORE = ["title", "description", "proj", "team", "status", "prio", "assignee", "reviewer", "assignees", "reviewers", "hidden", "startDate", "dueDate", "effort", "assetCount", "labels", "parent", "tags", "dependencies", "brief", "custom", "meta", "versions", "files"];
-const PROJECT_RESTORE = ["name", "description", "brief", "owner", "status", "progress", "startDate", "dueDate", "tags", "teams", "archivedAt"];
+const { TASK_RESTORE, PROJECT_RESTORE } = snaps;
 route("GET", "/api/restore/:type/:id", (u, p, q) => { forbid(can.manageWorkspace(u), "restore history"); if (!["task", "project"].includes(p.type)) throw new HttpError(400, "Unknown kind"); return snapshotFor(p.type, p.id, q.activity); });
 route("POST", "/api/restore/:type/:id", (u, p, q, b) => {
   forbid(can.manageWorkspace(u), "restore history");
@@ -2018,10 +2025,12 @@ const backupSettings = () => {
   try { const w = db.prepare("SELECT backup_settings FROM workspaces WHERE id=?").get(WS_ID); return JSON.parse((w && w.backup_settings) || "{}") || {}; }
   catch { return {}; }
 };
-route("GET", "/api/backups", (u) => {
+route("GET", "/api/backups", async (u) => {
   forbid(can.manageBackups(u), "view backups");
   const settings = backupSettings();
-  const items = backups.list().map(b => Object.assign({}, b, { integrityStatus: backups.verifyStored(b.name).status }));
+  /* every stored backup is hashed again to say whether it is intact: in a worker, so the server goes on answering */
+  const listed = backups.list(), checked = await backups.verifyManyInBackground(listed.map(b => b.name));
+  const items = listed.map((b, i) => Object.assign({}, b, { integrityStatus: checked[i].status }));
   return {
     configured: !!process.env.COS_BACKUP_KEY,
     backups: items,
@@ -2031,11 +2040,11 @@ route("GET", "/api/backups", (u) => {
     audit: backups.auditLog().slice(0, 25)
   };
 });
-route("GET", "/api/backups/:name", (u, p) => {
+route("GET", "/api/backups/:name", async (u, p) => {
   forbid(can.manageBackups(u), "view backups");
   const meta = backups.readMeta(p.name);
   if (!meta || !meta.name) throw new HttpError(404, "That backup no longer exists");
-  return Object.assign({}, meta, { integrity: backups.verifyStored(p.name) });
+  return Object.assign({}, meta, { integrity: (await backups.verifyManyInBackground([p.name]))[0] });
 });
 route("PUT", "/api/backups/settings", (u, p, q, b, ctx) => {
   forbid(can.manageBackups(u), "change backup settings");
@@ -2051,11 +2060,14 @@ route("PUT", "/api/backups/settings", (u, p, q, b, ctx) => {
 });
 /* §P1-5 restore is staged, takes a safety backup first, and rolls back on
    failure. It never silently overwrites the live database. */
-route("POST", "/api/backups/:name/restore", (u, p, q, b, ctx) => {
+route("POST", "/api/backups/:name/restore", async (u, p, q, b, ctx) => {
   forbid(can.manageBackups(u), "restore backups");
   if (!process.env.COS_BACKUP_KEY) throw new HttpError(400, "Encrypted backups are not configured. Set COS_BACKUP_KEY on the server.");
   if (!b || b.confirm !== p.name) throw new HttpError(400, "Type the backup name to confirm the restore");
   const { DB_PATH } = require("./db");
+  /* a backup still running holds the database file open in its worker; the restore swaps that file, so it waits.
+     From here on it runs as before, in one go: nothing is written between its safety copy and the swap. */
+  await backups.idle();
   try {
     const r = backups.safeRestore(db, p.name, DB_PATH, {
       userId: u.id,
@@ -2086,9 +2098,9 @@ route("POST", "/api/backups/:name/restore", (u, p, q, b, ctx) => {
     throw new HttpError(500, "Restore failed" + (e.rolledBack ? " and the previous database was put back" : "") + ": " + e.message);
   }
 });
-route("POST", "/api/backups/:name/verify", (u, p) => {
+route("POST", "/api/backups/:name/verify", async (u, p) => {
   forbid(can.manageBackups(u), "verify backups");
-  return backups.verifyStored(p.name);
+  return (await backups.verifyManyInBackground([p.name]))[0];
 });
 route("DELETE", "/api/backups/:name", (u, p, q, b, ctx) => {
   forbid(can.manageBackups(u), "delete backups");
@@ -2096,10 +2108,11 @@ route("DELETE", "/api/backups/:name", (u, p, q, b, ctx) => {
   security.log("backup_deleted", { userId: u.id, ip: ctx && ctx.ip, name: p.name });
   return r;
 });
-route("POST", "/api/backups", (u, p, q, b, ctx) => {
+route("POST", "/api/backups", async (u, p, q, b, ctx) => {
   forbid(can.manageBackups(u), "create backups");
   if (!process.env.COS_BACKUP_KEY) throw new HttpError(400, "Encrypted backups are not configured. Set COS_BACKUP_KEY on the server.");
-  const result = backups.create(db, { kind: (b && b.kind === "pre-import") ? "pre-import" : "manual", userId: u.id, reason: b && b.reason, settings: backupSettings() });
+  /* the copying, sealing and hashing run in a worker thread (server/backup.js) */
+  const result = await backups.createInBackground(db, { kind: (b && b.kind === "pre-import") ? "pre-import" : "manual", userId: u.id, reason: b && b.reason, settings: backupSettings() });
   security.log("backup_created", { userId: u.id, ip: ctx.ip, name: result.name, bytes: result.bytes, kind: result.kind });
   return result;
 });
@@ -2237,7 +2250,8 @@ let shuttingDown = false;
 function shutdown(sig) {
   if (shuttingDown) return; shuttingDown = true;
   console.log("[shutdown] " + sig + " received — finishing requests");
-  server.close(() => { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); db.close(); } catch (e) {} console.log("[shutdown] database closed"); process.exit(0); });
+  /* a backup running in its worker finishes first (within the same 8 s), rather than leaving half a copy behind */
+  server.close(() => { backups.idle().then(() => { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); db.close(); } catch (e) {} console.log("[shutdown] database closed"); process.exit(0); }); });
   try { server.closeIdleConnections && server.closeIdleConnections(); } catch (e) {}
   setTimeout(() => { try { server.closeAllConnections && server.closeAllConnections(); } catch (e) {} }, 1500).unref();
   setTimeout(() => { try { db.close(); } catch (e) {} process.exit(0); }, 8000).unref();
@@ -2249,19 +2263,24 @@ process.on("SIGINT", () => shutdown("SIGINT"));
    COS_BACKUP_INTERVAL_HOURS, when set, is an operator override and the UI says so.
    The scheduler checks every 10 minutes, so a restart never loses the cadence:
    "due" is measured from the last automatic backup recorded in the workspace. */
+let scheduledBackupRunning = false;
 function runScheduledBackupIfDue() {
-  if (!process.env.COS_BACKUP_KEY) return null;
+  if (!process.env.COS_BACKUP_KEY || scheduledBackupRunning) return null;
   const settings = backupSettings(), sch = backupSchedule(settings);
   if (!sch.intervalHours) return null;
   const last = Date.parse(settings.lastAutoAt || "") || 0;
   if (Date.now() - last < sch.intervalHours * 3600000) return null;
-  try {
-    const result = backups.create(db, { kind: "scheduled", userId: null, reason: "Automatic " + (sch.source === "environment" ? "(COS_BACKUP_INTERVAL_HOURS=" + sch.intervalHours + ")" : settings.auto), settings });
-    const next = Object.assign({}, backupSettings(), { lastAutoAt: now() });
-    db.prepare("UPDATE workspaces SET backup_settings=? WHERE id=?").run(JSON.stringify(next), WS_ID);
-    security.log("scheduled_backup_created", { name: result.name, bytes: result.bytes, source: sch.source, intervalHours: sch.intervalHours });
-    return result;
-  } catch (e) { security.log("scheduled_backup_failed", { error: e.message }); return null; }
+  /* in a worker thread (server/backup.js), as a manual backup; recorded when it has finished, as before */
+  scheduledBackupRunning = true;
+  return backups.createInBackground(db, { kind: "scheduled", userId: null, reason: "Automatic " + (sch.source === "environment" ? "(COS_BACKUP_INTERVAL_HOURS=" + sch.intervalHours + ")" : settings.auto), settings })
+    .then(result => {
+      const next = Object.assign({}, backupSettings(), { lastAutoAt: now() });
+      db.prepare("UPDATE workspaces SET backup_settings=? WHERE id=?").run(JSON.stringify(next), WS_ID);
+      security.log("scheduled_backup_created", { name: result.name, bytes: result.bytes, source: sch.source, intervalHours: sch.intervalHours });
+      return result;
+    })
+    .catch(e => { security.log("scheduled_backup_failed", { error: e.message }); return null; })
+    .finally(() => { scheduledBackupRunning = false; });
 }
 if (process.env.COS_BACKUP_KEY) {
   const first = setTimeout(runScheduledBackupIfDue, 60000); first.unref();

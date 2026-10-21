@@ -15,12 +15,35 @@ function backupKey() {
 }
 function sqlPath(file) { return String(file).replace(/'/g, "''"); }
 function stamp() { return new Date().toISOString().replace(/[:.]/g, "-"); }
-function encryptFile(source, target) {
-  const salt = crypto.randomBytes(16), iv = crypto.randomBytes(12), key = crypto.scryptSync(backupKey(), salt, 32);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv), plain = fs.readFileSync(source);
-  const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
-  fs.writeFileSync(target, Buffer.concat([MAGIC, salt, iv, cipher.getAuthTag(), encrypted]), { mode: 0o600 });
+/* An encrypted file is MAGIC · salt (16) · iv (12) · GCM tag (16) · the AES-256-GCM ciphertext, the key being
+   scrypt(COS_BACKUP_KEY, salt). Oct 2026: the file is sealed a megabyte at a time (it was read whole into memory),
+   the tag written into its place once known, and the result appears under its name only when complete. One backup
+   derives its key once — one salt for the database and every picture and document it mirrors, each with its own iv;
+   scrypt took about 30 ms per file. The format is unchanged, so every backup restores as before. */
+const CHUNK = 1 << 20;
+function writeAll(fd, buf, position) { let off = 0; while (off < buf.length) off += fs.writeSync(fd, buf, off, buf.length - off, position == null ? null : position + off); }
+function sealer(secret) {
+  const salt = crypto.randomBytes(16), key = crypto.scryptSync(secret, salt, 32);
+  return function seal(source, target) {
+    /* a part file of its own: another backup (a safety copy, the command line) may be sealing the same file now */
+    const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv("aes-256-gcm", key, iv), part = target + "." + iv.toString("hex").slice(0, 8) + ".part";
+    const inp = fs.openSync(source, "r");
+    try {
+      const out = fs.openSync(part, "w", 0o600);
+      try {
+        writeAll(out, Buffer.concat([MAGIC, salt, iv, Buffer.alloc(16)]));
+        const buf = Buffer.allocUnsafe(CHUNK); let n;
+        while ((n = fs.readSync(inp, buf, 0, CHUNK, null)) > 0) writeAll(out, cipher.update(buf.subarray(0, n)));
+        writeAll(out, cipher.final());
+        writeAll(out, cipher.getAuthTag(), 32);
+      } finally { fs.closeSync(out); }
+    } catch (e) { try { fs.unlinkSync(part); } catch {} throw e; }
+    finally { fs.closeSync(inp); }
+    try { fs.renameSync(part, target); }
+    catch (e) { try { fs.unlinkSync(part); } catch {} if (!fs.existsSync(target)) throw e; /* the other one sealed it first; theirs is whole */ }
+  };
 }
+function encryptFile(source, target) { sealer(backupKey())(source, target); }
 function decryptFile(source, target) {
   const raw = fs.readFileSync(source);
   if (!raw.subarray(0, 4).equals(MAGIC)) throw new Error("Backup format is not recognized");
@@ -47,7 +70,11 @@ function verifyDatabase(file) {
 const META_SUFFIX = ".meta.json";
 const AUDIT_FILE = () => path.join(BACKUP_DIR, "restore-audit.json");
 
-function sha256(file) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+function sha256(file) {
+  const h = crypto.createHash("sha256"), fd = fs.openSync(file, "r"), buf = Buffer.allocUnsafe(CHUNK);
+  try { let n; while ((n = fs.readSync(fd, buf, 0, CHUNK, null)) > 0) h.update(buf.subarray(0, n)); } finally { fs.closeSync(fd); }
+  return h.digest("hex");
+}
 function metaPath(name) { return path.join(BACKUP_DIR, name + META_SUFFIX); }
 function readMeta(name) {
   try { return JSON.parse(fs.readFileSync(metaPath(name), "utf8")); } catch { return {}; }
@@ -107,35 +134,104 @@ function audit(entry) {
   return log;
 }
 function auditLog() { try { return JSON.parse(fs.readFileSync(AUDIT_FILE(), "utf8")) || []; } catch { return []; } }
-function create(db, opts) {
-  opts = opts || {};
-  backupKey();
+/* One backup's work, the same wherever it runs: the database copied (VACUUM INTO — through the server's own
+   handle, or a connection of the worker's own), checked, sealed under the name `sealed`; the pictures and the
+   documents mirrored with the same key; the sealed file's checksum. job: { dbFile?, plain, sealed, secret, backupDir } */
+function runJob(job, db) {
+  const plain = job.plain, backupDir = job.backupDir || BACKUP_DIR;
+  try {
+    cleanStale(backupDir);
+    if (db) db.exec("VACUUM INTO '" + sqlPath(plain) + "'");
+    else { const src = new DatabaseSync(job.dbFile); try { src.exec("PRAGMA busy_timeout = 5000"); src.exec("VACUUM INTO '" + sqlPath(plain) + "'"); } finally { src.close(); } }
+    const verified = verifyDatabase(plain);
+    const seal = sealer(job.secret);
+    seal(plain, job.sealed);
+    /* v39: images live in COS_DATA_DIR/uploads; they are immutable, so an incremental encrypted
+       mirror (BACKUP_DIR/uploads/<name>.enc) is enough for every database backup to be complete */
+    let files = null; try { files = require("./uploads").mirror(backupDir, seal); } catch (e) { files = { error: e.message }; console.error("[backup] uploads mirror failed:", e.message); }
+    /* Documents kept on this server live in their own folder, which the image mirror above does not
+       match. Without this a restore would bring back every image and none of the PDFs or decks. */
+    try { const docs = require("./filestore").mirror(backupDir, seal); files = Object.assign({}, files, { documents: docs }); } catch (e) { files = Object.assign({}, files, { documents: { error: e.message } }); console.error("[backup] documents mirror failed:", e.message); }
+    return { verified, files, checksum: sha256(job.sealed), bytes: fs.statSync(job.sealed).size };
+  } finally { try { fs.unlinkSync(plain); } catch {} }
+}
+/* what a backup that stopped half-way (the server was stopped during it) left behind: never a finished backup */
+const STALE_MS = 3600000;
+function cleanStale(backupDir) {
+  const sweep = (dir, re) => { let names = []; try { names = fs.readdirSync(dir); } catch { return; } names.forEach(n => { if (!re.test(n)) return; const f = path.join(dir, n); try { if (Date.now() - fs.statSync(f).mtimeMs > STALE_MS) fs.unlinkSync(f); } catch {} }); };
+  sweep(backupDir, /^zencrevia-.*\.(tmp\.db|db\.enc\.tmp|db\.enc\.tmp\.[a-f0-9]{8}\.part)$/);
+  sweep(path.join(backupDir, "uploads"), /\.enc\.[a-f0-9]{8}\.part$/); sweep(path.join(backupDir, "uploads", "d"), /\.enc\.[a-f0-9]{8}\.part$/);
+}
+function plan(opts) {
+  const secret = backupKey();
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
   const kind = opts.kind || "manual";
   const base = "zencrevia-" + (kind === "manual" ? "" : kind + "-") + stamp();
-  const plain = path.join(BACKUP_DIR, base + ".tmp.db"), encrypted = path.join(BACKUP_DIR, base + ".db.enc");
-  try {
-    db.exec("VACUUM INTO '" + sqlPath(plain) + "'");
-    const verified = verifyDatabase(plain);
-    encryptFile(plain, encrypted);
-    const name = path.basename(encrypted);
-    /* v39: images live in COS_DATA_DIR/uploads; they are immutable, so an incremental encrypted
-       mirror (BACKUP_DIR/uploads/<name>.enc) is enough for every database backup to be complete */
-    let files = null; try { files = require("./uploads").mirror(BACKUP_DIR, encryptFile); } catch (e) { files = { error: e.message }; console.error("[backup] uploads mirror failed:", e.message); }
-    /* Documents kept on this server live in their own folder, which the image mirror above does not
-       match. Without this a restore would bring back every image and none of the PDFs or decks. */
-    try { const docs = require("./filestore").mirror(BACKUP_DIR, encryptFile); files = Object.assign({}, files, { documents: docs }); } catch (e) { files = Object.assign({}, files, { documents: { error: e.message } }); console.error("[backup] documents mirror failed:", e.message); }
-    const meta = writeMeta(name, {
-      name, kind, createdAt: new Date().toISOString(), createdBy: opts.userId || null,
-      reason: opts.reason || null, checksum: sha256(encrypted),
-      integrity: { ok: !!verified.ok, tables: verified.tables }, tables: verified.tables,
-      bytes: fs.statSync(encrypted).size, uploads: files
-    });
-    /* a pre-restore/pre-import safety copy must never be pruned away by the
-       very operation it exists to protect */
-    if (kind === "manual" || kind === "scheduled") prune(opts.settings);
-    return Object.assign({ name, bytes: meta.bytes, createdAt: meta.createdAt, encrypted: true, kind, checksum: meta.checksum }, verified);
-  } finally { try { fs.unlinkSync(plain); } catch {} }
+  const encrypted = path.join(BACKUP_DIR, base + ".db.enc");
+  return { kind, encrypted, job: { plain: path.join(BACKUP_DIR, base + ".tmp.db"), sealed: encrypted + ".tmp", secret, backupDir: BACKUP_DIR } };
+}
+/* the sidecar first, then the file under its name: a backup is never listed (or pruned) half-written */
+function finish(p, opts, out) {
+  const name = path.basename(p.encrypted), kind = p.kind, verified = out.verified;
+  const meta = writeMeta(name, {
+    name, kind, createdAt: new Date().toISOString(), createdBy: opts.userId || null,
+    reason: opts.reason || null, checksum: out.checksum,
+    integrity: { ok: !!verified.ok, tables: verified.tables }, tables: verified.tables,
+    bytes: out.bytes, uploads: out.files
+  });
+  fs.renameSync(p.job.sealed, p.encrypted);
+  /* a pre-restore/pre-import safety copy must never be pruned away by the
+     very operation it exists to protect */
+  if (kind === "manual" || kind === "scheduled") prune(opts.settings);
+  return Object.assign({ name, bytes: meta.bytes, createdAt: meta.createdAt, encrypted: true, kind, checksum: meta.checksum }, verified);
+}
+function discard(p) {
+  for (const f of [p.job.sealed, p.job.plain]) { try { fs.unlinkSync(f); } catch {} }
+  const dir = path.dirname(p.job.sealed), stem = path.basename(p.job.sealed) + ".";
+  try { fs.readdirSync(dir).filter(n => n.startsWith(stem) && n.endsWith(".part")).forEach(n => { try { fs.unlinkSync(path.join(dir, n)); } catch {} }); } catch {}
+}
+/* On the calling thread: the command line, and the safety copies a restore or an import takes, which must hold
+   exactly what the next step replaces (nothing may be written in between). */
+function create(db, opts) {
+  opts = opts || {};
+  const p = plan(opts);
+  let out; try { out = runJob(p.job, db); } catch (e) { discard(p); throw e; }
+  return finish(p, opts, out);
+}
+/* Oct 2026: a manual or scheduled backup held the server for its whole run — half a second at a 36 MB database, and
+   about 30 ms more per picture it mirrored. Now its work runs in a worker thread (server/backup-worker.js) on a
+   connection of its own; the server goes on answering meanwhile. Same files, same sidecar, same answer as create().
+   One runs at a time, in the order asked; idle() is when the last one asked has finished. */
+let queue = Promise.resolve();
+function createInBackground(db, opts) {
+  opts = opts || {};
+  const run = queue.then(() => createAsync(db, opts));
+  queue = run.then(() => {}, () => {});
+  return run;
+}
+function idle() { return queue; }
+function dbFileOf(db) { try { const main = db.prepare("PRAGMA database_list").all().find(r => r.name === "main"); return main && main.file ? main.file : null; } catch { return null; } }
+async function createAsync(db, opts) {
+  const p = plan(opts), file = dbFileOf(db);
+  let out;
+  try { out = file ? await inWorker(Object.assign({ task: "backup", dbFile: file }, p.job)) : runJob(p.job, db); }   /* an in-memory database has no file a worker could open */
+  catch (e) { discard(p); throw e; }
+  return finish(p, opts, out);
+}
+/* The checksum of each stored backup, worked out in a worker: GET /api/backups re-reads every one of them. */
+async function verifyManyInBackground(names) {
+  if (!names.length) return [];
+  return inWorker({ task: "verify", names });
+}
+function inWorker(job) {
+  const { Worker } = require("worker_threads");
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const w = new Worker(path.join(__dirname, "backup-worker.js"), { workerData: Object.assign({ backupDir: BACKUP_DIR, dataDir: path.dirname(require("./uploads").UPLOAD_DIR) }, job) });
+    w.once("message", m => { settled = true; if (m && m.ok) resolve(m.result); else reject(new Error((m && m.error) || "The backup did not finish")); });
+    w.once("error", e => { if (!settled) { settled = true; reject(e); } });
+    w.once("exit", code => { if (!settled) { settled = true; reject(new Error("The backup did not finish (worker exited " + code + ")")); } });
+  });
 }
 function restore(source, destination) {
   backupKey();
@@ -241,7 +337,7 @@ function remove(name) {
   try { fs.unlinkSync(metaPath(path.basename(file))); } catch {}
   return { ok: true };
 }
-module.exports = { create, list, restore, safeRestore, remove, verifyDatabase, verifyStored, encryptFile, decryptFile, readMeta, audit, auditLog, retention, BACKUP_DIR, KEEP };
+module.exports = { create, createInBackground, idle, runJob, verifyManyInBackground, list, restore, safeRestore, remove, verifyDatabase, verifyStored, encryptFile, decryptFile, readMeta, audit, auditLog, retention, BACKUP_DIR, KEEP };
 
 if (require.main === module) {
   const mode = process.argv[2] || "backup";
