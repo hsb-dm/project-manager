@@ -330,6 +330,8 @@ function uid(p){ return (p||"id")+"_"+Date.now().toString(36)+Math.random().toSt
 function A(who,k,agoMin,a){ return {id:uid("act"),who:who,k:k,ago:agoMin||0,a:a||{}}; }
 function log(tk,k,a){ tk.activity.push(A(ME,k,0,a)); var o={task:tk.id}; if (a) for (var q in a) o[q]=a[q]; ACTIVITY.unshift(A(ME,k,0,o)); }
 function download(name, blob){ var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500); }
+/* A JSON round trip on purpose: for these records (plain JSON) Chromium's structuredClone measured slower (1,550 tasks:
+   19 ms against 11 ms), and it would keep undefined, Dates and throw on functions where this drops or flattens them. */
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function replaceInto(target,src){ for (var k in target) if (Object.prototype.hasOwnProperty.call(target,k)) delete target[k]; for (var j in src) target[j]=src[j]; return target; }
 
@@ -350,8 +352,11 @@ var canI={ submitRequest:function(){ return has("submit_request")||has("create_t
 var SESSION={user:null,ws:null,canRegister:true};
 function httpStatusMessage(st){ return st===502||st===503?tr("The server could not be reached (")+st+tr("). It may be restarting — try again in a minute."):st===504||st===524?tr("The request took too long (")+st+tr("). Try again; for AI, pick a faster model or a smaller size."):st===413?tr("That upload is too large."):tr("Unexpected server response (HTTP ")+st+")."; }
 function apiFetch(method,path,body){ var h={"Content-Type":"application/json"}; if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ if(typeof zcBuildSeen==="function") zcBuildSeen(r.headers.get("X-ZC-Build")); return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
-function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(d.dependencies)?d.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(d.labels)?d.labels.slice():[]; t.alsoIn=Array.isArray(d.alsoIn)?d.alsoIn.slice():[]; t.custom=t.custom||{}; t.description=t.description||"";
-  t.versions=(d.versions||[]).map(function(v){ var x=clone(v); x.ago=minAgo(v.createdAt); x.decidedAgo=v.decidedAt?minAgo(v.decidedAt):null; return x; }); t.files=(d.files||[]).map(function(f){ var x=clone(f); x.ago=minAgo(f.createdAt); return x; }); t.comments=(d.comments||[]).map(function(c){ var x=clone(c); x.ago=minAgo(c.createdAt); x.attachments=x.attachments||[]; return x; }); t.activity=(d.activity||[]).map(function(a){ var x=clone(a); x.ago=minAgo(a.createdAt); return x; }); return t; }
+function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(t.dependencies)?t.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(t.labels)?t.labels:[]; t.alsoIn=Array.isArray(t.alsoIn)?t.alsoIn:[]; t.custom=t.custom||{}; t.description=t.description||"";
+  /* one copy of what the server sent (t above) is all a task needs: its versions, files, comments and history are
+     that copy's own, so each is completed in place — a second copy of every one used to be made here — and nothing
+     in t is the server's object (src/v34.js keeps that one as the base of the next save) */
+  t.versions=(t.versions||[]).map(function(x){ x.ago=minAgo(x.createdAt); x.decidedAgo=x.decidedAt?minAgo(x.decidedAt):null; return x; }); t.files=(t.files||[]).map(function(x){ x.ago=minAgo(x.createdAt); return x; }); t.comments=(t.comments||[]).map(function(x){ x.ago=minAgo(x.createdAt); x.attachments=x.attachments||[]; return x; }); t.activity=(t.activity||[]).map(function(x){ x.ago=minAgo(x.createdAt); return x; }); return t; }
 function dTask(t){ var d=clone(t); d.dueDate=iso(t.due); d.startDate=t._dates&&t._dates[1]===t.due&&t._dates[2]===t.span?t._dates[0]:iso(t.due-(t.span||1)); delete d._dates; d.createdAt=t.createdAt||isoAgo(t.ago); delete d.due; delete d.span; delete d.ago;
   d.versions=t.versions.map(function(v){ var x=clone(v); x.id=x.id||uid("ver"); x.createdAt=v.createdAt||isoAgo(v.ago); x.decidedAt=v.decidedAt||(v.decidedAgo!=null?isoAgo(v.decidedAgo):null); delete x.ago; delete x.decidedAgo; return x; }); d.files=t.files.map(function(f){ var x=clone(f); x.id=x.id||uid("file"); x.createdAt=f.createdAt||isoAgo(f.ago); delete x.ago; return x; });
   d.comments=t.comments.map(function(c){ var x=clone(c); x.id=x.id||uid("cm"); x.createdAt=c.createdAt||isoAgo(c.ago); delete x.ago; return x; }); d.activity=t.activity.map(function(a){ var x=clone(a); x.id=x.id||uid("act"); x.createdAt=a.createdAt||isoAgo(a.ago); delete x.ago; return x; }); return d; }
@@ -403,14 +408,50 @@ function resetDemo(){ confirmModal("Reset the database?","Re-seeds the demo work
 
 /* ---------- persistence (optimistic UI → server mutation → reconcile / rollback, §40–41) ---------- */
 function fail(e,msg){ console.error(e); toast(msg||("Couldn't save: "+e.message),"bad"); }
-function persistTask(tk,snapshot){ if (!API.on||tk._draft) return Promise.resolve(tk); return apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ replaceInto(tk,hTask(d)); AN=null; refresh(); return tk; }).catch(function(e){ if (snapshot) replaceInto(tk,snapshot); refresh(); fail(e,"Couldn't update task. "+e.message); throw e; }); }
-function editTaskWith(tk,fn){ var snap=clone(tk); fn(tk); refresh(); return persistTask(tk,snap).catch(function(){return false;}); }
-function moveTask(tk,op,applyLocal){ var snap=clone(tk); applyLocal(tk); refresh(); if (tk._draft) return Promise.resolve(tk); if (!API.on){ log(tk,op.type==="MOVE_TASK_STATUS"?"moved":"edited",op.type==="MOVE_TASK_STATUS"?{from:snap.status,to:tk.status}:{what:"position"}); return Promise.resolve(tk); }
-  return apiFetch("POST","/api/tasks/"+tk.id+"/move",op).then(function(d){ replaceInto(tk,hTask(d)); refresh();
+/* ---------- one redraw for what happened, not one per step (Oct 2026) ----------
+   A save drew everything at once and again when the server answered; a bulk edit did so for every task, and a live
+   update for every task it fetched. With 1,500 tasks each of those is seconds. requestRefresh() asks for the redraw
+   instead: whatever asks before the next frame is drawn once, then (refresh() still draws at once, and answers what
+   was waiting). o.bg: a redraw from elsewhere, drawn through bgRedraw (src/live-redraw.js) so what is typed stays —
+   one asked for by the person's own action wins. o.drawer: only the open task's panel has anything new. While the
+   tab is hidden nothing is drawn; it is drawn once when the tab is shown again, as a redraw from elsewhere. */
+var RR={raf:0,all:false,drawer:false,own:false,hidden:false};
+function rrHidden(){ return typeof document!=="undefined"&&!!document.hidden; }
+function requestRefresh(o){ o=o||{}; if(o.drawer) RR.drawer=true; else RR.all=true; if(!o.bg) RR.own=true;
+  if(rrHidden()){ RR.hidden=true; return; }
+  if(!RR.raf) RR.raf=(typeof requestAnimationFrame==="function"?requestAnimationFrame:function(f){ return setTimeout(f,16); })(refreshNow); }
+function refreshNow(){ RR.raf=0; if(rrHidden()){ RR.hidden=true; return; } var all=RR.all, dr=RR.drawer, own=RR.own; RR.all=RR.drawer=RR.own=false;
+  if(!all&&!dr) return; var draw=all?refresh:function(){ if(S.drawerTask) renderDrawer(); };
+  if(!own&&typeof bgRedraw==="function") bgRedraw(draw); else draw(); }
+/* refresh() draws everything: nothing asked for before it waits any more */
+function refreshTaken(){ if(RR.raf){ (typeof cancelAnimationFrame==="function"&&typeof requestAnimationFrame==="function"?cancelAnimationFrame:clearTimeout)(RR.raf); RR.raf=0; } RR.all=RR.drawer=RR.own=RR.hidden=false; }
+if(typeof document!=="undefined"&&document.addEventListener) document.addEventListener("visibilitychange",function(){ if(rrHidden()||!RR.hidden) return; RR.hidden=false; RR.own=false; if(RR.all||RR.drawer) requestRefresh({bg:true,drawer:!RR.all}); });
+/* Several saves drawn as one (a bulk edit): each answer says what it needs, and it is drawn once all have answered */
+function refreshBatch(){ var b={scope:"",open:true,
+  need:function(s){ if(!s) return; if(!b.open) return requestRefresh(s==="drawer"?{drawer:true}:null); if(s==="all"||!b.scope) b.scope=s; },
+  done:function(){ if(!b.open) return; b.open=false; if(b.scope) requestRefresh(b.scope==="drawer"?{drawer:true}:null); },
+  wait:function(list){ Promise.all(list.map(function(p){ return Promise.resolve(p).catch(function(){}); })).then(b.done); return b; }}; return b; }
+/* What the server's copy of a task changes on screen, against the copy drawn: "" nothing (it kept what was sent —
+   when each thing was read or done, the moment of the save and the merge note aside), "drawer" only the history,
+   which the server writes itself and only the task's open panel draws, "all" anything else. Its dates are compared
+   as drawn (due, span): a task without a due date is drawn as due today, and its first save stores today. */
+var TASK_SIG_SKIP={ago:1,decidedAgo:1,createdAt:1,decidedAt:1,updatedAt:1,_merged:1};
+function taskSig(v){ if(v===null||typeof v!=="object") return v===undefined||typeof v==="function"?undefined:JSON.stringify(v);
+  if(typeof v.toJSON==="function") return JSON.stringify(v);
+  if(Array.isArray(v)) return "["+v.map(function(x){ var s=taskSig(x); return s===undefined?"null":s; }).join(",")+"]";
+  var out=[]; Object.keys(v).sort().forEach(function(k){ if(TASK_SIG_SKIP[k]) return; var s=taskSig(v[k]); if(s!==undefined) out.push(JSON.stringify(k)+":"+s); }); return "{"+out.join(",")+"}"; }
+function taskRedrawNeed(drawn,fresh){ if(!drawn||!fresh) return "all"; var x={activity:null,dueDate:null,startDate:null}, a=Object.assign({},drawn,x), b=Object.assign({},fresh,x);
+  if(taskSig(a)!==taskSig(b)) return "all";
+  return S.drawerTask===fresh.id&&taskSig(drawn.activity||[])!==taskSig(fresh.activity||[])?"drawer":""; }
+function taskRedrawFor(need,o){ if(!need) return; if(o&&o.batch) return o.batch.need(need); requestRefresh(need==="drawer"?{drawer:true}:null); }
+function persistTask(tk,snapshot,o){ if (!API.on||tk._draft) return Promise.resolve(tk); return apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ var fresh=hTask(d), need=taskRedrawNeed(tk,fresh); replaceInto(tk,fresh); AN=null; taskRedrawFor(need,o); return tk; }).catch(function(e){ if (snapshot) replaceInto(tk,snapshot); taskRedrawFor("all",o); fail(e,"Couldn't update task. "+e.message); throw e; }); }
+function editTaskWith(tk,fn,o){ var snap=clone(tk); fn(tk); requestRefresh(); return persistTask(tk,snap,o).catch(function(){return false;}); }
+function moveTask(tk,op,applyLocal){ var snap=clone(tk); applyLocal(tk); requestRefresh(); if (tk._draft) return Promise.resolve(tk); if (!API.on){ log(tk,op.type==="MOVE_TASK_STATUS"?"moved":"edited",op.type==="MOVE_TASK_STATUS"?{from:snap.status,to:tk.status}:{what:"position"}); return Promise.resolve(tk); }
+  return apiFetch("POST","/api/tasks/"+tk.id+"/move",op).then(function(d){ var fresh=hTask(d), need=taskRedrawNeed(tk,fresh); replaceInto(tk,fresh); taskRedrawFor(need);
     /* a task moved to another stage — from the panel, the board, a list or in bulk: everyone it concerns
        hears of it, and so do its watchers */
     if(op.type==="MOVE_TASK_STATUS"&&snap.status!==tk.status) notifyMoved(tk);
-    return tk; }).catch(function(e){ replaceInto(tk,snap); refresh(); fail(e,"Couldn't update task. Please try again. ("+e.message+")"); return false; }); }
+    return tk; }).catch(function(e){ replaceInto(tk,snap); requestRefresh(); fail(e,"Couldn't update task. Please try again. ("+e.message+")"); return false; }); }
 /* A new task joins the lists with the number the server gave it. The number a browser proposes is
    only a guess (a deleted task's number is never given out again), so showing the task before the
    answer showed a number that could change a moment later — and anything that read it got the wrong one. */
@@ -820,7 +861,7 @@ function renderScreen(withLoading){ var c=document.getElementById("content");
   if (S.search) return renderSearch();
   var map={home:renderDashboard,tasks:renderTasks,projects:renderProjects,calendar:renderCalendarScreen,teams:renderTeams,team:renderMember,assets:renderAssets,knowledge:renderKnowledge,aihub:renderAIHub,aigallery:renderAIGallery,messages:renderMessages,analytics:renderAnalytics,notifications:renderNotifScreen,settings:renderSettings};
   try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); } catch(e){ console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
-function refresh(){ AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
+function refresh(){ refreshTaken(); AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
 function skeleton(){ var p='<div class="panel loading"><div class="panel-head"><div class="skel" style="width:140px"></div></div><div class="panel-body"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:85%"></div></div></div>'; return '<div class="pagehead"><div><div class="skel" style="width:120px;margin-bottom:8px"></div><div class="skel" style="width:260px;height:22px"></div></div></div><div class="grid g-2-1">'+p+p+'</div>'; }
 function panel(title,count,body,link,extra,icon,cls){ return '<section class="panel'+(cls?" "+cls:"")+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+title+'</h2>'+(count!==null&&count!==undefined?'<span class="cnt">'+count+'</span>':'')+'<span class="spacer"></span>'+(extra||'')+(link?'<span class="link" onclick="'+link+'">View all</span>':'')+'</div><div class="panel-body">'+body+'</div></section>'; }
 function emptyBox(h,p,ico,cta){ return '<div class="empty"><div class="ico">'+(ico||I.check)+'</div><div class="h">'+h+'</div>'+(p?'<p>'+p+'</p>':'')+(cta||'')+'</div>'; }

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="04665a217ade">
+<meta name="zc-build" content="ddcfef0a023d">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -7629,6 +7629,8 @@ function uid(p){ return (p||"id")+"_"+Date.now().toString(36)+Math.random().toSt
 function A(who,k,agoMin,a){ return {id:uid("act"),who:who,k:k,ago:agoMin||0,a:a||{}}; }
 function log(tk,k,a){ tk.activity.push(A(ME,k,0,a)); var o={task:tk.id}; if (a) for (var q in a) o[q]=a[q]; ACTIVITY.unshift(A(ME,k,0,o)); }
 function download(name, blob){ var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500); }
+/* A JSON round trip on purpose: for these records (plain JSON) Chromium's structuredClone measured slower (1,550 tasks:
+   19 ms against 11 ms), and it would keep undefined, Dates and throw on functions where this drops or flattens them. */
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function replaceInto(target,src){ for (var k in target) if (Object.prototype.hasOwnProperty.call(target,k)) delete target[k]; for (var j in src) target[j]=src[j]; return target; }
 
@@ -7649,8 +7651,11 @@ var canI={ submitRequest:function(){ return has("submit_request")||has("create_t
 var SESSION={user:null,ws:null,canRegister:true};
 function httpStatusMessage(st){ return st===502||st===503?tr("The server could not be reached (")+st+tr("). It may be restarting — try again in a minute."):st===504||st===524?tr("The request took too long (")+st+tr("). Try again; for AI, pick a faster model or a smaller size."):st===413?tr("That upload is too large."):tr("Unexpected server response (HTTP ")+st+")."; }
 function apiFetch(method,path,body){ var h={"Content-Type":"application/json"}; if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ if(typeof zcBuildSeen==="function") zcBuildSeen(r.headers.get("X-ZC-Build")); return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
-function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(d.dependencies)?d.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(d.labels)?d.labels.slice():[]; t.alsoIn=Array.isArray(d.alsoIn)?d.alsoIn.slice():[]; t.custom=t.custom||{}; t.description=t.description||"";
-  t.versions=(d.versions||[]).map(function(v){ var x=clone(v); x.ago=minAgo(v.createdAt); x.decidedAgo=v.decidedAt?minAgo(v.decidedAt):null; return x; }); t.files=(d.files||[]).map(function(f){ var x=clone(f); x.ago=minAgo(f.createdAt); return x; }); t.comments=(d.comments||[]).map(function(c){ var x=clone(c); x.ago=minAgo(c.createdAt); x.attachments=x.attachments||[]; return x; }); t.activity=(d.activity||[]).map(function(a){ var x=clone(a); x.ago=minAgo(a.createdAt); return x; }); return t; }
+function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(t.dependencies)?t.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(t.labels)?t.labels:[]; t.alsoIn=Array.isArray(t.alsoIn)?t.alsoIn:[]; t.custom=t.custom||{}; t.description=t.description||"";
+  /* one copy of what the server sent (t above) is all a task needs: its versions, files, comments and history are
+     that copy's own, so each is completed in place — a second copy of every one used to be made here — and nothing
+     in t is the server's object (src/v34.js keeps that one as the base of the next save) */
+  t.versions=(t.versions||[]).map(function(x){ x.ago=minAgo(x.createdAt); x.decidedAgo=x.decidedAt?minAgo(x.decidedAt):null; return x; }); t.files=(t.files||[]).map(function(x){ x.ago=minAgo(x.createdAt); return x; }); t.comments=(t.comments||[]).map(function(x){ x.ago=minAgo(x.createdAt); x.attachments=x.attachments||[]; return x; }); t.activity=(t.activity||[]).map(function(x){ x.ago=minAgo(x.createdAt); return x; }); return t; }
 function dTask(t){ var d=clone(t); d.dueDate=iso(t.due); d.startDate=t._dates&&t._dates[1]===t.due&&t._dates[2]===t.span?t._dates[0]:iso(t.due-(t.span||1)); delete d._dates; d.createdAt=t.createdAt||isoAgo(t.ago); delete d.due; delete d.span; delete d.ago;
   d.versions=t.versions.map(function(v){ var x=clone(v); x.id=x.id||uid("ver"); x.createdAt=v.createdAt||isoAgo(v.ago); x.decidedAt=v.decidedAt||(v.decidedAgo!=null?isoAgo(v.decidedAgo):null); delete x.ago; delete x.decidedAgo; return x; }); d.files=t.files.map(function(f){ var x=clone(f); x.id=x.id||uid("file"); x.createdAt=f.createdAt||isoAgo(f.ago); delete x.ago; return x; });
   d.comments=t.comments.map(function(c){ var x=clone(c); x.id=x.id||uid("cm"); x.createdAt=c.createdAt||isoAgo(c.ago); delete x.ago; return x; }); d.activity=t.activity.map(function(a){ var x=clone(a); x.id=x.id||uid("act"); x.createdAt=a.createdAt||isoAgo(a.ago); delete x.ago; return x; }); return d; }
@@ -7702,14 +7707,50 @@ function resetDemo(){ confirmModal("Reset the database?","Re-seeds the demo work
 
 /* ---------- persistence (optimistic UI → server mutation → reconcile / rollback, §40–41) ---------- */
 function fail(e,msg){ console.error(e); toast(msg||("Couldn't save: "+e.message),"bad"); }
-function persistTask(tk,snapshot){ if (!API.on||tk._draft) return Promise.resolve(tk); return apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ replaceInto(tk,hTask(d)); AN=null; refresh(); return tk; }).catch(function(e){ if (snapshot) replaceInto(tk,snapshot); refresh(); fail(e,"Couldn't update task. "+e.message); throw e; }); }
-function editTaskWith(tk,fn){ var snap=clone(tk); fn(tk); refresh(); return persistTask(tk,snap).catch(function(){return false;}); }
-function moveTask(tk,op,applyLocal){ var snap=clone(tk); applyLocal(tk); refresh(); if (tk._draft) return Promise.resolve(tk); if (!API.on){ log(tk,op.type==="MOVE_TASK_STATUS"?"moved":"edited",op.type==="MOVE_TASK_STATUS"?{from:snap.status,to:tk.status}:{what:"position"}); return Promise.resolve(tk); }
-  return apiFetch("POST","/api/tasks/"+tk.id+"/move",op).then(function(d){ replaceInto(tk,hTask(d)); refresh();
+/* ---------- one redraw for what happened, not one per step (Oct 2026) ----------
+   A save drew everything at once and again when the server answered; a bulk edit did so for every task, and a live
+   update for every task it fetched. With 1,500 tasks each of those is seconds. requestRefresh() asks for the redraw
+   instead: whatever asks before the next frame is drawn once, then (refresh() still draws at once, and answers what
+   was waiting). o.bg: a redraw from elsewhere, drawn through bgRedraw (src/live-redraw.js) so what is typed stays —
+   one asked for by the person's own action wins. o.drawer: only the open task's panel has anything new. While the
+   tab is hidden nothing is drawn; it is drawn once when the tab is shown again, as a redraw from elsewhere. */
+var RR={raf:0,all:false,drawer:false,own:false,hidden:false};
+function rrHidden(){ return typeof document!=="undefined"&&!!document.hidden; }
+function requestRefresh(o){ o=o||{}; if(o.drawer) RR.drawer=true; else RR.all=true; if(!o.bg) RR.own=true;
+  if(rrHidden()){ RR.hidden=true; return; }
+  if(!RR.raf) RR.raf=(typeof requestAnimationFrame==="function"?requestAnimationFrame:function(f){ return setTimeout(f,16); })(refreshNow); }
+function refreshNow(){ RR.raf=0; if(rrHidden()){ RR.hidden=true; return; } var all=RR.all, dr=RR.drawer, own=RR.own; RR.all=RR.drawer=RR.own=false;
+  if(!all&&!dr) return; var draw=all?refresh:function(){ if(S.drawerTask) renderDrawer(); };
+  if(!own&&typeof bgRedraw==="function") bgRedraw(draw); else draw(); }
+/* refresh() draws everything: nothing asked for before it waits any more */
+function refreshTaken(){ if(RR.raf){ (typeof cancelAnimationFrame==="function"&&typeof requestAnimationFrame==="function"?cancelAnimationFrame:clearTimeout)(RR.raf); RR.raf=0; } RR.all=RR.drawer=RR.own=RR.hidden=false; }
+if(typeof document!=="undefined"&&document.addEventListener) document.addEventListener("visibilitychange",function(){ if(rrHidden()||!RR.hidden) return; RR.hidden=false; RR.own=false; if(RR.all||RR.drawer) requestRefresh({bg:true,drawer:!RR.all}); });
+/* Several saves drawn as one (a bulk edit): each answer says what it needs, and it is drawn once all have answered */
+function refreshBatch(){ var b={scope:"",open:true,
+  need:function(s){ if(!s) return; if(!b.open) return requestRefresh(s==="drawer"?{drawer:true}:null); if(s==="all"||!b.scope) b.scope=s; },
+  done:function(){ if(!b.open) return; b.open=false; if(b.scope) requestRefresh(b.scope==="drawer"?{drawer:true}:null); },
+  wait:function(list){ Promise.all(list.map(function(p){ return Promise.resolve(p).catch(function(){}); })).then(b.done); return b; }}; return b; }
+/* What the server's copy of a task changes on screen, against the copy drawn: "" nothing (it kept what was sent —
+   when each thing was read or done, the moment of the save and the merge note aside), "drawer" only the history,
+   which the server writes itself and only the task's open panel draws, "all" anything else. Its dates are compared
+   as drawn (due, span): a task without a due date is drawn as due today, and its first save stores today. */
+var TASK_SIG_SKIP={ago:1,decidedAgo:1,createdAt:1,decidedAt:1,updatedAt:1,_merged:1};
+function taskSig(v){ if(v===null||typeof v!=="object") return v===undefined||typeof v==="function"?undefined:JSON.stringify(v);
+  if(typeof v.toJSON==="function") return JSON.stringify(v);
+  if(Array.isArray(v)) return "["+v.map(function(x){ var s=taskSig(x); return s===undefined?"null":s; }).join(",")+"]";
+  var out=[]; Object.keys(v).sort().forEach(function(k){ if(TASK_SIG_SKIP[k]) return; var s=taskSig(v[k]); if(s!==undefined) out.push(JSON.stringify(k)+":"+s); }); return "{"+out.join(",")+"}"; }
+function taskRedrawNeed(drawn,fresh){ if(!drawn||!fresh) return "all"; var x={activity:null,dueDate:null,startDate:null}, a=Object.assign({},drawn,x), b=Object.assign({},fresh,x);
+  if(taskSig(a)!==taskSig(b)) return "all";
+  return S.drawerTask===fresh.id&&taskSig(drawn.activity||[])!==taskSig(fresh.activity||[])?"drawer":""; }
+function taskRedrawFor(need,o){ if(!need) return; if(o&&o.batch) return o.batch.need(need); requestRefresh(need==="drawer"?{drawer:true}:null); }
+function persistTask(tk,snapshot,o){ if (!API.on||tk._draft) return Promise.resolve(tk); return apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk)).then(function(d){ var fresh=hTask(d), need=taskRedrawNeed(tk,fresh); replaceInto(tk,fresh); AN=null; taskRedrawFor(need,o); return tk; }).catch(function(e){ if (snapshot) replaceInto(tk,snapshot); taskRedrawFor("all",o); fail(e,"Couldn't update task. "+e.message); throw e; }); }
+function editTaskWith(tk,fn,o){ var snap=clone(tk); fn(tk); requestRefresh(); return persistTask(tk,snap,o).catch(function(){return false;}); }
+function moveTask(tk,op,applyLocal){ var snap=clone(tk); applyLocal(tk); requestRefresh(); if (tk._draft) return Promise.resolve(tk); if (!API.on){ log(tk,op.type==="MOVE_TASK_STATUS"?"moved":"edited",op.type==="MOVE_TASK_STATUS"?{from:snap.status,to:tk.status}:{what:"position"}); return Promise.resolve(tk); }
+  return apiFetch("POST","/api/tasks/"+tk.id+"/move",op).then(function(d){ var fresh=hTask(d), need=taskRedrawNeed(tk,fresh); replaceInto(tk,fresh); taskRedrawFor(need);
     /* a task moved to another stage — from the panel, the board, a list or in bulk: everyone it concerns
        hears of it, and so do its watchers */
     if(op.type==="MOVE_TASK_STATUS"&&snap.status!==tk.status) notifyMoved(tk);
-    return tk; }).catch(function(e){ replaceInto(tk,snap); refresh(); fail(e,"Couldn't update task. Please try again. ("+e.message+")"); return false; }); }
+    return tk; }).catch(function(e){ replaceInto(tk,snap); requestRefresh(); fail(e,"Couldn't update task. Please try again. ("+e.message+")"); return false; }); }
 /* A new task joins the lists with the number the server gave it. The number a browser proposes is
    only a guess (a deleted task's number is never given out again), so showing the task before the
    answer showed a number that could change a moment later — and anything that read it got the wrong one. */
@@ -8119,7 +8160,7 @@ function renderScreen(withLoading){ var c=document.getElementById("content");
   if (S.search) return renderSearch();
   var map={home:renderDashboard,tasks:renderTasks,projects:renderProjects,calendar:renderCalendarScreen,teams:renderTeams,team:renderMember,assets:renderAssets,knowledge:renderKnowledge,aihub:renderAIHub,aigallery:renderAIGallery,messages:renderMessages,analytics:renderAnalytics,notifications:renderNotifScreen,settings:renderSettings};
   try { (map[S.screen]||renderDashboard)(); localizeVisibleText(c); } catch(e){ console.error(e); c.innerHTML='<div class="errbox">Something went wrong rendering this screen: '+esc(e.message)+' <button class="btn sm" onclick="go(\'home\')">Go home</button></div>'; } }
-function refresh(){ AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
+function refresh(){ refreshTaken(); AN=null; renderNav(); renderScreen(false); if (S.drawerTask) renderDrawer(); }
 function skeleton(){ var p='<div class="panel loading"><div class="panel-head"><div class="skel" style="width:140px"></div></div><div class="panel-body"><div class="skel"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:85%"></div></div></div>'; return '<div class="pagehead"><div><div class="skel" style="width:120px;margin-bottom:8px"></div><div class="skel" style="width:260px;height:22px"></div></div></div><div class="grid g-2-1">'+p+p+'</div>'; }
 function panel(title,count,body,link,extra,icon,cls){ return '<section class="panel'+(cls?" "+cls:"")+'"><div class="panel-head">'+(icon?'<span class="sq">'+icon+'</span>':'')+'<h2>'+title+'</h2>'+(count!==null&&count!==undefined?'<span class="cnt">'+count+'</span>':'')+'<span class="spacer"></span>'+(extra||'')+(link?'<span class="link" onclick="'+link+'">View all</span>':'')+'</div><div class="panel-body">'+body+'</div></section>'; }
 function emptyBox(h,p,ico,cta){ return '<div class="empty"><div class="ico">'+(ico||I.check)+'</div><div class="h">'+h+'</div>'+(p?'<p>'+p+'</p>':'')+(cta||'')+'</div>'; }
@@ -11937,7 +11978,21 @@ function demoAnalytics(){
   a.byTeam=activeTeams().map(function(t){var w=teamWorkload(t.id);if(EXPORT){var members=w.ids.filter(function(id){return rows.some(function(x){return isAssignee(x,id);});});w.cap=members.reduce(function(n,id){return n+(person(id).cap||0);},0);w.assigned=members.reduce(function(n,id){return n+Math.round(rows.filter(function(x){return !isClosed(x)&&isAssignee(x,id);}).reduce(function(h,x){return h+(+x.effort||0)/assigneesOf(x).length;},0));},0);w.pct=w.cap?Math.round(w.assigned/w.cap*100):0;}var open=rows.filter(function(x){return taskInvolvesTeam(x,t.id)&&!isClosed(x)&&!projArchived(x.proj);});return {id:t.id,name:t.name,color:t.color,open:open.length,workloadHours:open.reduce(function(x,t){return x+(+t.effort||0);},0),completed:rows.filter(function(x){return taskInvolvesTeam(x,t.id)&&isClosed(x);}).length,capacity:w.cap,assigned:w.assigned,utilization:w.pct};});
   a.byProject=liveProjects().filter(function(p){return p.status!=="done";}).map(function(p){var open=rows.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}),over=open.filter(function(t){return t.due<0;}).length,progress=projectProgress(p,rows);return {id:p.id,name:p.name,progress:progress,remainingHours:open.reduce(function(n,t){return n+(+t.effort||0);},0),open:open.length,overdue:over,daysLeft:p.due,risk:over||p.due<0?"high":p.due<=7&&progress<70?"medium":"low"};});if(EXPORT){a.byTeam=a.byTeam.filter(function(t){return rows.some(function(x){return taskInvolvesTeam(x,t.id);});});a.byProject=a.byProject.filter(function(p){return rows.some(function(t){return inProject(t,p.id);});});}return a;
 }
-function loadAnalytics(cb){ if (!API.on){ AN=demoAnalytics(); return cb(); } apiFetch("GET","/api/analytics?weeks="+Math.max(1,Math.min(52,+S.range||8))).then(function(d){ d.byProject=(d.byProject||[]).map(function(row){ var p=project(row.id); if(p)row.progress=projectProgress(p); return row; }); AN=d; cb(); }).catch(function(e){ AN={error:e.message}; cb(); }); }
+function fetchAnalytics(){ return apiFetch("GET","/api/analytics?weeks="+Math.max(1,Math.min(52,+S.range||8))).then(function(d){ d.byProject=(d.byProject||[]).map(function(row){ var p=project(row.id); if(p)row.progress=projectProgress(p); return row; }); return d; }); }
+function loadAnalytics(cb){ if (!API.on){ AN=demoAnalytics(); return cb(); } fetchAnalytics().then(function(d){ AN=d; cb(); }).catch(function(e){ AN={error:e.message}; cb(); }); }
+/* The numbers last drawn, for whom and over which weeks. A redraw after a save or a live update (refresh() empties
+   AN) draws them again at once and fetches the new ones behind them, put in their place when they come; it was a
+   skeleton and a wait after every change. Refresh, Retry, other weeks, another person or a new session start from
+   the skeleton, as before. A fetch behind the numbers that fails leaves them as they are. */
+var AN_SHOWN=null, AN_BG={busy:false,again:false,gen:0};
+function anKey(){ return ME+"|"+Math.max(1,Math.min(52,+S.range||8)); }
+function anReload(){ AN_BG.gen++; AN_SHOWN=null; AN=null; renderScreen(false); }
+function anBackground(){ if(AN_BG.busy){ AN_BG.again=true; return; } AN_BG.busy=true; AN_BG.again=false; var key=anKey(), gen=AN_BG.gen;
+  fetchAnalytics().then(null,function(){ return null; }).then(function(d){ AN_BG.busy=false;
+    if(AN_BG.again&&gen===AN_BG.gen){ AN_BG.again=false; return anBackground(); }   /* something changed again meanwhile */
+    if(!d||gen!==AN_BG.gen||anKey()!==key||!AN_SHOWN||AN!==AN_SHOWN.an) return;
+    AN=d; if(S.screen==="analytics"&&!S.search) (typeof bgRedraw==="function"?bgRedraw:function(f){ return f(); })(function(){ renderScreen(false); }); }); }
+(function(){ if(typeof loadBootstrap!=="function") return; var base=loadBootstrap; loadBootstrap=function(){ AN_BG.gen++; AN_SHOWN=null; return base.apply(this,arguments); }; })();
 function metrics(){ var an=(EXPORT&&EXPORT.an)||AN||demoAnalytics(); var r=(EXPORT&&EXPORT.an)?EXPORT.weeks:S.range; var sl=function(a){ return (a||[]).slice(-r); }; var num=function(a){ return a.filter(function(v){ return v!=null; }); }; var sum=function(a){ return num(a).reduce(function(x,y){ return x+y; },0); }; var avg=function(a){ a=num(a); return a.length?sum(a)/a.length:0; };
   var all=EXPORT?exportTasks():TASKS, open=EXPORT?all.filter(function(t){return !isClosed(t);}):openTasks(); var ids=Object.keys(PEOPLE).filter(function(k){ return !PEOPLE[k].stakeholder&&(!EXPORT||all.some(function(t){return isAssignee(t,k);})); }); var cap=0, asg=0; ids.forEach(function(id){ cap+=person(id).cap; asg+=EXPORT?Math.round(open.filter(function(t){return isAssignee(t,id);}).reduce(function(n,t){return n+(+t.effort||0)/assigneesOf(t).length;},0)):assigned(id); });
   var withV=all.filter(function(t){ return t.versions.length; }); var revd=withV.filter(function(t){ return t.versions.some(function(v){ return v.state==="revision"; }); });
@@ -11955,10 +12010,12 @@ function svgLine(labels,series,opts){ opts=opts||{}; var W=520,H=180,pl=30,pb=24
   labels.forEach(function(l,i){ h+='<text x="'+xs(i)+'" y="'+(H-6)+'" text-anchor="middle">'+esc(l)+'</text>'; }); return h+'</svg>'; }
 function hbars(rows,fmtv){ var max=0; rows.forEach(function(r){ if (r.v>max) max=r.v; }); max=max||1; return rows.map(function(r){ return '<div class="hbar" '+(r.click?'style="cursor:pointer" onclick="'+r.click+'"':'')+'><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px">'+(r.color?'<span class="tdot" style="--tc:'+r.color+'"></span>':'')+esc(r.k)+'</span><div class="track" style="'+(r.color?'--tc:'+r.color:'')+'"><i style="width:'+Math.round(r.v/max*100)+'%'+(r.cls?';background:var(--color-'+r.cls+')':'')+'"></i></div><span class="v">'+fmtv(r.v)+(r.extra||"")+'</span></div>'; }).join(""); }
 function legend(items){ return '<div class="legend">'+items.map(function(x){ return '<span><i style="background:var(--color-'+x[1]+')"></i>'+x[0]+'</span>'; }).join("")+'</div>'; }
-function renderAnalytics(){ if (!canI.viewAnalytics()){ document.getElementById("content").innerHTML='<div class="pagehead"><div><h1>Analytics</h1></div></div><div class="panel">'+emptyBox("Analytics are for leads and admins","Ask a creative lead for the report — or switch user in the top-right menu to see it.",I.lock)+'</div>'; return; } if (!AN){ document.getElementById("content").innerHTML=skeleton(); return loadAnalytics(function(){ if (S.screen==="analytics") renderScreen(false); }); }
-  if(AN.error){document.getElementById("content").innerHTML='<div class="pagehead"><h1>'+tr("Analytics")+'</h1></div><div class="panel">'+emptyBox(tr("Could not load analytics"),esc(AN.error),I.analytics,'<button class="btn" onclick="AN=null;renderScreen(false)">'+tr("Retry")+'</button>')+'</div>';return;}
+function renderAnalytics(){ if (!canI.viewAnalytics()){ document.getElementById("content").innerHTML='<div class="pagehead"><div><h1>Analytics</h1></div></div><div class="panel">'+emptyBox("Analytics are for leads and admins","Ask a creative lead for the report — or switch user in the top-right menu to see it.",I.lock)+'</div>'; return; } if (!AN&&API.on&&AN_SHOWN&&AN_SHOWN.key===anKey()){ AN=AN_SHOWN.an; anBackground(); }
+  if (!AN){ document.getElementById("content").innerHTML=skeleton(); return loadAnalytics(function(){ if (S.screen==="analytics") renderScreen(false); }); }
+  if(AN.error){document.getElementById("content").innerHTML='<div class="pagehead"><h1>'+tr("Analytics")+'</h1></div><div class="panel">'+emptyBox(tr("Could not load analytics"),esc(AN.error),I.analytics,'<button class="btn" onclick="anReload()">'+tr("Retry")+'</button>')+'</div>';return;}
+  AN_SHOWN={key:anKey(),an:AN};
   var m=metrics(); var risk={high:"danger",medium:"warning",low:"success"};
-  var h='<div class="pagehead m-head an-head"><div><h1>Analytics</h1><div class="muted" style="margin-top:4px">'+(m.demo?"Demo · ":"")+m.weeks[0]+' → '+m.weeks[m.weeks.length-1]+'</div></div><div class="actions">'+segHtml([["4","4 wks"],["8","8 wks"]],String(S.range),"setRange")+'<label class="pillsel desktop-only"><span>Timeline</span><input type="number" min="1" max="52" value="'+S.range+'" onchange="setRange(this.value)" style="width:48px;border:0;background:transparent;font-weight:700;outline:none"><span>wks</span></label><button class="btn desktop-only" onclick="AN=null;renderScreen(false)">'+I.sync+'Refresh</button><button class="btn an-export" onclick="exportModal(\'xlsx\')">'+I.download+'Excel</button><button class="btn primary an-export" onclick="exportModal(\'ppt\')">'+I.download+'<span class="desktop-only">PowerPoint report</span><span class="mobile-only">PPT</span></button></div></div>';
+  var h='<div class="pagehead m-head an-head"><div><h1>Analytics</h1><div class="muted" style="margin-top:4px">'+(m.demo?"Demo · ":"")+m.weeks[0]+' → '+m.weeks[m.weeks.length-1]+'</div></div><div class="actions">'+segHtml([["4","4 wks"],["8","8 wks"]],String(S.range),"setRange")+'<label class="pillsel desktop-only"><span>Timeline</span><input type="number" min="1" max="52" value="'+S.range+'" onchange="setRange(this.value)" style="width:48px;border:0;background:transparent;font-weight:700;outline:none"><span>wks</span></label><button class="btn desktop-only" onclick="anReload()">'+I.sync+'Refresh</button><button class="btn an-export" onclick="exportModal(\'xlsx\')">'+I.download+'Excel</button><button class="btn primary an-export" onclick="exportModal(\'ppt\')">'+I.download+'<span class="desktop-only">PowerPoint report</span><span class="mobile-only">PPT</span></button></div></div>';
   h+='<div class="kpis kpis-4">'+kpi("good",m.totalCompleted,tr("Tasks completed"),tr("last")+" "+S.range+" "+tr("weeks"),"",I.check,"green")+kpi("",m.totalCreated,tr("Tasks created"),tr("last")+" "+S.range+" "+tr("weeks"),"",I.plus,"ink")+kpi(m.overdueNow?"danger":"good",m.overdueNow,tr("Overdue now"),tr("of")+" "+m.openNow+" "+tr("open"),"",I.bell,m.overdueNow?"red":"green")+kpi("",m.avgCompletion+"<small>d</small>",tr("Avg completion"),tr("brief → approved"),"",I.calendar,"")+kpi(m.liveRevRate>35?"warn":"",m.liveRevRate+"<small>%</small>",tr("Revision rate"),tr("tasks sent back"),"",I.edit,"")+kpi("accent",m.approvalRate+"<small>%</small>",tr("Approval rate"),tr("latest version approved"),"",I.eye,"blue")+kpi("",m.avgApproval+"<small>h</small>",tr("Approval time"),tr("review → decision"),"",I.sync,"")+kpi(m.utilization>100?"danger":"accent",m.utilization+"<small>%</small>",tr("Team utilization"),m.asg+"h / "+m.cap+"h","",I.team,"lime")+'</div>';
   h+='<div class="grid g-1-1">'+panel("Throughput — created vs completed",null,'<div class="panel-body pad">'+svgBars(m.weeks,[{n:"Created",v:m.created,c:"b2"},{n:"Completed",v:m.completed,c:"b1"}])+'</div>'+legend([["Created","secondary"],["Completed","primary"]]),null,null,I.analytics)+panel("Overdue tasks per week",null,'<div class="panel-body pad">'+svgBars(m.weeks,[{n:"Overdue",v:m.overdue,c:"b3"}],{values:true})+'</div>',null,null,I.bell)+'</div>';
   h+='<div class="grid g-1-1">'+panel("Average completion time (days)",null,'<div class="panel-body pad">'+svgLine(m.weeks,[{n:"Days",v:m.avgDays,c:"l1"}],{area:true})+'</div>',null,null,I.calendar)+panel("Revision rate",null,'<div class="panel-body pad">'+svgLine(m.weeks,[{n:"Revision rate",v:m.revisionRate,c:"l1"}],{pct:true,area:true})+'</div>'+legend([["Revision requests ÷ versions uploaded","primary"]]),null,null,I.edit)+'</div>';
@@ -19053,7 +19110,9 @@ function bulkInject(){ document.body.classList.toggle("bulk-on",!!(ENH.bulk&&bul
 document.addEventListener("click",function(e){ if(!ENH.bulk||!document.body.classList.contains("bulk-on")) return; var t=e.target; if(!t||!t.closest) return; var el=t.closest(".bulk-selectable"); if(!el||t.closest(".bulk-check")) return; var cb=el.querySelector(".bulk-check input"); if(!cb) return; e.preventDefault(); e.stopPropagation(); cb.checked=!cb.checked; cb.dispatchEvent(new Event("change",{bubbles:true})); },true);
 function bulkIds(){ return Object.keys(ENH.bulkSel).filter(function(id){ return task(id); }); }
 function bulkBar(){ var bar=document.getElementById("bulkBar"); if(!bar){ bar=document.createElement("div"); bar.id="bulkBar"; bar.className="bulk-bar"; document.body.appendChild(bar); } var n=bulkIds().length; bar.innerHTML='<b>'+n+' '+tr("selected")+'</b><button class="btn sm" onclick="bulkAssign(this)">'+I.user+tr("Assign")+'</button><button class="btn sm" onclick="bulkStatus(this)">'+I.kanban+tr("Status")+'</button><button class="btn sm" onclick="bulkDue(this)">'+I.calendar+tr("Due date")+'</button><button class="btn sm" onclick="bulkPrio(this)">'+I.flag+tr("Priority")+'</button><button class="btn sm" onclick="bulkArchive()">'+I.trash+tr("Archive")+'</button><span class="spacer"></span><button class="btn sm ghost" onclick="bulkSelectAll()">'+tr("Select all")+'</button><button class="btn sm ghost" onclick="bulkToggle()">'+I.x+tr("Done")+'</button>'; localizeVisibleText(bar); bar.classList.toggle("on",true); }
-function bulkApply(label,fn){ var ids=bulkIds(); if(!ids.length) return toast(tr("Select tasks first"),"bad"); var snaps=[]; ids.forEach(function(id){ var tk=task(id); if(!canI.editTask(tk)) return; snaps.push({id:id,snap:clone(tk)}); editTaskWith(tk,fn); }); toast(""); undoToast(fmt(tr(label),{n:snaps.length}),function(){ snaps.forEach(function(s){ var tk=task(s.id); if(!tk) return; var snap=clone(tk); replaceInto(tk,s.snap); refresh(); persistTask(tk,snap); }); }); }
+/* Every task of a bulk edit (and of its undo) is drawn once, on the next frame, and the server's answers once more,
+   only if one of them changed what is drawn, when the last has come in: it was two full redraws per task. */
+function bulkApply(label,fn){ var ids=bulkIds(); if(!ids.length) return toast(tr("Select tasks first"),"bad"); var snaps=[], saves=[], batch=refreshBatch(); ids.forEach(function(id){ var tk=task(id); if(!canI.editTask(tk)) return; snaps.push({id:id,snap:clone(tk)}); saves.push(editTaskWith(tk,fn,{batch:batch})); }); batch.wait(saves); toast(""); undoToast(fmt(tr(label),{n:snaps.length}),function(){ var back=[], b2=refreshBatch(); snaps.forEach(function(s){ var tk=task(s.id); if(!tk) return; var snap=clone(tk); replaceInto(tk,s.snap); back.push(persistTask(tk,snap,{batch:b2})); }); requestRefresh(); b2.wait(back); }); }
 function bulkAssign(a){ entityPicker({kind:"person",anchor:a,align:"left",placeholder:tr("Assign to…"),context:{},onSelect:function(u){ bulkApply("{n} tasks assigned",function(t){ t.assignee=u; t.assignees=[u].concat((t.assignees||[]).filter(function(x){ return x!==u; })); }); notify("assigned",u,bulkIds()[0]); }}); }
 function bulkStatus(a){ ctxMenu(a,'<div class="mh">'+tr("Status")+'</div>'+localStages().map(function(s){ return '<button onclick="closePops();bulkApply(\'{n} tasks moved to '+attr(s.name)+'\',function(t){t.status=\''+s.id+'\'})">'+statusBadge(s.id)+'</button>'; }).join(""),"left"); }
 function bulkPrio(a){ ctxMenu(a,'<div class="mh">'+tr("Priority")+'</div>'+["low","medium","high","urgent"].map(function(p){ return '<button onclick="closePops();bulkApply(\'{n} tasks set to '+p+'\',function(t){t.prio=\''+p+'\'})">'+I.flag+tr(p)+'</button>'; }).join(""),"left"); }
@@ -19601,26 +19660,46 @@ Object.assign(UI_ID,{
    Every task the client receives from the server is remembered in its normalised form.
    When a task is saved, the PUT carries the revision it was loaded at (_rev) and the list of
    top-level fields this user actually changed (_changed). If a colleague saved in between,
-   the server applies only these fields on top of the latest version (see server PUT). */
+   the server applies only these fields on top of the latest version (see server PUT).
+   Oct 2026: what the server sent is kept as it came (raw) — hTask copies it and never changes it — and the
+   normalised form a save is compared with is made from it the first time that task is saved, then kept. Making it
+   for every task as it arrived took two more hydrations and two more copies of each, most of a 740 ms boot task
+   with 1,500 tasks, for tasks that are mostly never saved. */
 var ZC_BASE={};
+/* Requests of this tab's own about a task, still on their way (src/v34.js live board waits for them) */
+var ZC_TASK_BUSY={n:{},w:{}};
+function zcTaskBusy(id,d){
+  if(d>0){ ZC_TASK_BUSY.n[id]=(ZC_TASK_BUSY.n[id]||0)+1; return; }
+  /* after what the answer starts (the caller's own .then, a fetch it makes next) has run */
+  setTimeout(function(){ var n=(ZC_TASK_BUSY.n[id]||0)-1; if(n>0){ ZC_TASK_BUSY.n[id]=n; return; } delete ZC_TASK_BUSY.n[id]; var w=ZC_TASK_BUSY.w[id]||[]; delete ZC_TASK_BUSY.w[id]; w.forEach(function(f){ f(); }); },0); }
+/* resolves once no request of this tab's about the task is on its way, or after ms */
+function zcTaskIdle(id,ms){ return new Promise(function(res){ var done=false, t=setTimeout(fin,ms);
+  function fin(){ if(done) return; done=true; clearTimeout(t); res(); }
+  function check(){ if(done) return; if(!ZC_TASK_BUSY.n[id]) return fin(); (ZC_TASK_BUSY.w[id]=ZC_TASK_BUSY.w[id]||[]).push(check); }
+  check(); }); }
 (function(){
   if (typeof hTask!=="function"||typeof dTask!=="function") return;
   var baseH=hTask;
-  hTask=function(d){ var t=baseH.apply(this,arguments); try{ if(d&&d.id) ZC_BASE[d.id]={rev:d.updatedAt||null,body:JSON.parse(JSON.stringify(dTask(baseH(d))))}; }catch(e){} return t; };
+  hTask=function(d){ var t=baseH.apply(this,arguments); if(d&&d.id) ZC_BASE[d.id]={rev:d.updatedAt||null,raw:d,body:null}; return t; };
+  /* the task as it was loaded, in the form a save sends: made once, from what the server sent */
+  function baseBody(b){ if(!b.body&&b.raw){ try{ b.body=JSON.parse(JSON.stringify(dTask(baseH(b.raw)))); b.raw=null; }catch(e){ return null; } } return b.body; }
   var baseF=apiFetch;
   apiFetch=function(method,path,body){
     var m=method==="PUT"&&/^\/api\/tasks\/([^\/?]+)$/.exec(path||"");
     if (m&&body&&typeof body==="object"){
-      var b=ZC_BASE[decodeURIComponent(m[1])];
-      if (b&&b.rev){ var changed=[]; Object.keys(body).forEach(function(k){ if (k.charAt(0)==="_") return; if (JSON.stringify(body[k])!==JSON.stringify(b.body[k])) changed.push(k); });
+      var b=ZC_BASE[decodeURIComponent(m[1])], bb=b&&b.rev?baseBody(b):null;
+      if (bb){ var changed=[]; Object.keys(body).forEach(function(k){ if (k.charAt(0)==="_") return; if (JSON.stringify(body[k])!==JSON.stringify(bb[k])) changed.push(k); });
         body=Object.assign({},body,{_rev:b.rev,_changed:changed}); }
     }
+    var own=/^\/api\/tasks\/([^\/?]+)/.exec(path||""), oid=null; if(own){ try{ oid=decodeURIComponent(own[1]); }catch(e){} }
+    if(oid) zcTaskBusy(oid,1);
     return baseF.call(this,method,path,body).then(function(d){
+      if(oid) zcTaskBusy(oid,-1);
       if (m&&d&&Array.isArray(d._merged)){
         toast(tr("Someone else edited this task at the same time. Both changes were kept."));
       }
       return d;
-    });
+    },function(e){ if(oid) zcTaskBusy(oid,-1); throw e; });
   };
 })();
 Object.assign(UI_ID,{"Someone else edited this task at the same time. Both changes were kept.":"Orang lain mengedit task ini bersamaan. Kedua perubahan tetap tersimpan.",
@@ -19630,25 +19709,32 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
 <script>
 /* ---------- v34 live board ----------
    The server announces {type:"task_changed", id, updatedAt, by, deleted} after every task
-   write. Fetch just that task (batched), so boards, calendars and open drawers stay current. */
+   write. Fetch just that task (batched), so boards, calendars and open drawers stay current.
+   Oct 2026: the tasks of one batch are fetched together and drawn once, when all have answered (it was one redraw
+   per task). The server tells this tab of its own saves too: while a request of this tab's about the task is on its
+   way, the event waits for it (at most 4 s), and a task already at that revision, or fetched unchanged, is neither
+   fetched nor drawn again. A hidden tab is drawn once when it is shown (requestRefresh, src/core.js). */
 (function(){
   var pending={}, timer=null;
   function flush(){
-    timer=null; var ids=Object.keys(pending); var evs=pending; pending={};
-    ids.forEach(function(id){
+    timer=null; var ids=Object.keys(pending); var evs=pending; pending={}; var need="";
+    var more=function(s){ if(s==="all"||!need) need=s||need; };
+    Promise.all(ids.map(function(id){
       var ev=evs[id], cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];   /* one being created carries a proposed number, not this task */
-      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } liveRefresh(); } return; }
-      if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
-      apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
-        var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
-        if (now){ if (now._draft) return; replaceInto(now,t); } else TASKS.push(t);
-        AN=null; liveRefresh();
-        if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
-      }).catch(function(){});
-    });
+      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } more("all"); } return null; }
+      return zcTaskIdle(id,4000).then(function(){
+        var cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
+        if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
+        return apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
+          var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
+          if (now){ if (now._draft) return; more(taskRedrawNeed(now,t)); replaceInto(now,t); } else { TASKS.push(t); more("all"); }
+          if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
+        }).catch(function(){});
+      });
+    })).then(function(){ if (!need) return; AN=null; liveRefresh(need); });
   }
   /* a colleague's change: drawn again without losing the reader's place (src/live-redraw.js) */
-  function liveRefresh(){ if(typeof bgRedraw==="function") bgRedraw(refresh); else refresh(); }
+  function liveRefresh(need){ requestRefresh({bg:true,drawer:need==="drawer"}); }
   function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if (!ev||ev.type!=="task_changed"||!API.on) return; pending[ev.id]=ev; if (!timer) timer=setTimeout(flush,250); }
   var ES=window.EventSource; if (typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
@@ -20075,7 +20161,7 @@ function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) ret
     else if(kind==="roles") ROLES=d.roles;
   }
   function flush(){ timer=null; if(busy()){ timer=setTimeout(flush,2000); return; } var kinds=Object.keys(pending); pending={};
-    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; refresh(); }); }
+    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; requestRefresh(); }); }   /* drawn on the next frame with anything else that asked; in a hidden tab, once it is shown (src/core.js) */
   function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.by===ME||ev.kind==="emoji") return; /* emoji: custom-emoji.js, at once */ pending[ev.kind]=1; if(!timer) timer=setTimeout(flush,400); }
   var ES=window.EventSource; if(typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
@@ -26937,14 +27023,16 @@ function scoringTimeLoad(id){
 }
 /* the task changed since its log was loaded (someone logged time in another tab): load it again, quietly */
 function scoringTimeFreshen(tk){ var c=SCR_TIME.cache[tk.id]; if(!c||(tk.updatedAt&&c.updatedAt&&tk.updatedAt>c.updatedAt)) scoringTimeLoad(tk.id).catch(function(){}); }
-/* an answer to a change: shown at once; the task fetched again, so everything else about it is current too */
+/* an answer to a change: the log and the task's Actual shown at once; the task fetched again, so everything else
+   about it is current too, and the page drawn once with it (it was drawn before the fetch and again after) */
 function scoringTimeTook(id,r){
   SCR_TIME.cache[id]=r; var tk=task(id);
   if(tk){ var m=taskMeta(tk); if(+r.actualEffort>0) m.actualEffort=+r.actualEffort; else delete m.actualEffort; }
-  scoringTimeDrawAll(id); scoringTimeRedraw();
-  if(API.on&&tk) apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){ var now=task(id); if(now&&!now._draft){ replaceInto(now,hTask(d)); scoringTimeRedraw(); } }).catch(function(){});
+  scoringTimeDrawAll(id);
+  if(!(API.on&&tk)) return scoringTimeRedraw();
+  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){ var now=task(id); if(now&&!now._draft) replaceInto(now,hTask(d)); },function(){}).then(scoringTimeRedraw);
 }
-function scoringTimeRedraw(){ if(typeof bgRedraw==="function") bgRedraw(refresh); else refresh(); }
+function scoringTimeRedraw(){ requestRefresh({bg:true}); }
 
 /* ---------- for the Effort block and the task panel ---------- */
 /* the read-only Actual with its button (the drawer's Effort block; the panel may use it too) */

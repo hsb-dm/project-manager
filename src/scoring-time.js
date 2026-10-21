@@ -63,14 +63,16 @@ function scoringTimeLoad(id){
 }
 /* the task changed since its log was loaded (someone logged time in another tab): load it again, quietly */
 function scoringTimeFreshen(tk){ var c=SCR_TIME.cache[tk.id]; if(!c||(tk.updatedAt&&c.updatedAt&&tk.updatedAt>c.updatedAt)) scoringTimeLoad(tk.id).catch(function(){}); }
-/* an answer to a change: shown at once; the task fetched again, so everything else about it is current too */
+/* an answer to a change: the log and the task's Actual shown at once; the task fetched again, so everything else
+   about it is current too, and the page drawn once with it (it was drawn before the fetch and again after) */
 function scoringTimeTook(id,r){
   SCR_TIME.cache[id]=r; var tk=task(id);
   if(tk){ var m=taskMeta(tk); if(+r.actualEffort>0) m.actualEffort=+r.actualEffort; else delete m.actualEffort; }
-  scoringTimeDrawAll(id); scoringTimeRedraw();
-  if(API.on&&tk) apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){ var now=task(id); if(now&&!now._draft){ replaceInto(now,hTask(d)); scoringTimeRedraw(); } }).catch(function(){});
+  scoringTimeDrawAll(id);
+  if(!(API.on&&tk)) return scoringTimeRedraw();
+  apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){ var now=task(id); if(now&&!now._draft) replaceInto(now,hTask(d)); },function(){}).then(scoringTimeRedraw);
 }
-function scoringTimeRedraw(){ if(typeof bgRedraw==="function") bgRedraw(refresh); else refresh(); }
+function scoringTimeRedraw(){ requestRefresh({bg:true}); }
 
 /* ---------- for the Effort block and the task panel ---------- */
 /* the read-only Actual with its button (the drawer's Effort block; the panel may use it too) */

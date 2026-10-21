@@ -374,7 +374,7 @@ function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) ret
     else if(kind==="roles") ROLES=d.roles;
   }
   function flush(){ timer=null; if(busy()){ timer=setTimeout(flush,2000); return; } var kinds=Object.keys(pending); pending={};
-    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; refresh(); }); }
+    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; requestRefresh(); }); }   /* drawn on the next frame with anything else that asked; in a hidden tab, once it is shown (src/core.js) */
   function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.by===ME||ev.kind==="emoji") return; /* emoji: custom-emoji.js, at once */ pending[ev.kind]=1; if(!timer) timer=setTimeout(flush,400); }
   var ES=window.EventSource; if(typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
