@@ -118,11 +118,17 @@ test("dragging the corner resizes it, and that is what gets saved", async ({ pag
   await img.hover();
   const before = (await img.boundingBox()).width;
   const h = await page.locator("#descImgSize").boundingBox();
+  /* every frame from the press until well after the save, the picture is on screen: the save redraws the panel on the
+     next frame (one redraw per action), which replaces the element but must never leave a frame without it */
+  await page.evaluate(() => { window.__imgGone = 0; window.__imgWatch = true; (function tick(){ if (!window.__imgWatch) return; const i = document.querySelector("#descSrc img.desc-img"); if (!i || !i.offsetWidth) window.__imgGone++; requestAnimationFrame(tick); })(); });
   await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
   await page.mouse.down();
   await page.mouse.move(h.x + 220, h.y + h.height / 2, { steps: 8 });
   await page.mouse.up();
-  expect((await img.boundingBox()).width, "the picture really grew").toBeGreaterThan(before + 100);
+  /* measured again until it settles: the element measured right after the drop may be the one that redraw replaces */
+  await expect.poll(() => img.boundingBox().then(b => (b ? b.width : 0)), { message: "the picture really grew" }).toBeGreaterThan(before + 100);
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => { window.__imgWatch = false; return window.__imgGone; }), "no frame without the picture").toBe(0);
 
   await expect.poll(() => descOf(page), { timeout: 10000 }).not.toMatch(/ =25%\)/);
   /* the page has the new width before its save has reached the server */
