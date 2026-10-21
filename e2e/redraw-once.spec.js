@@ -71,7 +71,8 @@ test("a bulk edit of several tasks, and its undo, each draw the page once", asyn
     await expect.poll(prios, { timeout: 10000 }).toEqual(ids.map(() => "medium"));
     await page.waitForTimeout(300); await frames(page);
     expect((await redraws(page)).refresh, "and once for the undo").toBe(1);
-    await expect(page.locator("#content .lcol-tbl tbody tr[data-id]")).toHaveCount(8);
+    /* its own 8 rows are all drawn (an earlier spec may leave other tasks in the workspace, so not the whole table) */
+    await expect.poll(() => page.evaluate(l => l.filter(i => document.querySelector('#content .lcol-tbl tbody tr[data-id="' + i + '"]')).length, ids)).toBe(8);
   } finally {
     await page.evaluate(() => { ENH.bulk = false; ENH.bulkSel = {}; });
     await remove(page, ids);
