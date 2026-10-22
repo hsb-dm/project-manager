@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="39af33abab33">
+<meta name="zc-build" content="bd4cb9867ba7">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -735,10 +735,13 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .task-read-value svg{width:11px;height:11px;flex:none;stroke:currentColor;fill:none;stroke-width:2;opacity:.62}
 .task-read-value.editable:hover svg,.task-read-value.editable:focus-visible svg{opacity:1}
 .task-meta-add{width:24px;height:24px;flex:none}
-.task-date-read{display:flex;align-items:center;gap:6px;width:100%;min-width:0;min-height:38px;position:relative;padding:8px 10px;margin-left:-10px;border:1px solid transparent;border-radius:8px;font-weight:550}
+.task-date-read{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;width:100%;min-width:0;min-height:38px;position:relative;padding:8px 10px;margin-left:-10px;border:1px solid transparent;border-radius:8px;font-weight:550}
 .task-date-read.editable{cursor:pointer}
 .task-date-read.editable:hover,.task-date-read.editable:focus-within{border-color:var(--color-border);background:var(--color-surface)}
 .task-date-read input{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+.due-day{white-space:nowrap}
+.task-date-read .due-day{flex:none}
+.task-date-read .due{flex:1 1 0;white-space:normal;overflow-wrap:normal;word-break:normal;line-height:1.25}
 .task-tags-bottom{margin:12px 0 8px;padding-top:10px;border-top:1px solid var(--color-border)}
 .task-tags-bottom .k{margin-bottom:7px;color:var(--color-text-secondary);font-size:11px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}
 .task-tags-bottom .tag-picker-field{padding:0;border:0;background:transparent;min-height:30px;flex-wrap:wrap}
@@ -8258,7 +8261,7 @@ var LIST_COLS=[
   {k:"proj",l:"Project",sort:true,td:function(x){ return '<td class="lcol-proj">'+esc(projName(x))+'</td>'; }},
   {k:"prio",l:"Priority",sort:true,td:function(x){ return '<td class="lcol-prio" onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td>'; }},
   {k:"start",l:"Start",td:function(x){ return '<td class="mono lcol-start">'+dueDate(x.due-x.span)+'</td>'; }},
-  {k:"due",l:"Due",sort:true,td:function(x){ return '<td class="lcol-due"><span class="due due-2 '+dueCls(x.due,x)+'"><span>'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td>'; }},
+  {k:"due",l:"Due",sort:true,td:function(x){ return '<td class="lcol-due"><span class="due due-2 '+dueCls(x.due,x)+'"><span class="due-day">'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td>'; }},
   {k:"effort",l:"Est.",sort:true,td:function(x){ return '<td class="mono lcol-effort">'+(x.effort||"—")+'h</td>'; }},
   {k:"tags",l:"Tags",td:function(x){ return '<td class="lcol-tags">'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td>'; }}
 ];
@@ -8476,7 +8479,7 @@ function taskMoreOpen(){ return !!(myPrefs()||{}).taskMoreDetailsOpen; }
 function toggleTaskMore(){ var p=myPrefs(); p.taskMoreDetailsOpen=!p.taskMoreDetailsOpen; saveMyPrefs(); renderDrawer(); }
 function taskDateLabel(day){ var d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()+(+day||0)); return d.toLocaleDateString(UI_LANG==="id"?"id-ID":"en-US",{day:"numeric",month:"short",year:"numeric"}); }
 function taskOpenDate(e,el){ var input=el&&el.querySelector("input[type=date]"); if(!input)return; if(e&&e.target===input)return; try{ input.showPicker(); }catch(_){ input.focus(); } }
-function taskDateField(kind,day,tk,ed,relative){ var value=iso(day), label=taskDateLabel(day), rel=relative?'<span class="due '+dueCls(day,tk)+'">'+esc(dueTxt(day))+'</span>':''; if(!ed)return '<span class="task-date-read"><span data-no-translate>'+esc(label)+'</span>'+rel+'</span>'; return '<label class="task-date-read editable" tabindex="0" title="'+attr(tr("Edit date"))+'" onclick="taskOpenDate(event,this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();taskOpenDate(event,this)}"><span data-no-translate>'+esc(label)+'</span>'+rel+'<input tabindex="-1" type="date" value="'+value+'" onchange="editTask(\''+kind+'\',this.value)"></label>'; }
+function taskDateField(kind,day,tk,ed,relative){ var value=iso(day), label=taskDateLabel(day), date='<span class="due-day" data-no-translate>'+esc(label)+'</span>', rel=relative?'<span class="due '+dueCls(day,tk)+'">'+esc(dueTxt(day))+'</span>':''; if(!ed)return '<span class="task-date-read">'+date+rel+'</span>'; return '<label class="task-date-read editable" tabindex="0" title="'+attr(tr("Edit date"))+'" onclick="taskOpenDate(event,this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();taskOpenDate(event,this)}">'+date+rel+'<input tabindex="-1" type="date" value="'+value+'" onchange="editTask(\''+kind+'\',this.value)"></label>'; }
 function taskSelectRead(kind,opts,cur,ed){ var hit=opts.filter(function(o){return o[0]===cur;})[0], label=hit?hit[1]:"—"; if(!ed)return '<span class="task-read-value">'+esc(label)+'</span>'; return '<button class="task-read-value editable" data-menu aria-haspopup="menu" onclick="taskSelectMenu(this,'+jsq(kind)+','+jsq(cur||"")+')">'+esc(label)+I.chevd+'</button>'; }
 function taskSelectCommit(kind,value){ if(kind.indexOf("custom:")===0)editCustom(kind.slice(7),value); else editTask(kind,value); }
 function taskSelectOptions(kind){ if(kind==="prio")return PRIOS; if(kind==="team")return teamOpts(true); if(kind==="status")return localStages().map(function(x){return[x.id,x.name];}); if(kind.indexOf("custom:")===0){var cf=byId(WS.customFields,kind.slice(7));return [["","—"]].concat(((cf&&cf.options)||[]).map(function(o){return[o,o];}));} return []; }

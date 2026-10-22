@@ -316,10 +316,18 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .task-read-value svg{width:11px;height:11px;flex:none;stroke:currentColor;fill:none;stroke-width:2;opacity:.62}
 .task-read-value.editable:hover svg,.task-read-value.editable:focus-visible svg{opacity:1}
 .task-meta-add{width:24px;height:24px;flex:none}
-.task-date-read{display:flex;align-items:center;gap:6px;width:100%;min-width:0;min-height:38px;position:relative;padding:8px 10px;margin-left:-10px;border:1px solid transparent;border-radius:8px;font-weight:550}
+.task-date-read{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;width:100%;min-width:0;min-height:38px;position:relative;padding:8px 10px;margin-left:-10px;border:1px solid transparent;border-radius:8px;font-weight:550}
 .task-date-read.editable{cursor:pointer}
 .task-date-read.editable:hover,.task-date-read.editable:focus-within{border-color:var(--color-border);background:var(--color-surface)}
 .task-date-read input{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+/* A date is one line always (the task panel's dates, the List's Due column); when the panel's column is narrow the
+   relative note beside the due date wraps between its words instead ("29 hari" / "terlambat"), its first line on the
+   date's baseline, so the date stays level with the other fields' values whether the note takes one line or two.
+   The note shrinks to its longest word and no further (never broken inside a word); only where even that word does
+   not fit beside the date (a 4-column panel on a ~750px screen, a 320px phone) does the note go under the date. */
+.due-day{white-space:nowrap}
+.task-date-read .due-day{flex:none}
+.task-date-read .due{flex:1 1 0;white-space:normal;overflow-wrap:normal;word-break:normal;line-height:1.25}
 .task-tags-bottom{margin:12px 0 8px;padding-top:10px;border-top:1px solid var(--color-border)}
 .task-tags-bottom .k{margin-bottom:7px;color:var(--color-text-secondary);font-size:11px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}
 .task-tags-bottom .tag-picker-field{padding:0;border:0;background:transparent;min-height:30px;flex-wrap:wrap}
