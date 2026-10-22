@@ -63,7 +63,7 @@ test("a Drive version after a removed one takes the next free number", async ({ 
   } finally { await page.evaluate(() => closeDrawer()); await drop(page, id); }
 });
 
-test("a reply to a reply joins the thread; a comment without edit rights is posted on its own", async ({ page }) => {
+test("a reply to a reply joins the thread; a comment without edit rights is posted on its own, and a reply from there stays in its thread", async ({ page }) => {
   await signIn(page);
   const id = await make(page);
   try {
@@ -81,6 +81,13 @@ test("a reply to a reply joins the thread; a comment without edit rights is post
     await post("From a viewer");
     expect(calls.some(c => c === "POST /api/tasks/" + id + "/comments")).toBe(true);
     expect(calls.some(c => c.startsWith("PUT "))).toBe(false);
+    /* a reply posted that way stays under the comment it answers (the comment route used to drop it), a reply to a
+       reply joining the thread as it does with edit rights */
+    const fromViewer = await post("A viewer's reply", r1.id);
+    expect(fromViewer.parent, "kept in its thread").toBe(rootC.id);
+    expect(calls.some(c => c.startsWith("PUT "))).toBe(false);
+    await page.evaluate(() => renderDrawer());
+    expect(await page.locator("#drawer .cmts > .cmt").evaluateAll(els => els.map(e => (e.classList.contains("reply") ? "  " : "") + e.querySelector(".body").textContent))).toEqual(["Root comment", "  First reply", "  Reply to the reply", "  A viewer's reply", "From a viewer"]);
     /* refused: what was typed comes back */
     await page.route("**/api/tasks/*/comments", r => r.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: "No" }) }));
     await page.evaluate(() => { document.getElementById("cmtText").value = "Do not lose me"; postComment(); });

@@ -1133,6 +1133,13 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* a link in a comment's words is a chip: inline with the text */
 :is(#drawer,.pd-box) .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
 @media(max-width:760px){:is(#drawer,.pd-box) .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+/* replying where the comment is (src/comment-mention.js): a compact box under the thread, indented as its replies are;
+   on a phone the whole width under the comment */
+:is(#drawer,.pd-box) .cmt-reply-box{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;margin-left:36px}
+:is(#drawer,.pd-box) .cmt-reply-box .composer{padding:8px 10px;gap:6px}
+:is(#drawer,.pd-box) .cmt-reply-box .composer textarea{min-height:40px}
+:is(#drawer,.pd-box) .cmt-reply-box .cmt-reply-to b{color:var(--color-text-primary)}
+@media(max-width:760px){:is(#drawer,.pd-box) .cmt-reply-box{margin-left:0;grid-template-columns:minmax(0,1fr)}:is(#drawer,.pd-box) .cmt-reply-box>.av{display:none}}
 /* Home: Mine · All on each card, small, at the head's end */
 .panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
 .seg.dash-scope button{padding:3px 10px;font-size:12px}

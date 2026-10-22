@@ -269,7 +269,7 @@ var LIST_COLS=[
   {k:"proj",l:"Project",sort:true,td:function(x){ return '<td class="lcol-proj">'+esc(projName(x))+'</td>'; }},
   {k:"prio",l:"Priority",sort:true,td:function(x){ return '<td class="lcol-prio" onclick="event.stopPropagation();prioMenu(this,taskIdFrom(this))"><span class="cell-flex"><span class="prio '+attr(x.prio)+'" style="height:14px"></span>'+prioL(x.prio)+'</span></td>'; }},
   {k:"start",l:"Start",td:function(x){ return '<td class="mono lcol-start">'+dueDate(x.due-x.span)+'</td>'; }},
-  {k:"due",l:"Due",sort:true,td:function(x){ return '<td class="lcol-due"><span class="due due-2 '+dueCls(x.due,x)+'"><span>'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td>'; }},
+  {k:"due",l:"Due",sort:true,td:function(x){ return '<td class="lcol-due"><span class="due due-2 '+dueCls(x.due,x)+'"><span class="due-day">'+dueDate(x.due)+'</span><span class="due-rel">'+dueTxt(x.due)+'</span></span></td>'; }},
   {k:"effort",l:"Est.",sort:true,td:function(x){ return '<td class="mono lcol-effort">'+(x.effort||"—")+'h</td>'; }},
   {k:"tags",l:"Tags",td:function(x){ return '<td class="lcol-tags">'+x.tags.slice(0,3).map(function(t){ return '<span class="badge">'+esc(t)+'</span> '; }).join("")+'</td>'; }}
 ];

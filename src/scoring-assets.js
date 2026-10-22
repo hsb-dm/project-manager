@@ -5,7 +5,9 @@
    own count typed under Assets & versions, or as the reports credit them (taskAssetCredit in src/export.js) — earn
    output points by the kind of work, the task's as the estimator reads it (estKindOf: chosen by hand, else from
    the title): one feed
-   post is 1 point, a resize 0.25, a logo 5, as the workspace sets it in Settings → Smart Scoring. A count a team's
+   post is 1 point, a resize 0.25, a logo 5, as the workspace sets it in Settings → Smart Scoring. A task of several
+   kinds of work (its split, meta.kinds) earns by the split — each kind its own count when as many were produced as
+   planned, else shared in proportion — and each person their share of the assets at that worth. A count a team's
    lead has not validated yet counts all the same and says so; one changed since it was validated says that too —
    to those who see validation on the Assets tab (whoever may validate the task's counts) and to those who see Smart
    Scoring's analytics; a member sees their count and points without it, as the Assets tab shows it to them.
@@ -27,8 +29,12 @@ function scaPts(x){ return (Math.round((+x||0)*100)/100).toFixed(2); }
 function scaKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("Kind not recognised"); }
 /* one task's points: who is credited with how many (as the reports credit them), at the kind's points per asset */
 function scoringAssetsTask(tk){ var c=typeof taskAssetCredit==="function"?taskAssetCredit(tk):{by:{},exact:true,how:""}, kind=typeof estKindOf==="function"?estKindOf(tk):ScoringEngine.kindOf(tk&&tk.title);
-  var r=ScoringEngine.assetPoints(scaSettings(),{kind:kind,split:c.by,validated:tk&&tk.meta&&tk.meta.assetSplitOk});
-  return {credit:c,kind:kind,r:r}; }
+  /* several kinds of work (meta.kinds): the points by the task's split, the kind its primary one */
+  var mix=typeof estKindMix==="function"?estKindMix(tk):null;
+  var r=ScoringEngine.assetPoints(scaSettings(),{kind:kind,mix:mix,split:c.by,validated:tk&&tk.meta&&tk.meta.assetSplitOk});
+  return {credit:c,kind:kind,mix:mix,r:r}; }
+/* the split as words: "1 video, 4 reels or short video, 1 key visual" */
+function scaMixText(mix){ return (mix||[]).map(function(m){ return scaNum(m.units)+" "+scaKindName(m.kind); }).join(", "); }
 /* the engine's steps in the person's language, with names for the ids */
 function scaSeesValidation(tk){ return (typeof assetSplitCanValidate==="function"&&!!tk&&assetSplitCanValidate(tk))||(typeof canI!=="undefined"&&typeof canI.scoringViewAnalytics==="function"&&canI.scoringViewAnalytics()); }
 function scaWhy(r,seeVal){ return r.steps.filter(function(s){ return seeVal!==false||!/validat/i.test(String(s.key)); }).map(function(s){ var v=Object.assign({},s.vars); if(v.person) v.person=person(v.person).name; if(v.kind) v.kind=scaKindName(v.kind);
@@ -40,11 +46,13 @@ function scaMark(x){ if(x.validated) return '<span class="badge ok scr-ap-mark">
 function scoringAssetsRowHtml(tk){
   if(!tk||tk._draft||!scoringAssetsOn()||(PEOPLE[ME]&&PEOPLE[ME].stakeholder)) return "";
   var a=scoringAssetsTask(tk), r=a.r, seeVal=scaSeesValidation(tk), ids=Object.keys(r.perPerson).sort(function(x,y){ return person(x).name.localeCompare(person(y).name); });
-  var head='<div class="scr-ap-head"><div class="scr-ap-title"><b>'+tr("Assets produced")+'</b><span class="hint">'+esc(scaKindName(a.kind))+' · '+scaPts(r.pointsPerAsset)+' '+tr("pts per asset")+'</span></div>'
+  var head='<div class="scr-ap-head"><div class="scr-ap-title"><b>'+tr("Assets produced")+'</b><span class="hint">'+esc(r.mix?scaMixText(a.mix):scaKindName(a.kind))+' · '+scaPts(r.pointsPerAsset)+' '+tr(r.mix?"pts per asset on average":"pts per asset")+'</span></div>'
     + '<b class="scr-ap-total" title="'+attr(scaWhy(r,seeVal))+'">'+scaPts(r.total)+' '+tr("pts")+'</b></div>';
+  /* several kinds of work: each person's share of the assets, at the split's worth (not a rounded average × count) */
+  var calc=function(x){ return r.mix?ScoringEngine.fill(tr("{count} of {assets}"),{count:scaNum(x.counted),assets:scaNum(r.totalAssets)}):scaNum(x.counted)+' × '+scaPts(r.pointsPerAsset); };
   var rows=ids.map(function(id){ var x=r.perPerson[id];
     return '<div class="scr-ap-row" data-person="'+attr(id)+'">'+av(id)+'<div class="scr-ap-main"><span class="scr-ap-name" data-no-translate>'+esc(person(id).name)+'</span>'
-      + '<span class="scr-ap-nums"><span class="scr-ap-calc">'+scaNum(x.counted)+' × '+scaPts(r.pointsPerAsset)+' = <b>'+scaPts(x.points)+'</b> '+tr("pts")+'</span>'+(seeVal?scaMark(x):'')+'</span></div></div>'; }).join("");
+      + '<span class="scr-ap-nums"><span class="scr-ap-calc">'+esc(calc(x))+' = <b>'+scaPts(x.points)+'</b> '+tr("pts")+'</span>'+(seeVal?scaMark(x):'')+'</span></div></div>'; }).join("");
   var notes=(ids.length?'':'<div class="hint">'+tr("No assets produced yet. Each person's count goes under Assets & versions.")+'</div>')
     + (ids.length&&!a.credit.exact?'<div class="hint">'+tr("Shared among the people assigned until each person's count is typed.")+'</div>':'')
     + (!r.countUnvalidated&&ids.some(function(id){ return !r.perPerson[id].validated; })?'<div class="hint">'+tr("Only counts a lead has validated earn points in this workspace.")+'</div>':'')
@@ -115,6 +123,7 @@ function scoringAssetsSummaryHtml(data){
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Assets produced":"Aset yang dihasilkan","pts per asset":"poin per aset","pts":"poin","Kind not recognised":"Jenis tidak dikenali",
+  "pts per asset on average":"poin per aset rata-rata","{count} of {assets}":"{count} dari {assets}",
   "Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validation":"Berubah sejak divalidasi",
   "No assets produced yet. Each person's count goes under Assets & versions.":"Belum ada aset yang dihasilkan. Jumlah tiap orang diisi di Aset & versi.",
   "Shared among the people assigned until each person's count is typed.":"Dibagi rata di antara orang yang ditugaskan sampai jumlah tiap orang diisi.",
@@ -138,7 +147,12 @@ function scoringAssetsSummaryHtml(data){
   "{person}: not validated by a lead yet; no points until a lead validates it.":"{person}: belum divalidasi lead; belum ada poin sampai lead memvalidasinya.",
   "{person}: changed since a lead validated {validated}; counted as entered now.":"{person}: berubah sejak lead memvalidasi {validated}; dihitung sesuai yang diisi sekarang.",
   "{person}: changed since a lead validated {validated}; {counted} counts until a lead validates it again.":"{person}: berubah sejak lead memvalidasi {validated}; {counted} yang dihitung sampai lead memvalidasinya lagi.",
-  "Total: {points} points for {assets} assets.":"Total: {points} poin untuk {assets} aset."
+  "Total: {points} points for {assets} assets.":"Total: {points} poin untuk {assets} aset.",
+  "The {assets} assets produced are the {planned} planned, so each kind of work counts its own.":"{assets} aset yang dihasilkan sama dengan {planned} yang direncanakan, jadi tiap jenis pekerjaan dihitung sendiri.",
+  "The {assets} assets produced are shared over the kinds of work in proportion to the {planned} planned.":"{assets} aset yang dihasilkan dibagi ke tiap jenis pekerjaan sebanding dengan {planned} yang direncanakan.",
+  "Kind of work \"{kind}\": {count} × {per} = {points} points.":"Jenis pekerjaan \"{kind}\": {count} × {per} = {points} poin.",
+  "On average {per} points for each asset.":"Rata-rata {per} poin untuk setiap aset.",
+  "{person}: {count} of the {assets} assets = {points} points.":"{person}: {count} dari {assets} aset = {points} poin."
 });
 </script>
 <style>

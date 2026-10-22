@@ -28,7 +28,9 @@ test("a task in two projects, then in none for now", async ({ page }) => {
     await expect(field).toContainText("Spring " + tag);
     await field.click();
     const picker = page.locator("#entityPicker");
-    await expect(picker.locator(".ep-row").first()).toContainText("Select project later");
+    /* its project first, under "Selected (1)", then "Select project later" (project-picker-selected.spec.js) */
+    await expect(picker.locator(".ep-row").first()).toContainText("Spring " + tag);
+    await expect(picker.locator(".ep-row").nth(1)).toContainText("Select project later");
     /* add the second project: the picker stays open, both are ticked */
     await picker.locator(".ep-row", { hasText: "Ramadan " + tag }).click();
     await expect.poll(server).toBe(ids.a + "|" + ids.b);

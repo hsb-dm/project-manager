@@ -72,15 +72,23 @@ function pdComposer(p){
   if(pdArchived(p)) return '<p class="pd-note pd-archived">'+I.lock+'<span>'+tr("This project is archived. Restore the project to add comments.")+'</span></p>';
   if(!pdCanPost(p)) return '';
   if(S.cmtEdit&&S.cmtEdit.project===p.id) return '';   /* the comment being edited has the box, in its place */
-  var key=pdKey(p.id), d=cmtDraftOf(key), st=pdState(p.id), rt=d.reply?byId(st.items,d.reply):null, vis=pdBoxVis(p.id);
-  if(rt&&rt.vis==="internal") vis="internal";   /* a reply is never more widely visible than the comment it answers */
-  return cmtBoxHtml({key:key,inputId:"pdText",vis:vis,editing:false,draft:d,reply:rt,cancelReply:"pdReplyCancel("+jsq(p.id)+")",post:"pdSubmit("+jsq(p.id)+")"}); }
+  var key=pdKey(p.id);
+  return cmtBoxHtml({key:key,inputId:"pdText",vis:pdBoxVis(p.id),editing:false,draft:cmtDraftOf(key),post:"pdSubmit("+jsq(p.id)+")"}); }
+/* the audience of a box: the project's switch; a reply is never more widely visible than the comment it answers */
+function pdBoxVisFor(key){ var pid=cmtKeyProject(key), vis=pdBoxVis(pid), cid=cmtKeyReply(key), c=cid?byId(pdState(pid).items,cid):null;
+  return c&&c.vis==="internal"?"internal":vis; }
+/* The reply being written in this project: which comment it answers and the thread that comment is in (shown: the
+   comments on show), or nothing — none open, the comment not on show (it waits), the project only read, or a
+   comment being edited here (the edit has the box; the reply waits). */
+function pdReplyTarget(p,shown){ if(pdArchived(p)||!pdCanPost(p)||(S.cmtEdit&&S.cmtEdit.project===p.id)) return null; return cmtReplyTarget(pdKey(p.id),shown,null); }
+function pdReplyBox(p,rt){ var key=cmtReplyKey(pdKey(p.id),rt.cid); return cmtReplyBoxHtml(pdKey(p.id),rt,{inputId:"pdReplyText",vis:pdBoxVisFor(key),post:"pdSubmit("+jsq(p.id)+","+jsq(key)+")"}); }
 /* what can be done with a comment — answer it; change or remove one's own — all of it where the comment is, on
    Overview as on the tab: nothing moves the page to another tab */
-function pdActs(p,c){ if(pdArchived(p)) return null; var pid=jsq(p.id), cid=jsq(c.id);
-  return (pdCanPost(p)?'<button onclick="pdReply('+pid+','+cid+')">'+tr("Reply")+'</button>':'')+(c.by===ME?'<button class="cmt-edit-btn" onclick="pdEditStart('+pid+','+cid+')">'+tr("Edit")+'</button><button onclick="pdDelete('+pid+','+cid+')">'+tr("Delete")+'</button>':''); }
-/* one comment, or — being edited — the box, in its place; extra: more buttons after its own (Overview's replies) */
-function pdItem(p,c,isReply,extra){ var key=pdKey(p.id), ed=!!(S.cmtEdit&&S.cmtEdit.project===p.id&&S.cmtEdit.id===c.id), acts=pdActs(p,c);
+function pdActs(p,c,rt){ if(pdArchived(p)) return null; var pid=jsq(p.id), cid=jsq(c.id);
+  return (pdCanPost(p)?cmtReplyBtnHtml(pdKey(p.id),c.id,rt,"pdReply("+pid+","+cid+")"):'')+(c.by===ME?'<button class="cmt-edit-btn" onclick="pdEditStart('+pid+','+cid+')">'+tr("Edit")+'</button><button onclick="pdDelete('+pid+','+cid+')">'+tr("Delete")+'</button>':''); }
+/* one comment, or — being edited — the box, in its place; extra: more buttons after its own (Overview's replies);
+   rt: the reply being written here, which says whose Reply button opened it */
+function pdItem(p,c,isReply,extra,rt){ var key=pdKey(p.id), ed=!!(S.cmtEdit&&S.cmtEdit.project===p.id&&S.cmtEdit.id===c.id), acts=pdActs(p,c,rt);
   return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtBoxHtml({key:key,inputId:"pdText",vis:c.vis,editing:true,draft:cmtDraftOf(key),post:"pdSubmit("+jsq(p.id)+")"}):"",acts:acts==null&&!extra?null:(acts||"")+(extra||"")}); }
 function pdLoading(st){ return st.err?'<p class="pd-note pd-err">'+esc(st.err)+' <button class="btn xs" onclick="pdRetry('+jsq(S.projectId)+')">'+tr("Try again")+'</button></p>':'<div class="pd-loading" aria-busy="true">'+tr("Loading…")+'</div>'; }
 function pdRetry(pid){ pdState(pid).err=null; pdRedraw(); }
@@ -91,9 +99,12 @@ function pdOverviewHtml(p){ var st=pdState(p.id); pdEnsure(p.id,false);
   var body, open=PD_OPEN[p.id]||{};
   if(!st.mode) body=pdLoading(st);
   else { var roots=pdShown(p.id,pdRoots(st)).slice(-3);
+    /* a reply box on Overview: under its thread there, which it opened (its comment one of these, or one of their replies) */
+    var onShow=roots.slice(); roots.forEach(function(c){ if(open[c.id]) onShow=onShow.concat(pdShown(p.id,pdReplies(st,c.id))); });
+    var rt=pdReplyTarget(p,onShow);
     body=roots.length?'<div class="cmts pd-preview">'+roots.map(function(c){ var have=pdReplies(st,c.id), n=Math.max(c.replyCount||0,have.length), shown=!!open[c.id]&&n>0;
         var toggle=n?'<button class="pd-replies" aria-expanded="'+shown+'" onclick="pdThread('+jsq(p.id)+','+jsq(c.id)+')">'+(shown?tr("Hide replies"):n+' '+tr(n===1?"reply":"replies"))+'</button>':'';
-        return pdItem(p,c,false,toggle)+(shown?pdShown(p.id,have).map(function(r){ return pdItem(p,r,true); }).join("")+(have.length<n?'<div class="pd-thread-loading" aria-busy="true">'+tr("Loading…")+'</div>':''):''); }).join("")+'</div>'
+        return pdItem(p,c,false,toggle,rt)+(shown?pdShown(p.id,have).map(function(r){ return pdItem(p,r,true,null,rt); }).join("")+(have.length<n?'<div class="pd-thread-loading" aria-busy="true">'+tr("Loading…")+'</div>':''):'')+(rt&&rt.root===c.id?pdReplyBox(p,rt):''); }).join("")+'</div>'
       :'<p class="pd-empty">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet. Start the project discussion.")+'</p>'; }
   var all='<button type="button" class="link pd-all" onclick="pdOpen('+jsq(p.id)+')">'+tr("View all discussion")+' →</button>';
   return pdPanel(p,st.mode?st.total:null,body+pdComposer(p),all,"pd-overview"); }
@@ -104,21 +115,24 @@ function pdClampMarks(){ Array.prototype.forEach.call(document.querySelectorAll(
   var m=document.createElement("button"); m.type="button"; m.className="pd-more-text"; m.textContent=tr("Show more"); m.onclick=function(){ var c=m.closest(".cmt"); if(c) c.classList.add("pd-expanded"); m.remove(); }; b.insertAdjacentElement("afterend",m); }); }
 /* the Discussion tab: every thread, oldest first, each with its replies; earlier ones on request; the box below */
 function pdTabHtml(p){ var st=pdState(p.id); pdEnsure(p.id,true);
-  var one=function(c,isReply){ return pdItem(p,c,isReply); };
+  var rt=st.mode?pdReplyTarget(p,pdShown(p.id,st.items)):null;
+  var one=function(c,isReply){ return pdItem(p,c,isReply,null,rt); };
   var list;
   if(!st.mode) list=pdLoading(st);
   else { var roots=pdShown(p.id,pdRoots(st));
     list=(st.hasMore?'<div class="pd-more-row"><button class="btn sm pd-more" onclick="pdMore('+jsq(p.id)+')"'+(st.loading?' disabled':'')+'>'+tr(st.loading?"Loading…":"Load earlier comments")+'</button></div>':'')
-      +'<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+pdShown(p.id,pdReplies(st,c.id)).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet")+'</div></div>')+'</div>'; }
+      +'<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+pdShown(p.id,pdReplies(st,c.id)).map(function(r){ return one(r,true); }).join("")+(rt&&rt.root===c.id?pdReplyBox(p,rt):''); }).join(""):'<div class="empty" style="padding:20px"><div class="h">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet")+'</div></div>')+'</div>'; }
   return pdPanel(p,st.mode?st.total:null,'<p class="hint pd-sub">'+tr("Project-level coordination and decisions")+'</p>'+list+pdComposer(p),"","pd-full"); }
 /* Drawn again in place — the rest of the page is left alone; someone writing keeps writing (focus, caret, scroll). */
 function pdRedraw(){ if(S.screen!=="projects"||!S.projectId) return; var box=document.querySelector("#content .pd-box"), p=project(S.projectId); if(!box||!p) return;
-  var ta=document.activeElement, keep=ta&&cmtIsInput(ta)&&box.contains(ta)?{a:ta.selectionStart,b:ta.selectionEnd,top:ta.scrollTop}:null;
+  var ta=document.activeElement, keep=ta&&cmtIsInput(ta)&&box.contains(ta)?{a:ta.selectionStart,b:ta.selectionEnd,top:ta.scrollTop}:null, btn=cmtReplyBtnKeep(box);
   var tmp=document.createElement("div"); tmp.innerHTML=S.projectTab==="discussion"?pdTabHtml(p):pdOverviewHtml(p);
   if(tmp.firstElementChild) box.replaceWith(tmp.firstElementChild);
-  pdAfterRender(keep); }
+  pdAfterRender(keep); if(btn) cmtReplyBtnBack(btn,pdKey(p.id)); }
+/* each box gets its layer (the one at the bottom and a reply box); the one being written in, its focus and caret back */
 function pdAfterRender(keep){ var n=cmtInput();
-  if(n&&cmtIsProjectKey(CMT_DRAFT_FOR)&&n.getAttribute("data-cmt-key")===CMT_DRAFT_FOR){ if(keep){ n.focus(); try{ n.setSelectionRange(keep.a,keep.b); }catch(e){} n.scrollTop=keep.top; } try{ cmtMirrorSync(); }catch(e){} }
+  if(n&&cmtIsProjectKey(CMT_DRAFT_FOR)&&n.getAttribute("data-cmt-key")===CMT_DRAFT_FOR&&keep){ n.focus(); try{ n.setSelectionRange(keep.a,keep.b); }catch(e){} n.scrollTop=keep.top; }
+  cmtMirrorAll(document.querySelector("#content .pd-box"));
   pdClampMarks(); pdFocusComment(); }
 /* a comment asked for (a notification, a link, "N replies"): scrolled to and lit; earlier pages are fetched to find it */
 function pdFocusComment(){ var f=PD_FOCUS; if(!f||S.projectId!==f.pid||S.projectTab!=="discussion") return; var st=pdState(f.pid); if(st.mode!=="full") return;
@@ -130,26 +144,32 @@ function pdFocusComment(){ var f=PD_FOCUS; if(!f||S.projectId!==f.pid||S.project
 
 /* ---------- doing ---------- */
 function pdOpen(pid,cid){ if(!project(pid)) return toast(tr("That item is not available to you"),"bad"); S.projectTab="discussion"; PD_FOCUS={pid:pid,cid:cid||null}; if(S.screen==="projects"&&S.projectId===pid) renderScreen(false); else go("projects",pid); }
-function pdFocusBox(){ setTimeout(function(){ var e=cmtInput(); if(e){ e.focus(); var n=e.value.length; try{ e.setSelectionRange(n,n); }catch(x){} } },40); }
-/* Reply: the box below says whom it answers and takes the typing — on whichever tab this is */
-function pdReply(pid,cid){ cmtActivate(pdKey(pid)); S.replyTo=cid; pdRedraw(); pdFocusBox(); }
-function pdReplyCancel(pid){ cmtActivate(pdKey(pid)); S.replyTo=null; pdRedraw(); pdFocusBox(); }
-function pdSubmit(pid){ cmtActivate(pdKey(pid)); if(S.cmtEdit&&S.cmtEdit.project===pid) return pdEditSave(pid); pdPost(pid); }
+/* Reply: a box opens under the comment's thread, there, and takes the typing — on whichever tab this is. On Overview
+   the thread opens, its replies above the box (fetched the first time). */
+function pdReply(pid,cid){ var st=pdState(pid), root=byId(st.items,cid);
+  for(var hop=0;root&&root.parent&&hop<20;hop++){ var up=byId(st.items,root.parent); if(!up) break; root=up; }
+  if(root){ (PD_OPEN[pid]=PD_OPEN[pid]||{})[root.id]=true; if(API.on&&st.mode!=="full"&&(root.replyCount||0)>pdReplies(st,root.id).length) pdLoad(pid,true).then(function(){ var ae=document.activeElement, typing=ae&&cmtIsInput(ae); pdRedraw(); if(!typing) cmtFocusLive(); }); }
+  cmtReplyOpen(pdKey(pid),cid); }
+/* key: the box whose Post (or Enter) it was — the one at the bottom, a reply box, or the box editing a comment */
+function pdSubmit(pid,key){ cmtActivate(key||pdKey(pid)); if(S.cmtEdit&&S.cmtEdit.project===pid) return pdEditSave(pid); pdPost(pid); }
 function pdBusy(on){ Array.prototype.forEach.call(document.querySelectorAll("#content .pd-box .composer .bar .btn.primary"),function(b){ b.disabled=!!on; b.setAttribute("aria-busy",on?"true":"false"); }); }
-function pdPost(pid){ var p=project(pid); if(!p||pdArchived(p)||PD_BUSY[pid]) return; var el=cmtInput(); if(!el||el.getAttribute("data-cmt-key")!==pdKey(pid)) return;
+function pdPost(pid){ var p=project(pid); if(!p||pdArchived(p)||PD_BUSY[pid]) return; var el=cmtInput(), key=el&&el.getAttribute("data-cmt-key"); if(!el||cmtKeyBase(key)!==pdKey(pid)) return;
   var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
   if(!txt&&!att.length){ el.focus(); return; }
-  var st=pdState(pid), parent=S.replyTo||null, pc=parent?byId(st.items,parent):null, vis=pdBoxVis(pid);
-  if(pc&&pc.vis==="internal") vis="internal";
+  /* a reply box answers the comment its key names; the box at the bottom, nothing */
+  var st=pdState(pid), parent=cmtKeyReply(key)||null, vis=pdBoxVisFor(key);
   PD_BUSY[pid]=true; pdBusy(true);
-  /* the box is emptied only once the comment is saved; a refusal leaves everything in it as it was */
+  /* the box is emptied only once the comment is saved; a refusal leaves everything in it as it was. A reply's box then
+     closes, and the focus — if it was in that box, or nowhere — goes back to the Reply button it was opened from. */
   var saved=function(c,total){ PD_BUSY[pid]=false;
-    if(CMT_DRAFT_FOR===pdKey(pid)){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; cmtMentionsReset(); S.replyTo=null; } else delete CMT_DRAFTS[pdKey(pid)];
+    var ae=document.activeElement, refocus=parent&&(!ae||ae===document.body||ae===el||!ae.isConnected);
+    if(parent) cmtReplyDrop(key);
+    else if(CMT_DRAFT_FOR===key){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; cmtMentionsReset(); S.replyTo=null; } else delete CMT_DRAFTS[key];
     pdUpsert(pid,c); st.total=total!=null?total:st.total+1; if(!st.mode) st.mode="preview";
     /* a reply written on Overview is shown there, under its comment, with the rest of the thread */
     if(c.parent){ (PD_OPEN[pid]=PD_OPEN[pid]||{})[c.parent]=true; if(API.on&&st.mode!=="full") pdLoad(pid,true).then(function(){ pdRedraw(); }); }
-    pdRedraw(); toast(tr("Comment posted")); };
-  if(!API.on){ var root=pc&&pc.parent?pc.parent:parent; return saved(pdHydrate({id:uid("pc"),by:ME,vis:vis,text:txt,parent:root,attachments:att,createdAt:new Date().toISOString(),editedAt:null})); }
+    pdRedraw(); if(refocus) cmtReplyBtnFocus(pdKey(pid),parent); toast(tr("Comment posted")); };
+  if(!API.on){ var pc=parent?byId(st.items,parent):null, root=pc&&pc.parent?pc.parent:parent; return saved(pdHydrate({id:uid("pc"),by:ME,vis:vis,text:txt,parent:root,attachments:att,createdAt:new Date().toISOString(),editedAt:null})); }
   apiFetch("POST",pdUrl(pid),{id:uid("pc"),text:txt,vis:vis,parent:parent,attachments:att}).then(function(d){ saved(pdHydrate(d.comment),d.total); })
     .catch(function(e){ PD_BUSY[pid]=false; pdBusy(false); toast(tr("Couldn't post comment. Try again.")+(e&&e.message?" "+e.message:""),"bad"); }); }
 /* editing in place, as in a task: the same box opens where the comment is; what was being written waits */
@@ -170,7 +190,7 @@ function pdEditSave(pid){ var d=S.cmtEdit, st=pdState(pid), c=d&&byId(st.items,d
 function pdDelete(pid,cid){ var st=pdState(pid), c=byId(st.items,cid); if(!c) return;
   var gone=function(total){ st.items=st.items.filter(function(x){ return x.id!==cid; }).map(function(x){ return x.parent===cid?Object.assign({},x,{parent:null}):x; });
     if(c.parent){ var r=byId(st.items,c.parent); if(r&&r.replyCount) r.replyCount--; } st.total=total!=null?total:Math.max(0,st.total-1);
-    if(S.cmtEdit&&S.cmtEdit.project===pid&&S.cmtEdit.id===cid) cmtEditFinish(); if(CMT_DRAFT_FOR===pdKey(pid)&&S.replyTo===cid) S.replyTo=null;
+    if(S.cmtEdit&&S.cmtEdit.project===pid&&S.cmtEdit.id===cid) cmtEditFinish(); if(CMT_REPLY_OPEN[pdKey(pid)]===cid) cmtReplyDrop(cmtReplyKey(pdKey(pid),cid));
     pdRedraw(); toast(tr("Comment deleted")); };
   if(!API.on) return gone();
   apiFetch("DELETE",pdUrl(pid,"/"+encodeURIComponent(cid))).then(function(r){ gone(r.total); }).catch(function(e){ toast(e.message||tr("Could not delete the comment"),"bad"); }); }

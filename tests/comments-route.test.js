@@ -102,3 +102,46 @@ test('the author edits their comment; it says it was edited; nobody else can', {
   assert.equal((await s.req('PUT', '/api/tasks/' + tk.id, doc, s.admin)).status, 200);
   assert.equal((await s.get(tk.id)).comments.find(x => x.id === 'cm_plain').editedAt, null, 'unchanged words, no stamp');
 });
+
+/* A reply from someone who may comment but not edit the task (Oct 2026). Their comments go through POST
+   .../comments, which dropped the comment a reply answers: every reply from a Viewer or a stakeholder landed as a
+   comment of its own. It now stays in its thread, under the rules of a reply saved with the task: it answers one of
+   this task's comments; a reply to a reply joins the thread (it answers the comment the thread starts with, as the
+   task panel sends it); a stakeholder answers only what a stakeholder can see. The answer is still the task. */
+test('a reply posted on the comment route stays under the comment it answers', { timeout: 30000 }, async t => {
+  const s = await start(t);
+  const boot = await (await s.req('GET', '/api/bootstrap', undefined, s.admin)).json();
+  const [tk, other] = boot.tasks.filter(x => !x._slim);
+  const ids = Object.keys(boot.people).filter(id => id !== 'admin' && boot.people[id].active !== false && !boot.people[id].stakeholder);
+  assert.equal((await s.req('PUT', '/api/members/' + ids[0], { perm: 'viewer' }, s.admin)).status, 200);
+  assert.equal((await s.req('PUT', '/api/members/' + ids[1], { stakeholder: true }, s.admin)).status, 200);
+  const viewer = await s.as(ids[0]), sh = await s.as(ids[1]);
+  const post = async (body, who, on) => { const r = await s.req('POST', '/api/tasks/' + (on || tk).id + '/comments', body, who); assert.equal(r.status, 200, await r.clone().text()); return r.json(); };
+  const saved = async id => (await s.get(tk.id)).comments.find(c => c.id === id);
+  await post({ id: 'cm_thread', text: 'Which logo?', vis: 'client' }, s.admin);
+  await post({ id: 'cm_inside', text: 'Only the team sees this', vis: 'internal' }, s.admin);
+  await post({ id: 'cm_other_task', text: 'Not here' }, s.admin, other);
+  /* a Viewer's reply: kept under its comment, and the answer is the task, as before */
+  const doc = await post({ id: 'cm_v_reply', text: 'The blue one', parent: 'cm_thread' }, viewer);
+  assert.equal(doc.id, tk.id); assert.ok(Array.isArray(doc.comments) && Array.isArray(doc.activity), 'the answer is the task, as before');
+  assert.equal(doc.comments.find(c => c.id === 'cm_v_reply').parent, 'cm_thread');
+  assert.equal((await saved('cm_v_reply')).parent, 'cm_thread', 'stored under the comment it answers');
+  assert.equal((await saved('cm_v_reply')).by, ids[0]);
+  /* a reply to that reply joins the thread */
+  await post({ id: 'cm_v_reply2', text: 'Agreed', parent: 'cm_v_reply' }, viewer);
+  assert.equal((await saved('cm_v_reply2')).parent, 'cm_thread', 'a reply to a reply joins the thread');
+  /* a comment of another task, or anything but a comment's id, is no parent */
+  await post({ id: 'cm_v_stray', text: 'Hm', parent: 'cm_other_task' }, viewer);
+  assert.equal((await saved('cm_v_stray')).parent, null, 'a comment on another task is not answered here');
+  await post({ id: 'cm_v_odd', text: 'Hm', parent: { id: 'cm_thread' } }, viewer);
+  assert.equal((await saved('cm_v_odd')).parent, null, 'only a comment id names a parent');
+  /* a stakeholder answers what they can see, and not an internal comment */
+  await post({ id: 'cm_s_reply', text: 'Blue works for us', parent: 'cm_thread' }, sh);
+  assert.equal((await saved('cm_s_reply')).parent, 'cm_thread');
+  assert.equal((await saved('cm_s_reply')).vis, 'client');
+  await post({ id: 'cm_s_inside', text: 'Guessing an id', parent: 'cm_inside' }, sh);
+  assert.equal((await saved('cm_s_inside')).parent, null, 'a stakeholder cannot answer a comment they cannot see');
+  /* someone on the team answers the internal one */
+  await post({ id: 'cm_v_inside', text: 'Noted', parent: 'cm_inside' }, viewer);
+  assert.equal((await saved('cm_v_inside')).parent, 'cm_inside');
+});

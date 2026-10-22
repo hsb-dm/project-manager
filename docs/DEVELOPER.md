@@ -288,7 +288,18 @@ go(screen, sub)
   bahasa, atau identitas workspace — **tidak** untuk edit data biasa.
 - **`rememberScroll` / `restoreScroll`** (`core.js:693`) — aplikasi scroll di dalam
   `<main class="app-scroll">`, **bukan** window. Semua yang menyentuh scroll harus lewat
-  `appScrollEl()` / `appScrollTop()`.
+  `appScrollEl()` / `appScrollTop()`. Tiap layar mengingat posisinya sendiri; project, team
+  atau orang (`navDetailKey`) yang dibuka dari tempat lain selalu mulai di atas, dan tidak
+  menimpa posisi daftar di layar yang sama. Back (`navBack` → `navRestore`) mengembalikan
+  posisi halaman dari snapshot seperti sebelumnya.
+- **Scroll di dalam layar** (`src/live-redraw.js`) — `renderScreen` memotret scroller yang
+  dikenal (`REDRAW_SCROLLERS` + `data-keep-scroll`) dan memasangnya lagi sesudah render,
+  **hanya kalau view-nya sama**: `REDRAW_DRAWN` mencatat apa yang sedang tampil (layar +
+  project/team/orang/halaman Knowledge atau hasil search, tab project / tipe view Tasks /
+  Active-Archived / tab Settings, dan saved view), dibandingkan dengan `S` yang sudah berubah
+  sebelum render. Live update, save, filter, sort, group, Mine/All → posisi tetap; project lain,
+  tab lain, Kanban → List, saved view lain → mulai di atas. Filter yang diubah di atas saved
+  view (saved view lepas, list tetap sama) juga tetap.
 
 ### State yang harus dijaga manual
 
@@ -446,6 +457,13 @@ Hanya untuk **non-admin** (`wqEligible()`).
 - `renderDrawer()` — menulis `#drHead` / `#drBody` / `#drFoot`.
 - Tab: `brief` · `files` (Assets & versions) · `comments` · `activity`.
   Ada normalisasi legacy: `if (S.drawerTab==="versions") S.drawerTab="files";`
+- Komentar (`src/comment-mention.js`): tiap kotak komentar punya key — id task, `project:<id>`, atau kotak
+  balasan `<key panel>#r:<id komentar>` (`cmtReplyKey`). Draf kotak yang sedang ditulis ada di
+  `window._cmtDraft/_cmtAtt/_cmtLinks/_cmtMentions` (`CMT_DRAFT_FOR`), draf kotak lain di `CMT_DRAFTS[key]`.
+  **Balas** (`cmtReplyOpen`) membuka kotak balasan di bawah utas komentar itu; `CMT_REPLY_OPEN[key panel]`
+  = komentar yang kotaknya terbuka (satu per panel). `S.replyTo` mengikuti key kotak yang sedang ditulis;
+  kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
+  lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
 
 ### Gear menu
 

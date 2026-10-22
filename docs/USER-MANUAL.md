@@ -289,6 +289,13 @@ yang dibuat workspace.
 
 Field mana yang tampil diatur admin di **Settings → Custom fields**.
 
+**Project** — satu task bisa masuk sampai 5 project. Picker-nya menaruh project task ini paling atas, di bawah
+**Selected (N)** / **Dipilih (N)**: project utamanya dulu, lalu yang lain sesuai urutan ditambahkan; project itu
+tidak muncul lagi di **Recent** / **Terbaru** atau **Active projects** / **Project aktif**. Klik untuk menambah atau
+melepas (centangnya dan angka N ikut berubah); selama picker terbuka baris tidak berpindah, dan saat dibuka lagi
+pilihan baru sudah di atas. Saat mencari, project terpilih yang cocok tetap di atas. **Select project later** /
+**Pilih proyek nanti** mengeluarkan task dari semua project untuk sementara.
+
 **Estimate otomatis** (bertanda *auto*) diambil dari task serupa yang sudah selesai. Kalau belum ada, dari jam
 yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama
 dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, story, banner, carousel, KV, web,
@@ -307,6 +314,31 @@ Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat ju
 ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Pilihan ini bisa dibuat oleh siapa pun yang
 bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali
 dari judulnya.
+
+**Beberapa jenis dalam satu task (Several kinds…).** Satu task bisa berisi beberapa jenis pekerjaan, misalnya
+"Youtube Podcast (Full Video, Clippers Socmed & Cover)" = 1 video + 4 reels + 1 cover. Pilih **Beberapa jenis…**
+(Several kinds…), opsi terakhir di daftar **Kind of work**. Di bawah baris itu langsung terbuka daftar jenisnya (bukan
+jendela baru):
+
+- Tiap baris berisi satu jenis (daftar yang sama, tanpa Otomatis dan tanpa jenis yang sudah dipakai di baris lain),
+  jumlahnya (1–500; ketik angkanya, klik **−**/**+**, atau pakai ↑ ↓, PageUp/PageDown untuk ±10, Home/End), dan tombol
+  **×** untuk menghapus baris itu. **Tambah jenis** (Add kind) menambah baris, paling banyak 8 jenis.
+- Di bawahnya ada total jam yang langsung ikut berubah, misalnya **≈ 31 j · reels 4× 17 j + video 8 j + key visual
+  6 j**. Jam tiap jenis dihitung dari template workspace (deliverable pertama penuh, berikutnya sesuai jenisnya), lalu
+  kompleksitas dan dependency yang belum selesai dihitung sekali untuk seluruh task.
+- Perubahan tersimpan sendiri seperti field task lain (angka yang diketik disimpan setelah berhenti mengetik; Enter
+  langsung menyimpan). Estimate dihitung ulang seperti saat memilih jenis. **Selesai** (Done) atau Esc menutup daftar.
+- Campuran butuh paling sedikit 2 jenis. Kalau tinggal satu, belum ada yang disimpan; klik **Pakai satu jenis: …**
+  (Use one kind) untuk kembali ke satu jenis itu.
+- Setelah tersimpan, daftar Kind of work menampilkan **campuran · 3 jenis** (Mixed · 3 kinds); arahkan kursor ke sana
+  untuk melihat isinya. Memilih satu jenis atau **Otomatis** di daftar itu mengakhiri campurannya.
+- Kalau judul task menyebut beberapa jenis, di bawah baris Effort muncul catatan kecil **Sepertinya beberapa jenis:
+  video, reels, … — bagi?** (Looks like several kinds… — split?). **Bagi** (Split) memasang jenis-jenis itu
+  masing-masing 1 lalu membuka daftarnya untuk mengatur jumlahnya; **×** menyembunyikan catatan itu untuk task ini di
+  perangkat ini. Catatan ini tidak pernah dipasang otomatis.
+- Yang tidak bisa mengedit task hanya melihat daftar jenis dan jumlahnya di bawah baris Effort.
+- Campuran ikut tersalin saat task diduplikasi. Untuk analytics per jenis, task campuran dihitung sebagai jenis yang
+  jamnya paling banyak.
 
 ### Empat tab
 
@@ -373,6 +405,11 @@ foldernya — di kotak komentar, di chat, dan di editor deskripsi (sebagai chip 
 Tautan yang diketik manual berubah dengan menekan **Tab**. Arahkan kursor ke chip untuk kartu kecil
 **Buka pratinjau**, **Buka tautan**, dan **Salin tautan**.
 **⌘/Ctrl + Enter** mengirim. Bisa membalas komentar dan melampirkan file.
+**Balas** membuka kotak balasan tepat di bawah komentar itu — di utasnya, setelah balasan yang sudah ada,
+tempat balasannya nanti muncul — dengan @mention, lampiran, gambar yang di-paste, dan Enter untuk mengirim;
+**Esc** atau **Batal** menutupnya. Kotak di paling bawah tetap untuk komentar baru. Satu kotak balasan terbuka
+sekaligus; balasan yang belum dikirim tersimpan per komentar (tombolnya menjadi **Balas (draf)**). Sama di
+**Diskusi** project.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.
 
@@ -427,8 +464,15 @@ dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
 - **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan (yang dipilih di task, kalau tidak dari judul —
   bisa dipilih juga di baris jam ini, **Kind of work**), jumlah **Assets produced** sebagai jumlah deliverable,
   rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat langkah hitungannya.
+  Task dengan beberapa jenis (lihat **Beberapa jenis dalam satu task** di atas) menampilkan **Deliverable per jenis**
+  (Deliverables by kind), misalnya "video 1 (8 j), reels 4 (17 j)", sebagai pengganti Assets produced. Daftar jenisnya
+  juga bisa dibuka dari baris jam ini, dan muncul di bawahnya. Di form **Calculate**, campurannya ditampilkan apa
+  adanya: tidak ada pilihan satu jenis di sana, jadi campurannya tidak tergantikan; **Ubah campuran** (Change the mix)
+  membuka daftarnya.
 - **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
-  jauh dari hitungan diberi peringatan.
+  jauh dari hitungan diberi peringatan. Kalau AI membaca task sebagai beberapa jenis yang berbeda dari campuran task,
+  tertulis misalnya **Saran AI: video 1 · reels 4 · key visual 1** (The AI suggests: …) dengan tombol **Pakai
+  pembagian ini** (Use this split) untuk yang boleh mengedit task.
 - **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,
   Approved, Locked, Re-baseline needed).
 

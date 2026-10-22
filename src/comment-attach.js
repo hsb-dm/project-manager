@@ -283,7 +283,7 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
    drawn as a live chip (refChipHtml, src/ref-chips.js) that opens it. Kept on the comment as
    {ref:"task"|"project", refId, name} — no link to check, nothing filed under Assets & versions. On a phone the
    buttons are behind the one attach button, so the picker opens by that one. */
-function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?CMT_DRAFT_FOR.slice(8):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
+function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?cmtKeyProject(CMT_DRAFT_FOR):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
   entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:pid},
     search:kind==="task"?function(q){ return epTaskItems(q,{projectId:pid}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }

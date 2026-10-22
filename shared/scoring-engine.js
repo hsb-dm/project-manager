@@ -27,6 +27,14 @@
      complexity rating (3 when not rated; `complexity` is accepted for complexity1to5); d is the number of open
      dependencies, read at the highest key of the dependency table not above it. low and high are the template's
      usual range through the same factors. No template and no perUnit: value null, reason "no_template".
+     mix: [{kind, units}] — several kinds of work in one task (its meta.kinds, through kindMix) — takes the place of kind
+     and units: each kind's hours perUnit_k × (1 + nextUnitFactor_k × (units_k − 1)) from its own template, added up,
+     then × complexity × dependency once and kept within the bounds; low and high are added up the same way (when every
+     kind with a template has a range). perUnit and nextUnitFactor are not used; a kind with no template adds nothing
+     and says so, and with none that has one: value null, "no_template". One step per kind, then the total. The answer
+     also has mix [{kind, units, perUnit, nextUnitFactor, unitsFactor, value, low, high}] (each kind's hours through the
+     same factors, not bounded); inputs.kind is the primary kind (kindPrimary) and inputs.units all the deliverables. A
+     mix of one kind is that kind without a mix: the very same answer, with no mix in it.
 
    storyPoints(settings.story, {complexity, scope, uncertainty, dependencies})
      → {index, value, split, scale, thresholds, missing, reason, inputs, explanation, steps}
@@ -88,6 +96,8 @@
 
    validateAi(reply, settings) → {ok, value, errors}
      Cleans an AI reply already parsed from JSON. Kept: kind (an active one of settings.kinds, else a template id), deliverables (a whole number 1–500),
+     mix (the split it proposes for work of several kinds: [{kind, count}], kinds as for kind, counts whole numbers 1–500,
+     a kind twice added together, at most 8; fewer than 2 kinds is no split and is dropped; [] is none),
      factors (the four ratings, whole numbers 1–5), hours (above 0, kept within settings.hours.bounds), storyPoints
      (only 1, 2, 3, 5, 8 or 13), weightedPoints (kept within 1–settings.weighted.scaleMax), confidence (0–1; above 1
      up to 100 is read as a percentage, above 100 dropped), explanation (600 characters at most), assumptions and
@@ -99,7 +109,8 @@
 
    inputHash(task) → 16 hexadecimal characters
      FNV-1a (two 32-bit passes) over the task as the AI is told about it: title, description, brief fields (the
-     template id with them), deliverable count (deliverables, else assetCount), labels, team and kind (only if given). Text in Unicode NFC,
+     template id with them), deliverable count (deliverables, else assetCount), labels, team, kind (only if given) and
+     mix (only if given: [{kind, units}] or meta.kinds' [{k, n}], cleaned by mixClean, in kind order). Text in Unicode NFC,
      spaces collapsed, lower case; brief keys and labels sorted; an empty field is the same as a missing one. The same
      task gives the same hash in the browser and on the server, whatever the key order or spacing — the AI cache key,
      with the settings' configVersion.
@@ -108,6 +119,17 @@
    (an active meta.kind), kindOfTask = kindPick || kindOf(title), kindKeyword. The first active kind of the list (else
    KINDS) with a keyword in the title: text, never a pattern, whole words ("copy" is not "copywriter"), any case; a final
    * takes longer words (video* → videografi).
+   Several kinds of work in one task (Oct 2026): meta.kinds [{k, n}], 2–8 kinds each once, n 1–500 (MIX_LIMITS).
+   mixClean(list, kinds, problems?) → [{kind, units}]|null takes {kind, units}, {k, n} or {kind, count}: only active
+   kinds of `kinds` (any id-like text when kinds is null), counts rounded and kept within 1–500, a kind twice added
+   together, at most 8; problems, when given, collects what was changed. kindMix(task, kinds) → the task's mix when 2 or
+   more active kinds are left, else null. kindPrimary(mix, hours) → the kind with the most hours in it (its template's
+   hours for its count, before complexity and dependencies; the first of equal ones; with no hours at all, the most
+   deliverables). With a mix, kindPick(task, kinds, hours?) and kindOfTask(task, kinds, hours?) give its primary kind,
+   the hours from `hours` (settings.hours or the whole settings; else from `kinds` when that is the whole settings; else
+   the defaults) — so whatever reads one kind per task (asset points by kind, the analytics, the AI's "kind") reads the
+   primary one. kindMatches(title, kinds) → [{id, keyword}]: every active kind the title names, in the list's order (the
+   panel's "several kinds?" hint; kindMatch is the first of them).
 
    assetPoints(settings.assets, {kind, split, validated, validatedSplit?, validatedTotal?})
      → {perPerson: {id: {count, counted, points, validated, changedSinceValidation, validatedCount}}, total,
@@ -124,6 +146,12 @@
      nothing yet, and one changed since earns at most what was validated (min of the two) until validated again.
      The caller checks that the module is on. Points from assets are output credit, kept apart from hours, base
      points and the bonus — never the base of the efficiency bonus.
+     mix ([{kind, units}], the task's planned split, kindMix): the assets produced are credited to its kinds — each kind
+     its own count when as many were produced as planned (mixRule "equal"), else the count produced shared in proportion
+     to the plan ("proportional") — so an asset is worth Σ units_k × perKind_k ÷ Σ units_k on average (pointsPerAsset,
+     2 decimals) and a person's points are their count × that, worked out before rounding; mix [{kind, planned, credited,
+     per, points}] says each kind's part. Validation and the person split are as without a mix; kind stays the one given
+     (the primary kind). A mix of one kind is that kind.
 
    ENGINE_DEFAULTS (frozen; defaults() gives a copy to change) holds the plan's §3.2 defaults of the six sub-objects:
    hours (the 14 kinds of KINDS as templates, the hours today's estimator has always used — the kinds made per
@@ -226,8 +254,52 @@
     return !k ? null : idOnly ? k.id : { id: k.id, keyword: k.kws.find(w => new RegExp(EDGE + reOf(w), 'u').test(s)) };
   }
   const kindOf = (title, kinds) => kindMatch(title, kinds, true);
-  const kindPick = (task, kinds) => { const id = isObj(task) && isObj(task.meta) ? task.meta.kind : null; return kindsOf(kinds).some(k => isObj(k) && k.id === id && k.active !== false) ? id : null; };
-  const kindOfTask = (task, kinds) => kindPick(task, kinds) || kindOf(isObj(task) ? task.title : '', kinds);
+  /* every active kind the title names, in the list's order (a title of several kinds of work: the panel's hint) */
+  function kindMatches(title, kinds) {
+    const s = textOf(title); if (!s) return [];
+    return compile(kindsOf(kinds)).filter(k => k.re && k.re.test(s)).map(k => ({ id: k.id, keyword: k.kws.find(w => new RegExp(EDGE + reOf(w), 'u').test(s)) }));
+  }
+  /* the kind chosen on the task: the primary kind of its mix, else meta.kind when it is an active kind */
+  const kindPick = (task, kinds, hours) => {
+    const mix = kindMix(task, kinds); if (mix) return kindPrimary(mix, isObj(hours) ? hours : kinds);
+    const id = isObj(task) && isObj(task.meta) ? task.meta.kind : null; return kindsOf(kinds).some(k => isObj(k) && k.id === id && k.active !== false) ? id : null;
+  };
+  const kindOfTask = (task, kinds, hours) => kindPick(task, kinds, hours) || kindOf(isObj(task) ? task.title : '', kinds);
+
+  /* ---------- several kinds of work in one task (meta.kinds) ---------- */
+  const MIX_LIMITS = Object.freeze({ min: 2, max: 8, units: 500 });
+  /* [{kind, units}] from {kind, units}, {k, n} or {kind, count} entries; problems (optional) collects what was changed */
+  function mixClean(v, kinds, problems) {
+    if (!Array.isArray(v)) return null;
+    const ok = kinds === null || kinds === undefined ? null : new Set(kindsOf(kinds).filter(k => isObj(k) && k.active !== false).map(k => k.id));
+    const out = [], note = p => { if (problems) problems.push(p); };
+    v.forEach(e => {
+      if (!isObj(e)) { note({ code: 'kind', value: e }); return; }
+      const raw = e.kind !== undefined ? e.kind : e.k, id = typeof raw === 'string' ? raw.trim() : '';
+      if (!id || !ID_TEXT.test(id) || (ok && !ok.has(id))) { note({ code: 'kind', value: raw }); return; }
+      const given = e.units !== undefined ? e.units : e.n !== undefined ? e.n : e.count, n = num(given);
+      if (n === null) { note({ code: 'count', kind: id, value: given }); return; }
+      const units = clamp(Math.round(n), 1, MIX_LIMITS.units);
+      if (units !== n) note({ code: 'clamped', kind: id, value: given, used: units });
+      const same = out.find(x => x.kind === id);
+      if (same) { same.units = Math.min(MIX_LIMITS.units, same.units + units); note({ code: 'merged', kind: id }); }
+      else out.push({ kind: id, units });
+    });
+    if (out.length > MIX_LIMITS.max) note({ code: 'cut', n: out.length });
+    return out.length ? out.slice(0, MIX_LIMITS.max) : null;
+  }
+  const kindMix = (task, kinds) => {
+    const m = isObj(task) && isObj(task.meta) ? mixClean(task.meta.kinds, kinds === null || kinds === undefined ? KINDS : kinds) : null;
+    return m && m.length >= MIX_LIMITS.min ? m : null;
+  };
+  /* the hour templates of settings.hours or of the whole settings, else the defaults */
+  function templatesOf(h) { const hs = sub(h, 'hours', ['templates', 'complexity', 'dependency', 'bounds']); return isObj(hs.templates) ? hs.templates : ENGINE_DEFAULTS.hours.templates; }
+  function kindPrimary(mix, hours) {
+    const m = mixClean(mix, null); if (!m) return null;
+    const templates = templatesOf(hours); let best = null;
+    m.forEach(x => { const h = mixPart(templates, x.kind, x.units).base || 0; if (!best || h > best.h || (best.h === 0 && h === 0 && x.units > best.n)) best = { kind: x.kind, h, n: x.units }; });
+    return best.kind;
+  }
 
   /* ---------- the sentences (keys of `steps`; the page translates them with tr()) ---------- */
   const SENTENCES = {
@@ -246,6 +318,13 @@
     hMin: 'Raised to the minimum of {min} h.',
     hMax: 'Capped at the maximum of {max} h.',
     hRange: 'The usual range for this work: {low}–{high} h.',
+    hMixOne: '"{kind}": one deliverable, {hours} h.',
+    hMixWhole: '"{kind}": {units} deliverables made as one piece of work, {hours} h.',
+    hMixUnits: '"{kind}": {units} deliverables, {perUnit} h for the first and each next one at {pct}%: {hours} h.',
+    hMixNone: '"{kind}": there is no template for it, so its {units} deliverables add no hours.',
+    hMixNoneAll: 'None of these kinds of work has a template, so there is no math estimate.',
+    hMixSum: 'All the kinds of work together: {terms} = {base} h.',
+    hMixProduct: '{base} × {cmult} × {dmult} = {raw} h.',
     fAdjusted: 'The {factor} rating {given} was read as {used} (ratings are whole numbers from 1 to 5).',
     fMissing: 'Rate every factor first; not rated yet: {factors}.',
     fIndex: 'Weighted index {index} = {terms}.',
@@ -302,7 +381,12 @@
     apNotYetHeld: '{person}: not validated by a lead yet; no points until a lead validates it.',
     apChanged: '{person}: changed since a lead validated {validated}; counted as entered now.',
     apChangedHeld: '{person}: changed since a lead validated {validated}; {counted} counts until a lead validates it again.',
-    apTotal: 'Total: {points} points for {assets} assets.'
+    apTotal: 'Total: {points} points for {assets} assets.',
+    apMixEqual: 'The {assets} assets produced are the {planned} planned, so each kind of work counts its own.',
+    apMixShare: 'The {assets} assets produced are shared over the kinds of work in proportion to the {planned} planned.',
+    apMixKind: 'Kind of work "{kind}": {count} × {per} = {points} points.',
+    apMixPer: 'On average {per} points for each asset.',
+    apPersonMix: '{person}: {count} of the {assets} assets = {points} points.'
   };
   /* efficiency() reason code → its sentence */
   const REASONS = {
@@ -360,9 +444,56 @@
     Object.keys(map).forEach(k => { const n = Number(k); if (Number.isInteger(n) && n >= 0 && n <= deps && (best === null || n > best)) best = n; });
     return best === null ? 1 : positive(num(map[best]), 1);
   }
+  /* one kind's part of a mix: its template's hours for its count, before complexity and dependencies */
+  function mixPart(templates, kind, units) {
+    const t = hasOwn(templates, kind) && isObj(templates[kind]) ? templates[kind] : null, perUnit = t ? positive(num(t.perUnit), null) : null;
+    if (perUnit === null) return { kind, units, perUnit: null, nextUnitFactor: null, unitsFactor: null, base: null, low: null, high: null };
+    const nu = num(t.nextUnitFactor), nextUnitFactor = clamp(nu !== null ? nu : DEFAULT_NEXT_UNIT, 0, 1), unitsFactor = clean(1 + nextUnitFactor * (units - 1));
+    const lo = num(t.low), hi = num(t.high), range = lo !== null && hi !== null && lo > 0 && hi >= lo;
+    return { kind, units, perUnit, nextUnitFactor, unitsFactor, base: clean(perUnit * unitsFactor), low: range ? clean(lo * unitsFactor) : null, high: range ? clean(hi * unitsFactor) : null };
+  }
+  function hoursOfMix(hs, templates, mix, f, ex) {
+    const D = ENGINE_DEFAULTS.hours, parts = mix.map(m => mixPart(templates, m.kind, m.units)), counted = parts.filter(p => p.base !== null);
+    const echo = { kind: kindPrimary(mix, { templates }), units: parts.reduce((n, p) => n + p.units, 0), complexity1to5: f.complexity, complexityRated: f.rated, openDeps: f.openDeps, perUnit: null, nextUnitFactor: null, mix: mix.map(m => ({ kind: m.kind, units: m.units })) };
+    const each = (cm, dm) => parts.map(p => ({ kind: p.kind, units: p.units, perUnit: p.perUnit, nextUnitFactor: p.nextUnitFactor, unitsFactor: p.unitsFactor,
+      value: p.base === null ? null : round2(clean(p.base * cm * dm)), low: p.low === null ? null : round2(clean(p.low * cm * dm)), high: p.high === null ? null : round2(clean(p.high * cm * dm)) }));
+    parts.forEach(p => {
+      if (p.base === null) ex.add(SENTENCES.hMixNone, { kind: p.kind, units: p.units });
+      else if (p.units === 1) ex.add(SENTENCES.hMixOne, { kind: p.kind, hours: p.base });
+      else if (p.nextUnitFactor === 0) ex.add(SENTENCES.hMixWhole, { kind: p.kind, units: p.units, hours: p.base });
+      else ex.add(SENTENCES.hMixUnits, { kind: p.kind, units: p.units, perUnit: p.perUnit, pct: pct(p.nextUnitFactor), hours: p.base });
+    });
+    if (!counted.length) {
+      ex.add(SENTENCES.hMixNoneAll);
+      return Object.assign({ value: null, unit: 'h', low: null, high: null, bounded: false, reason: 'no_template', inputs: echo, factors: null, mix: each(1, 1) }, ex.done());
+    }
+    const cm = positive(num((isObj(hs.complexity) ? hs.complexity : D.complexity)[f.complexity]), 1);
+    const dm = depMultiplier(isObj(hs.dependency) ? hs.dependency : D.dependency, f.openDeps);
+    const sum = key => clean(counted.reduce((n, p) => n + p[key], 0)), base = sum('base'), raw = clean(base * cm * dm);
+    const { min, max } = boundsOf(hs), value = round2(clamp(raw, min, max));
+    ex.add(SENTENCES.hMixSum, { terms: counted.map(p => String(round2(p.base))).join(' + '), base });
+    ex.add(f.rated ? SENTENCES.hComplexity : SENTENCES.hComplexityDefault, { rating: f.complexity, mult: cm });
+    ex.add(f.openDeps === 0 ? SENTENCES.hNoDeps : f.openDeps === 1 ? SENTENCES.hOneDep : SENTENCES.hDeps, { deps: f.openDeps, mult: dm });
+    ex.add(SENTENCES.hMixProduct, { base, cmult: cm, dmult: dm, raw: round2(raw) });
+    if (raw < min) ex.add(SENTENCES.hMin, { min });
+    else if (raw > max) ex.add(SENTENCES.hMax, { max });
+    let low = null, high = null;
+    if (counted.every(p => p.low !== null && p.high !== null)) {
+      low = round2(clamp(clean(sum('low') * cm * dm), min, max));
+      high = round2(clamp(clean(sum('high') * cm * dm), min, max));
+      ex.add(SENTENCES.hRange, { low, high });
+    }
+    return Object.assign({
+      value, unit: 'h', low, high, bounded: raw < min || raw > max, reason: null, inputs: echo,
+      factors: { perUnit: null, unitsFactor: null, complexityMultiplier: cm, dependencyMultiplier: dm, raw, base }, mix: each(cm, dm)
+    }, ex.done());
+  }
   function hours(hs, inputs) {
     hs = sub(hs, 'hours', ['templates', 'complexity', 'dependency', 'bounds']);
     inputs = isObj(inputs) ? inputs : {};
+    const mix = mixClean(inputs.mix, null);
+    /* a mix of one kind is that kind, worked out exactly as without a mix */
+    if (mix && mix.length === 1) return hours(hs, Object.assign({}, inputs, { kind: mix[0].kind, units: mix[0].units, mix: null }));
     const D = ENGINE_DEFAULTS.hours, ex = explainer();
     const templates = isObj(hs.templates) ? hs.templates : D.templates;
     const kind = typeof inputs.kind === 'string' && inputs.kind ? inputs.kind : null;
@@ -375,6 +506,7 @@
     const cGiven = num(inputs.complexity1to5 !== undefined && inputs.complexity1to5 !== null ? inputs.complexity1to5 : inputs.complexity);
     const complexity = cGiven === null ? 3 : clamp(Math.round(cGiven), 1, 5);
     const d = num(inputs.openDeps), openDeps = d === null ? 0 : clamp(Math.round(d), 0, 999);
+    if (mix) return hoursOfMix(hs, templates, mix, { complexity, rated: cGiven !== null, openDeps }, ex);
     const echo = { kind, units, complexity1to5: complexity, complexityRated: cGiven !== null, openDeps, perUnit, nextUnitFactor };
     if (perUnit === null) {
       ex.add(SENTENCES.hNoTemplate);
@@ -638,13 +770,24 @@
   function assetPoints(as, inputs) {
     as = sub(as, 'assets', ['perKind', 'unknownKind', 'countUnvalidated']);
     inputs = isObj(inputs) ? inputs : {};
+    const mix = mixClean(inputs.mix, null);
+    /* a mix of one kind is that kind */
+    if (mix && mix.length === 1) return assetPoints(as, Object.assign({}, inputs, { kind: mix[0].kind, mix: null }));
     const D = ENGINE_DEFAULTS.assets, ex = explainer();
     const perKind = isObj(as.perKind) ? as.perKind : {};
-    const kind = typeof inputs.kind === 'string' && inputs.kind ? inputs.kind : null;
-    const given = kind && hasOwn(perKind, kind) ? num(perKind[kind]) : null;
-    const kindKnown = !!kind && (given !== null || hasOwn(D.perKind, kind));
     const unknownKind = setting(as.unknownKind, D.unknownKind, 0, 20);
-    const per = round2(given !== null ? clamp(given, 0, 20) : kindKnown ? D.perKind[kind] : unknownKind);
+    /* one asset of a kind: the workspace's points for it, else the default's, else a kind not known's */
+    const perOf = k => {
+      const g = k && hasOwn(perKind, k) ? num(perKind[k]) : null, known = !!k && (g !== null || hasOwn(D.perKind, k));
+      return { per: round2(g !== null ? clamp(g, 0, 20) : known ? D.perKind[k] : unknownKind), known };
+    };
+    const kind = typeof inputs.kind === 'string' && inputs.kind ? inputs.kind : null;
+    const kindKnown = perOf(kind).known;
+    /* with a mix: the planned assets, what they are worth together, and one asset on average */
+    const planned = mix ? mix.reduce((n, m) => n + m.units, 0) : 0;
+    const mixWorth = mix ? clean(mix.reduce((n, m) => n + m.units * perOf(m.kind).per, 0)) : 0;
+    const per = mix ? round2(mixWorth / planned) : perOf(kind).per;
+    const worth = n => round2(mix ? clean(n * mixWorth / planned) : n * per);
     const countUnvalidated = typeof as.countUnvalidated === 'boolean' ? as.countUnvalidated : D.countUnvalidated;
     /* the lead's validation: meta.assetSplitOk itself, or true/false with its counts given apart */
     const vin = inputs.validated, vObj = isObj(vin) ? vin : null;
@@ -656,7 +799,18 @@
     const split = countsOf(inputs.split), ids = Object.keys(split);
     const totalAssets = clean(ids.reduce((n, id) => n + split[id], 0));
     const differs = (a, b) => Math.abs(a - b) > 1e-9;
-    ex.add(kindKnown ? SENTENCES.apKind : SENTENCES.apUnknown, { kind, per: p2(per) });
+    let mixOut = null, mixRule = null;
+    if (!mix) ex.add(kindKnown ? SENTENCES.apKind : SENTENCES.apUnknown, { kind, per: p2(per) });
+    else {
+      const equal = totalAssets > 0 && Math.abs(totalAssets - planned) < 1e-6;
+      if (totalAssets > 0) { mixRule = equal ? 'equal' : 'proportional'; ex.add(equal ? SENTENCES.apMixEqual : SENTENCES.apMixShare, { assets: totalAssets, planned }); }
+      mixOut = mix.map(m => {
+        const p = perOf(m.kind).per, credited = equal ? m.units : clean(totalAssets * m.units / planned), points = round2(credited * p);
+        if (totalAssets > 0) ex.add(SENTENCES.apMixKind, { kind: m.kind, count: credited, per: p2(p), points: p2(points) });
+        return { kind: m.kind, planned: m.units, credited, per: p, points };
+      });
+      ex.add(SENTENCES.apMixPer, { per: p2(per) });
+    }
     const perPerson = {};
     let total = 0;
     ids.forEach(id => {
@@ -665,25 +819,28 @@
       const changed = isValidated &&(perPersonCheck ? differs(count, vSplit[id] || 0) : vTotal !== null && differs(totalAssets, vTotal));
       const ok = isValidated && !changed;
       const counted = countUnvalidated || ok ? count : changed ? clean(Math.min(count, validatedCount)) : 0;
-      const points = round2(counted * per);
+      const points = worth(counted);
       total += points;
       perPerson[id] = { count, counted, points, validated: ok, changedSinceValidation: changed, validatedCount };
-      ex.add(SENTENCES.apPerson, { person: id, count: counted, per: p2(per), points: p2(points) });
+      if (mix) ex.add(SENTENCES.apPersonMix, { person: id, count: counted, assets: totalAssets, points: p2(points) });
+      else ex.add(SENTENCES.apPerson, { person: id, count: counted, per: p2(per), points: p2(points) });
       if (!isValidated) ex.add(countUnvalidated ? SENTENCES.apNotYet : SENTENCES.apNotYetHeld, { person: id });
       else if (changed) ex.add(countUnvalidated ? SENTENCES.apChanged : SENTENCES.apChangedHeld, { person: id, validated: validatedCount, counted });
     });
     total = round2(total);
     if (!ids.length) ex.add(SENTENCES.apNone);
     else ex.add(SENTENCES.apTotal, { points: p2(total), assets: totalAssets });
-    return Object.assign({
+    const out = {
       perPerson, total, totalAssets, pointsPerAsset: per, kind, kindKnown, countUnvalidated, isValidated,
       reason: ids.length ? null : 'no_assets',
       inputs: { kind, split, validated: isValidated, validatedSplit: vSplit, validatedTotal: vTotal }
-    }, ex.done());
+    };
+    if (mix) { out.mix = mixOut; out.mixRule = mixRule; out.inputs.mix = mix.map(m => ({ kind: m.kind, units: m.units })); }
+    return Object.assign(out, ex.done());
   }
 
   /* ---------- what the AI says, cleaned before anything stores it ---------- */
-  const AI_KEYS = ['kind', 'deliverables', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes', 'contextEffect'];
+  const AI_KEYS = ['kind', 'deliverables', 'mix', 'factors', 'hours', 'storyPoints', 'weightedPoints', 'confidence', 'explanation', 'assumptions', 'missing', 'comparables', 'outcomes', 'contextEffect'];
   const ID_TEXT = /^[-\w.:]{1,64}$/;
   const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const short = v => Array.from(typeof v === 'string' ? v : JSON.stringify(v) || String(v)).slice(0, 40).join('');
@@ -721,6 +878,20 @@
       const n = num(reply.deliverables);
       if (n === null || n < 1) errors.push('deliverables must be a whole number of at least 1; dropped.');
       else { const r = clamp(Math.round(n), 1, 500); if (r !== n) errors.push('deliverables ' + short(reply.deliverables) + ' read as ' + r + '.'); v.deliverables = r; }
+    }
+    if (has('mix')) {
+      if (!Array.isArray(reply.mix)) errors.push('mix must be a list of {kind, count}; dropped.');
+      else if (reply.mix.length) {
+        const problems = [], m = mixClean(reply.mix, Array.isArray(settings.kinds) ? settings.kinds : Object.keys(templates).map(id => ({ id })), problems);
+        const count = code => problems.filter(p => p.code === code).length;
+        if (count('kind')) errors.push(count('kind') + ' mix entries without a known kind of work were dropped.');
+        if (count('count')) errors.push(count('count') + ' mix entries without a count were dropped.');
+        if (count('clamped')) errors.push(count('clamped') + ' mix counts read as whole numbers from 1 to ' + MIX_LIMITS.units + '.');
+        if (count('merged')) errors.push('mix entries of the same kind were added together.');
+        if (count('cut')) errors.push('Only the first ' + MIX_LIMITS.max + ' kinds of the mix were kept.');
+        if (m && m.length >= MIX_LIMITS.min) v.mix = m.map(x => ({ kind: x.kind, count: x.units }));
+        else if (m) errors.push('mix needs at least two kinds of work; dropped.');
+      }
     }
     if (has('factors')) {
       if (!isObj(reply.factors)) errors.push('factors must be an object of ratings; dropped.');
@@ -825,13 +996,16 @@
     const text = v => (v === null || v === undefined ? '' : norm(v));
     const labels = Array.isArray(t.labels) ? Array.from(new Set(t.labels.map(text).filter(Boolean))).sort() : [];
     const d = num(t.deliverables !== undefined && t.deliverables !== null ? t.deliverables : t.assetCount);
-    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)].concat(t.kind ? [text(t.kind)] : []));
+    /* the mix, in kind order (only when there is one: without it the hash is what it always was) */
+    const mix = mixClean(t.mix, null), split = mix ? [['mix'].concat(mix.map(m => [text(m.kind), m.units]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)))] : [];
+    const payload = JSON.stringify([INPUT_HASH_VERSION, text(t.title), text(t.description), canon(isObj(t.brief) ? t.brief : null), d === null ? 0 : Math.max(0, Math.round(d)), labels, text(t.team)].concat(t.kind ? [text(t.kind)] : []).concat(split));
     return fnv1a(payload, 0x811c9dc5) + fnv1a(payload, 0x9747b28c);
   }
 
   const engine = {
     round2, hours, storyPoints, weightedPoints, basePoints, efficiency, allocate, progress, rollup, validateAi, inputHash,
     assetPoints, kindOf, kindMatch, kindPick, kindOfTask, kindKeyword, KINDS, KIND_IDS, KIND_LIMITS,
+    mixClean, kindMix, kindPrimary, kindMatches, MIX_LIMITS,
     fill, defaults, ENGINE_DEFAULTS, SENTENCES, REASONS, FACTORS, STORY_SCALE, ENGINE_VERSION, INPUT_HASH_VERSION
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = engine; else root.ScoringEngine = engine;

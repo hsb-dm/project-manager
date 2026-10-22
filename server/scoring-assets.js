@@ -16,7 +16,9 @@
    but Declined: a declined task produced nothing anyone used). Work still open is not counted yet; it counts in the
    week it is completed. team and project choose tasks (the task's team; its project or one of the others it is in),
    person chooses the row. The kind of work is the one chosen on the task, else its title's, as the estimator reads it
-   (the workspace's kinds of work).
+   (the workspace's kinds of work). A task of several kinds of work (meta.kinds, Oct 2026) earns by its split — each
+   kind its own count when as many assets were produced as planned, else the count shared in proportion to the plan
+   (ScoringEngine.assetPoints' mix) — and counts under its primary kind (the one with the most hours) in byKind.
 
    Whoever holds scoring_view_analytics sees everyone's rows; anyone else only their own (asking for someone else's
    is refused). People are listed in name order — never ranked. The module off (or Smart Scoring, or the server's
@@ -126,8 +128,8 @@ module.exports = function scoringAssets(db, WS_ID, d) {
     if (only) get(only);
     let counted = 0;
     tasks.forEach(t => {
-      const c = credit(t), kind = engine.kindOfTask(t, s.kinds), week = weekOf(t.completedAt);
-      const r = engine.assetPoints(s.assets, { kind, split: c.by, validated: t.meta.assetSplitOk });
+      const c = credit(t), kind = engine.kindOfTask(t, s), week = weekOf(t.completedAt);
+      const r = engine.assetPoints(s.assets, { kind, mix: engine.kindMix(t, s), split: c.by, validated: t.meta.assetSplitOk });
       let mine = false;
       Object.keys(r.perPerson).forEach(id => {
         if (only && id !== only) return;

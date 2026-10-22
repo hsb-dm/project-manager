@@ -1065,9 +1065,13 @@ function appScrollTop(y){ var el=appScrollEl(); if (y===undefined) return el?el.
 var SCROLL_MEMORY={};
 /* go() reads where the page is before drawing the next screen and sets it afterwards only when that differs:
    setting it, even to the same place, made the browser lay the new screen out there and then. */
-var SCROLL_BEFORE=null;
-function rememberScroll(){ SCROLL_BEFORE=null; if (S&&S.screen) SCROLL_MEMORY[S.screen]=SCROLL_BEFORE=appScrollTop(); }
-function restoreScroll(screen){ var y=SCROLL_MEMORY[screen]||0, was=SCROLL_BEFORE; SCROLL_BEFORE=null; if (was===y) return; appScrollTop(y); }
+/* A project, a team or a person opened from anywhere else opens at the top (Oct 2026): the next project opened at the
+   place the last one was left, and the list of projects at the place of the project left. Going back (navBack) puts
+   the page where it was; the screens keep their own place as before. */
+var SCROLL_BEFORE=null, SCROLL_FROM=null;
+function scrollPlace(){ return navDetailKey(S.screen,navDetailId(S.screen,S))||S.screen; }
+function rememberScroll(){ SCROLL_BEFORE=SCROLL_FROM=null; if (!S||!S.screen) return; var k=scrollPlace(); SCROLL_BEFORE=appScrollTop(); if (k===S.screen) SCROLL_MEMORY[k]=SCROLL_BEFORE; if (!S.search) SCROLL_FROM=k; }
+function restoreScroll(screen){ var k=scrollPlace(), y=k!==S.screen?(k===SCROLL_FROM?SCROLL_BEFORE:0):(SCROLL_MEMORY[screen]||0), was=SCROLL_BEFORE; SCROLL_BEFORE=SCROLL_FROM=null; if (was===y) return; appScrollTop(y); }
 
 /* §386 default is Right, which is the behaviour every existing user has. */
 var TASK_PANEL_POSITIONS=["right","center","left"];
