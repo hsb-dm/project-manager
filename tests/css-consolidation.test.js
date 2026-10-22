@@ -91,11 +91,9 @@ test('no declaration that can never win: none is declared again, at the same or 
   /* x applies wherever r does: no at-rule, the same chain, or a width-only @media whose range holds r's */
   const range = c => { const m = /^@media((?:\((?:min|max)-width:[\d.]+px\)(?:and)?)+)$/.exec(c); if (!m) return null; const o = { min: 0, max: Infinity }; for (const x of m[1].matchAll(/\((min|max)-width:([\d.]+)px\)/g)) { if (x[1] === 'min') o.min = Math.max(o.min, +x[2]); else o.max = Math.min(o.max, +x[2]); } return o; };
   const covers = (x, r) => { if (x.ctx === '' || x.ctx === r.ctx) return true; const a = range(x.ctx), b = range(r.ctx); return !!(a && b && a.min <= b.min && a.max >= b.max); };
-  /* the task panel's Due field is being reworked on its own (Oct 2026): its rules are left to that change */
-  const HANDS_OFF = new Set(['.task-date-read', '.due-day', '.task-date-read .due']);
   const dead = [];
   for (const r of rules) for (const d of r.decls) {
-    if (/^-(webkit|moz|ms|o)-/.test(d.name) || r.sels.some(s => HANDS_OFF.has(s))) continue;
+    if (/^-(webkit|moz|ms|o)-/.test(d.name)) continue;
     const beaten = r.sels.every(s => (bySel.get(s) || []).some(x => x !== r && covers(x, r) && x.decls.some(d2 => d2.name === d.name && (x.i > r.i ? d2.imp >= d.imp : d2.imp && !d.imp))));
     if (beaten) dead.push(r.f + ' ' + (r.ctx || '') + ' ' + r.sels.join(',') + ' { ' + d.name + ' }');
   }
