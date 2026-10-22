@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="bd4cb9867ba7">
+<meta name="zc-build" content="6b17ea565f6e">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -7313,9 +7313,10 @@ function typeExt(a){ var m={logo:"svg",image:"img",video:"mp4",font:"ttf",icon:"
 function appScrollEl(){ return document.getElementById("appScroll")||document.scrollingElement||document.documentElement; }
 function appScrollTop(y){ var el=appScrollEl(); if (y===undefined) return el?el.scrollTop:0; if (el) el.scrollTop=y; }
 var SCROLL_MEMORY={};
-var SCROLL_BEFORE=null;
-function rememberScroll(){ SCROLL_BEFORE=null; if (S&&S.screen) SCROLL_MEMORY[S.screen]=SCROLL_BEFORE=appScrollTop(); }
-function restoreScroll(screen){ var y=SCROLL_MEMORY[screen]||0, was=SCROLL_BEFORE; SCROLL_BEFORE=null; if (was===y) return; appScrollTop(y); }
+var SCROLL_BEFORE=null, SCROLL_FROM=null;
+function scrollPlace(){ return navDetailKey(S.screen,navDetailId(S.screen,S))||S.screen; }
+function rememberScroll(){ SCROLL_BEFORE=SCROLL_FROM=null; if (!S||!S.screen) return; var k=scrollPlace(); SCROLL_BEFORE=appScrollTop(); if (k===S.screen) SCROLL_MEMORY[k]=SCROLL_BEFORE; if (!S.search) SCROLL_FROM=k; }
+function restoreScroll(screen){ var k=scrollPlace(), y=k!==S.screen?(k===SCROLL_FROM?SCROLL_BEFORE:0):(SCROLL_MEMORY[screen]||0), was=SCROLL_BEFORE; SCROLL_BEFORE=SCROLL_FROM=null; if (was===y) return; appScrollTop(y); }
 
 var TASK_PANEL_POSITIONS=["right","center","left"];
 function taskPanelPosition(){ var v=(myPrefs()||{}).taskPanelPosition; return TASK_PANEL_POSITIONS.indexOf(v)>=0?v:"right"; }
@@ -24356,7 +24357,13 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 <script>
 var BG_REDRAW=0;
 function bgRedraw(fn){ BG_REDRAW++; try{ return fn(); } finally{ BG_REDRAW--; } }
-function redrawView(){ return [S.screen,S.sub||"",S.settingsTab||"",S.taskView||"",S.projectId||"",S.projectTab||"",S.projView||""].join("|"); }
+function redrawIdentity(){ var s=S.screen;
+  if(S.search) return {place:"search|"+S.search,view:"",saved:""};
+  return {place:s+"|"+((s==="projects"?S.projectId:s==="teams"?S.teamId:s==="team"?S.memberId:s==="knowledge"?S.kbPage:"")||""),
+    view:(s==="tasks"?S.taskView:s==="projects"?(S.projectId?S.projectTab:S.projView):s==="settings"?S.settingsTab:"")||"",
+    saved:s==="tasks"?S.activeView||"":""}; }
+var REDRAW_DRAWN=null;
+function redrawSame(was,now){ return !!was&&!!now&&was.place===now.place&&was.view===now.view&&(was.saved===now.saved||!now.saved); }
 var REDRAW_STATE=/^(on|open|drag|over|active|hover|sel|selected|focus|focused|dim|empty|collapsed|full|expanded|kb-grabbed|loading)$/;
 function redrawKey(el,root){ var parts=[], n=el;
   while(n&&n!==root&&parts.length<7){
@@ -24377,20 +24384,21 @@ function redrawAnyScrolled(root){ var l=root.querySelectorAll(REDRAW_SCROLLERS);
 function redrawFieldDirty(el){ if(el.type==="checkbox"||el.type==="radio") return el.checked!==el.defaultChecked;
   if(el.tagName==="SELECT"){ var d=Array.prototype.filter.call(el.options,function(o){ return o.defaultSelected; })[0]; return (d?d.value:(el.options[0]||{}).value)!==el.value; }
   return el.value!==el.defaultValue; }
-function redrawCapture(){ var root=document.getElementById("content"); if(!root) return null;
-  var st={view:redrawView(),scroll:{},any:false,fields:null,focus:null};
+function redrawCapture(){ var root=document.getElementById("content"); if(!root||!redrawSame(REDRAW_DRAWN,redrawIdentity())) return null;
+  var st={scroll:{},any:false,fields:null,focus:null};
   if(redrawAnyScrolled(root)) redrawScrollers(root,function(el,k){ if(el.scrollTop||el.scrollLeft){ st.scroll[k]=[el.scrollTop,el.scrollLeft]; st.any=true; } });
   if(BG_REDRAW){ st.fields={};
     Array.prototype.forEach.call(root.querySelectorAll("input[id],select[id],textarea[id]"),function(el){ if(el.type==="file"||el.type==="hidden") return; if(redrawFieldDirty(el)) st.fields[el.id]={v:el.value,c:el.checked}; });
     var a=document.activeElement; if(a&&a.id&&root.contains(a)) st.focus={id:a.id,s:a.selectionStart,e:a.selectionEnd}; }
   return st; }
-function redrawRestore(st){ var root=document.getElementById("content"); if(!st||!root||st.view!==redrawView()) return;
+function redrawRestore(st){ var root=document.getElementById("content"); if(!st||!root) return;
   if(st.any) redrawScrollers(root,function(el,k){ var p=st.scroll[k]; if(p){ el.scrollTop=p[0]; el.scrollLeft=p[1]; } });
   if(st.fields) Object.keys(st.fields).forEach(function(id){ var el=document.getElementById(id); if(!el||!root.contains(el)) return; if(el.type==="checkbox"||el.type==="radio") el.checked=st.fields[id].c; else el.value=st.fields[id].v; });
   var f=st.focus, el=f&&document.getElementById(f.id);
   if(el&&root.contains(el)&&document.activeElement!==el){ try{ el.focus({preventScroll:true}); if(f.s!=null&&el.setSelectionRange) el.setSelectionRange(f.s,f.e); }catch(x){} } }
 (function(){ if(typeof renderScreen!=="function") return; var base=renderScreen;
-  renderScreen=function(){ var st=null; try{ st=redrawCapture(); }catch(e){} var r=base.apply(this,arguments); try{ redrawRestore(st); }catch(e){ console.error(e); } return r; }; })();
+  renderScreen=function(){ var st=null; try{ st=redrawCapture(); }catch(e){} var r=base.apply(this,arguments); REDRAW_DRAWN=redrawIdentity();
+    try{ redrawRestore(st); }catch(e){ console.error(e); } return r; }; })();
 (function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(){ var self=this, args=arguments; return bgRedraw(function(){ return base.apply(self,args); }); }; })();
 (function(){ if(typeof pwToggleAttach!=="function") return; var base=pwToggleAttach; pwToggleAttach=function(inp){ var had=document.activeElement===inp, s=had?inp.selectionStart:null, e=had?inp.selectionEnd:null, r=base.apply(this,arguments);
   if(had&&document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); if(s!=null) inp.setSelectionRange(s,e); }catch(x){} } return r; }; })();

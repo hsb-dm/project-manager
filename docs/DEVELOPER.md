@@ -288,7 +288,18 @@ go(screen, sub)
   bahasa, atau identitas workspace — **tidak** untuk edit data biasa.
 - **`rememberScroll` / `restoreScroll`** (`core.js:693`) — aplikasi scroll di dalam
   `<main class="app-scroll">`, **bukan** window. Semua yang menyentuh scroll harus lewat
-  `appScrollEl()` / `appScrollTop()`.
+  `appScrollEl()` / `appScrollTop()`. Tiap layar mengingat posisinya sendiri; project, team
+  atau orang (`navDetailKey`) yang dibuka dari tempat lain selalu mulai di atas, dan tidak
+  menimpa posisi daftar di layar yang sama. Back (`navBack` → `navRestore`) mengembalikan
+  posisi halaman dari snapshot seperti sebelumnya.
+- **Scroll di dalam layar** (`src/live-redraw.js`) — `renderScreen` memotret scroller yang
+  dikenal (`REDRAW_SCROLLERS` + `data-keep-scroll`) dan memasangnya lagi sesudah render,
+  **hanya kalau view-nya sama**: `REDRAW_DRAWN` mencatat apa yang sedang tampil (layar +
+  project/team/orang/halaman Knowledge atau hasil search, tab project / tipe view Tasks /
+  Active-Archived / tab Settings, dan saved view), dibandingkan dengan `S` yang sudah berubah
+  sebelum render. Live update, save, filter, sort, group, Mine/All → posisi tetap; project lain,
+  tab lain, Kanban → List, saved view lain → mulai di atas. Filter yang diubah di atas saved
+  view (saved view lepas, list tetap sama) juga tetap.
 
 ### State yang harus dijaga manual
 
