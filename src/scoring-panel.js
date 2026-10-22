@@ -151,14 +151,28 @@ function scrKind(tk){ return typeof estKindOf==="function"?estKindOf(tk):null; }
 function scrKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("not recognised"); }
 function scrUnits(tk){ return Math.max(1,Math.round(assetCount(tk))); }
 function scrOpenDeps(tk){ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }
-/* the hour estimate's inputs: the kind chosen (else the title's), the Assets produced as the deliverables, the open dependencies */
-function scrHoursInputs(tk,o){ o=o||{}; return {kind:("kind" in o?o.kind:scrCtxKind(tk))||null,units:scrUnits(tk),complexity1to5:scrNum(o.complexity1to5),openDeps:scrCtxDeps(tk)}; }
+/* the hour estimate's inputs: the kind chosen (else the title's), the Assets produced as the deliverables, the open
+   dependencies — or, with several kinds of work (meta.kinds, src/scoring-kinds.js), each kind with its own count */
+function scrMix(tk){ return typeof kmixOf==="function"?kmixOf(tk):null; }
+function scrMixIn(mix){ return mix.map(function(x){ return {kind:x.k,units:x.n}; }); }
+function scrHoursInputs(tk,o){ o=o||{}; var mix=scrMix(tk), inp={kind:mix?null:("kind" in o?o.kind:scrCtxKind(tk))||null,units:scrUnits(tk),complexity1to5:scrNum(o.complexity1to5),openDeps:scrCtxDeps(tk)};
+  if(mix) inp.mix=scrMixIn(mix); return inp; }
 function scrCompute(m,inp){ var E=scrEngine(), s=typeof scoringSettings==="function"?scoringSettings():null; if(!E||!s) return null;
-  if(m==="hours") return E.hours(s.hours,inp); if(m==="story") return E.storyPoints(s.story,inp); return E.weightedPoints(s.weighted,inp); }
+  if(m==="hours") return inp&&inp.mix&&typeof kmixEngine==="function"?kmixEngine(s.hours,inp):E.hours(s.hours,inp); if(m==="story") return E.storyPoints(s.story,inp); return E.weightedPoints(s.weighted,inp); }
 /* a stored row's math again, from its own inputs — when the server did not send its steps */
-function scrComputeRow(tk,m,r){ if(r.mathValue==null) return null; if(m==="hours"){ var mi=r.mathInputs||{}, cx=scrRated(mi);
-    return scrCompute("hours",{kind:mi.kind||scrKind(tk),units:scrNum(scrPick(mi,["units","deliverables"]))||scrUnits(tk),complexity1to5:cx,openDeps:scrNum(scrPick(mi,["openDeps","dependencies"]))||0}); }
+function scrComputeRow(tk,m,r){ if(r.mathValue==null) return null; if(m==="hours"){ var mi=r.mathInputs||{}, cx=scrRated(mi), mix=scrMix(tk), deps=scrNum(scrPick(mi,["openDeps","dependencies"]))||0;
+    if(mix) return scrCompute("hours",{mix:scrMixIn(mix),complexity1to5:cx,openDeps:deps});
+    return scrCompute("hours",{kind:mi.kind||scrKind(tk),units:scrNum(scrPick(mi,["units","deliverables"]))||scrUnits(tk),complexity1to5:cx,openDeps:deps}); }
   return scrCompute(m,r.factors||{}); }
+/* the hours of each kind of a mix: what the server worked out (GET …/scoring `mix`, for the mix it has: `kinds`), else
+   the page's own reading of the workspace's templates */
+function scrMixHours(tk){ var mix=scrMix(tk); if(!mix) return null; var c=SCR.cache[tk.id], sv=c&&Array.isArray(c.mix)?c.mix:null;
+  if(sv&&sv.length&&(!Array.isArray(c.kinds)||typeof kmixClean!=="function"||kmixSame(kmixClean(c.kinds),mix))){ var by={};
+    sv.forEach(function(x){ if(x&&typeof x==="object"){ var k=x.kind||x.k; if(typeof k==="string") by[k]=scrNum(scrPick(x,["hours","h","value"])); } });
+    if(mix.every(function(x){ return x.k in by; })) return mix.map(function(x){ return {k:x.k,n:x.n,h:by[x.k]}; }); }
+  var h=typeof kmixHours==="function"?kmixHours(tk,mix):null; return h?h.per:mix.map(function(x){ return {k:x.k,n:x.n,h:null}; }); }
+function scrMixLine(tk){ var per=scrMixHours(tk); if(!per) return "";
+  return fmt(tr("Deliverables by kind: {list}"),{list:per.map(function(x){ var nm=scrKindName(x.k); return x.h!=null?fmt(tr("{kind} {n} ({h} h)"),{kind:nm,n:x.n,h:scrHalf(x.h)}):nm+" "+x.n; }).join(", ")}); }
 /* one step of an explanation, in the person's language: fill(tr(key), vars) — a factor's or a kind's name in its words
    ({factor} is also a plain number in some sentences: a multiplier) */
 function scrStep(st){ var E=scrEngine(); if(!E||!st||!st.key) return ""; var name=function(x){ return SCR_FACTOR_NAMES[x]?String(scrFactorName(x)).toLowerCase():String(x); };
@@ -171,7 +185,7 @@ function scrStepsHtml(steps){ return steps&&steps.length?'<ol class="scr-steps">
 function scrPath(id,rest){ return "/api/tasks/"+encodeURIComponent(id)+"/scoring"+(rest?"/"+rest:""); }
 function scrApi(method,path,body){ return API.on?apiFetch(method,path,body):scrDemo(method,path,body); }
 /* what changes make the details worth asking for again: the summaries the task carries, its estimate, its assets */
-function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|")+scrAiSig(tk); }
+function scrSig(tk){ var s=tk.scoring||{}, k=tk.meta&&tk.meta.kinds; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|")+scrAiSig(tk)+(Array.isArray(k)&&k.length?"|mix:"+scrRaw(k):""); }
 /* a task with an AI suggestion is asked again after each of its saves: a new title, brief, description, label or team
    makes the suggestion one for the task as it was (stale), and only the server can say so */
 function scrAiSig(tk){ var c=SCR.cache[tk.id], r=c&&c.ai&&c.ai.rows; return r&&(r.hours||r.story||r.weighted)?"|ai:"+(tk.updatedAt||""):""; }
@@ -184,6 +198,8 @@ function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[i
   if(d.row){ var r=scrRowNorm(d.row,m); if(r&&SCR_MODULES.indexOf(r.module)>=0) put(r.module,r); }
   if(Array.isArray(d.audit)) c.audit=d.audit.slice(0,50); if(d.can&&typeof d.can==="object") c.can=d.can;
   if("efficiency" in d) c.efficiency=d.efficiency; if("outcomes" in d) c.outcomes=d.outcomes; if("ai" in d) c.ai=d.ai&&typeof d.ai==="object"?d.ai:null;
+  /* several kinds of work: the mix the server counts with (or null) and each kind's hours, for the hours row */
+  if("kinds" in d) c.kinds=Array.isArray(d.kinds)?d.kinds:null; var hm=d.rows&&!Array.isArray(d.rows)&&d.rows.hours&&d.rows.hours.mix; if("mix" in d||hm) c.mix=Array.isArray(d.mix)?d.mix:Array.isArray(hm)?hm:null;
   if(d.context&&typeof d.context==="object") c.context=d.context; if(d.on&&typeof d.on==="object") c.on=d.on; c.local=!API.on; c.at=Date.now();
   /* the task's summaries follow, so every view of the task (grid, details) agrees with the panel */
   var tk=task(id); if(tk){ tk.scoring=tk.scoring&&typeof tk.scoring==="object"?tk.scoring:{}; SCR_MODULES.forEach(function(k){ var x=c.rows[k]; if(x) tk.scoring[k]={finalValue:x.finalValue,status:x.status,source:x.source,lockedValue:x.lockedValue,lockedAt:x.lockedAt,lockedBy:x.lockedBy,approvedBy:x.approvedBy,approvedAt:x.approvedAt,rev:x.rev}; }); c.sig=scrSig(tk); } }
@@ -234,10 +250,11 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
     +'<div class="scr-val" data-scr-v="ai">'+scrAiCell(tk,m,aiOn)+'</div>'
     +'<div class="scr-val" data-scr-v="final"><span class="scr-k">'+tr(lk?"Locked value":"Final value")+'</span><b>'+scrFmt(m,fin)+'</b>'+scrSrcChip(r.source)+'</div></div>';
   var info=[];
-  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
-    info.push(kindPickHtml(tk,canI.editTask(tk)));
+  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk), mixLine=scrMixLine(tk);
+    info.push(kindPickHtml(tk,canI.editTask(tk),"panel"));
     info.push(cx?fmt(tr("Complexity {n} of 5"),{n:cx}):tr("Complexity not rated"));
-    info.push('<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
+    /* with several kinds, each kind's count is its deliverables (not the Assets produced) */
+    info.push(mixLine?'<span data-scr-in="mix">'+esc(mixLine)+'</span>':'<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
     info.push(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}));
     if(!lk&&+tk.effort>0&&fin!=null&&scrHalf(+tk.effort)!==scrHalf(fin)) info.push(fmt(tr("The task's Estimate is {h} h"),{h:scrHalf(+tk.effort)})); }
   else { var f=r.factors||{}, rated=SCR_FACTORS.filter(function(x){ return scrNum(f[x])!=null; }), sug=scrScopeSug(tk);
@@ -258,7 +275,7 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
   if(can.rebaseline&&lk) acts.push(scrBtn(tk,m,"rebaseline","Re-baseline","scrRebase"));
   acts.push(scrBtn(tk,m,"explain","Explanation","scrWhyToggle","ghost",' aria-expanded="'+(open?"true":"false")+'"'));
   return '<div class="scr-row" data-scr-module="'+m+'"><div class="scr-rhead"><b>'+tr(SCR_NAMES[m])+'</b>'+scrStChip(r.status)+'</div>'+vals
-    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+(aiOn?scrAiCardHtml(tk,m,can,lk):'')+prop+lockLine+when+held
+    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+(m==="hours"&&typeof kindMixSlotHtml==="function"?kindMixSlotHtml(tk,canI.editTask(tk),"panel"):'')+(aiOn?scrAiCardHtml(tk,m,can,lk):'')+prop+lockLine+when+held
     +(open?'<div class="scr-why" data-scr-why="'+m+'">'+scrWhyHtml(tk,m,r)+'</div>':'')
     +'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
 /* the explanation: the math, step by step, then where the final value came from and what holds it */
@@ -312,13 +329,18 @@ function scrCalc(id,m){ var tk=task(id); if(!tk) return; var r=scrView(tk,m), s=
   var other=function(f){ var o=SCR_MODULES.filter(function(x){ return x!==m&&x!=="hours"; }).map(function(x){ return scrRow(tk,x); }).filter(Boolean)[0]; return o&&scrNum(o.factors&&o.factors[f]); };
   if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null;
     if(!cx){ var st=scrRow(tk,"story")||scrRow(tk,"weighted"); cx=st&&scrNum(st.factors&&st.factors.complexity); }
-    SCR.rate={id:id,m:m,kind:mi.kind||scrCtxKind(tk)||"",r:{complexity:cx||null}};
+    var mix=scrMix(tk);
+    SCR.rate={id:id,m:m,kind:mix?"":mi.kind||scrCtxKind(tk)||"",mix:mix,r:{complexity:cx||null}};
     var kinds=s.kinds.filter(function(k){ return k.active; }).map(function(k){ return k.id; }), n=assetCount(tk), deps=scrCtxDeps(tk);
-    body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label>'
+    /* several kinds: the mix, as it is — no single kind to pick here, so nothing replaces it without a word */
+    body=(mix?'<div class="field" data-scr-mix><label>'+tr("Kinds of work")+'</label><p class="scr-in" id="scrKindMix"><span class="scr-chip">'+tr("Mixed")+'</span><span data-no-translate>'+esc(kmixText(mix))+'</span></p>'
+        +'<p class="hint">'+tr("Calculated with this task's mix: each kind's hours added up, then complexity and open dependencies once. One kind is not chosen here, so the mix stays as it is.")
+        +' <button type="button" class="scr-link" data-scr-act="mix-edit" onclick="closeModal();kmixOpen('+jsq(id)+',\'panel\')">'+tr("Change the mix")+'</button></p></div>'
+      :'<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label>'
       +kindDropdownHtml({key:"rate",id:"scrKind",field:true,kinds:kinds,value:SCR.rate.kind,placeholder:tr("Choose the kind of work"),pick:function(v){ SCR.rate.kind=v; scrPreview(); }})
-      +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>'
+      +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>')
       +scrRateField("complexity",SCR.rate.r.complexity)
-      +'<div class="field"><label>'+tr("Deliverables")+'</label><p class="scr-in" data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+' · '+tr("the task's Assets produced")+' <button type="button" class="scr-link" onclick="closeModal();setTab(\'files\')">'+tr("Change under Assets & versions")+'</button></p></div>'
+      +'<div class="field"><label>'+tr("Deliverables")+'</label><p class="scr-in" data-scr-in="deliverables">'+(mix?esc(scrMixLine(tk)):(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+' · '+tr("the task's Assets produced")+' <button type="button" class="scr-link" onclick="closeModal();setTab(\'files\')">'+tr("Change under Assets & versions")+'</button>')+'</p></div>'
       +'<div class="field"><label>'+tr("Open dependencies")+'</label><p class="scr-in">'+(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}))+'</p></div>'; }
   else { var f=r.factors||{}, rs={}, sug=scrScopeSug(tk);
     SCR_FACTORS.forEach(function(x){ rs[x]=scrNum(f[x])||other(x)||null; });
@@ -341,8 +363,9 @@ function scrPreview(){ var st=SCR.rate, el=document.getElementById("scrPreview")
    points {ratings} */
 function scrCalcGo(){ var st=SCR.rate; if(!st) return; var tk=task(st.id); if(!tk) return closeModal(); var m=st.m;
   if(m!=="hours"&&SCR_FACTORS.some(function(f){ return !st.r[f]; })) return toast(tr("Rate every factor first"),"bad");
-  if(m==="hours"&&!st.kind) return toast(tr("Choose the kind of work first"),"bad");
-  var inputs={kind:st.kind}; if(m==="hours"&&st.r.complexity) inputs.complexity=st.r.complexity;
+  if(m==="hours"&&!st.kind&&!st.mix) return toast(tr("Choose the kind of work first"),"bad");
+  /* with a mix the server counts the task's own (meta.kinds): no kind is sent to replace it */
+  var inputs=st.mix?{}:{kind:st.kind}; if(m==="hours"&&st.r.complexity) inputs.complexity=st.r.complexity;
   var body=m==="hours"?{module:m,inputs:inputs}:{module:m,ratings:scrRateInputs(tk,st)}, b=document.getElementById("scrGo"); if(b) b.disabled=true;
   scrApi("POST",scrPath(tk.id,"calculate"),body).then(function(d){ closeModal(); SCR.rate=null; SCR.why[tk.id+"|"+m]=true; scrAfter(tk,m,d,"Calculated"); })
     .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
@@ -481,11 +504,21 @@ function scrAiCardHtml(tk,m,can,lk){ var s=scrAiOf(tk,m), a=scrAiInfo(tk), nt=sc
     +'<div class="scr-ai-head">'+I.sparkle+'<b>'+fmt(tr("The AI suggests {v}"),{v:scrFmt(m,s.value)})+'</b><span class="scr-ai-conf'+(s.far||s.lowConfidence?' scr-ai-low':'')+'" data-scr-ai-conf>'+esc(conf)+'</span></div>'
     +delta+(warns?'<ul class="scr-ai-warn" data-scr-warns>'+warns+'</ul>':'')
     +(s.explanation?'<p class="scr-ai-text" data-no-translate>'+esc(s.explanation)+'</p>':'')
-    +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')
+    +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')+(m==="hours"?scrAiMixHtml(tk):'')
     +(s.assumptions&&s.assumptions.length?'<div class="scr-ai-list" data-scr-ai-assumptions><b>'+tr("It assumes")+'</b><ul>'+s.assumptions.map(function(x,i){ return ctx?scrAsmHtml(tk,m,i,x,cur,ced):li(x); }).join("")+'</ul></div>':'')
     +(gaps?'<div class="scr-ai-list" data-scr-ai-missing><b>'+tr("Missing inputs")+'</b><ul>'+gaps+'</ul></div>':'')
     +(lk?'<p class="hint">'+tr("The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.")+'</p>':'')
     +'<p class="hint scr-ai-meta">'+meta+'</p>'+note+'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
+/* the split the AI proposes when the work spans several kinds (its reply's `mix`, kept with the suggestion): shown when
+   it is not the task's own mix, with "Use this split" for whoever may edit the task — it sets meta.kinds, as the mix
+   editor does (src/scoring-kinds.js) */
+function scrAiMixOf(tk){ var s=scrAiOf(tk,"hours"), a=scrAiInfo(tk), raw=s&&Array.isArray(s.mix)&&s.mix.length?s.mix:a&&Array.isArray(a.mix)?a.mix:null;
+  var l=raw&&typeof kmixClean==="function"?kmixClean(raw):[]; return l.length>=2?l:null; }
+function scrAiMixHtml(tk){ var am=scrAiMixOf(tk); if(!am||kmixSame(am,scrMix(tk))) return "";
+  return '<div class="scr-ai-mix" data-scr-ai-mix><span>'+esc(fmt(tr("The AI suggests: {mix}"),{mix:kmixText(am)}))+'</span>'
+    +(canI.editTask(tk)&&!tk._draft?'<button type="button" class="btn xs" data-scr-act="ai-mix" data-scr-m="hours" onclick="scrAiMix('+jsq(tk.id)+')">'+tr("Use this split")+'</button>':'')+'</div>'; }
+function scrAiMix(id){ var tk=task(id), am=tk&&scrAiMixOf(tk); if(!am||typeof kmixUse!=="function") return;
+  kmixUse(id,am).then(function(r){ if(r!==false) toast(tr("The AI's split is set")); }); }
 /* the finished tasks like it that the estimator found (src/effort-estimate.js): the server decides whether the AI sees them */
 function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?effortEstimate(tk):null; return e&&Array.isArray(e.ids)?e.ids.slice(0,5):[]; }catch(x){ return []; } }
 /* m is one score or "all" (every score the AI is asked for: one ask, one of the quota); ctx, the team's context, is
@@ -725,8 +758,9 @@ function scrDemoEffort(tk,r,mark){ var m=taskMeta(tk); tk.effort=r.finalValue||0
 function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/scoring(?:\/([a-z]+))?(?:\/([a-z]+))?$/); if(!mt) return Promise.reject(new Error("Not found"));
   var id=decodeURIComponent(mt[1]), tk=task(id); if(!tk) return Promise.reject(new Error(tr("That item is not available to you")));
   var st=SCR.demo[id]||(SCR.demo[id]={rows:{},audit:[]}), now=new Date().toISOString(), can=scrCanLocal(tk), s=scoringSettings(); body=body||{};
-  var view=function(extra){ var n=assetCount(tk), sv=scrScopeFromAssets(n);
+  var view=function(extra){ var n=assetCount(tk), sv=scrScopeFromAssets(n), mix=scrMix(tk), mh=mix&&typeof kmixHours==="function"?kmixHours(tk,mix):null;
     return Object.assign({taskId:id,rows:{hours:st.rows.hours||null,story:st.rows.story||null,weighted:st.rows.weighted||null},audit:st.audit.slice(0,50),
+      kinds:mix,mix:mh?mh.per.map(function(x){ return {kind:x.k,units:x.n,hours:x.h}; }):null,
       on:{feature:true,enabled:scoringOn(),hours:scoringModuleOn("hours"),story:scoringModuleOn("story"),weighted:scoringModuleOn("weighted")},
       context:{kind:scrKind(tk),assetCount:n,deliverables:Math.max(1,n),openDeps:scrOpenDeps(tk),scope:{value:sv||1,source:"assets",assetCount:n,assumed:!sv},requireReason:!!s.overrides.requireReason},
       can:{view:true,calculate:can.calculate,propose:can.propose,edit:can.edit,approve:can.approve,rebaseline:can.rebaseline,requestAi:can.requestAi,approveBlocked:can.blocked}},extra||{}); };
@@ -802,6 +836,10 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "Could not load the latest scores":"Skor terbaru tidak dapat dimuat","Scoring history":"Riwayat skor",
   "Math baseline":"Baseline hitungan","Not calculated yet":"Belum dihitung","Locked value":"Nilai terkunci","Final value":"Nilai final",
   "Kind of work":"Jenis pekerjaan","not recognised":"tidak dikenali","Complexity {n} of 5":"Kompleksitas {n} dari 5","Complexity not rated":"Kompleksitas belum dinilai",
+  /* several kinds of work in one task */
+  "Kinds of work":"Jenis pekerjaan","Mixed":"Campuran","Deliverables by kind: {list}":"Deliverable per jenis: {list}","{kind} {n} ({h} h)":"{kind} {n} ({h} j)",
+  "Calculated with this task's mix: each kind's hours added up, then complexity and open dependencies once. One kind is not chosen here, so the mix stays as it is.":"Dihitung dengan campuran task ini: jam tiap jenis dijumlahkan, lalu kompleksitas dan dependensi terbuka sekali. Satu jenis tidak dipilih di sini, jadi campurannya tetap seperti itu.",
+  "Change the mix":"Ubah campuran","The AI suggests: {mix}":"Saran AI: {mix}","Use this split":"Pakai pembagian ini","The AI's split is set":"Pembagian dari AI sudah dipakai",
   "deliverable":"deliverable","deliverables":"deliverable","No assets produced recorded yet — counted as 1":"Belum ada aset dihasilkan yang dicatat — dihitung 1","from":"dari","Assets produced":"Aset dihasilkan",
   "1 open dependency":"1 dependensi terbuka","{n} open dependencies":"{n} dependensi terbuka","The task's Estimate is {h} h":"Estimasi task ini {h} jam",
   "Not rated yet":"Belum dinilai","Scope suggested from {n} assets produced: {v}":"Lingkup disarankan dari {n} aset dihasilkan: {v}","by":"oleh",
@@ -1012,6 +1050,9 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-ai-meta{font-size:11.5px;color:var(--color-text-tertiary)}
 .scr-ai-delta{margin:0;color:var(--color-text-primary)}
 .scr-ai-effect{margin:0;padding:5px 8px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-ai-mix{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-ai-mix>span{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+#scrKindMix{gap:6px}
 .scr-asm{margin:3px 0}
 .scr-asm-acts{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:1px}
 .scr-tog{padding:0 8px;border:1px solid var(--color-border);border-radius:999px;background:var(--color-surface);color:var(--color-text-secondary);font-size:11px;font-weight:600;line-height:19px;white-space:nowrap}

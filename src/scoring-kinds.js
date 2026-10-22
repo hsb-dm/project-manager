@@ -9,13 +9,172 @@ var SK_EG="add Podcast with the words podcast, siniar — a task titled “Sinia
 var SK_LINE="The kinds of work a task can be, each with the words its titles use, its hours and its points per asset.";
 function skName(k){ return k?(UI_LANG==="id"?k.nameId:k.name)||k.name||"":""; }
 
-/* ---------- on the task ---------- */
-function kindPickHtml(tk,ed){ if(!tk||tk._draft) return "";
-  var list=estKindList(), id=tk.id;
-  return '<span class="scr-kpick" data-scr-in="kind"><span class="scr-kpick-l">'+tr("Kind of work")+'</span>'+kindDropdownHtml({key:"task:"+id,value:ScoringEngine.kindPick(tk,list)||"",hasAuto:true,auto:ScoringEngine.kindOf(tk.title,list),ro:!ed,pick:function(v){ kindPick(id,v); }})+'</span>'; }
-function kindPick(id,v){ var t=task(id); if(!t||!canI.editTask(t)) return;
-  editTaskWith(t,function(x){ var m=taskMeta(x), e; if(v) m.kind=v; else delete m.kind;
-    if(!m.effortManual&&(m.effortAuto||!(+x.effort>0))&&!isClosed(x)&&!scoringEstimateLock(x)&&(e=effortEstimate(x))) effortApply(x,e); }); }
+/* ---------- on the task ----------
+   at: where the trigger stands — the Effort line (default; its mix editor, detection hint and read-only list under
+   it) or the Smart Scoring panel ("panel", which draws its own slot under the hours row: kindMixSlotHtml) */
+function kindPickHtml(tk,ed,at){ if(!tk||tk._draft) return "";
+  var list=estKindList(), id=tk.id, mix=kmixOf(tk);
+  return '<span class="scr-kpick" data-scr-in="kind"><span class="scr-kpick-l">'+tr("Kind of work")+'</span>'+kindDropdownHtml({key:"task:"+id,value:mix?"":ScoringEngine.kindPick(tk,list)||"",hasAuto:true,auto:ScoringEngine.kindOf(tk.title,list),mix:mix,hasMix:true,ro:!ed,pick:function(v){ kindPick(id,v); },several:function(el){ kmixFromPick(id,el); }})+'</span>'
+    +(at==="panel"?'':kindMixSlotHtml(tk,ed,"effort")); }
+/* one kind (or Auto): any mix goes, and so does a mix being edited */
+function kindPick(id,v){ var t=task(id); if(!t||!canI.editTask(t)) return; kmixForget(id);
+  editTaskWith(t,function(x){ var m=taskMeta(x); delete m.kinds; if(v) m.kind=v; else delete m.kind; kindEstimate(x); }).then(function(r){ if(r!==false) kmixReload(id); }); }
+/* the Estimate follows a new kind (or mix) as it follows a new title — not a number typed, a locked one or a closed task */
+function kindEstimate(x){ var m=taskMeta(x), e; if(!m.effortManual&&(m.effortAuto||!(+x.effort>0))&&!isClosed(x)&&!(typeof scoringEstimateLock==="function"&&scoringEstimateLock(x))&&typeof effortEstimate==="function"&&(e=effortEstimate(x))) effortApply(x,e); }
+
+/* ---------- several kinds of work in one task (Oct 2026): meta.kinds = [{k, n}] ----------
+   "Youtube podcast: full video, 4 reels and a key visual" is 1 video + 4 reels + 1 key visual, each kind with its own
+   hours (docs/SMART-SCORING.md). The server keeps 2–8 active kinds, each once, counts 1–500; with fewer it is no mix.
+   In the page:
+   - the kind dropdown's last option, "Several kinds…", opens the mix editor inline, under the trigger it was chosen
+     from (the Effort line's or the Smart Scoring panel's), never a dialog; while mixed the trigger reads "Mixed ·
+     3 kinds" with the kinds in its tooltip, and choosing one kind or Auto there ends the mix;
+   - the editor: a row a kind — the same dropdown, without Auto and the kinds already used — with a count (typed, − +,
+     ↑ ↓ PageUp PageDown Home End; Enter saves now), × to remove; "+ Add kind" up to 8; a live line with each kind's
+     hours and the total from ScoringEngine.hours with the mix and the workspace's templates; Done or Esc closes it.
+     What it shows is what is saved — at once, counts after a pause in typing — as soon as it has 2 kinds; with fewer
+     nothing is saved and "Use one kind" turns it back into the single pick of the kind left;
+   - read-only, a plain list under the Effort line;
+   - a quiet line under the Effort line's dropdown when the title names 2 or more kinds (each kind's own words,
+     ScoringEngine.kindMatch kind by kind): Split sets them, each once, and opens the editor; × hides it for this task
+     on this device (localStorage, until the title names other kinds). Never applied by itself. */
+var KMIX={open:{},draft:{},t:{},hide:null,one:typeof WeakMap!=="undefined"?new WeakMap():null}, KMIX_MAX=8, KMIX_HI=500;
+function kmixN(v){ var n=Math.round(+v); return isFinite(n)?Math.max(1,Math.min(KMIX_HI,n)):1; }
+function kmixActive(){ return estKindList().filter(function(k){ return k&&k.active!==false; }); }
+/* a mix as it is kept: active kinds, each once (a second time adds to the first), whole counts 1–500, at most 8; in
+   the task's spelling {k, n} or the AI's {kind, count} */
+function kmixClean(list){ var act={}, at={}, out=[]; kmixActive().forEach(function(k){ act[k.id]=1; });
+  (Array.isArray(list)?list:[]).forEach(function(x){ if(!x||typeof x!=="object") return; var k=x.k!=null?x.k:x.kind, n=x.n!=null?x.n:x.count!=null?x.count:x.units; if(typeof k!=="string"||!act[k]) return;
+    if(k in at){ out[at[k]].n=kmixN(out[at[k]].n+kmixN(n)); return; } if(out.length>=KMIX_MAX) return; at[k]=out.length; out.push({k:k,n:kmixN(n)}); });
+  return out; }
+/* the task's mix, or null (fewer than 2 kinds is no mix) */
+function kmixOf(tk){ var m=tk&&tk.meta, l=m&&Array.isArray(m.kinds)?kmixClean(m.kinds):null; return l&&l.length>=2?l:null; }
+function kmixSame(a,b){ var key=function(l){ return (l||[]).map(function(x){ return x.k+":"+x.n; }).sort().join(","); }; return key(a)===key(b); }
+function kmixText(l){ return (l||[]).map(function(x){ return kddName(x.k)+" "+x.n; }).join(" · "); }
+function kmixH(h){ return String(h>0?Math.max(0.5,Math.round(h*2)/2):0); }
+/* the hours: each kind's own (its first deliverable in full, each next at its share), and the total the engine gives
+   for the mix — complexity and the open dependencies counted once, as Calculate counts them */
+function kmixCx(tk){ var r=typeof scrRow==="function"?scrRow(tk,"hours"):null; return r&&r.mathValue!=null&&typeof scrRated==="function"?scrRated(r.mathInputs):null; }
+function kmixDeps(tk){ try{ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }catch(e){ return 0; } }
+function kmixHs(){ var s=estSettings(); return s&&s.hours||ScoringEngine.ENGINE_DEFAULTS.hours; }
+function kmixEngine(hs,inp){ var E=ScoringEngine, r=E.hours(hs,inp); if(r&&r.value!=null||!Array.isArray(inp.mix)||!inp.mix.length) return r;
+  /* an engine that does not take a mix yet: each kind's hours added up, then the rest once, within the bounds */
+  var sum=0, ok=0; inp.mix.forEach(function(x){ var f=(E.hours(hs,{kind:x.kind,units:x.units})||{}).factors; if(f&&f.perUnit>0){ sum+=f.perUnit*f.unitsFactor; ok++; } });
+  return ok?E.hours(hs,{perUnit:sum,units:1,complexity1to5:inp.complexity1to5,openDeps:inp.openDeps}):r; }
+function kmixHours(tk,rows){ var E=ScoringEngine, hs=kmixHs(), v=(rows||[]).filter(function(r){ return r.k; }); if(!v.length) return null;
+  var per=v.map(function(r){ var f=(E.hours(hs,{kind:r.k,units:r.n})||{}).factors; return {k:r.k,n:r.n,h:f&&f.perUnit>0?f.perUnit*f.unitsFactor:null}; });
+  var res=kmixEngine(hs,{mix:v.map(function(r){ return {kind:r.k,units:r.n}; }),complexity1to5:kmixCx(tk),openDeps:kmixDeps(tk)});
+  return {total:res&&res.value!=null?res.value:null,per:per}; }
+function kmixTotalInner(tk,rows){ var h=kmixHours(tk,rows); if(!h) return esc(tr("Choose the kinds to see their hours."));
+  var parts=h.per.map(function(x){ var nm=kddName(x.k); return x.h==null?fmt(tr("{kind}: no hours yet"),{kind:nm}):x.n>1?fmt(tr("{kind} {n}× {h} h"),{kind:nm,n:x.n,h:kmixH(x.h)}):fmt(tr("{kind} {h} h"),{kind:nm,h:kmixH(x.h)}); });
+  return (h.total!=null?'<b>'+esc(fmt(tr("≈ {h} h"),{h:kmixH(h.total)}))+'</b> · ':'')+'<span data-no-translate>'+esc(parts.join(" + "))+'</span>'; }
+
+/* the title's kinds: each active kind whose own words are in it, in the list's order (each kind tried alone, a list
+   of one kept per kind so the engine compiles its words once) */
+function kmixOne(k){ if(!KMIX.one) return [k]; var a=KMIX.one.get(k); if(!a){ a=[k]; KMIX.one.set(k,a); } return a; }
+function kmixDetect(title){ var t=String(title||""); if(!t.trim()) return []; return kmixActive().filter(function(k){ return !!ScoringEngine.kindMatch(t,kmixOne(k),true); }).map(function(k){ return k.id; }).slice(0,KMIX_MAX); }
+function kmixHides(){ if(KMIX.hide) return KMIX.hide; var o=null; try{ o=JSON.parse(localStorage.getItem("zc_kmix_hint")||"{}"); }catch(e){ o=null; } KMIX.hide=o&&typeof o==="object"&&!Array.isArray(o)?o:{}; return KMIX.hide; }
+
+/* ---------- drawing: the slot under a trigger (the editor, the hint or the read-only list; empty, it takes no room) ---------- */
+function kindMixSlotHtml(tk,ed,at){ if(!tk||tk._draft) return ""; return '<div class="scr-kmix-slot" data-kmix-slot="'+attr(at)+'" data-kmix-task="'+attr(tk.id)+'">'+kmixBodyHtml(tk,ed,at)+'</div>'; }
+function kmixBodyHtml(tk,ed,at){ var mix=kmixOf(tk);
+  if(!ed) return at==="effort"&&mix?kmixRoHtml(tk,mix):"";
+  if(KMIX.open[tk.id]===at&&KMIX.draft[tk.id]) return kmixEdHtml(tk);
+  return at==="effort"&&!mix&&!KMIX.open[tk.id]?kmixHintHtml(tk):""; }
+function kmixRoHtml(tk,mix){ var h=kmixHours(tk,mix);
+  return '<div class="scr-kmix-ro" data-kmix-ro><span>'+esc(tr("Several kinds of work"))+':</span><ul>'+mix.map(function(x){ return '<li><span data-no-translate>'+esc(kddName(x.k))+'</span> <b>'+x.n+'</b></li>'; }).join("")+'</ul>'
+    +(h&&h.total!=null?'<span class="scr-kmix-rot">'+esc(fmt(tr("≈ {h} h"),{h:kmixH(h.total)}))+'</span>':'')+'</div>'; }
+function kmixHintHtml(tk){ var det=kmixDetect(tk.title); if(det.length<2||kmixHides()[tk.id]===det.join(",")) return ""; var id=tk.id;
+  return '<div class="scr-khint" data-kmix-hint role="note"><span>'+esc(fmt(tr("Looks like several kinds: {kinds} — split?"),{kinds:det.map(kddName).join(", ")}))+'</span>'
+    +'<button type="button" class="scr-link" data-kmix-key="hint:split" onclick="kmixSplit('+jsq(id)+')">'+tr("Split")+'</button>'
+    +'<button type="button" class="scr-kmix-x" data-kmix-key="hint:x" aria-label="'+attr(tr("Dismiss"))+'" title="'+attr(tr("Dismiss"))+'" onclick="kmixHintOff('+jsq(id)+')">'+I.x+'</button></div>'; }
+function kmixValid(rows){ var l=(rows||[]).filter(function(r){ return r&&r.k; }); return kmixClean(l); }
+function kmixEdHtml(tk){ var id=tk.id, d=KMIX.draft[id], all=kmixActive(), used={}, v=kmixValid(d), free=all.filter(function(k){ return !d.some(function(r){ return r.k===k.id; }); }).length;
+  d.forEach(function(r){ if(r.k) used[r.k]=1; });
+  var rows=d.map(function(r,i){ var nm=r.k?kddName(r.k):tr("this kind"), kinds=all.filter(function(k){ return k.id===r.k||!used[k.id]; }).map(function(k){ return k.id; });
+    var btn=function(dir,sym,label,off){ return '<button type="button" tabindex="-1" data-kmix-key="'+i+':'+(dir<0?'dec':'inc')+'" aria-label="'+attr(fmt(tr(label),{kind:nm}))+'" title="'+attr(fmt(tr(label),{kind:nm}))+'" onmousedown="event.preventDefault()" onclick="kmixStep('+jsq(id)+','+i+','+dir+')"'+(off?' disabled':'')+'>'+sym+'</button>'; };
+    return '<div class="scr-kmix-row" data-i="'+i+'" data-k="'+attr(r.k)+'">'
+      +kindDropdownHtml({key:"mix:"+id+":"+i,value:r.k,kinds:kinds,placeholder:tr("Choose a kind"),label:fmt(tr("Kind of work {n}"),{n:i+1}),pick:function(x){ kmixKind(id,i,x); }})
+      +'<span class="scr-kmix-step">'+btn(-1,'−',"One fewer: {kind}",r.n<=1)
+      +'<input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="3" role="spinbutton" aria-valuemin="1" aria-valuemax="'+KMIX_HI+'" aria-valuenow="'+r.n+'" aria-label="'+attr(fmt(tr("How many: {kind}"),{kind:nm}))+'" value="'+r.n+'" data-kmix-key="'+i+':n" oninput="kmixType('+jsq(id)+','+i+',this)" onkeydown="kmixKey(event,'+jsq(id)+','+i+',this)" onblur="kmixBlur('+jsq(id)+','+i+',this)">'
+      +btn(1,'+',"One more: {kind}",r.n>=KMIX_HI)+'</span>'
+      +'<button type="button" class="scr-kmix-x" data-kmix-key="'+i+':x" aria-label="'+attr(fmt(tr("Remove {kind}"),{kind:nm}))+'" title="'+attr(fmt(tr("Remove {kind}"),{kind:nm}))+'" onclick="kmixDel('+jsq(id)+','+i+')">'+I.x+'</button></div>'; }).join("");
+  var one=v.length===1?fmt(tr("Use one kind: {kind}"),{kind:kddName(v[0].k)}):tr("Use one kind");
+  return '<div class="scr-kmix" role="group" aria-label="'+attr(tr("Several kinds of work"))+'" onkeydown="kmixEsc(event,'+jsq(id)+')">'
+    +'<div class="scr-kmix-head"><b>'+tr("Several kinds of work")+'</b><span>'+tr("Each kind with how many of it; the hours add up.")+'</span></div>'
+    +'<div class="scr-kmix-rows">'+rows+'</div>'
+    +(v.length<2?'<p class="scr-kmix-few" data-kmix-few>'+tr("A mix needs at least 2 kinds; it is saved once it has them.")+' <button type="button" class="scr-link" data-kmix-key="one"'+(v.length?'':' title="'+attr(tr("Back to the kind the title gives"))+'"')+' onclick="kmixUseOne('+jsq(id)+')">'+esc(one)+'</button></p>':'')
+    +'<div class="scr-kmix-foot"><button type="button" class="btn xs" data-kmix-key="add" onclick="kmixAdd('+jsq(id)+')"'+(d.length>=KMIX_MAX||!free?' disabled title="'+attr(tr(d.length>=KMIX_MAX?"Up to 8 kinds":"Every kind is in the mix"))+'"':'')+'>'+I.plus+tr("Add kind")+'</button>'
+    +'<span class="scr-kmix-total" data-kmix-total aria-live="polite" title="'+attr(tr("Complexity and open dependencies count once, for the whole task."))+'">'+kmixTotalInner(tk,d)+'</span>'
+    +'<button type="button" class="btn xs ghost" data-kmix-key="done" onclick="kmixDone('+jsq(id)+')">'+tr("Done")+'</button></div></div>'; }
+
+/* ---------- what is done there ---------- */
+function kmixSlots(id){ return [].filter.call(document.querySelectorAll("#drawer [data-kmix-slot]"),function(s){ return s.getAttribute("data-kmix-task")===id; }); }
+function kmixBox(id){ var at=KMIX.open[id], s=kmixSlots(id).filter(function(x){ return x.getAttribute("data-kmix-slot")===at; })[0]; return s&&s.querySelector(".scr-kmix"); }
+/* the slots drawn again in place (nothing else in the task moves); then the focus where it is asked for */
+function kmixPaint(id,focus){ var t=task(id); if(!t) return; var ed=canI.editTask(t)&&!t._draft;
+  kmixSlots(id).forEach(function(s){ s.innerHTML=kmixBodyHtml(t,ed,s.getAttribute("data-kmix-slot")); });
+  if(focus) kmixFocus(id,focus); }
+function kmixFocus(id,how){ var box=kmixBox(id), d=KMIX.draft[id]||[], f=null; if(!box) return;
+  if(how==="first"){ var j=-1; d.some(function(r,i){ if(!r.k){ j=i; return true; } return false; }); f=j>=0?kddFind("mix:"+id+":"+j,0):box.querySelector('[data-kmix-key="0:n"]'); }
+  else if(typeof how==="string") f=box.querySelector(how);
+  if(f){ try{ f.focus({preventScroll:false}); }catch(e){ f.focus(); } } }
+function kmixTrigger(id,at){ var l=kddAll("task:"+id); return l.filter(function(b){ return !!b.closest(".scr-panel")===(at==="panel"); })[0]||l[0]||null; }
+/* the draft an editor starts with: the mix; else the kinds the title names; else the kind it has and one to choose */
+function kmixStart(t){ var mix=kmixOf(t); if(mix) return mix.map(function(x){ return {k:x.k,n:x.n}; });
+  var det=kmixDetect(t.title); if(det.length>=2) return det.map(function(k){ return {k:k,n:1}; });
+  var k=typeof estKindOf==="function"?estKindOf(t):null; return [{k:k||"",n:1},{k:"",n:1}]; }
+function kmixOpen(id,at,draft){ var t=task(id); if(!t||!canI.editTask(t)) return;
+  Object.keys(KMIX.open).forEach(function(x){ if(x!==id){ kmixSave(x); delete KMIX.open[x]; delete KMIX.draft[x]; } });
+  KMIX.draft[id]=draft||KMIX.draft[id]||kmixStart(t); KMIX.open[id]=at; kmixPaint(id,"first"); kmixSave(id); }
+/* "Several kinds…" from a trigger: the editor opens under that one (again: it closes) */
+function kmixFromPick(id,el){ var at=el&&el.closest&&el.closest(".scr-panel")?"panel":"effort"; if(KMIX.open[id]===at) return kmixDone(id); kmixOpen(id,at); }
+function kmixForget(id){ clearTimeout(KMIX.t[id]); delete KMIX.t[id]; delete KMIX.open[id]; delete KMIX.draft[id]; }
+/* saved as any change to the task; the Estimate follows; the scores are asked for again */
+function kmixWrite(id,mix,one){ var t=task(id); if(!t||!canI.editTask(t)) return Promise.resolve(false);
+  return editTaskWith(t,function(x){ var m=taskMeta(x); if(mix){ m.kinds=mix.map(function(r){ return {k:r.k,n:r.n}; }); delete m.kind; } else { delete m.kinds; if(one) m.kind=one; else delete m.kind; } kindEstimate(x); })
+    .then(function(r){ if(r!==false) kmixReload(id); return r; }); }
+function kmixReload(id){ var t=task(id); if(t&&typeof API!=="undefined"&&API.on&&typeof scrLoad==="function"&&typeof scrShow==="function"&&scrShow(t)) scrLoad(t,true); }
+/* what the editor shows is saved once it is a mix (2 kinds or more) and differs from what is saved */
+function kmixSave(id){ clearTimeout(KMIX.t[id]); delete KMIX.t[id]; var t=task(id), d=KMIX.draft[id]; if(!t||!d) return; var v=kmixValid(d); if(v.length<2||kmixSame(v,kmixOf(t))) return; kmixWrite(id,v); }
+function kmixLater(id){ clearTimeout(KMIX.t[id]); KMIX.t[id]=setTimeout(function(){ kmixSave(id); },500); }
+/* a count changed: its buttons and the total follow where they stand (typing redraws nothing) */
+function kmixLive(id,typing){ var t=task(id), d=KMIX.draft[id], box=kmixBox(id); if(!t||!d||!box) return;
+  d.forEach(function(r,i){ var row=box.querySelector('.scr-kmix-row[data-i="'+i+'"]'); if(!row) return; var b=row.querySelectorAll(".scr-kmix-step button"), inp=row.querySelector(".scr-kmix-step input");
+    if(b[0]) b[0].disabled=r.n<=1; if(b[1]) b[1].disabled=r.n>=KMIX_HI; if(inp){ if(inp!==typing&&inp.value!==String(r.n)) inp.value=r.n; inp.setAttribute("aria-valuenow",r.n); } });
+  var tot=box.querySelector("[data-kmix-total]"); if(tot) tot.innerHTML=kmixTotalInner(t,d); }
+function kmixStep(id,i,dir){ var r=(KMIX.draft[id]||[])[i]; if(!r) return; var n=kmixN(r.n+dir); if(n===r.n) return; r.n=n; kmixLive(id); kmixLater(id); }
+function kmixType(id,i,el){ var r=(KMIX.draft[id]||[])[i]; if(!r) return; var s=el.value.replace(/\D/g,""); if(s!==el.value) el.value=s; if(!s) return;
+  if(+s>KMIX_HI){ s=String(KMIX_HI); el.value=s; } r.n=kmixN(s); kmixLive(id,el); kmixLater(id); }
+function kmixBlur(id,i,el){ var r=(KMIX.draft[id]||[])[i]; if(!r||!el.isConnected) return; if(el.value!==String(r.n)) el.value=r.n; kmixSave(id); }
+function kmixKey(e,id,i,el){ var k=e.key, r=(KMIX.draft[id]||[])[i], step={ArrowUp:1,ArrowDown:-1,PageUp:10,PageDown:-10}[k]; if(!r) return;
+  if(step){ e.preventDefault(); kmixStep(id,i,step); el.value=r.n; }
+  else if(k==="Home"||k==="End"){ e.preventDefault(); r.n=k==="Home"?1:KMIX_HI; el.value=r.n; kmixLive(id); kmixLater(id); }
+  else if(k==="Enter"){ e.preventDefault(); el.value=r.n; kmixSave(id); } }
+function kmixEsc(e,id){ if(e.key!=="Escape"||e.defaultPrevented) return; e.preventDefault(); e.stopPropagation(); kmixDone(id); }
+function kmixKind(id,i,v){ var d=KMIX.draft[id]; if(!d||!d[i]) return; d[i].k=v; kmixPaint(id); kmixSave(id); }
+function kmixAdd(id){ var d=KMIX.draft[id]; if(!d||d.length>=KMIX_MAX) return; d.push({k:"",n:1}); kmixPaint(id); var b=kddFind("mix:"+id+":"+(d.length-1),0); if(b){ try{ b.focus({preventScroll:false}); }catch(e){} kddOpen(b); } }
+function kmixDel(id,i){ var d=KMIX.draft[id]; if(!d||!d[i]) return; d.splice(i,1); var n=d.length;
+  kmixPaint(id,n?'[data-kmix-key="'+Math.min(i,n-1)+':x"]':'[data-kmix-key="add"]'); kmixSave(id); }
+/* fewer than 2 kinds: the one left becomes the single pick (none left: Auto) */
+function kmixUseOne(id){ var d=KMIX.draft[id]||[], v=kmixValid(d), t=task(id); if(!t) return; var at=KMIX.open[id];
+  kmixForget(id); kmixWrite(id,null,v.length?v[0].k:""); kmixPaint(id); var b=kmixTrigger(id,at); if(b) b.focus(); }
+/* Done, Esc: what it shows is saved, and the focus goes back to the trigger */
+function kmixDone(id){ var at=KMIX.open[id]; kmixSave(id); delete KMIX.open[id]; delete KMIX.draft[id]; kmixPaint(id); var b=kmixTrigger(id,at); if(b) b.focus(); }
+/* the title's kinds, each once, saved, and the editor open to say how many */
+function kmixSplit(id){ var t=task(id); if(!t) return; var det=kmixDetect(t.title); if(det.length<2) return; var v=det.map(function(k){ return {k:k,n:1}; });
+  kmixWrite(id,v); kmixOpen(id,"effort",v.map(function(x){ return {k:x.k,n:x.n}; })); kmixFocus(id,'[data-kmix-key="0:n"]'); }
+function kmixHintOff(id){ var t=task(id); if(!t) return; var h=kmixHides(), keys; h[id]=kmixDetect(t.title).join(","); keys=Object.keys(h); if(keys.length>200) keys.slice(0,keys.length-200).forEach(function(x){ delete h[x]; });
+  try{ localStorage.setItem("zc_kmix_hint",JSON.stringify(h)); }catch(e){} kmixPaint(id); var b=kmixTrigger(id,"effort"); if(b) b.focus(); }
+/* a split from elsewhere (the AI's): saved, and shown in an editor that is open */
+function kmixUse(id,mix){ var v=kmixClean(mix); if(v.length<2) return Promise.resolve(false); clearTimeout(KMIX.t[id]); delete KMIX.t[id];
+  if(KMIX.open[id]) KMIX.draft[id]=v.map(function(x){ return {k:x.k,n:x.n}; }); return kmixWrite(id,v); }
+/* a redraw keeps the field being typed in as the very same element (caret and all), a button its focus */
+function kmixKeep(a,key){ var f=document.querySelector('#drawer [data-kmix-key="'+key+'"]'); if(!f||f===a) return;
+  if(a.tagName==="INPUT"&&f.tagName==="INPUT"){ var s=a.selectionStart, e=a.selectionEnd; ["aria-label","aria-valuenow"].forEach(function(k){ var v=f.getAttribute(k); if(v!=null) a.setAttribute(k,v); }); f.replaceWith(a); f=a; try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } try{ f.setSelectionRange(s,e); }catch(x){} }
+  else { try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
+/* the task closed: a count waiting to be saved is saved, and the editor is forgotten */
+(function(){ if(typeof closeDrawer!=="function") return; var base=closeDrawer; closeDrawer=function(){ Object.keys(KMIX.t).forEach(kmixSave); KMIX.open={}; KMIX.draft={}; return base.apply(this,arguments); }; })();
 
 /* ---------- the kind of work, a dropdown of the app's own (Oct 2026) ----------
    kindDropdownHtml(o) draws the trigger, a chip like the fields beside it: the kind chosen, in the person's language; on
@@ -39,14 +198,17 @@ function kddHours(id){ var s=estSettings(), all=s&&s.hours&&s.hours.templates||S
   return lo&&hi&&lo!==hi?fmt(tr("{a}–{b} h"),{a:lo,b:hi}):one?fmt(tr("{h} h"),{h:one}):""; }
 function kddHit(k,q){ return [k.name,k.nameId].concat(skWords(k)).some(function(x){ return String(x||"").toLowerCase().split("*").join("").indexOf(q)>=0; }); }
 function kddValHtml(o){ var nm=function(id){ return '<span class="scr-kdd-n" data-no-translate>'+esc(kddName(id))+'</span>'; };
+  if(o.mix&&o.mix.length) return '<span class="scr-kdd-mk">'+esc(tr("Mixed"))+'</span><span class="scr-kdd-sr"> · </span><span class="scr-kdd-n">'+esc(fmt(tr("{n} kinds"),{n:o.mix.length}))+'</span>';
   if(o.value) return nm(o.value);
   if(o.hasAuto) return '<span class="scr-kdd-mk">'+esc(tr("Auto"))+'</span><span class="scr-kdd-sr"> · </span>'+(o.auto?nm(o.auto):'<span class="scr-kdd-n mut">'+esc(tr("none recognised"))+'</span>');
   return '<span class="scr-kdd-n mut">'+esc(o.placeholder||"")+'</span>'; }
 function kddCls(o){ return "scr-kdd"+(o.field?" fld":"")+(o.ro?" ro":""); }
-function kindDropdownHtml(o){ KDD.cfg[o.key]=o; var a=' data-kdd="'+attr(o.key)+'" data-value="'+attr(o.value||"")+'"';
+function kindDropdownHtml(o){ KDD.cfg[o.key]=o; var a=' data-kdd="'+attr(o.key)+'" data-value="'+attr(o.value||"")+'"'+(o.mix&&o.mix.length?' data-mix="'+o.mix.length+'" title="'+attr(kmixText(o.mix))+'"':'');
   if(o.ro) return '<span class="'+kddCls(o)+'"'+a+'>'+kddValHtml(o)+'</span>';
   return '<button type="button" class="'+kddCls(o)+'"'+(o.id?' id="'+attr(o.id)+'"':'')+a+' role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="scrKddList" aria-label="'+attr(o.label||tr("Kind of work"))+'" onclick="kddToggle(this)" onkeydown="kddKey(event,this)">'+kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span></button>'; }
-function kddPaint(el,o){ el.className=kddCls(o)+(KDD.open&&KDD.open.el===el?" open":""); el.setAttribute("data-value",o.value||""); el.innerHTML=kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span>'; }
+function kddPaint(el,o){ el.className=kddCls(o)+(KDD.open&&KDD.open.el===el?" open":""); el.setAttribute("data-value",o.value||"");
+  if(o.mix&&o.mix.length){ el.setAttribute("data-mix",o.mix.length); el.title=kmixText(o.mix); } else { el.removeAttribute("data-mix"); el.removeAttribute("title"); }
+  el.innerHTML=kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span>'; }
 function kddAll(key){ return [].filter.call(document.querySelectorAll("button[data-kdd]"),function(x){ return x.getAttribute("data-kdd")===key; }); }
 function kddFind(key,i){ return kddAll(key)[i]||null; }
 function kddPhone(){ return !!(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||window.innerWidth<=640; }
@@ -79,11 +241,14 @@ function kddClose(back){ var st=KDD.open; if(!st) return; KDD.open=null; var p=d
 /* the rows: Auto, then the kinds (those that match what is typed); the active one is the chosen one, the first match
    while finding, or stays where it was when the trigger was drawn again */
 function kddRows(how){ var st=KDD.open, o=st&&st.o, list=document.getElementById("scrKddList"); if(!list) return;
-  var q=String(st.q||"").trim().toLowerCase(), cur=o.value||"", rows=o.hasAuto?[{v:"",auto:1}]:[], at=-1;
+  var q=String(st.q||"").trim().toLowerCase(), cur=o.value||"", mixed=!!(o.mix&&o.mix.length), rows=o.hasAuto?[{v:"",auto:1}]:[], at=-1;
   kddKinds(o).forEach(function(k){ if(!q||kddHit(k,q)) rows.push({v:k.id,k:k}); });
-  list.innerHTML=rows.map(function(r,i){ var on=r.v===cur, k=r.k, h=k&&kddHours(k.id); if(on) at=i;
-    return '<div role="option" id="scrKddO'+i+'" class="scr-kdd-o'+(r.auto?' auto':'')+(on?' on':'')+'" data-i="'+i+'" data-v="'+attr(r.v)+'" aria-selected="'+on+'"><span class="scr-kdd-ck">'+(on?I.check:'')+'</span>'
+  /* last, "Several kinds…" (a task's own trigger, not while finding a kind) */
+  if(o.hasMix&&!q) rows.push({v:":mix",mix:1});
+  list.innerHTML=rows.map(function(r,i){ var on=r.mix?mixed:!mixed&&r.v===cur, k=r.k, h=k&&kddHours(k.id); if(on) at=i;
+    return '<div role="option" id="scrKddO'+i+'" class="scr-kdd-o'+(r.auto?' auto':'')+(r.mix?' mix':'')+(on?' on':'')+'" data-i="'+i+'" data-v="'+attr(r.v)+'" aria-selected="'+on+'"><span class="scr-kdd-ck">'+(on?I.check:'')+'</span>'
       +(r.auto?'<span class="scr-kdd-l"><b>'+esc(tr("Auto"))+'</b> <span class="mut">— '+esc(o.auto?fmt(tr("from the title: {kind}"),{kind:kddName(o.auto)}):tr("none recognised"))+'</span></span>'
+        :r.mix?'<span class="scr-kdd-l">'+esc(tr("Several kinds…"))+'</span>'+(mixed?'<span class="scr-kdd-h">'+esc(fmt(tr("{n} kinds"),{n:o.mix.length}))+'</span>':'')
         :'<span class="scr-kdd-l" data-no-translate>'+esc(skName(k)||k.id)+'</span>'+(k.builtIn===false?'<span class="scr-kdd-tag">'+esc(tr("custom"))+'</span>':'')+(h?'<span class="scr-kdd-h" title="'+attr(tr("Usual hours for one deliverable"))+'">'+esc(h)+'</span>':''))+'</div>'; }).join("");
   st.rows=rows; var none=list.nextElementSibling, miss=q&&rows.length===(o.hasAuto?1:0);
   if(none){ none.hidden=!miss; none.textContent=miss?fmt(tr("No kind of work has “{q}” in its name or words."),{q:String(st.q).trim()}):""; }
@@ -111,14 +276,16 @@ function kddCheck(){ var st=KDD.open; if(!st) return; if(st.el.isConnected){ if(
   nx.setAttribute("aria-expanded","true"); nx.classList.add("open"); if(lost){ try{ nx.focus({preventScroll:true}); }catch(e){} }
   kddRows("keep"); kddPlace(); }
 function kddChoose(r){ var st=KDD.open; if(!st||!r) return; var o=st.o, el=st.el, key=st.key, i=st.i, v=r.v||"";
-  kddClose(1); if(v===(o.value||"")) return;
-  o.value=v; if(el.isConnected) kddPaint(el,o);
+  kddClose(1);
+  if(r.mix){ if(typeof o.several==="function") o.several(el); return; }
+  if(!(o.mix&&o.mix.length)&&v===(o.value||"")) return;
+  o.value=v; o.mix=null; if(el.isConnected) kddPaint(el,o);
   o.pick(v); var nx=!el.isConnected&&kddFind(key,i); if(nx&&(!document.activeElement||document.activeElement===document.body)){ try{ nx.focus({preventScroll:true}); }catch(e){} } }
 function kddChar(e){ return !!e.key&&e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&(e.key!==" "||!!KDD.buf&&Date.now()-KDD.bufT<600); }
 /* letters jump to the next kind whose name starts so (the same letter again: the one after) */
 function kddType(ch){ var st=KDD.open; if(!st||!st.rows.length) return; var now=Date.now(); KDD.buf=(now-KDD.bufT<600?KDD.buf:"")+ch.toLowerCase(); KDD.bufT=now;
   var b=KDD.buf, rep=b.split(b[0]).join("")==="", q=rep?b[0]:b, n=st.rows.length, from=rep?st.act+1:Math.max(0,st.act);
-  for(var j=0;j<n;j++){ var x=(from+j)%n, r=st.rows[x], l=(r.auto?tr("Auto"):skName(r.k)||r.k.id).toLowerCase(); if(l.indexOf(q)===0){ kddAct(x); return; } } }
+  for(var j=0;j<n;j++){ var x=(from+j)%n, r=st.rows[x], l=(r.auto?tr("Auto"):r.mix?tr("Several kinds…"):skName(r.k)||r.k.id).toLowerCase(); if(l.indexOf(q)===0){ kddAct(x); return; } } }
 function kddKey(e,b){ var st=KDD.open, k=e.key;
   if(st&&st.el===b) return kddNav(e);
   if(k==="ArrowDown"||k==="ArrowUp"){ e.preventDefault(); kddOpen(b); }
@@ -131,10 +298,12 @@ function kddNav(e){ var st=KDD.open, k=e.key, inp=!!(e.target&&e.target.tagName=
   else if(k==="Escape"){ e.preventDefault(); e.stopPropagation(); kddClose(1); }
   else if(k==="Tab") kddClose(1);
   else if(!inp&&kddChar(e)){ var f=document.querySelector("#scrKdd input"); if(f) f.focus(); else { e.preventDefault(); kddType(e.key); } } }
-/* a redraw after a choice (the task saved) keeps the focus on the trigger, where it was */
+/* a redraw after a choice (the task saved) keeps the focus on the trigger, where it was; in the mix editor, on the
+   count being typed (the same element, caret and all) or the button */
 ["renderDrawer","scrPaint"].forEach(function(n){ var base=window[n]; if(typeof base!=="function") return;
-  window[n]=function(){ var a=document.activeElement, key=!KDD.open&&a&&a.getAttribute&&a.getAttribute("data-kdd"), i=key?kddAll(key).indexOf(a):-1, out=base.apply(this,arguments);
+  window[n]=function(){ var a=document.activeElement, key=!KDD.open&&a&&a.getAttribute&&a.getAttribute("data-kdd"), i=key?kddAll(key).indexOf(a):-1, mk=a&&a.getAttribute&&a.getAttribute("data-kmix-key"), out=base.apply(this,arguments);
     if(key&&!a.isConnected&&(!document.activeElement||document.activeElement===document.body)){ var nx=kddFind(key,i); if(nx){ try{ nx.focus({preventScroll:true}); }catch(e){} } }
+    if(mk&&!a.isConnected&&(!document.activeElement||document.activeElement===document.body)) kmixKeep(a,mk);
     return out; }; });
 
 /* ---------- Settings → Smart Scoring → Kinds of work ----------
@@ -221,7 +390,16 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
   "Kind of work removed: read from the title again":"Jenis pekerjaan dihapus: dibaca dari judul lagi",
   "Find a kind":"Cari jenis","A name or a word":"Nama atau kata","New kind of work":"Jenis pekerjaan baru","No words yet":"Belum ada kata","View":"Lihat",
   "Low, high and each next":"Terendah, tertinggi, dan tiap berikutnya","No kind of work has “{q}” in its name or words.":"Tidak ada jenis pekerjaan dengan “{q}” di nama atau katanya.",
-  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable"
+  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
+  /* several kinds of work in one task */
+  "Kind of work":"Jenis pekerjaan","Several kinds…":"Beberapa jenis…","Mixed":"Campuran","{n} kinds":"{n} jenis","Several kinds of work":"Beberapa jenis pekerjaan",
+  "Each kind with how many of it; the hours add up.":"Tiap jenis dengan jumlahnya; jamnya dijumlahkan.","Choose a kind":"Pilih jenis","Kind of work {n}":"Jenis pekerjaan {n}","this kind":"jenis ini",
+  "One fewer: {kind}":"Kurangi satu: {kind}","One more: {kind}":"Tambah satu: {kind}","How many: {kind}":"Berapa banyak: {kind}","Remove {kind}":"Hapus {kind}",
+  "Add kind":"Tambah jenis","Up to 8 kinds":"Paling banyak 8 jenis","Every kind is in the mix":"Semua jenis sudah ada di campuran","Done":"Selesai",
+  "≈ {h} h":"≈ {h} j","{kind} {h} h":"{kind} {h} j","{kind} {n}× {h} h":"{kind} {n}× {h} j","{kind}: no hours yet":"{kind}: belum ada jam","Choose the kinds to see their hours.":"Pilih jenisnya untuk melihat jamnya.",
+  "Complexity and open dependencies count once, for the whole task.":"Kompleksitas dan dependensi terbuka dihitung sekali, untuk seluruh task.",
+  "A mix needs at least 2 kinds; it is saved once it has them.":"Campuran butuh paling sedikit 2 jenis; disimpan setelah ada 2.","Use one kind":"Pakai satu jenis","Use one kind: {kind}":"Pakai satu jenis: {kind}",
+  "Back to the kind the title gives":"Kembali ke jenis dari judul","Looks like several kinds: {kinds} — split?":"Sepertinya beberapa jenis: {kinds} — bagi?","Split":"Bagi","Dismiss":"Tutup"
 });
 </script>
 <style>
@@ -258,6 +436,40 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd-h{flex:none;margin-left:auto;padding-left:6px;color:var(--color-text-tertiary);font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums}
 .scr-kdd-o.on .scr-kdd-h{color:inherit;opacity:.75}
 .scr-kdd-none{margin:0;padding:10px;text-align:center;color:var(--color-text-tertiary);font-size:12px}
+.scr-kdd-o.mix{position:relative;margin-top:7px}
+.scr-kdd-o.mix::before{content:"";position:absolute;left:7px;right:7px;top:-4px;border-top:1px solid var(--color-border)}
+.scr-kmix-slot{min-width:0}
+.scr-kmix-slot:empty{display:none}
+.effort>.scr-kmix-slot{flex:1 1 100%;margin-top:-6px}
+.scr-kmix{display:flex;flex-direction:column;gap:8px;box-sizing:border-box;max-width:560px;min-width:0;padding:10px 12px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface);color:var(--color-text-primary);font-size:12.5px;line-height:1.4}
+.scr-kmix-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.scr-kmix-head b{font-weight:650}
+.scr-kmix-head span{color:var(--color-text-secondary);font-size:12px}
+.scr-kmix-rows{display:flex;flex-direction:column;gap:6px;min-width:0}
+.scr-kmix-row{display:flex;align-items:center;gap:8px;min-width:0}
+.scr-kmix-row>.scr-kdd{flex:1 1 auto;max-width:none}
+.scr-kmix-step{flex:none;align-self:stretch;display:inline-flex;align-items:stretch;min-height:25px;box-sizing:border-box;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.scr-kmix-step:focus-within{border-color:var(--color-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-primary) 16%,transparent)}
+.scr-kmix-step button{width:24px;padding:0;border:0;background:none;color:var(--color-text-secondary);font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer}
+.scr-kmix-step button:hover:not(:disabled){background:var(--color-surface-hover);color:var(--color-text-primary)}
+.scr-kmix-step button:disabled{opacity:.35;cursor:default}
+.scr-kmix .scr-kmix-step input{width:38px;min-width:0;height:auto;box-sizing:border-box;margin:0;padding:0 4px;border:0;border-left:1px solid var(--color-border);border-right:1px solid var(--color-border);border-radius:0;background:none;color:inherit;font:inherit;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center;outline:none;box-shadow:none}
+.scr-kmix-x{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:none;color:var(--color-text-tertiary);cursor:pointer}
+.scr-kmix-x:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
+.scr-kmix-x:focus-visible{outline:2px solid var(--color-primary);outline-offset:1px}
+.scr-kmix-x svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.scr-kmix-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.scr-kmix-foot .btn svg{width:13px;height:13px}
+.scr-kmix-total{flex:1 1 180px;min-width:0;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.scr-kmix-total b{color:var(--color-text-primary);font-weight:650}
+.scr-kmix-few{margin:0;padding:6px 10px;border-radius:8px;background:var(--color-warning-soft);color:var(--color-text-primary);font-size:12px;overflow-wrap:anywhere}
+.scr-kmix-ro{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;color:var(--color-text-secondary);font-size:12px}
+.scr-kmix-ro ul{display:flex;flex-wrap:wrap;gap:4px 6px;margin:0;padding:0;list-style:none}
+.scr-kmix-ro li{padding:1px 8px;border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-kmix-ro li b{font-weight:650;font-variant-numeric:tabular-nums}
+.scr-khint{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0;color:var(--color-text-secondary);font-size:12px;overflow-wrap:anywhere}
+.scr-khint>span{min-width:0}
+.scr-khint .scr-kmix-x{width:20px;height:20px}
 @media(pointer:coarse){.scr-kdd-o{padding-top:10px;padding-bottom:10px}}
 @media(prefers-reduced-motion:reduce){.scr-kdd-pop{animation:none}}
 .scr-ktools{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;margin:0 0 12px}

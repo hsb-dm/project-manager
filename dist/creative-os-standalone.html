@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="5c3303fa87de">
+<meta name="zc-build" content="a13c9bf6355c">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -22327,12 +22327,23 @@ function scrKind(tk){ return typeof estKindOf==="function"?estKindOf(tk):null; }
 function scrKindName(id){ return id?(typeof estKindName==="function"?estKindName(id):id):tr("not recognised"); }
 function scrUnits(tk){ return Math.max(1,Math.round(assetCount(tk))); }
 function scrOpenDeps(tk){ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }
-function scrHoursInputs(tk,o){ o=o||{}; return {kind:("kind" in o?o.kind:scrCtxKind(tk))||null,units:scrUnits(tk),complexity1to5:scrNum(o.complexity1to5),openDeps:scrCtxDeps(tk)}; }
+function scrMix(tk){ return typeof kmixOf==="function"?kmixOf(tk):null; }
+function scrMixIn(mix){ return mix.map(function(x){ return {kind:x.k,units:x.n}; }); }
+function scrHoursInputs(tk,o){ o=o||{}; var mix=scrMix(tk), inp={kind:mix?null:("kind" in o?o.kind:scrCtxKind(tk))||null,units:scrUnits(tk),complexity1to5:scrNum(o.complexity1to5),openDeps:scrCtxDeps(tk)};
+  if(mix) inp.mix=scrMixIn(mix); return inp; }
 function scrCompute(m,inp){ var E=scrEngine(), s=typeof scoringSettings==="function"?scoringSettings():null; if(!E||!s) return null;
-  if(m==="hours") return E.hours(s.hours,inp); if(m==="story") return E.storyPoints(s.story,inp); return E.weightedPoints(s.weighted,inp); }
-function scrComputeRow(tk,m,r){ if(r.mathValue==null) return null; if(m==="hours"){ var mi=r.mathInputs||{}, cx=scrRated(mi);
-    return scrCompute("hours",{kind:mi.kind||scrKind(tk),units:scrNum(scrPick(mi,["units","deliverables"]))||scrUnits(tk),complexity1to5:cx,openDeps:scrNum(scrPick(mi,["openDeps","dependencies"]))||0}); }
+  if(m==="hours") return inp&&inp.mix&&typeof kmixEngine==="function"?kmixEngine(s.hours,inp):E.hours(s.hours,inp); if(m==="story") return E.storyPoints(s.story,inp); return E.weightedPoints(s.weighted,inp); }
+function scrComputeRow(tk,m,r){ if(r.mathValue==null) return null; if(m==="hours"){ var mi=r.mathInputs||{}, cx=scrRated(mi), mix=scrMix(tk), deps=scrNum(scrPick(mi,["openDeps","dependencies"]))||0;
+    if(mix) return scrCompute("hours",{mix:scrMixIn(mix),complexity1to5:cx,openDeps:deps});
+    return scrCompute("hours",{kind:mi.kind||scrKind(tk),units:scrNum(scrPick(mi,["units","deliverables"]))||scrUnits(tk),complexity1to5:cx,openDeps:deps}); }
   return scrCompute(m,r.factors||{}); }
+function scrMixHours(tk){ var mix=scrMix(tk); if(!mix) return null; var c=SCR.cache[tk.id], sv=c&&Array.isArray(c.mix)?c.mix:null;
+  if(sv&&sv.length&&(!Array.isArray(c.kinds)||typeof kmixClean!=="function"||kmixSame(kmixClean(c.kinds),mix))){ var by={};
+    sv.forEach(function(x){ if(x&&typeof x==="object"){ var k=x.kind||x.k; if(typeof k==="string") by[k]=scrNum(scrPick(x,["hours","h","value"])); } });
+    if(mix.every(function(x){ return x.k in by; })) return mix.map(function(x){ return {k:x.k,n:x.n,h:by[x.k]}; }); }
+  var h=typeof kmixHours==="function"?kmixHours(tk,mix):null; return h?h.per:mix.map(function(x){ return {k:x.k,n:x.n,h:null}; }); }
+function scrMixLine(tk){ var per=scrMixHours(tk); if(!per) return "";
+  return fmt(tr("Deliverables by kind: {list}"),{list:per.map(function(x){ var nm=scrKindName(x.k); return x.h!=null?fmt(tr("{kind} {n} ({h} h)"),{kind:nm,n:x.n,h:scrHalf(x.h)}):nm+" "+x.n; }).join(", ")}); }
 function scrStep(st){ var E=scrEngine(); if(!E||!st||!st.key) return ""; var name=function(x){ return SCR_FACTOR_NAMES[x]?String(scrFactorName(x)).toLowerCase():String(x); };
   return E.fill(tr(st.key),st.vars||{},function(v,k){
     if(k==="factor"&&typeof v==="string") return name(v); if(k==="factors"&&typeof v==="string") return v.split(/,\s*/).map(name).join(", ");
@@ -22341,7 +22352,7 @@ function scrStepsHtml(steps){ return steps&&steps.length?'<ol class="scr-steps">
 
 function scrPath(id,rest){ return "/api/tasks/"+encodeURIComponent(id)+"/scoring"+(rest?"/"+rest:""); }
 function scrApi(method,path,body){ return API.on?apiFetch(method,path,body):scrDemo(method,path,body); }
-function scrSig(tk){ var s=tk.scoring||{}; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|")+scrAiSig(tk); }
+function scrSig(tk){ var s=tk.scoring||{}, k=tk.meta&&tk.meta.kinds; return [+tk.effort||0,assetCount(tk)].concat(SCR_MODULES.map(function(m){ var x=s[m]; return x?(scrNum(x.rev)||0)+":"+(x.status||""):"-"; })).join("|")+scrAiSig(tk)+(Array.isArray(k)&&k.length?"|mix:"+scrRaw(k):""); }
 function scrAiSig(tk){ var c=SCR.cache[tk.id], r=c&&c.ai&&c.ai.rows; return r&&(r.hours||r.story||r.weighted)?"|ai:"+(tk.updatedAt||""):""; }
 function scrRespRow(d,m){ if(!d) return null; if(d.row) return scrRowNorm(d.row,m); if(d.rows&&d.rows[m]) return scrRowNorm(d.rows[m],m); return null; }
 function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[id]||(SCR.cache[id]={rows:{},audit:[],can:null,at:0,sig:""}); c.raw=null;
@@ -22351,6 +22362,7 @@ function scrStore(id,d,m){ if(!d||typeof d!=="object") return; var c=SCR.cache[i
   if(d.row){ var r=scrRowNorm(d.row,m); if(r&&SCR_MODULES.indexOf(r.module)>=0) put(r.module,r); }
   if(Array.isArray(d.audit)) c.audit=d.audit.slice(0,50); if(d.can&&typeof d.can==="object") c.can=d.can;
   if("efficiency" in d) c.efficiency=d.efficiency; if("outcomes" in d) c.outcomes=d.outcomes; if("ai" in d) c.ai=d.ai&&typeof d.ai==="object"?d.ai:null;
+  if("kinds" in d) c.kinds=Array.isArray(d.kinds)?d.kinds:null; var hm=d.rows&&!Array.isArray(d.rows)&&d.rows.hours&&d.rows.hours.mix; if("mix" in d||hm) c.mix=Array.isArray(d.mix)?d.mix:Array.isArray(hm)?hm:null;
   if(d.context&&typeof d.context==="object") c.context=d.context; if(d.on&&typeof d.on==="object") c.on=d.on; c.local=!API.on; c.at=Date.now();
   var tk=task(id); if(tk){ tk.scoring=tk.scoring&&typeof tk.scoring==="object"?tk.scoring:{}; SCR_MODULES.forEach(function(k){ var x=c.rows[k]; if(x) tk.scoring[k]={finalValue:x.finalValue,status:x.status,source:x.source,lockedValue:x.lockedValue,lockedAt:x.lockedAt,lockedBy:x.lockedBy,approvedBy:x.approvedBy,approvedAt:x.approvedAt,rev:x.rev}; }); c.sig=scrSig(tk); } }
 function scrRaw(d){ try{ return JSON.stringify(d); }catch(e){ return null; } }
@@ -22390,10 +22402,10 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
     +'<div class="scr-val" data-scr-v="ai">'+scrAiCell(tk,m,aiOn)+'</div>'
     +'<div class="scr-val" data-scr-v="final"><span class="scr-k">'+tr(lk?"Locked value":"Final value")+'</span><b>'+scrFmt(m,fin)+'</b>'+scrSrcChip(r.source)+'</div></div>';
   var info=[];
-  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk);
-    info.push(kindPickHtml(tk,canI.editTask(tk)));
+  if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null, n=assetCount(tk), deps=scrCtxDeps(tk), mixLine=scrMixLine(tk);
+    info.push(kindPickHtml(tk,canI.editTask(tk),"panel"));
     info.push(cx?fmt(tr("Complexity {n} of 5"),{n:cx}):tr("Complexity not rated"));
-    info.push('<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
+    info.push(mixLine?'<span data-scr-in="mix">'+esc(mixLine)+'</span>':'<span data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+'</span> '+tr("from")+' <button type="button" class="scr-link" onclick="setTab(\'files\')">'+tr("Assets produced")+'</button>');
     info.push(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}));
     if(!lk&&+tk.effort>0&&fin!=null&&scrHalf(+tk.effort)!==scrHalf(fin)) info.push(fmt(tr("The task's Estimate is {h} h"),{h:scrHalf(+tk.effort)})); }
   else { var f=r.factors||{}, rated=SCR_FACTORS.filter(function(x){ return scrNum(f[x])!=null; }), sug=scrScopeSug(tk);
@@ -22412,7 +22424,7 @@ function scrRowHtml(tk,m){ var r=scrView(tk,m), can=scrCan(tk,m), lk=scrLocked(r
   if(can.rebaseline&&lk) acts.push(scrBtn(tk,m,"rebaseline","Re-baseline","scrRebase"));
   acts.push(scrBtn(tk,m,"explain","Explanation","scrWhyToggle","ghost",' aria-expanded="'+(open?"true":"false")+'"'));
   return '<div class="scr-row" data-scr-module="'+m+'"><div class="scr-rhead"><b>'+tr(SCR_NAMES[m])+'</b>'+scrStChip(r.status)+'</div>'+vals
-    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+(aiOn?scrAiCardHtml(tk,m,can,lk):'')+prop+lockLine+when+held
+    +'<p class="scr-in">'+info.join('<span class="scr-dot">·</span>')+'</p>'+(m==="hours"&&typeof kindMixSlotHtml==="function"?kindMixSlotHtml(tk,canI.editTask(tk),"panel"):'')+(aiOn?scrAiCardHtml(tk,m,can,lk):'')+prop+lockLine+when+held
     +(open?'<div class="scr-why" data-scr-why="'+m+'">'+scrWhyHtml(tk,m,r)+'</div>':'')
     +'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
 function scrWhyHtml(tk,m,r){ var steps=r.steps; if(!steps||!steps.length){ var res=scrComputeRow(tk,m,r); steps=res&&res.steps; }
@@ -22460,13 +22472,17 @@ function scrCalc(id,m){ var tk=task(id); if(!tk) return; var r=scrView(tk,m), s=
   var other=function(f){ var o=SCR_MODULES.filter(function(x){ return x!==m&&x!=="hours"; }).map(function(x){ return scrRow(tk,x); }).filter(Boolean)[0]; return o&&scrNum(o.factors&&o.factors[f]); };
   if(m==="hours"){ var mi=r.mathInputs||{}, cx=r.mathValue!=null?scrRated(mi):null;
     if(!cx){ var st=scrRow(tk,"story")||scrRow(tk,"weighted"); cx=st&&scrNum(st.factors&&st.factors.complexity); }
-    SCR.rate={id:id,m:m,kind:mi.kind||scrCtxKind(tk)||"",r:{complexity:cx||null}};
+    var mix=scrMix(tk);
+    SCR.rate={id:id,m:m,kind:mix?"":mi.kind||scrCtxKind(tk)||"",mix:mix,r:{complexity:cx||null}};
     var kinds=s.kinds.filter(function(k){ return k.active; }).map(function(k){ return k.id; }), n=assetCount(tk), deps=scrCtxDeps(tk);
-    body='<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label>'
+    body=(mix?'<div class="field" data-scr-mix><label>'+tr("Kinds of work")+'</label><p class="scr-in" id="scrKindMix"><span class="scr-chip">'+tr("Mixed")+'</span><span data-no-translate>'+esc(kmixText(mix))+'</span></p>'
+        +'<p class="hint">'+tr("Calculated with this task's mix: each kind's hours added up, then complexity and open dependencies once. One kind is not chosen here, so the mix stays as it is.")
+        +' <button type="button" class="scr-link" data-scr-act="mix-edit" onclick="closeModal();kmixOpen('+jsq(id)+',\'panel\')">'+tr("Change the mix")+'</button></p></div>'
+      :'<div class="field"><label for="scrKind">'+tr("Kind of work")+'</label>'
       +kindDropdownHtml({key:"rate",id:"scrKind",field:true,kinds:kinds,value:SCR.rate.kind,placeholder:tr("Choose the kind of work"),pick:function(v){ SCR.rate.kind=v; scrPreview(); }})
-      +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>'
+      +'<p class="hint">'+tr(scrCtxKind(tk)?"Recognised from the title; change it if it is something else.":"The title does not say what kind of work it is: choose one.")+'</p></div>')
       +scrRateField("complexity",SCR.rate.r.complexity)
-      +'<div class="field"><label>'+tr("Deliverables")+'</label><p class="scr-in" data-scr-in="deliverables">'+(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+' · '+tr("the task's Assets produced")+' <button type="button" class="scr-link" onclick="closeModal();setTab(\'files\')">'+tr("Change under Assets & versions")+'</button></p></div>'
+      +'<div class="field"><label>'+tr("Deliverables")+'</label><p class="scr-in" data-scr-in="deliverables">'+(mix?esc(scrMixLine(tk)):(n?n+" "+tr(n===1?"deliverable":"deliverables"):tr("No assets produced recorded yet — counted as 1"))+' · '+tr("the task's Assets produced")+' <button type="button" class="scr-link" onclick="closeModal();setTab(\'files\')">'+tr("Change under Assets & versions")+'</button>')+'</p></div>'
       +'<div class="field"><label>'+tr("Open dependencies")+'</label><p class="scr-in">'+(deps===1?tr("1 open dependency"):fmt(tr("{n} open dependencies"),{n:deps}))+'</p></div>'; }
   else { var f=r.factors||{}, rs={}, sug=scrScopeSug(tk);
     SCR_FACTORS.forEach(function(x){ rs[x]=scrNum(f[x])||other(x)||null; });
@@ -22487,8 +22503,8 @@ function scrPreview(){ var st=SCR.rate, el=document.getElementById("scrPreview")
   el.innerHTML='<div class="scr-pv-head"><span>'+tr("Result")+'</span><b data-scr-preview>'+scrFmt(st.m,v)+'</b>'+range+(st.m==="story"&&res&&res.split?'<span class="scr-chip scr-st-proposed">'+tr("Consider splitting")+'</span>':'')+'</div>'+scrStepsHtml(res&&res.steps); }
 function scrCalcGo(){ var st=SCR.rate; if(!st) return; var tk=task(st.id); if(!tk) return closeModal(); var m=st.m;
   if(m!=="hours"&&SCR_FACTORS.some(function(f){ return !st.r[f]; })) return toast(tr("Rate every factor first"),"bad");
-  if(m==="hours"&&!st.kind) return toast(tr("Choose the kind of work first"),"bad");
-  var inputs={kind:st.kind}; if(m==="hours"&&st.r.complexity) inputs.complexity=st.r.complexity;
+  if(m==="hours"&&!st.kind&&!st.mix) return toast(tr("Choose the kind of work first"),"bad");
+  var inputs=st.mix?{}:{kind:st.kind}; if(m==="hours"&&st.r.complexity) inputs.complexity=st.r.complexity;
   var body=m==="hours"?{module:m,inputs:inputs}:{module:m,ratings:scrRateInputs(tk,st)}, b=document.getElementById("scrGo"); if(b) b.disabled=true;
   scrApi("POST",scrPath(tk.id,"calculate"),body).then(function(d){ closeModal(); SCR.rate=null; SCR.why[tk.id+"|"+m]=true; scrAfter(tk,m,d,"Calculated"); })
     .catch(function(e){ if(b) b.disabled=false; scrFail(tk,e); }); }
@@ -22611,11 +22627,18 @@ function scrAiCardHtml(tk,m,can,lk){ var s=scrAiOf(tk,m), a=scrAiInfo(tk), nt=sc
     +'<div class="scr-ai-head">'+I.sparkle+'<b>'+fmt(tr("The AI suggests {v}"),{v:scrFmt(m,s.value)})+'</b><span class="scr-ai-conf'+(s.far||s.lowConfidence?' scr-ai-low':'')+'" data-scr-ai-conf>'+esc(conf)+'</span></div>'
     +delta+(warns?'<ul class="scr-ai-warn" data-scr-warns>'+warns+'</ul>':'')
     +(s.explanation?'<p class="scr-ai-text" data-no-translate>'+esc(s.explanation)+'</p>':'')
-    +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')
+    +(fx?'<p class="scr-ai-fx">'+tr("The AI's ratings")+': '+esc(fx)+'</p>':'')+(m==="hours"?scrAiMixHtml(tk):'')
     +(s.assumptions&&s.assumptions.length?'<div class="scr-ai-list" data-scr-ai-assumptions><b>'+tr("It assumes")+'</b><ul>'+s.assumptions.map(function(x,i){ return ctx?scrAsmHtml(tk,m,i,x,cur,ced):li(x); }).join("")+'</ul></div>':'')
     +(gaps?'<div class="scr-ai-list" data-scr-ai-missing><b>'+tr("Missing inputs")+'</b><ul>'+gaps+'</ul></div>':'')
     +(lk?'<p class="hint">'+tr("The estimate is locked: the AI's suggestion is shown beside it, never applied. Re-baseline it to change it.")+'</p>':'')
     +'<p class="hint scr-ai-meta">'+meta+'</p>'+note+'<div class="scr-acts">'+acts.join("")+'</div></div>'; }
+function scrAiMixOf(tk){ var s=scrAiOf(tk,"hours"), a=scrAiInfo(tk), raw=s&&Array.isArray(s.mix)&&s.mix.length?s.mix:a&&Array.isArray(a.mix)?a.mix:null;
+  var l=raw&&typeof kmixClean==="function"?kmixClean(raw):[]; return l.length>=2?l:null; }
+function scrAiMixHtml(tk){ var am=scrAiMixOf(tk); if(!am||kmixSame(am,scrMix(tk))) return "";
+  return '<div class="scr-ai-mix" data-scr-ai-mix><span>'+esc(fmt(tr("The AI suggests: {mix}"),{mix:kmixText(am)}))+'</span>'
+    +(canI.editTask(tk)&&!tk._draft?'<button type="button" class="btn xs" data-scr-act="ai-mix" data-scr-m="hours" onclick="scrAiMix('+jsq(tk.id)+')">'+tr("Use this split")+'</button>':'')+'</div>'; }
+function scrAiMix(id){ var tk=task(id), am=tk&&scrAiMixOf(tk); if(!am||typeof kmixUse!=="function") return;
+  kmixUse(id,am).then(function(r){ if(r!==false) toast(tr("The AI's split is set")); }); }
 function scrAiComparables(tk){ try{ var e=typeof effortEstimate==="function"?effortEstimate(tk):null; return e&&Array.isArray(e.ids)?e.ids.slice(0,5):[]; }catch(x){ return []; } }
 function scrAskAi(id,m,ctx){ var tk=task(id); if(!tk||SCR.aiBusy[id]) return; var mods=m==="all"?scrCtxAiMods():[m]; SCR.aiBusy[id]=m; mods.forEach(function(x){ delete SCR.aiNote[id+"|"+x]; }); scrPaint(id);
   var body={module:m,trigger:"ask",comparables:scrAiComparables(tk),lang:UI_LANG==="id"?"id":"en"}; if(ctx) body.context=ctx;
@@ -22809,8 +22832,9 @@ function scrDemoEffort(tk,r,mark){ var m=taskMeta(tk); tk.effort=r.finalValue||0
 function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/scoring(?:\/([a-z]+))?(?:\/([a-z]+))?$/); if(!mt) return Promise.reject(new Error("Not found"));
   var id=decodeURIComponent(mt[1]), tk=task(id); if(!tk) return Promise.reject(new Error(tr("That item is not available to you")));
   var st=SCR.demo[id]||(SCR.demo[id]={rows:{},audit:[]}), now=new Date().toISOString(), can=scrCanLocal(tk), s=scoringSettings(); body=body||{};
-  var view=function(extra){ var n=assetCount(tk), sv=scrScopeFromAssets(n);
+  var view=function(extra){ var n=assetCount(tk), sv=scrScopeFromAssets(n), mix=scrMix(tk), mh=mix&&typeof kmixHours==="function"?kmixHours(tk,mix):null;
     return Object.assign({taskId:id,rows:{hours:st.rows.hours||null,story:st.rows.story||null,weighted:st.rows.weighted||null},audit:st.audit.slice(0,50),
+      kinds:mix,mix:mh?mh.per.map(function(x){ return {kind:x.k,units:x.n,hours:x.h}; }):null,
       on:{feature:true,enabled:scoringOn(),hours:scoringModuleOn("hours"),story:scoringModuleOn("story"),weighted:scoringModuleOn("weighted")},
       context:{kind:scrKind(tk),assetCount:n,deliverables:Math.max(1,n),openDeps:scrOpenDeps(tk),scope:{value:sv||1,source:"assets",assetCount:n,assumed:!sv},requireReason:!!s.overrides.requireReason},
       can:{view:true,calculate:can.calculate,propose:can.propose,edit:can.edit,approve:can.approve,rebaseline:can.rebaseline,requestAi:can.requestAi,approveBlocked:can.blocked}},extra||{}); };
@@ -22879,6 +22903,9 @@ function scrDemo(method,path,body){ var mt=path.match(/^\/api\/tasks\/([^/]+)\/s
   "Could not load the latest scores":"Skor terbaru tidak dapat dimuat","Scoring history":"Riwayat skor",
   "Math baseline":"Baseline hitungan","Not calculated yet":"Belum dihitung","Locked value":"Nilai terkunci","Final value":"Nilai final",
   "Kind of work":"Jenis pekerjaan","not recognised":"tidak dikenali","Complexity {n} of 5":"Kompleksitas {n} dari 5","Complexity not rated":"Kompleksitas belum dinilai",
+  "Kinds of work":"Jenis pekerjaan","Mixed":"Campuran","Deliverables by kind: {list}":"Deliverable per jenis: {list}","{kind} {n} ({h} h)":"{kind} {n} ({h} j)",
+  "Calculated with this task's mix: each kind's hours added up, then complexity and open dependencies once. One kind is not chosen here, so the mix stays as it is.":"Dihitung dengan campuran task ini: jam tiap jenis dijumlahkan, lalu kompleksitas dan dependensi terbuka sekali. Satu jenis tidak dipilih di sini, jadi campurannya tetap seperti itu.",
+  "Change the mix":"Ubah campuran","The AI suggests: {mix}":"Saran AI: {mix}","Use this split":"Pakai pembagian ini","The AI's split is set":"Pembagian dari AI sudah dipakai",
   "deliverable":"deliverable","deliverables":"deliverable","No assets produced recorded yet — counted as 1":"Belum ada aset dihasilkan yang dicatat — dihitung 1","from":"dari","Assets produced":"Aset dihasilkan",
   "1 open dependency":"1 dependensi terbuka","{n} open dependencies":"{n} dependensi terbuka","The task's Estimate is {h} h":"Estimasi task ini {h} jam",
   "Not rated yet":"Belum dinilai","Scope suggested from {n} assets produced: {v}":"Lingkup disarankan dari {n} aset dihasilkan: {v}","by":"oleh",
@@ -23085,6 +23112,9 @@ input[data-scr-lock]{cursor:not-allowed}
 .scr-ai-meta{font-size:11.5px;color:var(--color-text-tertiary)}
 .scr-ai-delta{margin:0;color:var(--color-text-primary)}
 .scr-ai-effect{margin:0;padding:5px 8px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-ai-mix{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-ai-mix>span{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+#scrKindMix{gap:6px}
 .scr-asm{margin:3px 0}
 .scr-asm-acts{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:6px;vertical-align:1px}
 .scr-tog{padding:0 8px;border:1px solid var(--color-border);border-radius:999px;background:var(--color-surface);color:var(--color-text-secondary);font-size:11px;font-weight:600;line-height:19px;white-space:nowrap}
@@ -24499,12 +24529,129 @@ var SK_EG="add Podcast with the words podcast, siniar — a task titled “Sinia
 var SK_LINE="The kinds of work a task can be, each with the words its titles use, its hours and its points per asset.";
 function skName(k){ return k?(UI_LANG==="id"?k.nameId:k.name)||k.name||"":""; }
 
-function kindPickHtml(tk,ed){ if(!tk||tk._draft) return "";
-  var list=estKindList(), id=tk.id;
-  return '<span class="scr-kpick" data-scr-in="kind"><span class="scr-kpick-l">'+tr("Kind of work")+'</span>'+kindDropdownHtml({key:"task:"+id,value:ScoringEngine.kindPick(tk,list)||"",hasAuto:true,auto:ScoringEngine.kindOf(tk.title,list),ro:!ed,pick:function(v){ kindPick(id,v); }})+'</span>'; }
-function kindPick(id,v){ var t=task(id); if(!t||!canI.editTask(t)) return;
-  editTaskWith(t,function(x){ var m=taskMeta(x), e; if(v) m.kind=v; else delete m.kind;
-    if(!m.effortManual&&(m.effortAuto||!(+x.effort>0))&&!isClosed(x)&&!scoringEstimateLock(x)&&(e=effortEstimate(x))) effortApply(x,e); }); }
+function kindPickHtml(tk,ed,at){ if(!tk||tk._draft) return "";
+  var list=estKindList(), id=tk.id, mix=kmixOf(tk);
+  return '<span class="scr-kpick" data-scr-in="kind"><span class="scr-kpick-l">'+tr("Kind of work")+'</span>'+kindDropdownHtml({key:"task:"+id,value:mix?"":ScoringEngine.kindPick(tk,list)||"",hasAuto:true,auto:ScoringEngine.kindOf(tk.title,list),mix:mix,hasMix:true,ro:!ed,pick:function(v){ kindPick(id,v); },several:function(el){ kmixFromPick(id,el); }})+'</span>'
+    +(at==="panel"?'':kindMixSlotHtml(tk,ed,"effort")); }
+function kindPick(id,v){ var t=task(id); if(!t||!canI.editTask(t)) return; kmixForget(id);
+  editTaskWith(t,function(x){ var m=taskMeta(x); delete m.kinds; if(v) m.kind=v; else delete m.kind; kindEstimate(x); }).then(function(r){ if(r!==false) kmixReload(id); }); }
+function kindEstimate(x){ var m=taskMeta(x), e; if(!m.effortManual&&(m.effortAuto||!(+x.effort>0))&&!isClosed(x)&&!(typeof scoringEstimateLock==="function"&&scoringEstimateLock(x))&&typeof effortEstimate==="function"&&(e=effortEstimate(x))) effortApply(x,e); }
+
+var KMIX={open:{},draft:{},t:{},hide:null,one:typeof WeakMap!=="undefined"?new WeakMap():null}, KMIX_MAX=8, KMIX_HI=500;
+function kmixN(v){ var n=Math.round(+v); return isFinite(n)?Math.max(1,Math.min(KMIX_HI,n)):1; }
+function kmixActive(){ return estKindList().filter(function(k){ return k&&k.active!==false; }); }
+function kmixClean(list){ var act={}, at={}, out=[]; kmixActive().forEach(function(k){ act[k.id]=1; });
+  (Array.isArray(list)?list:[]).forEach(function(x){ if(!x||typeof x!=="object") return; var k=x.k!=null?x.k:x.kind, n=x.n!=null?x.n:x.count!=null?x.count:x.units; if(typeof k!=="string"||!act[k]) return;
+    if(k in at){ out[at[k]].n=kmixN(out[at[k]].n+kmixN(n)); return; } if(out.length>=KMIX_MAX) return; at[k]=out.length; out.push({k:k,n:kmixN(n)}); });
+  return out; }
+function kmixOf(tk){ var m=tk&&tk.meta, l=m&&Array.isArray(m.kinds)?kmixClean(m.kinds):null; return l&&l.length>=2?l:null; }
+function kmixSame(a,b){ var key=function(l){ return (l||[]).map(function(x){ return x.k+":"+x.n; }).sort().join(","); }; return key(a)===key(b); }
+function kmixText(l){ return (l||[]).map(function(x){ return kddName(x.k)+" "+x.n; }).join(" · "); }
+function kmixH(h){ return String(h>0?Math.max(0.5,Math.round(h*2)/2):0); }
+function kmixCx(tk){ var r=typeof scrRow==="function"?scrRow(tk,"hours"):null; return r&&r.mathValue!=null&&typeof scrRated==="function"?scrRated(r.mathInputs):null; }
+function kmixDeps(tk){ try{ return typeof unresolvedDependencies==="function"?unresolvedDependencies(tk).length:0; }catch(e){ return 0; } }
+function kmixHs(){ var s=estSettings(); return s&&s.hours||ScoringEngine.ENGINE_DEFAULTS.hours; }
+function kmixEngine(hs,inp){ var E=ScoringEngine, r=E.hours(hs,inp); if(r&&r.value!=null||!Array.isArray(inp.mix)||!inp.mix.length) return r;
+  var sum=0, ok=0; inp.mix.forEach(function(x){ var f=(E.hours(hs,{kind:x.kind,units:x.units})||{}).factors; if(f&&f.perUnit>0){ sum+=f.perUnit*f.unitsFactor; ok++; } });
+  return ok?E.hours(hs,{perUnit:sum,units:1,complexity1to5:inp.complexity1to5,openDeps:inp.openDeps}):r; }
+function kmixHours(tk,rows){ var E=ScoringEngine, hs=kmixHs(), v=(rows||[]).filter(function(r){ return r.k; }); if(!v.length) return null;
+  var per=v.map(function(r){ var f=(E.hours(hs,{kind:r.k,units:r.n})||{}).factors; return {k:r.k,n:r.n,h:f&&f.perUnit>0?f.perUnit*f.unitsFactor:null}; });
+  var res=kmixEngine(hs,{mix:v.map(function(r){ return {kind:r.k,units:r.n}; }),complexity1to5:kmixCx(tk),openDeps:kmixDeps(tk)});
+  return {total:res&&res.value!=null?res.value:null,per:per}; }
+function kmixTotalInner(tk,rows){ var h=kmixHours(tk,rows); if(!h) return esc(tr("Choose the kinds to see their hours."));
+  var parts=h.per.map(function(x){ var nm=kddName(x.k); return x.h==null?fmt(tr("{kind}: no hours yet"),{kind:nm}):x.n>1?fmt(tr("{kind} {n}× {h} h"),{kind:nm,n:x.n,h:kmixH(x.h)}):fmt(tr("{kind} {h} h"),{kind:nm,h:kmixH(x.h)}); });
+  return (h.total!=null?'<b>'+esc(fmt(tr("≈ {h} h"),{h:kmixH(h.total)}))+'</b> · ':'')+'<span data-no-translate>'+esc(parts.join(" + "))+'</span>'; }
+
+function kmixOne(k){ if(!KMIX.one) return [k]; var a=KMIX.one.get(k); if(!a){ a=[k]; KMIX.one.set(k,a); } return a; }
+function kmixDetect(title){ var t=String(title||""); if(!t.trim()) return []; return kmixActive().filter(function(k){ return !!ScoringEngine.kindMatch(t,kmixOne(k),true); }).map(function(k){ return k.id; }).slice(0,KMIX_MAX); }
+function kmixHides(){ if(KMIX.hide) return KMIX.hide; var o=null; try{ o=JSON.parse(localStorage.getItem("zc_kmix_hint")||"{}"); }catch(e){ o=null; } KMIX.hide=o&&typeof o==="object"&&!Array.isArray(o)?o:{}; return KMIX.hide; }
+
+function kindMixSlotHtml(tk,ed,at){ if(!tk||tk._draft) return ""; return '<div class="scr-kmix-slot" data-kmix-slot="'+attr(at)+'" data-kmix-task="'+attr(tk.id)+'">'+kmixBodyHtml(tk,ed,at)+'</div>'; }
+function kmixBodyHtml(tk,ed,at){ var mix=kmixOf(tk);
+  if(!ed) return at==="effort"&&mix?kmixRoHtml(tk,mix):"";
+  if(KMIX.open[tk.id]===at&&KMIX.draft[tk.id]) return kmixEdHtml(tk);
+  return at==="effort"&&!mix&&!KMIX.open[tk.id]?kmixHintHtml(tk):""; }
+function kmixRoHtml(tk,mix){ var h=kmixHours(tk,mix);
+  return '<div class="scr-kmix-ro" data-kmix-ro><span>'+esc(tr("Several kinds of work"))+':</span><ul>'+mix.map(function(x){ return '<li><span data-no-translate>'+esc(kddName(x.k))+'</span> <b>'+x.n+'</b></li>'; }).join("")+'</ul>'
+    +(h&&h.total!=null?'<span class="scr-kmix-rot">'+esc(fmt(tr("≈ {h} h"),{h:kmixH(h.total)}))+'</span>':'')+'</div>'; }
+function kmixHintHtml(tk){ var det=kmixDetect(tk.title); if(det.length<2||kmixHides()[tk.id]===det.join(",")) return ""; var id=tk.id;
+  return '<div class="scr-khint" data-kmix-hint role="note"><span>'+esc(fmt(tr("Looks like several kinds: {kinds} — split?"),{kinds:det.map(kddName).join(", ")}))+'</span>'
+    +'<button type="button" class="scr-link" data-kmix-key="hint:split" onclick="kmixSplit('+jsq(id)+')">'+tr("Split")+'</button>'
+    +'<button type="button" class="scr-kmix-x" data-kmix-key="hint:x" aria-label="'+attr(tr("Dismiss"))+'" title="'+attr(tr("Dismiss"))+'" onclick="kmixHintOff('+jsq(id)+')">'+I.x+'</button></div>'; }
+function kmixValid(rows){ var l=(rows||[]).filter(function(r){ return r&&r.k; }); return kmixClean(l); }
+function kmixEdHtml(tk){ var id=tk.id, d=KMIX.draft[id], all=kmixActive(), used={}, v=kmixValid(d), free=all.filter(function(k){ return !d.some(function(r){ return r.k===k.id; }); }).length;
+  d.forEach(function(r){ if(r.k) used[r.k]=1; });
+  var rows=d.map(function(r,i){ var nm=r.k?kddName(r.k):tr("this kind"), kinds=all.filter(function(k){ return k.id===r.k||!used[k.id]; }).map(function(k){ return k.id; });
+    var btn=function(dir,sym,label,off){ return '<button type="button" tabindex="-1" data-kmix-key="'+i+':'+(dir<0?'dec':'inc')+'" aria-label="'+attr(fmt(tr(label),{kind:nm}))+'" title="'+attr(fmt(tr(label),{kind:nm}))+'" onmousedown="event.preventDefault()" onclick="kmixStep('+jsq(id)+','+i+','+dir+')"'+(off?' disabled':'')+'>'+sym+'</button>'; };
+    return '<div class="scr-kmix-row" data-i="'+i+'" data-k="'+attr(r.k)+'">'
+      +kindDropdownHtml({key:"mix:"+id+":"+i,value:r.k,kinds:kinds,placeholder:tr("Choose a kind"),label:fmt(tr("Kind of work {n}"),{n:i+1}),pick:function(x){ kmixKind(id,i,x); }})
+      +'<span class="scr-kmix-step">'+btn(-1,'−',"One fewer: {kind}",r.n<=1)
+      +'<input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="3" role="spinbutton" aria-valuemin="1" aria-valuemax="'+KMIX_HI+'" aria-valuenow="'+r.n+'" aria-label="'+attr(fmt(tr("How many: {kind}"),{kind:nm}))+'" value="'+r.n+'" data-kmix-key="'+i+':n" oninput="kmixType('+jsq(id)+','+i+',this)" onkeydown="kmixKey(event,'+jsq(id)+','+i+',this)" onblur="kmixBlur('+jsq(id)+','+i+',this)">'
+      +btn(1,'+',"One more: {kind}",r.n>=KMIX_HI)+'</span>'
+      +'<button type="button" class="scr-kmix-x" data-kmix-key="'+i+':x" aria-label="'+attr(fmt(tr("Remove {kind}"),{kind:nm}))+'" title="'+attr(fmt(tr("Remove {kind}"),{kind:nm}))+'" onclick="kmixDel('+jsq(id)+','+i+')">'+I.x+'</button></div>'; }).join("");
+  var one=v.length===1?fmt(tr("Use one kind: {kind}"),{kind:kddName(v[0].k)}):tr("Use one kind");
+  return '<div class="scr-kmix" role="group" aria-label="'+attr(tr("Several kinds of work"))+'" onkeydown="kmixEsc(event,'+jsq(id)+')">'
+    +'<div class="scr-kmix-head"><b>'+tr("Several kinds of work")+'</b><span>'+tr("Each kind with how many of it; the hours add up.")+'</span></div>'
+    +'<div class="scr-kmix-rows">'+rows+'</div>'
+    +(v.length<2?'<p class="scr-kmix-few" data-kmix-few>'+tr("A mix needs at least 2 kinds; it is saved once it has them.")+' <button type="button" class="scr-link" data-kmix-key="one"'+(v.length?'':' title="'+attr(tr("Back to the kind the title gives"))+'"')+' onclick="kmixUseOne('+jsq(id)+')">'+esc(one)+'</button></p>':'')
+    +'<div class="scr-kmix-foot"><button type="button" class="btn xs" data-kmix-key="add" onclick="kmixAdd('+jsq(id)+')"'+(d.length>=KMIX_MAX||!free?' disabled title="'+attr(tr(d.length>=KMIX_MAX?"Up to 8 kinds":"Every kind is in the mix"))+'"':'')+'>'+I.plus+tr("Add kind")+'</button>'
+    +'<span class="scr-kmix-total" data-kmix-total aria-live="polite" title="'+attr(tr("Complexity and open dependencies count once, for the whole task."))+'">'+kmixTotalInner(tk,d)+'</span>'
+    +'<button type="button" class="btn xs ghost" data-kmix-key="done" onclick="kmixDone('+jsq(id)+')">'+tr("Done")+'</button></div></div>'; }
+
+function kmixSlots(id){ return [].filter.call(document.querySelectorAll("#drawer [data-kmix-slot]"),function(s){ return s.getAttribute("data-kmix-task")===id; }); }
+function kmixBox(id){ var at=KMIX.open[id], s=kmixSlots(id).filter(function(x){ return x.getAttribute("data-kmix-slot")===at; })[0]; return s&&s.querySelector(".scr-kmix"); }
+function kmixPaint(id,focus){ var t=task(id); if(!t) return; var ed=canI.editTask(t)&&!t._draft;
+  kmixSlots(id).forEach(function(s){ s.innerHTML=kmixBodyHtml(t,ed,s.getAttribute("data-kmix-slot")); });
+  if(focus) kmixFocus(id,focus); }
+function kmixFocus(id,how){ var box=kmixBox(id), d=KMIX.draft[id]||[], f=null; if(!box) return;
+  if(how==="first"){ var j=-1; d.some(function(r,i){ if(!r.k){ j=i; return true; } return false; }); f=j>=0?kddFind("mix:"+id+":"+j,0):box.querySelector('[data-kmix-key="0:n"]'); }
+  else if(typeof how==="string") f=box.querySelector(how);
+  if(f){ try{ f.focus({preventScroll:false}); }catch(e){ f.focus(); } } }
+function kmixTrigger(id,at){ var l=kddAll("task:"+id); return l.filter(function(b){ return !!b.closest(".scr-panel")===(at==="panel"); })[0]||l[0]||null; }
+function kmixStart(t){ var mix=kmixOf(t); if(mix) return mix.map(function(x){ return {k:x.k,n:x.n}; });
+  var det=kmixDetect(t.title); if(det.length>=2) return det.map(function(k){ return {k:k,n:1}; });
+  var k=typeof estKindOf==="function"?estKindOf(t):null; return [{k:k||"",n:1},{k:"",n:1}]; }
+function kmixOpen(id,at,draft){ var t=task(id); if(!t||!canI.editTask(t)) return;
+  Object.keys(KMIX.open).forEach(function(x){ if(x!==id){ kmixSave(x); delete KMIX.open[x]; delete KMIX.draft[x]; } });
+  KMIX.draft[id]=draft||KMIX.draft[id]||kmixStart(t); KMIX.open[id]=at; kmixPaint(id,"first"); kmixSave(id); }
+function kmixFromPick(id,el){ var at=el&&el.closest&&el.closest(".scr-panel")?"panel":"effort"; if(KMIX.open[id]===at) return kmixDone(id); kmixOpen(id,at); }
+function kmixForget(id){ clearTimeout(KMIX.t[id]); delete KMIX.t[id]; delete KMIX.open[id]; delete KMIX.draft[id]; }
+function kmixWrite(id,mix,one){ var t=task(id); if(!t||!canI.editTask(t)) return Promise.resolve(false);
+  return editTaskWith(t,function(x){ var m=taskMeta(x); if(mix){ m.kinds=mix.map(function(r){ return {k:r.k,n:r.n}; }); delete m.kind; } else { delete m.kinds; if(one) m.kind=one; else delete m.kind; } kindEstimate(x); })
+    .then(function(r){ if(r!==false) kmixReload(id); return r; }); }
+function kmixReload(id){ var t=task(id); if(t&&typeof API!=="undefined"&&API.on&&typeof scrLoad==="function"&&typeof scrShow==="function"&&scrShow(t)) scrLoad(t,true); }
+function kmixSave(id){ clearTimeout(KMIX.t[id]); delete KMIX.t[id]; var t=task(id), d=KMIX.draft[id]; if(!t||!d) return; var v=kmixValid(d); if(v.length<2||kmixSame(v,kmixOf(t))) return; kmixWrite(id,v); }
+function kmixLater(id){ clearTimeout(KMIX.t[id]); KMIX.t[id]=setTimeout(function(){ kmixSave(id); },500); }
+function kmixLive(id,typing){ var t=task(id), d=KMIX.draft[id], box=kmixBox(id); if(!t||!d||!box) return;
+  d.forEach(function(r,i){ var row=box.querySelector('.scr-kmix-row[data-i="'+i+'"]'); if(!row) return; var b=row.querySelectorAll(".scr-kmix-step button"), inp=row.querySelector(".scr-kmix-step input");
+    if(b[0]) b[0].disabled=r.n<=1; if(b[1]) b[1].disabled=r.n>=KMIX_HI; if(inp){ if(inp!==typing&&inp.value!==String(r.n)) inp.value=r.n; inp.setAttribute("aria-valuenow",r.n); } });
+  var tot=box.querySelector("[data-kmix-total]"); if(tot) tot.innerHTML=kmixTotalInner(t,d); }
+function kmixStep(id,i,dir){ var r=(KMIX.draft[id]||[])[i]; if(!r) return; var n=kmixN(r.n+dir); if(n===r.n) return; r.n=n; kmixLive(id); kmixLater(id); }
+function kmixType(id,i,el){ var r=(KMIX.draft[id]||[])[i]; if(!r) return; var s=el.value.replace(/\D/g,""); if(s!==el.value) el.value=s; if(!s) return;
+  if(+s>KMIX_HI){ s=String(KMIX_HI); el.value=s; } r.n=kmixN(s); kmixLive(id,el); kmixLater(id); }
+function kmixBlur(id,i,el){ var r=(KMIX.draft[id]||[])[i]; if(!r||!el.isConnected) return; if(el.value!==String(r.n)) el.value=r.n; kmixSave(id); }
+function kmixKey(e,id,i,el){ var k=e.key, r=(KMIX.draft[id]||[])[i], step={ArrowUp:1,ArrowDown:-1,PageUp:10,PageDown:-10}[k]; if(!r) return;
+  if(step){ e.preventDefault(); kmixStep(id,i,step); el.value=r.n; }
+  else if(k==="Home"||k==="End"){ e.preventDefault(); r.n=k==="Home"?1:KMIX_HI; el.value=r.n; kmixLive(id); kmixLater(id); }
+  else if(k==="Enter"){ e.preventDefault(); el.value=r.n; kmixSave(id); } }
+function kmixEsc(e,id){ if(e.key!=="Escape"||e.defaultPrevented) return; e.preventDefault(); e.stopPropagation(); kmixDone(id); }
+function kmixKind(id,i,v){ var d=KMIX.draft[id]; if(!d||!d[i]) return; d[i].k=v; kmixPaint(id); kmixSave(id); }
+function kmixAdd(id){ var d=KMIX.draft[id]; if(!d||d.length>=KMIX_MAX) return; d.push({k:"",n:1}); kmixPaint(id); var b=kddFind("mix:"+id+":"+(d.length-1),0); if(b){ try{ b.focus({preventScroll:false}); }catch(e){} kddOpen(b); } }
+function kmixDel(id,i){ var d=KMIX.draft[id]; if(!d||!d[i]) return; d.splice(i,1); var n=d.length;
+  kmixPaint(id,n?'[data-kmix-key="'+Math.min(i,n-1)+':x"]':'[data-kmix-key="add"]'); kmixSave(id); }
+function kmixUseOne(id){ var d=KMIX.draft[id]||[], v=kmixValid(d), t=task(id); if(!t) return; var at=KMIX.open[id];
+  kmixForget(id); kmixWrite(id,null,v.length?v[0].k:""); kmixPaint(id); var b=kmixTrigger(id,at); if(b) b.focus(); }
+function kmixDone(id){ var at=KMIX.open[id]; kmixSave(id); delete KMIX.open[id]; delete KMIX.draft[id]; kmixPaint(id); var b=kmixTrigger(id,at); if(b) b.focus(); }
+function kmixSplit(id){ var t=task(id); if(!t) return; var det=kmixDetect(t.title); if(det.length<2) return; var v=det.map(function(k){ return {k:k,n:1}; });
+  kmixWrite(id,v); kmixOpen(id,"effort",v.map(function(x){ return {k:x.k,n:x.n}; })); kmixFocus(id,'[data-kmix-key="0:n"]'); }
+function kmixHintOff(id){ var t=task(id); if(!t) return; var h=kmixHides(), keys; h[id]=kmixDetect(t.title).join(","); keys=Object.keys(h); if(keys.length>200) keys.slice(0,keys.length-200).forEach(function(x){ delete h[x]; });
+  try{ localStorage.setItem("zc_kmix_hint",JSON.stringify(h)); }catch(e){} kmixPaint(id); var b=kmixTrigger(id,"effort"); if(b) b.focus(); }
+function kmixUse(id,mix){ var v=kmixClean(mix); if(v.length<2) return Promise.resolve(false); clearTimeout(KMIX.t[id]); delete KMIX.t[id];
+  if(KMIX.open[id]) KMIX.draft[id]=v.map(function(x){ return {k:x.k,n:x.n}; }); return kmixWrite(id,v); }
+function kmixKeep(a,key){ var f=document.querySelector('#drawer [data-kmix-key="'+key+'"]'); if(!f||f===a) return;
+  if(a.tagName==="INPUT"&&f.tagName==="INPUT"){ var s=a.selectionStart, e=a.selectionEnd; ["aria-label","aria-valuenow"].forEach(function(k){ var v=f.getAttribute(k); if(v!=null) a.setAttribute(k,v); }); f.replaceWith(a); f=a; try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } try{ f.setSelectionRange(s,e); }catch(x){} }
+  else { try{ f.focus({preventScroll:true}); }catch(x){ f.focus(); } } }
+(function(){ if(typeof closeDrawer!=="function") return; var base=closeDrawer; closeDrawer=function(){ Object.keys(KMIX.t).forEach(kmixSave); KMIX.open={}; KMIX.draft={}; return base.apply(this,arguments); }; })();
 
 var KDD={cfg:{},open:null,buf:"",bufT:0,quiet:0};
 var KDD_FIND='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
@@ -24516,14 +24663,17 @@ function kddHours(id){ var s=estSettings(), all=s&&s.hours&&s.hours.templates||S
   return lo&&hi&&lo!==hi?fmt(tr("{a}–{b} h"),{a:lo,b:hi}):one?fmt(tr("{h} h"),{h:one}):""; }
 function kddHit(k,q){ return [k.name,k.nameId].concat(skWords(k)).some(function(x){ return String(x||"").toLowerCase().split("*").join("").indexOf(q)>=0; }); }
 function kddValHtml(o){ var nm=function(id){ return '<span class="scr-kdd-n" data-no-translate>'+esc(kddName(id))+'</span>'; };
+  if(o.mix&&o.mix.length) return '<span class="scr-kdd-mk">'+esc(tr("Mixed"))+'</span><span class="scr-kdd-sr"> · </span><span class="scr-kdd-n">'+esc(fmt(tr("{n} kinds"),{n:o.mix.length}))+'</span>';
   if(o.value) return nm(o.value);
   if(o.hasAuto) return '<span class="scr-kdd-mk">'+esc(tr("Auto"))+'</span><span class="scr-kdd-sr"> · </span>'+(o.auto?nm(o.auto):'<span class="scr-kdd-n mut">'+esc(tr("none recognised"))+'</span>');
   return '<span class="scr-kdd-n mut">'+esc(o.placeholder||"")+'</span>'; }
 function kddCls(o){ return "scr-kdd"+(o.field?" fld":"")+(o.ro?" ro":""); }
-function kindDropdownHtml(o){ KDD.cfg[o.key]=o; var a=' data-kdd="'+attr(o.key)+'" data-value="'+attr(o.value||"")+'"';
+function kindDropdownHtml(o){ KDD.cfg[o.key]=o; var a=' data-kdd="'+attr(o.key)+'" data-value="'+attr(o.value||"")+'"'+(o.mix&&o.mix.length?' data-mix="'+o.mix.length+'" title="'+attr(kmixText(o.mix))+'"':'');
   if(o.ro) return '<span class="'+kddCls(o)+'"'+a+'>'+kddValHtml(o)+'</span>';
   return '<button type="button" class="'+kddCls(o)+'"'+(o.id?' id="'+attr(o.id)+'"':'')+a+' role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="scrKddList" aria-label="'+attr(o.label||tr("Kind of work"))+'" onclick="kddToggle(this)" onkeydown="kddKey(event,this)">'+kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span></button>'; }
-function kddPaint(el,o){ el.className=kddCls(o)+(KDD.open&&KDD.open.el===el?" open":""); el.setAttribute("data-value",o.value||""); el.innerHTML=kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span>'; }
+function kddPaint(el,o){ el.className=kddCls(o)+(KDD.open&&KDD.open.el===el?" open":""); el.setAttribute("data-value",o.value||"");
+  if(o.mix&&o.mix.length){ el.setAttribute("data-mix",o.mix.length); el.title=kmixText(o.mix); } else { el.removeAttribute("data-mix"); el.removeAttribute("title"); }
+  el.innerHTML=kddValHtml(o)+'<span class="scr-kdd-chev" aria-hidden="true"></span>'; }
 function kddAll(key){ return [].filter.call(document.querySelectorAll("button[data-kdd]"),function(x){ return x.getAttribute("data-kdd")===key; }); }
 function kddFind(key,i){ return kddAll(key)[i]||null; }
 function kddPhone(){ return !!(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||window.innerWidth<=640; }
@@ -24553,11 +24703,13 @@ function kddClose(back){ var st=KDD.open; if(!st) return; KDD.open=null; var p=d
   if(el){ el.setAttribute("aria-expanded","false"); el.classList.remove("open"); el.removeAttribute("aria-activedescendant"); if(back||had){ try{ el.focus({preventScroll:true}); }catch(e){} } }
   if(p){ p.hidden=true; p.innerHTML=""; } }
 function kddRows(how){ var st=KDD.open, o=st&&st.o, list=document.getElementById("scrKddList"); if(!list) return;
-  var q=String(st.q||"").trim().toLowerCase(), cur=o.value||"", rows=o.hasAuto?[{v:"",auto:1}]:[], at=-1;
+  var q=String(st.q||"").trim().toLowerCase(), cur=o.value||"", mixed=!!(o.mix&&o.mix.length), rows=o.hasAuto?[{v:"",auto:1}]:[], at=-1;
   kddKinds(o).forEach(function(k){ if(!q||kddHit(k,q)) rows.push({v:k.id,k:k}); });
-  list.innerHTML=rows.map(function(r,i){ var on=r.v===cur, k=r.k, h=k&&kddHours(k.id); if(on) at=i;
-    return '<div role="option" id="scrKddO'+i+'" class="scr-kdd-o'+(r.auto?' auto':'')+(on?' on':'')+'" data-i="'+i+'" data-v="'+attr(r.v)+'" aria-selected="'+on+'"><span class="scr-kdd-ck">'+(on?I.check:'')+'</span>'
+  if(o.hasMix&&!q) rows.push({v:":mix",mix:1});
+  list.innerHTML=rows.map(function(r,i){ var on=r.mix?mixed:!mixed&&r.v===cur, k=r.k, h=k&&kddHours(k.id); if(on) at=i;
+    return '<div role="option" id="scrKddO'+i+'" class="scr-kdd-o'+(r.auto?' auto':'')+(r.mix?' mix':'')+(on?' on':'')+'" data-i="'+i+'" data-v="'+attr(r.v)+'" aria-selected="'+on+'"><span class="scr-kdd-ck">'+(on?I.check:'')+'</span>'
       +(r.auto?'<span class="scr-kdd-l"><b>'+esc(tr("Auto"))+'</b> <span class="mut">— '+esc(o.auto?fmt(tr("from the title: {kind}"),{kind:kddName(o.auto)}):tr("none recognised"))+'</span></span>'
+        :r.mix?'<span class="scr-kdd-l">'+esc(tr("Several kinds…"))+'</span>'+(mixed?'<span class="scr-kdd-h">'+esc(fmt(tr("{n} kinds"),{n:o.mix.length}))+'</span>':'')
         :'<span class="scr-kdd-l" data-no-translate>'+esc(skName(k)||k.id)+'</span>'+(k.builtIn===false?'<span class="scr-kdd-tag">'+esc(tr("custom"))+'</span>':'')+(h?'<span class="scr-kdd-h" title="'+attr(tr("Usual hours for one deliverable"))+'">'+esc(h)+'</span>':''))+'</div>'; }).join("");
   st.rows=rows; var none=list.nextElementSibling, miss=q&&rows.length===(o.hasAuto?1:0);
   if(none){ none.hidden=!miss; none.textContent=miss?fmt(tr("No kind of work has “{q}” in its name or words."),{q:String(st.q).trim()}):""; }
@@ -24582,13 +24734,15 @@ function kddCheck(){ var st=KDD.open; if(!st) return; if(st.el.isConnected){ if(
   nx.setAttribute("aria-expanded","true"); nx.classList.add("open"); if(lost){ try{ nx.focus({preventScroll:true}); }catch(e){} }
   kddRows("keep"); kddPlace(); }
 function kddChoose(r){ var st=KDD.open; if(!st||!r) return; var o=st.o, el=st.el, key=st.key, i=st.i, v=r.v||"";
-  kddClose(1); if(v===(o.value||"")) return;
-  o.value=v; if(el.isConnected) kddPaint(el,o);
+  kddClose(1);
+  if(r.mix){ if(typeof o.several==="function") o.several(el); return; }
+  if(!(o.mix&&o.mix.length)&&v===(o.value||"")) return;
+  o.value=v; o.mix=null; if(el.isConnected) kddPaint(el,o);
   o.pick(v); var nx=!el.isConnected&&kddFind(key,i); if(nx&&(!document.activeElement||document.activeElement===document.body)){ try{ nx.focus({preventScroll:true}); }catch(e){} } }
 function kddChar(e){ return !!e.key&&e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&(e.key!==" "||!!KDD.buf&&Date.now()-KDD.bufT<600); }
 function kddType(ch){ var st=KDD.open; if(!st||!st.rows.length) return; var now=Date.now(); KDD.buf=(now-KDD.bufT<600?KDD.buf:"")+ch.toLowerCase(); KDD.bufT=now;
   var b=KDD.buf, rep=b.split(b[0]).join("")==="", q=rep?b[0]:b, n=st.rows.length, from=rep?st.act+1:Math.max(0,st.act);
-  for(var j=0;j<n;j++){ var x=(from+j)%n, r=st.rows[x], l=(r.auto?tr("Auto"):skName(r.k)||r.k.id).toLowerCase(); if(l.indexOf(q)===0){ kddAct(x); return; } } }
+  for(var j=0;j<n;j++){ var x=(from+j)%n, r=st.rows[x], l=(r.auto?tr("Auto"):r.mix?tr("Several kinds…"):skName(r.k)||r.k.id).toLowerCase(); if(l.indexOf(q)===0){ kddAct(x); return; } } }
 function kddKey(e,b){ var st=KDD.open, k=e.key;
   if(st&&st.el===b) return kddNav(e);
   if(k==="ArrowDown"||k==="ArrowUp"){ e.preventDefault(); kddOpen(b); }
@@ -24602,8 +24756,9 @@ function kddNav(e){ var st=KDD.open, k=e.key, inp=!!(e.target&&e.target.tagName=
   else if(k==="Tab") kddClose(1);
   else if(!inp&&kddChar(e)){ var f=document.querySelector("#scrKdd input"); if(f) f.focus(); else { e.preventDefault(); kddType(e.key); } } }
 ["renderDrawer","scrPaint"].forEach(function(n){ var base=window[n]; if(typeof base!=="function") return;
-  window[n]=function(){ var a=document.activeElement, key=!KDD.open&&a&&a.getAttribute&&a.getAttribute("data-kdd"), i=key?kddAll(key).indexOf(a):-1, out=base.apply(this,arguments);
+  window[n]=function(){ var a=document.activeElement, key=!KDD.open&&a&&a.getAttribute&&a.getAttribute("data-kdd"), i=key?kddAll(key).indexOf(a):-1, mk=a&&a.getAttribute&&a.getAttribute("data-kmix-key"), out=base.apply(this,arguments);
     if(key&&!a.isConnected&&(!document.activeElement||document.activeElement===document.body)){ var nx=kddFind(key,i); if(nx){ try{ nx.focus({preventScroll:true}); }catch(e){} } }
+    if(mk&&!a.isConnected&&(!document.activeElement||document.activeElement===document.body)) kmixKeep(a,mk);
     return out; }; });
 
 function skKinds(){ return scGet("kinds")||[]; }
@@ -24686,7 +24841,15 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
   "Kind of work removed: read from the title again":"Jenis pekerjaan dihapus: dibaca dari judul lagi",
   "Find a kind":"Cari jenis","A name or a word":"Nama atau kata","New kind of work":"Jenis pekerjaan baru","No words yet":"Belum ada kata","View":"Lihat",
   "Low, high and each next":"Terendah, tertinggi, dan tiap berikutnya","No kind of work has “{q}” in its name or words.":"Tidak ada jenis pekerjaan dengan “{q}” di nama atau katanya.",
-  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable"
+  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
+  "Kind of work":"Jenis pekerjaan","Several kinds…":"Beberapa jenis…","Mixed":"Campuran","{n} kinds":"{n} jenis","Several kinds of work":"Beberapa jenis pekerjaan",
+  "Each kind with how many of it; the hours add up.":"Tiap jenis dengan jumlahnya; jamnya dijumlahkan.","Choose a kind":"Pilih jenis","Kind of work {n}":"Jenis pekerjaan {n}","this kind":"jenis ini",
+  "One fewer: {kind}":"Kurangi satu: {kind}","One more: {kind}":"Tambah satu: {kind}","How many: {kind}":"Berapa banyak: {kind}","Remove {kind}":"Hapus {kind}",
+  "Add kind":"Tambah jenis","Up to 8 kinds":"Paling banyak 8 jenis","Every kind is in the mix":"Semua jenis sudah ada di campuran","Done":"Selesai",
+  "≈ {h} h":"≈ {h} j","{kind} {h} h":"{kind} {h} j","{kind} {n}× {h} h":"{kind} {n}× {h} j","{kind}: no hours yet":"{kind}: belum ada jam","Choose the kinds to see their hours.":"Pilih jenisnya untuk melihat jamnya.",
+  "Complexity and open dependencies count once, for the whole task.":"Kompleksitas dan dependensi terbuka dihitung sekali, untuk seluruh task.",
+  "A mix needs at least 2 kinds; it is saved once it has them.":"Campuran butuh paling sedikit 2 jenis; disimpan setelah ada 2.","Use one kind":"Pakai satu jenis","Use one kind: {kind}":"Pakai satu jenis: {kind}",
+  "Back to the kind the title gives":"Kembali ke jenis dari judul","Looks like several kinds: {kinds} — split?":"Sepertinya beberapa jenis: {kinds} — bagi?","Split":"Bagi","Dismiss":"Tutup"
 });
 </script>
 <style>
@@ -24723,6 +24886,40 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd-h{flex:none;margin-left:auto;padding-left:6px;color:var(--color-text-tertiary);font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums}
 .scr-kdd-o.on .scr-kdd-h{color:inherit;opacity:.75}
 .scr-kdd-none{margin:0;padding:10px;text-align:center;color:var(--color-text-tertiary);font-size:12px}
+.scr-kdd-o.mix{position:relative;margin-top:7px}
+.scr-kdd-o.mix::before{content:"";position:absolute;left:7px;right:7px;top:-4px;border-top:1px solid var(--color-border)}
+.scr-kmix-slot{min-width:0}
+.scr-kmix-slot:empty{display:none}
+.effort>.scr-kmix-slot{flex:1 1 100%;margin-top:-6px}
+.scr-kmix{display:flex;flex-direction:column;gap:8px;box-sizing:border-box;max-width:560px;min-width:0;padding:10px 12px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface);color:var(--color-text-primary);font-size:12.5px;line-height:1.4}
+.scr-kmix-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.scr-kmix-head b{font-weight:650}
+.scr-kmix-head span{color:var(--color-text-secondary);font-size:12px}
+.scr-kmix-rows{display:flex;flex-direction:column;gap:6px;min-width:0}
+.scr-kmix-row{display:flex;align-items:center;gap:8px;min-width:0}
+.scr-kmix-row>.scr-kdd{flex:1 1 auto;max-width:none}
+.scr-kmix-step{flex:none;align-self:stretch;display:inline-flex;align-items:stretch;min-height:25px;box-sizing:border-box;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.scr-kmix-step:focus-within{border-color:var(--color-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--color-primary) 16%,transparent)}
+.scr-kmix-step button{width:24px;padding:0;border:0;background:none;color:var(--color-text-secondary);font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer}
+.scr-kmix-step button:hover:not(:disabled){background:var(--color-surface-hover);color:var(--color-text-primary)}
+.scr-kmix-step button:disabled{opacity:.35;cursor:default}
+.scr-kmix .scr-kmix-step input{width:38px;min-width:0;height:auto;box-sizing:border-box;margin:0;padding:0 4px;border:0;border-left:1px solid var(--color-border);border-right:1px solid var(--color-border);border-radius:0;background:none;color:inherit;font:inherit;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center;outline:none;box-shadow:none}
+.scr-kmix-x{flex:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:6px;background:none;color:var(--color-text-tertiary);cursor:pointer}
+.scr-kmix-x:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
+.scr-kmix-x:focus-visible{outline:2px solid var(--color-primary);outline-offset:1px}
+.scr-kmix-x svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round}
+.scr-kmix-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.scr-kmix-foot .btn svg{width:13px;height:13px}
+.scr-kmix-total{flex:1 1 180px;min-width:0;color:var(--color-text-secondary);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.scr-kmix-total b{color:var(--color-text-primary);font-weight:650}
+.scr-kmix-few{margin:0;padding:6px 10px;border-radius:8px;background:var(--color-warning-soft);color:var(--color-text-primary);font-size:12px;overflow-wrap:anywhere}
+.scr-kmix-ro{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;color:var(--color-text-secondary);font-size:12px}
+.scr-kmix-ro ul{display:flex;flex-wrap:wrap;gap:4px 6px;margin:0;padding:0;list-style:none}
+.scr-kmix-ro li{padding:1px 8px;border-radius:var(--pill);background:var(--color-surface-sunken);color:var(--color-text-primary)}
+.scr-kmix-ro li b{font-weight:650;font-variant-numeric:tabular-nums}
+.scr-khint{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-width:0;color:var(--color-text-secondary);font-size:12px;overflow-wrap:anywhere}
+.scr-khint>span{min-width:0}
+.scr-khint .scr-kmix-x{width:20px;height:20px}
 @media(pointer:coarse){.scr-kdd-o{padding-top:10px;padding-bottom:10px}}
 @media(prefers-reduced-motion:reduce){.scr-kdd-pop{animation:none}}
 .scr-ktools{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;margin:0 0 12px}

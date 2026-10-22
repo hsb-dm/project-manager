@@ -48,8 +48,10 @@ test("the kind of work: Auto and the kinds with their hours, chosen and kept, by
     /* Auto first, then each active kind in detection order with its hours */
     const order = await page.evaluate(() => estKindList().filter(k => k.active !== false).map(k => k.id));
     expect(order.length).toBe(14);
-    await expect(rows).toHaveCount(15);
-    expect(await rows.evaluateAll(r => r.map(x => x.getAttribute("data-v")))).toEqual([""].concat(order));
+    /* and last "Several kinds…" (e2e/kind-mix.spec.js) */
+    await expect(rows).toHaveCount(16);
+    expect(await rows.evaluateAll(r => r.map(x => x.getAttribute("data-v")))).toEqual([""].concat(order, [":mix"]));
+    await expect(rows.last()).toHaveText("Several kinds…"); await expect(rows.last()).toHaveAttribute("aria-selected", "false");
     await expect(rows.first()).toHaveText("Auto — from the title: video");
     await expect(rows.first()).toHaveAttribute("aria-selected", "true"); await expect(rows.first().locator(".scr-kdd-ck svg")).toHaveCount(1);
     await expect(option("video").locator(".scr-kdd-l")).toHaveText("video"); await expect(option("video").locator(".scr-kdd-h")).toHaveText("4–16 h");
@@ -131,7 +133,7 @@ test("the kind of work: Auto and the kinds with their hours, chosen and kept, by
     /* 8 kinds or fewer: no box, and letters jump (the same letter again: the next one) */
     await page.evaluate(() => { window.__kddWs = WS.scoring; const s = JSON.parse(JSON.stringify(scoringSettings())); s.kinds.forEach((k, i) => { if (i >= 6) k.active = false; }); WS.scoring = s; renderDrawer(); });
     await trig.focus(); await page.keyboard.press("v");
-    await expect(pop).toBeVisible(); await expect(find).toHaveCount(0); await expect(rows).toHaveCount(7);
+    await expect(pop).toBeVisible(); await expect(find).toHaveCount(0); await expect(rows).toHaveCount(8);
     await expect(option("video")).toHaveClass(/\bact\b/); await expect(trig).toHaveAttribute("aria-activedescendant", await option("video").getAttribute("id"));
     await page.keyboard.press("r"); await page.waitForTimeout(700); await page.keyboard.press("r");
     await expect(option("resize")).toHaveClass(/\bact\b/);

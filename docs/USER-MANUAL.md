@@ -315,6 +315,31 @@ ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Piliha
 bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali
 dari judulnya.
 
+**Beberapa jenis dalam satu task (Several kinds…).** Satu task bisa berisi beberapa jenis pekerjaan, misalnya
+"Youtube Podcast (Full Video, Clippers Socmed & Cover)" = 1 video + 4 reels + 1 cover. Pilih **Beberapa jenis…**
+(Several kinds…), opsi terakhir di daftar **Kind of work**. Di bawah baris itu langsung terbuka daftar jenisnya (bukan
+jendela baru):
+
+- Tiap baris berisi satu jenis (daftar yang sama, tanpa Otomatis dan tanpa jenis yang sudah dipakai di baris lain),
+  jumlahnya (1–500; ketik angkanya, klik **−**/**+**, atau pakai ↑ ↓, PageUp/PageDown untuk ±10, Home/End), dan tombol
+  **×** untuk menghapus baris itu. **Tambah jenis** (Add kind) menambah baris, paling banyak 8 jenis.
+- Di bawahnya ada total jam yang langsung ikut berubah, misalnya **≈ 31 j · reels 4× 17 j + video 8 j + key visual
+  6 j**. Jam tiap jenis dihitung dari template workspace (deliverable pertama penuh, berikutnya sesuai jenisnya), lalu
+  kompleksitas dan dependency yang belum selesai dihitung sekali untuk seluruh task.
+- Perubahan tersimpan sendiri seperti field task lain (angka yang diketik disimpan setelah berhenti mengetik; Enter
+  langsung menyimpan). Estimate dihitung ulang seperti saat memilih jenis. **Selesai** (Done) atau Esc menutup daftar.
+- Campuran butuh paling sedikit 2 jenis. Kalau tinggal satu, belum ada yang disimpan; klik **Pakai satu jenis: …**
+  (Use one kind) untuk kembali ke satu jenis itu.
+- Setelah tersimpan, daftar Kind of work menampilkan **campuran · 3 jenis** (Mixed · 3 kinds); arahkan kursor ke sana
+  untuk melihat isinya. Memilih satu jenis atau **Otomatis** di daftar itu mengakhiri campurannya.
+- Kalau judul task menyebut beberapa jenis, di bawah baris Effort muncul catatan kecil **Sepertinya beberapa jenis:
+  video, reels, … — bagi?** (Looks like several kinds… — split?). **Bagi** (Split) memasang jenis-jenis itu
+  masing-masing 1 lalu membuka daftarnya untuk mengatur jumlahnya; **×** menyembunyikan catatan itu untuk task ini di
+  perangkat ini. Catatan ini tidak pernah dipasang otomatis.
+- Yang tidak bisa mengedit task hanya melihat daftar jenis dan jumlahnya di bawah baris Effort.
+- Campuran ikut tersalin saat task diduplikasi. Untuk analytics per jenis, task campuran dihitung sebagai jenis yang
+  jamnya paling banyak.
+
 ### Empat tab
 
 **Brief** — kolom **Description** bebas, bagian **Dependencies**, lalu **Creative brief**.
@@ -434,8 +459,15 @@ dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
 - **Math**: hitungan otomatis. Untuk jam, dasarnya jenis pekerjaan (yang dipilih di task, kalau tidak dari judul —
   bisa dipilih juga di baris jam ini, **Kind of work**), jumlah **Assets produced** sebagai jumlah deliverable,
   rating kompleksitas, dan dependency yang belum selesai. Klik **Explanation** untuk melihat langkah hitungannya.
+  Task dengan beberapa jenis (lihat **Beberapa jenis dalam satu task** di atas) menampilkan **Deliverable per jenis**
+  (Deliverables by kind), misalnya "video 1 (8 j), reels 4 (17 j)", sebagai pengganti Assets produced. Daftar jenisnya
+  juga bisa dibuka dari baris jam ini, dan muncul di bawahnya. Di form **Calculate**, campurannya ditampilkan apa
+  adanya: tidak ada pilihan satu jenis di sana, jadi campurannya tidak tergantikan; **Ubah campuran** (Change the mix)
+  membuka daftarnya.
 - **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
-  jauh dari hitungan diberi peringatan.
+  jauh dari hitungan diberi peringatan. Kalau AI membaca task sebagai beberapa jenis yang berbeda dari campuran task,
+  tertulis misalnya **Saran AI: video 1 · reels 4 · key visual 1** (The AI suggests: …) dengan tombol **Pakai
+  pembagian ini** (Use this split) untuk yang boleh mengedit task.
 - **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,
   Approved, Locked, Re-baseline needed).
 
