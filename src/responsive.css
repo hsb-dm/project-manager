@@ -285,10 +285,6 @@
     font-size: 11.5px;
     margin-top: 3px !important;
   }
-  .project-pagehead .date {
-    font-size: 11px;
-    margin-bottom: 4px;
-  }
   .project-pagehead>div:first-child>div:last-child {
     gap: 5px !important;
     margin-top: 8px !important;
@@ -306,7 +302,7 @@
   .task-pagehead .actions>.primary,
   .project-pagehead .actions>.primary,
   .calendar-pagehead .actions>.primary {
-    grid-column: auto !important;
+    grid-column: auto;
   }
   .task-pagehead .actions>.primary,
   .project-pagehead .actions>.primary,
@@ -320,7 +316,7 @@
     padding: 0 !important;
     border-radius: 50% !important;
     justify-content: center;
-    font-size: 0 !important;
+    font-size: 0;
     grid-row: auto !important;
     margin: 0;
   }
@@ -338,7 +334,7 @@
   }
   .task-pagehead .actions,
   .project-pagehead .actions {
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
   }
   .task-pagehead .actions,
   .project-pagehead .actions {
@@ -369,7 +365,7 @@
   .pagehead .actions .enh-proj {
     width: 34px !important;
     height: 34px !important;
-    min-height: 34px !important;
+    min-height: 34px;
     padding: 0 !important;
     flex: 0 0 34px !important;
     border-radius: 50%;
@@ -393,7 +389,6 @@
     order: 3;
     margin-left: auto;
     min-width: 0 !important;
-    height: 34px;
     padding: 0 6px 0 11px;
     box-sizing: border-box;
   }
@@ -417,7 +412,7 @@
     display: flex !important;
   }
   .ptabs {
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
   }
   .ptabs {
     padding: 3px !important;
@@ -434,7 +429,7 @@
     width: auto !important;
     max-width: 100%;
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
     overflow-x: auto;
     justify-content: flex-start;
     gap: 2px;
@@ -483,9 +478,6 @@
   }
   .toolbar[data-tour="task-filters"] {
     display: flex !important;
-  }
-  .toolbar[data-tour="task-filters"] {
-    gap: 6px;
   }
   .toolbar[data-tour="task-filters"] {
     padding: 1px 0;
@@ -622,10 +614,10 @@
   .cal-mobile-date .iconbtn {
     width: 34px !important;
     height: 34px !important;
-    min-width: 34px !important;
+    min-width: 34px;
   }
   .cal-mobile-actions>.iconbtn {
-    min-width: 34px !important;
+    min-width: 34px;
   }
   .cal-mobile-date .iconbtn svg,
   .cal-mobile-actions>.iconbtn svg {
@@ -653,7 +645,7 @@
   .cal-mobile-actions .seg button {
     min-height: 28px !important;
     padding: 5px 11px !important;
-    font-size: 11.5px !important;
+    font-size: 11.5px;
   }
   .cal-mobile-actions>.iconbtn {
     order: 2;
@@ -698,7 +690,7 @@
     row-gap: 0;
     column-gap: 6px;
   }
-  .row.task-row:not(:has(>.meta-grid)) {
+  .row.task-row.task-row-cells {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -706,19 +698,19 @@
     position: relative;
     padding-left: calc(var(--sp-4) + 13px);
   }
-  .row.task-row:not(:has(>.meta-grid))>.prio {
+  .row.task-row.task-row-cells>.prio {
     position: absolute;
     left: var(--sp-4);
     top: calc(var(--row-py) + 2px);
     bottom: calc(var(--row-py) + 2px);
     height: auto !important;
   }
-  .row.task-row:not(:has(>.meta-grid))>div:not(.prio):not(.r),
-  .row.task-row:not(:has(>.meta-grid)) .m,
-  .row.task-row:not(:has(>.meta-grid))>.r:not(.meta-grid) {
+  .row.task-row.task-row-cells>div:not(.prio):not(.r),
+  .row.task-row.task-row-cells .m,
+  .row.task-row.task-row-cells>.r:not(.meta-grid) {
     display: contents;
   }
-  .row.task-row:not(:has(>.meta-grid)) .t {
+  .row.task-row.task-row-cells .t {
     flex: 1 0 100%;
     order: 0;
     white-space: normal;
@@ -729,41 +721,41 @@
     line-height: 1.3;
     margin-bottom: 1px;
   }
-  .row.task-row:not(:has(>.meta-grid)):has(>.tcheck) .t {
+  .row.task-row.task-row-cells:has(>.tcheck) .t {
     flex-basis: calc(100% - 36px);
   }
-  .row.task-row:not(:has(>.meta-grid))>.tcheck {
+  .row.task-row.task-row-cells>.tcheck {
     order: -1;
     flex: none;
   }
-  .row.task-row:not(:has(>.meta-grid)) .m>.mono,
-  .row.task-row:not(:has(>.meta-grid)) .m>.sep,
-  .row.task-row:not(:has(>.meta-grid)) .m>span:not([class]) {
+  .row.task-row.task-row-cells .m>.mono,
+  .row.task-row.task-row-cells .m>.sep,
+  .row.task-row.task-row-cells .m>span:not([class]) {
     display: none;
   }
-  .row.task-row:not(:has(>.meta-grid)) .m>*,
-  .row.task-row:not(:has(>.meta-grid))>.r>* {
+  .row.task-row.task-row-cells .m>*,
+  .row.task-row.task-row-cells>.r>* {
     order: 1;
     flex: none;
   }
-  .row.task-row:not(:has(>.meta-grid)) .due {
+  .row.task-row.task-row-cells .due {
     font-size: 10.5px;
   }
-  .row.task-row:not(:has(>.meta-grid)) .av-stack {
+  .row.task-row.task-row-cells .av-stack {
     margin-left: auto;
   }
-  .row.task-row:not(:has(>.meta-grid)) .badge,
-  .row.task-row:not(:has(>.meta-grid)) .tbadge {
+  .row.task-row.task-row-cells .badge,
+  .row.task-row.task-row-cells .tbadge {
     font-size: 10px;
     padding: 2px 7px;
     gap: 4px;
     line-height: 1.35;
   }
-  .row.task-row:not(:has(>.meta-grid)) .tbadge i {
+  .row.task-row.task-row-cells .tbadge i {
     width: 6px;
     height: 6px;
   }
-  .row.task-row:not(:has(>.meta-grid)) .badge svg {
+  .row.task-row.task-row-cells .badge svg {
     width: 11px;
     height: 11px;
   }
@@ -772,7 +764,7 @@
     scroll-snap-type: x mandatory;
   }
   .kanban .kcol {
-    flex: 0 0 calc((100% - 8px)/2) !important;
+    flex: 0 0 calc((100% - 8px)/2);
     width: calc((100% - 8px)/2);
     min-width: 0;
     max-height: calc(100dvh - 300px);
@@ -810,9 +802,6 @@
     align-items: flex-start;
   }
   .kcard .kt-line .tcheck {
-    width: 16px;
-    height: 16px;
-    min-width: 16px;
     flex: none;
     margin-top: 1px;
   }
@@ -873,25 +862,18 @@
     padding: 8px 9px !important;
     font-size: 11px;
   }
-  .kcard.bulk-selectable {
-    padding-left: 30px !important;
-  }
-  .kcard.bulk-selectable>.bulk-check {
-    left: 7px;
-    top: 9px;
-  }
-  .tbl-wrap:has(td.tcheck-col) {
+  div.tbl-wrap.lcol-wrap {
     overflow: visible;
   }
-  .tbl:has(td.tcheck-col),
-  .tbl:has(td.tcheck-col) tbody {
+  table.tbl.lcol-tbl,
+  table.tbl.lcol-tbl tbody {
     display: block;
     width: 100%;
   }
-  .tbl:has(td.tcheck-col) thead {
+  table.tbl.lcol-tbl thead {
     display: none;
   }
-  .tbl:has(td.tcheck-col) tbody tr:not(.grp) {
+  table.tbl.lcol-tbl tbody tr:not(.grp) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -900,117 +882,117 @@
     padding: 10px 48px 10px 46px;
     border-bottom: 1px solid var(--color-border);
   }
-  .tbl:has(td.tcheck-col) tbody tr:not(.grp) td {
+  table.tbl.lcol-tbl tbody tr:not(.grp) td {
     display: block;
     padding: 0 !important;
     border: 0 !important;
     min-width: 0;
   }
-  .tbl:has(td.tcheck-col) tbody tr:not(.grp) td:empty {
+  table.tbl.lcol-tbl tbody tr:not(.grp) td:empty {
     display: none;
   }
-  .tbl:has(td.tcheck-col) td.tcheck-col {
+  table.tbl.lcol-tbl td.tcheck-col {
     position: absolute;
     left: 18px;
     top: 50%;
     transform: translateY(-50%);
   }
-  .tbl:has(td.tcheck-col) td.drag-h {
+  table.tbl.lcol-tbl td.drag-h {
     display: none !important;
   }
-  .tbl:has(td.tcheck-col) td.t {
+  table.tbl.lcol-tbl td.t {
     flex: 1 0 100%;
     order: 0;
     font-size: 13px;
     line-height: 1.3;
   }
-  .tbl:has(td.tcheck-col) td.t>div:first-child {
+  table.tbl.lcol-tbl td.t>div:first-child {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .tbl:has(td.tcheck-col) td.t .mono {
+  table.tbl.lcol-tbl td.t .mono {
     display: none;
   }
   /* Each cell is found by its column class (lcol-<key>, src/tasks.js), not by its place: a person can move the
      List's columns (src/list-columns.js), and the card keeps its own order whatever that order is —
      the title, then status, dependency, team and due; assignee at the right, the priority bar at the left. */
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td {
+  table.tbl.lcol-tbl tr:not(.grp)>td {
     order: 5;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-title {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-title {
     order: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-status {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-status {
     order: 1;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-dependency {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-dependency {
     order: 2;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-team {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-team {
     order: 3;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-due {
     order: 4;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-proj,
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-start,
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-effort,
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-tags {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-proj,
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-start,
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-effort,
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-tags {
     display: none !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-assignee {
     position: absolute;
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .cell-flex {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-assignee .cell-flex {
     font-size: 0;
     gap: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-assignee .av {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-assignee .av {
     width: 22px;
     height: 22px;
     font-size: 8px;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-prio {
     position: absolute;
     left: 8px;
     top: 10px;
     bottom: 10px;
     font-size: 0;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .cell-flex {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-prio .cell-flex {
     height: 100%;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-prio .prio {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-prio .prio {
     height: 100% !important;
   }
-  .tbl:has(td.tcheck-col) tr:not(.grp)>td.lcol-due .due {
+  table.tbl.lcol-tbl tr:not(.grp)>td.lcol-due .due {
     font-size: 10.5px;
     white-space: nowrap;
   }
-  .tbl:has(td.tcheck-col) .badge,
-  .tbl:has(td.tcheck-col) .tbadge {
+  table.tbl.lcol-tbl .badge,
+  table.tbl.lcol-tbl .tbadge {
     font-size: 10px;
     padding: 2px 7px;
     gap: 4px;
   }
-  .tbl:has(td.tcheck-col) .tbadge i {
+  table.tbl.lcol-tbl .tbadge i {
     width: 6px;
     height: 6px;
   }
-  .tbl:has(td.tcheck-col) tr.grp {
+  table.tbl.lcol-tbl tr.grp {
     display: block;
   }
-  .tbl:has(td.tcheck-col) tr.grp td {
+  table.tbl.lcol-tbl tr.grp td {
     display: block;
     padding: 8px 12px !important;
     font-size: 11.5px;
   }
-  .tbl-wrap:has(td.tcheck-col)+.panel-foot {
+  div.tbl-wrap.lcol-wrap+.panel-foot {
     display: none;
   }
   .desktop-only {
@@ -1046,7 +1028,7 @@
   }
   .m-head .actions {
     display: flex !important;
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 6px;
     width: 100% !important;
@@ -1056,19 +1038,19 @@
     margin-top: 0;
   }
   .m-head .actions .btn {
-    flex: none !important;
+    flex: none;
   }
   .m-head .actions>.m-primary {
     position: absolute;
     top: 0;
     right: 0;
     width: 38px !important;
-    min-width: 38px !important;
+    min-width: 38px;
     height: 38px !important;
     padding: 0 !important;
     border-radius: 50% !important;
     justify-content: center;
-    font-size: 0 !important;
+    font-size: 0;
     gap: 0 !important;
     margin: 0;
   }
@@ -1333,12 +1315,6 @@
   .settings .panel-foot:has(.primary) {
     box-shadow: 0 -8px 18px -12px rgba(0,0,0,.18);
   }
-  .settings .field-row {
-    row-gap: 14px;
-  }
-  .settings .field {
-    margin-bottom: 0;
-  }
   .tbl-wrap:has(.members-tbl) {
     overflow: visible;
   }
@@ -1425,7 +1401,7 @@
     order: -1;
   }
   .ai-studio-head .actions .btn:not(.primary) {
-    flex: 1 1 0 !important;
+    flex: 1 1 0;
     justify-content: center;
   }
   #content:has(.an-head) .panel-body.pad:has(>svg) {
@@ -1462,10 +1438,6 @@
   }
   #drBody .alink .u {
     display: none;
-  }
-  .dr-title:empty::before {
-    content: attr(data-placeholder);
-    color: var(--color-text-tertiary);
   }
   .dctl>button {
     width: 32px !important;
@@ -1511,12 +1483,12 @@
   }
   .row.task-row .lbls>*,
   .kcard .lbls>*,
-  .tbl:has(td.tcheck-col) .lbls>* {
+  table.tbl.lcol-tbl .lbls>* {
     pointer-events: none;
   }
-  .row.task-row:not(:has(>.meta-grid)) .av-stack .av,
+  .row.task-row.task-row-cells .av-stack .av,
   .kcard .av-stack .av,
-  .tbl:has(td.tcheck-col) .av {
+  table.tbl.lcol-tbl .av {
     width: 22px !important;
     height: 22px !important;
     font-size: 9px !important;
@@ -1680,12 +1652,15 @@ body.bulk-on .row.task-row > .tcheck {
   accent-color: var(--color-primary);
   cursor: pointer;
 }
-/* selected items read as selected */
-.kcard.bulk-selectable:has(.bulk-check input:checked) {
+/* selected items read as selected: .bulk-selected is set with the tick (bulkMark, src/enhance.js), in place of
+   :has(.bulk-check input:checked), which had every DOM change on the page check every row again. Only
+   .panel.ink .row:hover (Home's review panel, where select mode never runs) sits between the old and the new
+   specificity, so nothing that is drawn changes. */
+.kcard.bulk-selectable.bulk-selected {
   box-shadow: 0 0 0 2px var(--color-primary);
 }
-.tbl tr.bulk-selectable:has(.bulk-check input:checked) > td,
-.row.bulk-selectable:has(.bulk-check input:checked) {
+.tbl tr.bulk-selectable.bulk-selected > td,
+.row.bulk-selectable.bulk-selected {
   background: var(--color-primary-soft);
 }
 body.bulk-on .bulk-selectable {
@@ -1701,7 +1676,7 @@ body.bulk-on .bulk-selectable {
   .bulk-bar.on {
     left: 8px !important;
     right: 8px !important;
-    bottom: calc(var(--tabbar-h, 60px) + 8px) !important;
+    bottom: calc(var(--tabbar-h, 60px) + 8px);
     transform: none !important;
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1785,17 +1760,17 @@ body.bulk-on .bulk-selectable {
     padding-right: 24px;
   }
   /* a selected list card is highlighted as one card, not cell by cell */
-  .tbl:has(td.tcheck-col) tr.bulk-selectable:has(.bulk-check input:checked) {
+  table.tbl.lcol-tbl tr.bulk-selectable.bulk-selected {
     background: var(--color-primary-soft);
   }
-  .tbl:has(td.tcheck-col) tr.bulk-selectable:has(.bulk-check input:checked) > td {
+  table.tbl.lcol-tbl tr.bulk-selectable.bulk-selected > td {
     background: transparent;
   }
   /* task list cards: the select checkbox takes the place of the personal check */
-  body.bulk-on .tbl:has(td.tcheck-col) td.tcheck-col {
+  body.bulk-on table.tbl.lcol-tbl td.tcheck-col {
     display: none !important;
   }
-  .tbl:has(td.tcheck-col) tr > td.bulk-check-cell {
+  table.tbl.lcol-tbl tr > td.bulk-check-cell {
     position: absolute;
     left: 16px;
     top: 50%;

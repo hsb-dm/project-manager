@@ -44,7 +44,8 @@ test('Mobile work surfaces keep stable headers, fixed chat and working account a
   assert.match(projects,/project-pagehead/);assert.match(projects,/project-new-task/);
   assert.match(gallery,/ag-pagehead/);assert.match(css,/\.content:has\(\.msg-layout\)/);
   assert.match(css,/\.msg-quick \.btn\{[^}]*width:38px!important[^}]*height:38px!important[^}]*min-height:38px!important[^}]*aspect-ratio:1\/1[^}]*border-radius:50%!important/);
-  assert.match(css,/#aiCanvas\.ai-zoom-viewport\{height:300px!important/);assert.match(css,/grid-auto-rows:minmax\(76px,76px\)/);
+  /* the phone canvas height lives in responsive.css (230px): the 300px here could never win and went (performance stage 3) */
+  assert.match(css,/#aiCanvas\.ai-zoom-viewport\{padding:10px!important\}/);assert.match(read('src/responsive.css'),/#aiCanvas\.ai-zoom-viewport \{\s*height: 230px !important;\s*min-height: 180px !important;/);assert.match(css,/grid-auto-rows:minmax\(76px,76px\)/);
 });
 
 test('Teams expose PowerPoint plus done-this-month and produced-assets KPIs',()=>{

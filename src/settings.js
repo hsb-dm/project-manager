@@ -545,7 +545,7 @@ function setLabels(){
   var ed=canI.manageWorkspace(), ls=allLabels(), custom=!!(WS.labels&&WS.labels.length);
   var counts={}; TASKS.forEach(function(t){ (t.labels||[]).forEach(function(id){ counts[id]=(counts[id]||0)+1; }); });
   var rows=ls.map(function(l){
-    return '<div class="stage-edit" style="grid-template-columns:minmax(0,1fr) 150px 90px auto">'
+    return '<div class="stage-edit label-edit" style="grid-template-columns:minmax(0,1fr) 150px 90px auto">'
       + '<input '+(ed?"":"disabled")+' value="'+attr(l.name)+'" onchange="renameLabel(\''+l.id+'\',this.value)">'
       + '<span style="display:flex;gap:4px;flex-wrap:wrap">'+LABEL_COLORS.map(function(c){ return '<button title="'+c[0]+'" onclick="'+(ed?'setLabelColor(\''+l.id+'\',\''+c[1]+'\')':'')+'" style="width:16px;height:16px;border-radius:50%;border:'+(l.color.toLowerCase()===c[1].toLowerCase()?"2px solid var(--color-text-primary)":"1px solid var(--color-border)")+';background:'+c[1]+';cursor:'+(ed?"pointer":"default")+'"></button>'; }).join("")+'</span>'
       + '<span class="hint">'+(counts[l.id]||0)+' task'+((counts[l.id]||0)===1?"":"s")+'</span>'

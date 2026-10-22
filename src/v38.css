@@ -64,7 +64,7 @@
    action onto a row of its own while Board stayed on one. Everything now rides a single
    row and the pills give up width instead (measured: 373px wanted in a 328px bar at 360px),
    truncating their value rather than wrapping. Active filter chips keep their own line. */
-@media(max-width:560px){/* one row: whose tasks, the filters, sort, group and views. Whose tasks is one button that says which and switches (as the calendar and the projects list do); Sort and Group show an icon for their name (still read out); the value keeps its words. One sideways-scrolling row had clipped the menus out of sight and squeezed the pills to a sliver */.toolbar.task-filter-toolbar[data-tour]{flex-wrap:wrap;overflow:visible;row-gap:6px;column-gap:4px}.task-filter-toolbar .task-toolbar-primary{order:1;flex:none;gap:4px}.task-filter-toolbar .task-toolbar-primary .seg{display:none}.task-filter-toolbar .task-scope-toggle{display:inline-flex;min-height:30px;padding:0 10px;font-size:11px;background:var(--color-ink);color:var(--color-ink-text);border-color:var(--color-ink)}.task-filter-toolbar .task-toolbar-spacer{display:none}.task-filter-toolbar .task-toolbar-sort{order:2;flex:0 1 auto;min-width:0;flex-wrap:nowrap;gap:4px}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none;margin-left:auto;gap:4px}.task-filter-toolbar .task-toolbar-sort .pillsel{flex:0 1 auto;min-width:0;gap:4px;padding-left:6px;padding-right:4px}.task-filter-toolbar .pillsel-trigger{min-width:0;gap:4px}.task-filter-toolbar .pillsel-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58px;font-size:11px}.task-filter-toolbar .iconbtn{width:28px!important;height:28px!important;min-width:28px!important}.task-filter-toolbar .pillsel-custom>span:first-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.task-filter-toolbar .pillsel-custom::before{content:"";flex:none;width:13px;height:13px;background:var(--color-text-secondary);-webkit-mask:var(--pill-ico) center/contain no-repeat;mask:var(--pill-ico) center/contain no-repeat}.task-filter-toolbar .pillsel-custom[data-pill="sort"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='1.5'/%3E%3Crect x='4' y='14' width='16' height='6' rx='1.5'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]:not(.on) .pillsel-value{display:none}.task-filter-toolbar .pillsel-custom .pillsel-trigger::after{content:"";position:absolute;inset:0;border-radius:inherit}}
+@media(max-width:560px){/* one row: whose tasks, the filters, sort, group and views. Whose tasks is one button that says which and switches (as the calendar and the projects list do); Sort and Group show an icon for their name (still read out); the value keeps its words. One sideways-scrolling row had clipped the menus out of sight and squeezed the pills to a sliver */.toolbar.task-filter-toolbar[data-tour]{flex-wrap:wrap;overflow:visible;row-gap:6px;column-gap:4px}.task-filter-toolbar .task-toolbar-primary{order:1;flex:none;}.task-filter-toolbar .task-toolbar-primary .seg{display:none}.task-filter-toolbar .task-scope-toggle{display:inline-flex;min-height:30px;padding:0 10px;font-size:11px;background:var(--color-ink);color:var(--color-ink-text);border-color:var(--color-ink)}.task-filter-toolbar .task-toolbar-spacer{display:none}.task-filter-toolbar .task-toolbar-sort{order:2;flex:0 1 auto;min-width:0;flex-wrap:nowrap;}.task-filter-toolbar .task-toolbar-tail{order:3;flex:none;margin-left:auto;}.task-filter-toolbar .task-toolbar-sort .pillsel{flex:0 1 auto;min-width:0;gap:4px;padding-left:6px;padding-right:4px}.task-filter-toolbar .pillsel-trigger{min-width:0;gap:4px}.task-filter-toolbar .pillsel-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58px;font-size:11px}.task-filter-toolbar .pillsel-custom>span:first-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.task-filter-toolbar .pillsel-custom::before{content:"";flex:none;width:13px;height:13px;background:var(--color-text-secondary);-webkit-mask:var(--pill-ico) center/contain no-repeat;mask:var(--pill-ico) center/contain no-repeat}.task-filter-toolbar .pillsel-custom[data-pill="sort"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]{--pill-ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='1.5'/%3E%3Crect x='4' y='14' width='16' height='6' rx='1.5'/%3E%3C/svg%3E")}.task-filter-toolbar .pillsel-custom[data-pill="group"]:not(.on) .pillsel-value{display:none}.task-filter-toolbar .pillsel-custom .pillsel-trigger::after{content:"";position:absolute;inset:0;border-radius:inherit}}
 @media(max-width:520px){.task-filter-toolbar .task-toolbar-tail .tb-label{display:none}.task-filter-toolbar .task-toolbar-tail .btn{padding-left:8px;padding-right:8px}.task-filter-toolbar .pillsel{font-size:11px;padding-left:9px;padding-right:6px}.task-filter-toolbar .pillsel select{max-width:105px}.task-filter-toolbar .pillsel-menu{left:auto;right:0;min-width:176px}}
 .file-upload-pending{margin-bottom:8px}.file.pending{opacity:.8;background:var(--color-surface-sunken)}.file.pending .badge{color:var(--color-primary);background:var(--color-primary-soft)}.file.pending .spinner{width:16px;height:16px;border:2px solid var(--color-border-strong);border-top-color:var(--color-primary);border-radius:50%;animation:cos-spin .75s linear infinite;flex:0 0 auto}@keyframes cos-spin{to{transform:rotate(360deg)}}
 
@@ -220,7 +220,7 @@ body.paste-resizing .desc-img{pointer-events:none}
 @media(prefers-reduced-motion:reduce){.gear-toggle>i,.gear-toggle>i::after{transition:none}}
 
 /* The comment box's attach row — the same five ways in as Assets & versions. */
-:is(#drawer,.pd-box) .composer .cmt-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+:is(#drawer,.pd-box) .composer .cmt-tools{flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 :is(#drawer,.pd-box) .composer .cmt-tools .btn{gap:5px}
 :is(#drawer,.pd-box) .composer .cmt-tools .drive-logo,:is(#drawer,.pd-box) .composer .cmt-tools svg{width:13px;height:13px}
 /* A Drive link drawn as its name: the Drive mark and a short label instead of a long URL. */
@@ -599,10 +599,9 @@ img.emj.custom{object-fit:contain}
   #drawer .dr-head>*{flex:none}
   #drawer .dr-head>*:not(.tabs){margin-left:12px!important;margin-right:12px!important}
   #drawer .dr-head>.dr-title{margin-left:8px!important}
-  #drawer .dr-head>.dr-top{margin-top:10px}
   #drawer .dr-head>.task-more-toggle{align-self:flex-start}
   #drawer .dr-body{flex:1 0 auto;overflow:visible;min-height:0}
-  #drawer .dr-head>.tabs{position:sticky;top:0;z-index:6;margin:0;padding:4px 12px 0;background:var(--color-surface);border-bottom:1px solid var(--color-border);overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;scrollbar-width:none}
+  #drawer .dr-head>.tabs{position:sticky;top:0;z-index:6;margin:0;background:var(--color-surface);border-bottom:1px solid var(--color-border);overflow-y:hidden;scrollbar-width:none}
   #drawer .dr-head>.tabs::-webkit-scrollbar{display:none}
   #drawer .dr-head>.tabs .tab{flex:none}
   #drawer .tab-expand{display:none!important}
@@ -611,7 +610,6 @@ img.emj.custom{object-fit:contain}
   #drawer .dr-foot .btn{white-space:nowrap;flex:none}
   #drawer .dr-foot .foot-up{padding-left:10px;padding-right:10px}
   #drawer .dr-foot .task-stage-select{flex:0 1 auto;min-width:0}
-  #drawer .dr-foot .task-stage-select select{max-width:38vw;text-overflow:ellipsis}
   #drHead.m-details .task-more-toggle{display:none!important}
   #drHead.m-details .task-meta-secondary{display:grid!important}
   /* the chat: no page title over it, so the conversation has the room */
@@ -645,7 +643,6 @@ img.emj.custom{object-fit:contain}
   #drawer .m-attach{display:inline-flex}
   #drawer .av-tools,:is(#drawer,.pd-box) .composer .cmt-tools{display:none}
   :is(#drawer,.pd-box) .composer .bar>.av,:is(#drawer,.pd-box) .composer .bar>.hint{display:none}
-  .m-attach-menu button .drive-logo{width:15px;height:15px;margin:0}
   /* tidy rows: a version's name and state, its actions under them; a file's actions in one row under its name */
   #drawer .av-version>.av-head{flex-wrap:wrap;row-gap:8px}
   #drawer .av-version>.av-head>.spacer{flex-basis:100%;height:0}
@@ -692,9 +689,9 @@ img.emj.custom{object-fit:contain}
   #drawer .empty>div[style*="flex-wrap:wrap"]{justify-content:center}
   /* the stage in the footer: a compact pill that shows it opens */
   #drawer .dr-foot{padding:8px 12px calc(8px + env(safe-area-inset-bottom));gap:6px}
-  #drawer .dr-foot .task-stage-select{min-height:32px;padding:0 12px;font-size:12px;gap:6px}
-  #drawer .dr-foot .task-stage-select select{font-size:12px;padding:0}
-  #drawer .dr-foot .task-stage-select::after{content:"";flex:none;width:6px;height:6px;margin-top:-3px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg);pointer-events:none}
+  #drawer .dr-foot .task-stage-select{min-height:32px;gap:6px}
+  #drawer .dr-foot .task-stage-select select{padding:0}
+  #drawer .dr-foot .task-stage-select::after{content:"";flex:none;pointer-events:none}
   /* the footer a size down so stage, Request revision and Approve fit one row; the stage keeps its arrow inside,
      its name shortened if need be (the arrow used to spill onto the next button) */
   #drawer .dr-foot .btn{min-height:30px;padding:0 10px;font-size:11.5px;gap:4px}
@@ -740,7 +737,7 @@ img.emj.custom{object-fit:contain}
   .project-pagehead~.ptabs{margin-top:2px}
   .toolbar:has(>.proj-scope) .seg button{font-size:11px;padding:4px 8px;min-height:28px;white-space:nowrap}
   .toolbar:has(>.proj-scope) .seg .cnt{font-size:9.5px;margin-left:1px}
-  .project-pagehead{gap:8px;margin-bottom:10px}
+  .project-pagehead{gap:8px;}
   .project-pagehead .date{font-size:11px}
   .project-pagehead h1{font-size:19px;line-height:1.2;margin-top:2px}
   .project-pagehead>div:first-child>div[style*="margin-top:6px"]{gap:4px!important;margin-top:5px!important}
@@ -804,11 +801,11 @@ img.emj.custom{object-fit:contain}
   .pf-colors{flex-wrap:wrap}
   .stage-edit.builtin-field{grid-template-columns:auto minmax(0,1fr)!important}
   .stage-edit.builtin-field>select{grid-column:2}
-  .stage-edit:has(>input[onchange^="renameLabel"]){grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}
-  .stage-edit:has(>input[onchange^="renameLabel"])>input{grid-column:1;grid-row:1;min-width:0}
-  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(2){grid-column:1;grid-row:2}
-  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(3){grid-column:2;grid-row:2;justify-self:end}
-  .stage-edit:has(>input[onchange^="renameLabel"])>:nth-child(4){grid-column:2;grid-row:1}
+  div.stage-edit.label-edit{grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}
+  div.stage-edit.label-edit>input{grid-column:1;grid-row:1;min-width:0}
+  div.stage-edit.label-edit>:nth-child(2){grid-column:1;grid-row:2}
+  div.stage-edit.label-edit>:nth-child(3){grid-column:2;grid-row:2;justify-self:end}
+  div.stage-edit.label-edit>:nth-child(4){grid-column:2;grid-row:1}
   #modal .seg,.settings .seg{background:transparent;padding:0;gap:6px}
   #modal .seg button,.settings .seg button{background:var(--color-surface-sunken);padding:7px 12px}
   #modal .seg button.on,.settings .seg button.on{background:var(--color-ink);color:var(--color-ink-text)}
@@ -912,7 +909,7 @@ img.emj.custom{object-fit:contain}
 .task-stage-rail button.done svg{stroke:var(--color-success,#16A34A)}
 @media (min-width:761px){
   #drawer .dr-foot{padding-top:8px;padding-bottom:10px;row-gap:6px}
-  #drawer .dr-foot>.btn,#drawer .dr-foot .foot-actions .btn{min-height:32px;padding-top:0;padding-bottom:0}
+  #drawer .dr-foot>.btn{min-height:32px;padding-top:0;padding-bottom:0}
 }
 
 /* ---------- A file's actions in two lines ----------
@@ -1002,7 +999,7 @@ img.emj.custom{object-fit:contain}
 .exm-dates{margin-bottom:0}
 .exm-dates .field{margin-bottom:0}
 .exm-row{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--color-border)}
-.exm-sec-head+.exm-row{border-top:0;padding-top:0}
+.exm-sec-head+.exm-row{border-top:0;}
 .exm-row-label{display:flex;align-items:flex-start;gap:12px;min-width:0}
 .exm-row-label b{display:block;margin-top:7px;font-size:14px}
 .exm-row-label small{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:11.5px;line-height:1.35}
@@ -1033,7 +1030,6 @@ img.emj.custom{object-fit:contain}
   .exm-head-ico{width:40px;height:40px;border-radius:12px}
   .exm-titles h3{font-size:17px}
   .exm-sec{padding:14px}
-  .exm-sec-head{flex-wrap:wrap}
   .exm-aside{flex-basis:100%;margin:0;text-align:left;max-width:none}
   .exm-presets{grid-template-columns:repeat(3,minmax(0,1fr))}
   .exm-row{grid-template-columns:minmax(0,1fr);gap:8px}
@@ -1064,8 +1060,6 @@ select.settings-mobile-select,select.asset-folder-select{background-image:var(--
 .exm-row .chipx{background:var(--color-surface-sunken);color:var(--color-text-tertiary);border:1px solid transparent}
 .exm-row .chipx.on{background:var(--color-primary-soft);color:var(--color-primary);border-color:color-mix(in srgb,var(--color-primary) 30%,transparent)}
 .exm-row .chipx:not(.on){text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 55%,transparent)}
-.exm-all{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;font-weight:600;color:var(--color-text-secondary);cursor:pointer;width:max-content}
-.exm-all input{width:15px;height:15px;margin:0;accent-color:var(--color-primary)}
 
 /* ---------- One dropdown chevron everywhere ----------
    The user menu's chevron (I.chevd) is the one: every select draws it (it was a filled wedge made of two
@@ -1075,7 +1069,7 @@ select.settings-mobile-select,select.asset-folder-select{background-image:var(--
 [data-theme="dark"]{--zc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23D1D5DB' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")}
 select{background-image:var(--zc-chev);background-position:right 11px center;background-size:14px 14px;background-repeat:no-repeat}
 .pillsel:has(select)::after,#drawer .dr-foot .task-stage-select::after{border:0!important;transform:none!important;width:13px!important;height:13px!important;margin-top:0!important;background:currentColor;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat}
-.pillsel:has(select)::after{margin-left:-15px!important}
+.pillsel:has(select)::after{margin-left:-15px}
 /* selects whose own rules cleared the chevron (a stage's kind and colour, a field's type, a member's role in the
    table, the AI usage filters): they show it like every other */
 .stage-edit select,.color-swatch-field select,.tbl td select,.ag-usage-filters select{background-image:var(--zc-chev)!important;background-repeat:no-repeat!important;background-position:right 9px center!important;background-size:13px 13px!important;padding-right:28px!important}
@@ -1166,10 +1160,6 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .zc-pending-home .panel-head .sq{background:var(--color-primary-soft);color:var(--color-primary)}
 .pending-acts select{width:auto;min-width:140px;border:1px solid var(--color-border);border-radius:10px;padding:7px 30px 7px 12px;background-color:var(--color-surface);font:inherit;font-size:var(--fs-sm);font-weight:600;outline:none}
 @media(max-width:760px){.pending-signups .pending-row{flex-wrap:wrap}.pending-acts{width:100%;justify-content:flex-start;padding-left:44px}.pending-field{flex:1 1 100%}.pending-acts select{width:100%}}
-.zc-pending-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--color-primary-soft);color:var(--color-text-primary);border:1px solid color-mix(in srgb,var(--color-primary) 25%,transparent);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px}
-.zc-pending-banner>span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-.zc-pending-banner svg{width:16px;height:16px;stroke:var(--color-primary);fill:none;stroke-width:2;flex:none}
-.zc-pending-names{color:var(--color-text-secondary)}
 .auth-approval-note{margin:-2px 0 10px}
 .auth-pending{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0}
 .auth-pending-ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--color-primary-soft);color:var(--color-primary)}
@@ -1252,7 +1242,6 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 .nc-row{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,84px);align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--color-border)}
 .nc-row.nc-head{border-top:0;padding:0 0 6px;position:sticky;top:0;background:var(--color-surface);z-index:1}
 .nc-way{font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-secondary);text-align:center}
-.nc-group{font-size:var(--fs-sm);font-weight:700;margin:14px 0 2px;color:var(--color-text-primary)}
 .nc-what{display:flex;flex-direction:column;min-width:0}
 .nc-what b{font-weight:600;font-size:var(--fs-sm)}
 .nc-what span{font-size:12px;color:var(--color-text-tertiary)}
@@ -1267,8 +1256,8 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 /* on a phone a kind takes the whole width, its three boxes under the three headings */
 @media (max-width:760px){.nc-row{grid-template-columns:repeat(3,1fr);gap:6px 4px}.nc-row .nc-what{grid-column:1/-1}.nc-row.nc-head>span:first-child{display:none}.nc-way{font-size:10px;letter-spacing:0}}
 /* Roles & permissions: capabilities in groups by what they are for (src/settings-access.js) */
-.cap-group{border:1px solid var(--color-border);border-radius:var(--radius);padding:4px 12px 2px;margin-bottom:10px}
-.cap-group-head{display:flex;align-items:center;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--color-border)}
+.cap-group{border:1px solid var(--color-border);border-radius:var(--radius);margin-bottom:10px}
+.cap-group-head{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--color-border)}
 .cap-group-head b{font-size:var(--fs-sm);font-weight:700}
 .cap-count{font-size:11px;font-weight:650;color:var(--color-text-secondary);background:var(--color-surface-sunken);border-radius:var(--pill);padding:1px 7px}
 .cap-row{padding:7px 0}
@@ -1364,11 +1353,11 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 /* when the line is short the project gives way first, then the team; the stage never */
 .row .m>.tbadge{flex:0 1 auto;min-width:56px;overflow:hidden}
 @media (max-width:760px){
-  .row.task-row:not(:has(>.meta-grid)) .r>.rcell{display:contents}
-  .row.task-row:not(:has(>.meta-grid))>.r>.rcell>*{order:1;flex:none}
-  .row.task-row:not(:has(>.meta-grid)) .m>.m-proj{display:none}
-  .row.task-row:not(:has(>.meta-grid)) .lbls-stack{flex-direction:row;align-items:center}
-  .row.task-row:not(:has(>.meta-grid)) .lbls-stack .lbls-line{display:contents}
+  .row.task-row.task-row-cells .r>.rcell{display:contents}
+  .row.task-row.task-row-cells>.r>.rcell>*{order:1;flex:none}
+  .row.task-row.task-row-cells .m>.m-proj{display:none}
+  .row.task-row.task-row-cells .lbls-stack{flex-direction:row;align-items:center}
+  .row.task-row.task-row-cells .lbls-stack .lbls-line{display:contents}
 }
 /* A narrow row (a Home card beside others) has no room for four slots and its stage: there the right side is one
    small column, flush right — the due date on top, the first label (+N) and the people below; the file count waits
@@ -1437,8 +1426,6 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-conn-chip i{width:7px;height:7px;border-radius:50%;background:var(--color-warning,#C9860A)}
 .ai-conn-chip:hover{border-color:var(--color-warning,#C9860A)}
 /* Creative setup in sections that fold */
-.aihub-form>.ai-sec>summary::after,.aihub-form>.ai-details>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.55;transition:transform .15s}
-.aihub-form>.ai-sec[open]>summary::after,.aihub-form>.ai-details[open]>summary::after{transform:rotate(-135deg)}
 .aihub-form>.ai-sec .ai-details-body>.field{margin:0}
 /* generation history: a strip under the canvas */
 .ai-history-strip{margin:0 10px 10px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface-sunken)}
@@ -1446,8 +1433,6 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-hs-toggle{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:6px 8px;border:0;background:none;color:var(--color-text-primary);font-size:12px;font-weight:700;text-align:left;cursor:pointer}
 .ai-hs-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
 .ai-hs-toggle .cnt{font-weight:600;color:var(--color-text-tertiary)}
-.ai-hs-caret{margin-left:auto;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-135deg);opacity:.55}
-.ai-history-strip:not(.open) .ai-hs-caret{transform:rotate(45deg)}
 .ai-hs-track{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:2px 10px 10px;overscroll-behavior:contain;scrollbar-width:thin}
 .ai-hs-item{position:relative;flex:none}
 .ai-hs-thumb{display:block;width:84px;height:62px;padding:0;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:var(--color-surface);cursor:pointer}
@@ -1534,7 +1519,7 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 
 /* Assets produced, per person: one count each on a task with several people; the total adds them up */
 .av-count.av-split{display:block}
-.av-split-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.av-split-head{flex-wrap:wrap}
 .av-split-total{font-weight:600;color:var(--color-text-secondary)}
 .av-split-total b{color:var(--color-text-primary);font-variant-numeric:tabular-nums}
 .av-split-rows{display:flex;flex-direction:column;gap:6px;margin-top:8px}

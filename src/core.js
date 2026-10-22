@@ -1008,7 +1008,8 @@ function taskRow(tk,opts){
   var openAction=opts.openAction||"openTask(taskIdFrom(this))";
   /* a closed task already says so with its stage (Approved, Delivered…); "Completed" beside it said it twice */
   var depBadge=isClosed(tk)&&opts.showStatus!==false?'':dependencyBadge(tk,false);
-  var head='<div class="row task-row'+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'" onclick="'+openAction+'"><div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span class="m-proj" title="'+attr(projName(tk))+'">'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
+  /* .task-row-cells: the row's right side is the slots below, not the meta grid (the phone layout keys on it) */
+  var head='<div class="row task-row'+(opts.fixedMeta?'':' task-row-cells')+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'" onclick="'+openAction+'"><div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span class="m-proj" title="'+attr(projName(tk))+'">'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
   /* In a wrapping flex row the right-hand metadata lands in a different place
      on every line, because each task carries a different mix of chips. Where
      rows are read as a list (the calendar "see more" sheet), each piece gets a

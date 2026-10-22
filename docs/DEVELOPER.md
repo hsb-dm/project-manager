@@ -1016,6 +1016,20 @@ seri specificity karena urutan; tidak ada nesting atau variable selain custom pr
 CSS modern (`:has()`, `color-mix()`, `dvh`) dipakai langsung.
 **Tetap harus `node build.js` setelah mengedit CSS.**
 
+**5a. CSS yang murah di-restyle (Okt 2026, performance stage 3).** Tiga aturan, dijaga
+`tests/css-consolidation.test.js`:
+- Keadaan yang bisa ditandai kelas jangan dibaca lewat `:has()`. `:has()` di depan subject
+  universal (`> *`), posisi (`:nth-child(2)`) atau tag membuat setiap perubahan DOM di halaman
+  (mis. ganti tab di panel tugas di samping List) me-restyle seluruh layar. Yang dipakai sekarang,
+  dengan specificity yang sama persis: `.bulk-selected` (dipasang `bulkMark` di `enhance.js` bersama
+  centangnya), `table.tbl.lcol-tbl` dan `div.tbl-wrap.lcol-wrap` (dulu `:has(td.tcheck-col)`),
+  `.row.task-row.task-row-cells` (dulu `:not(:has(>.meta-grid))`), `div.stage-edit.label-edit`.
+- Jangan menulis ulang deklarasi pada selector yang sama di blok belakangan (file yang sama atau
+  file berikutnya): ubah yang sudah ada. Deklarasi yang selalu kalah ditolak test.
+- Jangan simpan aturan untuk kelas yang tidak lagi digambar kode mana pun.
+Setiap perubahan CSS semacam ini diperiksa dengan snapshot computed style (semua elemen, 54 adegan,
+1366/390 px, terang/gelap) sebelum dan sesudah: harus identik.
+
 **6. Gaya bahasa.** Rasa ES5 di `src/`: `var` di mana-mana, `function(){}` callback,
 tanpa class, tanpa `async`/`await` di client (rantai `.then`/`.catch`).
 `const`/`let` dan arrow function hanya di `shared/`, `server/`, dan `tests/`.

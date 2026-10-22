@@ -60,7 +60,7 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
  .workflow-stage>.ord{grid-row:3;grid-column:1}
  .workflow-stage>div:last-child{grid-row:3;grid-column:2;justify-content:flex-end}
  .stage-edit .ord button,.stage-edit .del{width:32px;height:32px}
- .stage-edit.builtin-field{grid-template-columns:24px minmax(0,1fr)!important;gap:10px;padding:12px 0}
+ .stage-edit.builtin-field{gap:10px;padding:12px 0}
  .builtin-field>input{min-height:38px}
  .builtin-field>span:nth-child(3){grid-column:2}
  .builtin-field>span:last-child{grid-column:2;flex-wrap:wrap}
@@ -73,14 +73,13 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
  .settings .alink{flex-wrap:wrap;padding:14px 12px;row-gap:12px}
  .settings .alink>div[style*="min-width:0"]{flex-basis:calc(100% - 54px)!important}
  .settings .alink>div:last-of-type:not([style*="min-width:0"]){margin-left:44px}
- .cal-nav{display:grid;grid-template-columns:38px minmax(0,1fr) 38px;width:100%}
+ .cal-nav{display:grid;width:100%}
  .cal-nav h2{min-width:0;font-size:16px}
- .cal-nav>.btn{grid-row:2}
  .cal-nav>.btn:last-child{grid-column:2/-1;justify-self:end}
  .modal-foot .btn{min-height:40px;white-space:normal;text-align:center;justify-content:center}
  .dr-head{padding:14px 16px 0;max-height:min(58dvh,calc(100dvh - 280px));overflow-y:auto;flex-shrink:0;overscroll-behavior:contain}
  .dr-body{padding:16px}
- .dr-head .tabs{margin-inline:-16px;padding-inline:16px;position:sticky;top:auto;bottom:0;background:var(--color-surface)}
+ .dr-head .tabs{margin-inline:-16px;padding-inline:16px;top:auto;bottom:0;background:var(--color-surface)}
  .dr-head .meta{gap:10px 14px}
  .meta .k{font-size:10.5px;margin-bottom:4px}
  .dr-head .meta select,.dr-head .meta input{min-height:30px;padding:4px}
@@ -112,16 +111,14 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 
 .drive-setup-head{display:flex;align-items:flex-start;gap:12px;margin:20px 0 10px}.drive-setup-head>div{min-width:0;flex:1}.drive-setup-head b,.drive-setup-head span{display:block}.drive-setup-head b{font-size:14px}.drive-setup-head>div>span{margin-top:3px;color:var(--color-text-secondary);font-size:var(--fs-sm);line-height:1.5}.drive-settings-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.drive-access{margin-top:14px;padding:12px;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-surface-sunken)}.drive-access-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--color-border);font-size:var(--fs-sm)}.drive-access-row span{min-width:0;flex:1}.drive-access-row b{flex:none;font-size:11px}.drive-access-row b.ok{color:var(--color-success)}.drive-access-row b.warn{color:var(--color-warning)}.drive-access-row b.muted{color:var(--color-text-tertiary)}
 @media (max-width:720px){.drive-settings-steps{grid-template-columns:1fr}.drive-setup-head{margin-top:16px}.drive-access-row{align-items:flex-start}}
-@media (max-width:480px){.aichat-head{padding:10px 12px}.aichat-head .badge{display:none}}
+@media (max-width:480px){.aichat-head .badge{display:none}}
 @media (max-width:980px){.conn{display:none!important}}
 .create-menu{width:min(320px,calc(100vw - 24px))}.menu .create-option{align-items:flex-start;padding:10px}.menu .create-option>svg{margin-top:2px;flex:none}.menu .create-option>span{display:block;min-width:0}.menu .create-option b,.menu .create-option small{display:block}.menu .create-option b{font-size:12.5px}.menu .create-option small{margin-top:2px;color:var(--color-text-secondary);font-size:10.5px;font-weight:500;line-height:1.4}
-.pop,.menu{z-index:190}
 
 /* Compact sectioned layer inspector */
-.ai-inspector .ai-layer-list{max-height:240px;overflow:auto;overscroll-behavior:contain}
-.ai-inspector .ai-layer-row{gap:2px;min-height:38px;border-top:2px solid transparent;border-bottom:2px solid transparent}
+.ai-inspector .ai-layer-list{overflow:auto;overscroll-behavior:contain}
+.ai-inspector .ai-layer-row{border-top:2px solid transparent;border-bottom:2px solid transparent}
 .ai-inspector .ai-layer-grip{cursor:grab;touch-action:none;font-size:21px;width:24px;flex:0 0 24px}
-.ai-inspector .ai-drop-before{border-top-color:var(--accent,#2F5BFF)}.ai-inspector .ai-drop-after{border-bottom-color:var(--accent,#2F5BFF)}
 .ai-inspector button:disabled{opacity:.4;cursor:not-allowed}
 .ai-inspector-section{border-top:1px solid var(--border,#dfe2e8);padding:0;margin-top:8px}
 .ai-inspector-section>summary{font-weight:700;padding:14px 0;cursor:pointer;font-size:13px}
@@ -129,12 +126,11 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 .ai-inspector .field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .ai-inspector input,.ai-inspector select,.ai-inspector textarea{min-width:0;max-width:100%;box-sizing:border-box}
 .ai-inspector .ai-prop-group{padding:10px 0;border:0;border-top:1px solid var(--border,#dfe2e8);border-radius:0}
-.ai-inspector .ai-delete-selected{align-self:flex-start;margin-top:8px}
 .ai-protect-toggle{display:flex;gap:8px;align-items:center;font-size:13px}.ai-protect-toggle input{width:16px;height:16px}
 .ai-section-fields>p{font-size:12px;line-height:1.5;margin:0}
 @media(min-width:1181px){.ai-studio{grid-template-columns:minmax(250px,280px) minmax(320px,1fr) minmax(300px,340px)}}
 
-.ai-inspector .ai-align-icons{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.ai-inspector .ai-align-icons button{font-size:19px;min-height:32px;padding:2px}
+.ai-inspector .ai-align-icons{display:grid;}.ai-inspector .ai-align-icons button{font-size:19px;min-height:32px;padding:2px}
 
 /* ZenCrevia inspector: layer browser, selection toolbar, compact sections. */
 .ai-inspector .panel-head{position:sticky;top:0;z-index:2;background:var(--color-surface);padding:16px 18px;border-bottom:1px solid var(--color-border)}
@@ -144,14 +140,12 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 .ai-inspector .ai-layer-browser{border:1px solid var(--color-border);border-radius:14px;background:var(--color-surface);padding:0 8px 8px}
 .ai-layer-browser>summary{display:flex;align-items:center;gap:8px;padding:12px 4px;font-size:12px;font-weight:750;cursor:pointer;list-style:none}
 .ai-layer-browser>summary::-webkit-details-marker,.ai-inspector-section>summary::-webkit-details-marker{display:none}
-.ai-layer-browser>summary::after,.ai-inspector-section>summary::after{content:'';width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin-left:auto;transition:transform .15s}
-.ai-layer-browser[open]>summary::after,.ai-inspector-section[open]>summary::after{transform:rotate(45deg)}
-.ai-layer-count{background:var(--color-surface-sunken);border-radius:7px;padding:2px 6px;color:var(--color-text-secondary);font-size:11px}
+.ai-layer-browser>summary::after,.ai-inspector-section>summary::after{margin-left:auto;transition:transform .15s}
 .ai-inspector .ai-layer-list{max-height:220px;gap:2px;margin:0 0 10px;padding-right:3px;scrollbar-width:thin;scrollbar-color:var(--color-border-strong) transparent}
 .ai-inspector .ai-layer-row{min-height:38px;background:transparent;border-radius:9px;gap:0}
 .ai-inspector .ai-layer-row:hover{background:var(--color-surface-hover)}
 .ai-inspector .ai-layer-row.is-selected{background:var(--color-primary-soft);box-shadow:inset 3px 0 var(--color-primary)}
-.ai-inspector .ai-layer-row .ai-layer{background:transparent;padding:7px 4px;font-size:12px;gap:6px}
+.ai-inspector .ai-layer-row .ai-layer{background:transparent;padding:7px 4px;font-size:12px;}
 .ai-inspector .ai-layer-row .iconbtn{background:transparent;border:0;border-radius:7px;box-shadow:none;width:28px;height:32px;color:var(--color-text-tertiary)}
 .ai-inspector .ai-layer-row .iconbtn:hover{background:var(--color-surface);color:var(--color-text-primary)}
 .ai-inspector .ai-layer-row .iconbtn[aria-pressed="true"][onclick*="locked"]{color:var(--color-primary);background:var(--color-primary-soft)}
@@ -181,18 +175,18 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 .ai-inspector .ai-align-icons .btn{min-width:0;width:100%;min-height:36px;padding:6px;border-radius:8px;justify-content:center}
 .ai-inspector .ai-align-icons svg{width:20px;height:20px;flex:none}
 #aiCanvas.ai-zoom-viewport{display:block;flex:none;height:min(62vh,620px);min-height:240px;overflow:auto;padding:24px;overscroll-behavior:contain;box-sizing:border-box;position:relative}
-.ai-zoom-stage{position:relative;margin:auto;line-height:0;flex:none;max-width:none}
+.ai-zoom-stage{margin:auto;line-height:0;flex:none;max-width:none}
 #aiCanvas .ai-zoom-stage canvas{width:100%!important;height:100%!important;max-width:none;max-height:none}
 .ai-selection-box{position:absolute;box-sizing:border-box;border:1.5px solid var(--color-primary);pointer-events:none;z-index:3;transform-origin:center}
 .ai-transform-handle{position:absolute;width:13px;height:13px;border-radius:3px;background:var(--color-surface);border:2px solid var(--color-primary);pointer-events:auto;touch-action:none;padding:0;transform:translate(-50%,-50%)}
 .ai-handle-nw{left:0;top:0;cursor:nwse-resize}.ai-handle-n{left:50%;top:0;cursor:ns-resize}.ai-handle-ne{left:100%;top:0;cursor:nesw-resize}.ai-handle-e{left:100%;top:50%;cursor:ew-resize}.ai-handle-se{left:100%;top:100%;cursor:nwse-resize}.ai-handle-s{left:50%;top:100%;cursor:ns-resize}.ai-handle-sw{left:0;top:100%;cursor:nesw-resize}.ai-handle-w{left:0;top:50%;cursor:ew-resize}
 .ai-handle-rotate{left:50%;top:-25px;width:23px;height:23px;border-radius:50%;cursor:grab;display:grid;place-items:center;color:var(--color-primary)}.ai-handle-rotate svg{width:15px;height:15px}
-.ai-zoom-tools{display:flex;align-items:center;gap:4px;border:1px solid var(--color-border);border-radius:10px;padding:3px;background:var(--color-surface)}.ai-zoom-tools .iconbtn{width:30px;height:30px;font-size:18px}.ai-zoom-tools label{display:flex;align-items:center;font-size:12px}.ai-zoom-tools input{width:49px;border:0;background:transparent;text-align:right;font-size:12px;color:var(--color-text-primary);padding:4px;appearance:textfield}.ai-zoom-tools input::-webkit-inner-spin-button{appearance:none}.ai-zoom-tools .btn{min-width:0}
+.ai-zoom-tools{display:flex;align-items:center;gap:4px;border:1px solid var(--color-border);border-radius:10px;padding:3px;background:var(--color-surface)}.ai-zoom-tools .iconbtn{font-size:18px}.ai-zoom-tools label{display:flex;align-items:center;font-size:12px}.ai-zoom-tools input{border:0;background:transparent;font-size:12px;color:var(--color-text-primary);appearance:textfield}.ai-zoom-tools input::-webkit-inner-spin-button{appearance:none}.ai-zoom-tools .btn{min-width:0}
 .ai-shortcut-help{width:100%;padding:12px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-surface-sunken);font-size:12px}.ai-shortcut-help p{line-height:1.9;margin:6px 0 0}
 @media(pointer:coarse){.ai-transform-handle{width:18px;height:18px}.ai-handle-rotate{width:28px;height:28px;top:-30px}}
 .ai-inspector .ai-layer-row .ai-layer{gap:4px}.ai-inspector .ai-layer-row .ai-layer>span{display:none}.ai-multi-info{font-size:12px;line-height:1.5;color:var(--color-text-secondary);margin:0}.ai-multi-outline{border-width:1px}.ai-layer-browser>summary>.btn{font-size:10px;padding:3px 7px;min-height:24px;margin-left:auto}
-.ag-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0}.ag-toolbar>input{min-width:220px;flex:1;max-width:420px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-primary);border-radius:var(--pill);padding:10px 14px;font:inherit}.ag-toolbar .seg{flex-wrap:wrap}.ag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.ag-card{overflow:hidden}.ag-cover{display:block;width:100%;height:210px;background:var(--color-surface-sunken);border:0;padding:14px;cursor:pointer}.ag-cover img{width:100%;height:100%;object-fit:contain}.ag-card-body{padding:16px}.ag-card-title{display:flex;gap:8px;align-items:center}.ag-card-title h2{font-size:15px;flex:1;min-width:0;overflow-wrap:anywhere;margin:0}.ag-card-title .iconbtn{flex:none;font-size:23px;color:var(--color-primary)}.ag-card-body p{font-size:12px;color:var(--color-text-secondary);margin:6px 0}.ag-tags{display:flex;flex-wrap:wrap;gap:5px;min-height:20px;margin:10px 0}.ag-tags span{border-radius:6px;background:var(--color-primary-soft);color:var(--color-primary);padding:3px 7px;font-size:11px;overflow-wrap:anywhere;max-width:100%}.ag-card-actions{display:flex;gap:6px;flex-wrap:wrap}.ag-pagination{display:flex;align-items:center;justify-content:center;gap:16px;margin:24px 0}.ag-empty{padding:48px 24px;text-align:center}.ag-empty>svg{width:38px;height:38px;color:var(--color-primary)}.ag-empty h2{margin:12px 0;font-size:18px}.ag-empty p{color:var(--color-text-secondary)}.ag-detail-image{width:100%;max-height:420px;object-fit:contain;background:var(--color-surface-sunken);border-radius:12px}
-@media(max-width:1000px){.ag-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.ag-grid{grid-template-columns:1fr}.ag-toolbar{align-items:stretch}.ag-toolbar>input{max-width:none}.ag-toolbar .seg{width:100%;justify-content:center}.ag-cover{height:230px}}
+.ag-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0}.ag-toolbar>input{min-width:220px;flex:1;max-width:420px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-text-primary);border-radius:var(--pill);padding:10px 14px;font:inherit}.ag-toolbar .seg{flex-wrap:wrap}.ag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.ag-card{overflow:hidden}.ag-cover{display:block;width:100%;height:210px;background:var(--color-surface-sunken);border:0;padding:14px;cursor:pointer}.ag-cover img{width:100%;height:100%;object-fit:contain}.ag-card-title{display:flex;gap:8px;}.ag-card-title h2{font-size:15px;flex:1;min-width:0;overflow-wrap:anywhere;margin:0}.ag-card-title .iconbtn{flex:none;font-size:23px;color:var(--color-primary)}.ag-card-body p{font-size:12px;color:var(--color-text-secondary);margin:6px 0}.ag-tags{display:flex;flex-wrap:wrap;gap:5px;min-height:20px;margin:10px 0}.ag-tags span{border-radius:6px;background:var(--color-primary-soft);color:var(--color-primary);padding:3px 7px;font-size:11px;overflow-wrap:anywhere;max-width:100%}.ag-card-actions{display:flex;flex-wrap:wrap}.ag-pagination{display:flex;align-items:center;justify-content:center;gap:16px;margin:24px 0}.ag-empty{padding:48px 24px;text-align:center}.ag-empty>svg{width:38px;height:38px;color:var(--color-primary)}.ag-empty h2{margin:12px 0;font-size:18px}.ag-empty p{color:var(--color-text-secondary)}.ag-detail-image{width:100%;max-height:420px;object-fit:contain;background:var(--color-surface-sunken);border-radius:12px}
+@media(max-width:1000px){.ag-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.ag-grid{grid-template-columns:1fr}.ag-cover{height:230px}}
 .ai-inspector .ai-layer-row .ai-layer{touch-action:none;cursor:grab}.ai-inspector .ai-layer-row.is-locked .ai-layer{cursor:default}.ai-clipboard-tools{display:flex;gap:8px;padding-top:10px}.ai-selection-heading .iconbtn{flex:none} .ai-layer-browser>summary>.btn{margin-right:8px}
 /* Rulers and navigation controls share the brand's rounded, compact rhythm. */
 .ai-canvas-frame{display:grid;grid-template-columns:22px minmax(0,1fr);grid-template-rows:22px minmax(0,1fr);border:1px solid var(--color-border);border-radius:14px;overflow:hidden;min-width:0;isolation:isolate}.ai-ruler-corner{grid-area:1/1;font:9px Arial;text-align:center;line-height:22px;background:var(--color-surface);color:var(--color-text-secondary)}.ai-ruler-x{grid-area:1/2}.ai-ruler-y{grid-area:2/1}.ai-canvas-frame>canvas{display:block;box-shadow:none;max-width:100%;max-height:100%}.ai-canvas-frame #aiCanvas{grid-area:2/2;padding:0;border-radius:0}.ai-pan-space{position:relative;min-width:100%;min-height:100%}.ai-canvas-frame.without-rulers{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.ai-canvas-frame.without-rulers>canvas,.ai-canvas-frame.without-rulers>.ai-ruler-corner{display:none}.ai-canvas-frame.without-rulers #aiCanvas{grid-area:1/1}#aiCanvas.is-panning,#aiCanvas.is-panning *,#aiCanvas.space-pan,#aiCanvas.space-pan *{cursor:grab!important}#aiCanvas.is-panning *{cursor:grabbing!important}
@@ -200,7 +194,7 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,select:focus-
 .ag-title{display:flex;align-items:center;gap:12px}.ag-title>.i{width:28px;height:28px;color:var(--color-primary)}.ag-empty-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:20px}.ag-note{margin:10px 0 14px;font-size:12px;border-top:1px solid var(--color-border);padding-top:10px}.ag-note summary{cursor:pointer;font-weight:600;color:var(--color-text-secondary)}.ag-note p,.ag-detail-notes p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.ag-note p{max-height:140px;overflow:auto}.ag-detail-notes{background:var(--color-surface-sunken);border-radius:12px;padding:14px;margin:14px 0}.ag-detail-notes h3{margin:0 0 8px;font-size:13px}.ag-detail-notes p{margin:0}
 #aiCanvas.ai-zoom-viewport{place-items:normal;align-items:normal;justify-items:normal}.ai-pan-space{justify-self:start;align-self:start;margin:0}
 #aiExportBtn{display:inline-flex;align-items:center;text-decoration:none}#aiExportBtn[aria-disabled=true]{opacity:.5;cursor:wait}
-.ag-card-actions .btn{min-height:32px;font-size:12px;padding:6px 12px}
+.ag-card-actions .btn{font-size:12px;padding:6px 12px}
 /* Guide targets stay ten screen pixels wide at every zoom level. */
 .ai-ruler-x{cursor:row-resize;touch-action:none}.ai-ruler-y{cursor:col-resize;touch-action:none}
 .ai-guide{position:absolute;z-index:6;display:block;padding:0;border:0;border-radius:0;background:transparent;touch-action:none;box-shadow:none;color:#1644d8;min-width:0;min-height:0}
@@ -266,9 +260,8 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .cal-more-list .mcell{display:flex;align-items:center;min-width:0}
 .cal-more-list .mcell-assets{justify-content:flex-start}
 .cal-more-list .mcell-due{justify-content:flex-end}
-.cal-more-list .mcell-who{justify-content:flex-end}
 .cal-more-list .mcell-due .due{white-space:nowrap}
-.cal-more-list .mcell .labels,.cal-more-list .mcell .label-chip{min-width:0}
+.cal-more-list .mcell .labels{min-width:0}
 .cal-more-list .row .m{white-space:normal;flex-wrap:wrap;row-gap:5px;align-items:center}
 .cal-more-list .row .m .labels{display:inline-flex;gap:4px;flex-wrap:wrap}
 .cal-more-list .row-labels{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
@@ -286,7 +279,7 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
   /* on a phone the four columns would crush; fall back to a single wrapping
      line, which is legible because each row is already stacked */
   .cal-more-list .row .r.meta-grid{display:flex;flex-wrap:wrap;justify-content:flex-start;width:100%;gap:8px}
-  .cal-more-list .mcell{justify-content:flex-start!important}
+  .cal-more-list .mcell{justify-content:flex-start}
 }
 
 /* §376-379 dependency picker — tabs are pinned, only the result list
@@ -377,7 +370,6 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
    the checkbox anchors left and every one-line chip is the same height. */
 .report-slide-options{display:flex;flex-wrap:wrap;align-items:center}
 /* the capsule itself is specified once, in the shared block further down */
-.report-slide-actions{display:flex;gap:6px;margin-top:10px;padding-left:0}
 
 /* §472-478 workflow stage colour picker — swatch plus Title Case name. */
 .color-select{display:flex;align-items:center;gap:8px;min-width:0}
@@ -450,24 +442,23 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
   #tabbar,#sheet,#aiFab,#aiChat,#conn,#toasts,#workspaceQuestRoot,#overlay,#drawer,
   .topbar,.drawer,.overlay,.toasts,.conn,
   .pop,.menu,.modal-wrap,#modalWrap,
-  .wq-home,.ai-fab,.searchbar{display:none!important}
+  .wq-home,.searchbar{display:none!important}
   /* interactive controls: switchers, filters, sort, view pickers, add buttons */
-  .pagehead .actions,.filterbar,.seg,.pill,.pills,.btn,.iconbtn,.switch,
-  .tabs,.snav,.subnav,.kanban-add,.add-card,.reorder-row .drag-handle,
-  .tag-picker-add,.ai-layer-add,.report-slide-actions,
-  .dctl,.pillsel,.kadd,.link,.sortsel,.viewsel,.drag-handle,
-  .empty-drop,.kcol-empty{display:none!important}
+  .pagehead .actions,.seg,.pill,.pills,.btn,.iconbtn,.switch,
+  .tabs,.snav,.subnav,.kanban-add,.reorder-row .drag-handle,
+  .tag-picker-add,.ai-layer-add,
+  .dctl,.pillsel,.kadd,.link,.viewsel,.drag-handle,.kcol-empty{display:none!important}
   /* an empty column's "drop a card here" hint is an instruction, not content;
      collapse the column so a printed board is not mostly blank boxes */
   .kcol-body .empty{display:none!important}
   .kcol-body{min-height:0!important}
   .kcol{min-height:0!important}
   /* ...but a badge or chip is content, not a control */
-  .badge,.chipx,.tag-chip,.tbadge,.label-chip{display:inline-flex!important}
+  .badge,.chipx,.tag-chip,.tbadge{display:inline-flex!important}
 
   /* 3 · nothing may clip horizontally */
   *{overflow:visible!important}
-  .tbl-wrap,.grid-wrap,.timeline-wrap,.kanban,.cal-more-list,.ai-usage-grid{
+  .tbl-wrap,.timeline-wrap,.kanban,.cal-more-list,.ai-usage-grid{
     overflow:visible!important;max-width:100%!important}
   [style*="overflow-x"],[style*="overflow:auto"],[style*="overflow: auto"]{overflow:visible!important}
 
@@ -475,18 +466,18 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
   .kanban{display:block!important}
   .kanban .col,.kanban-col{width:auto!important;min-width:0!important;max-width:100%!important;
     margin:0 0 10px!important;break-inside:avoid}
-  .grid.g-1-1,.grid.g-2,.grid.g-3,.grid.g-4,.kpis,.stat-grid{
+  .grid.g-1-1,.grid.g-2,.kpis{
     display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
-  .pipeline,.pipe-row,.stagebar{flex-wrap:wrap!important}
+  .pipeline,.pipe-row{flex-wrap:wrap!important}
   table{width:100%!important;table-layout:fixed!important;font-size:9pt!important}
   table td,table th{white-space:normal!important;word-break:break-word!important}
 
   /* 5 · page breaks that respect the content */
   .panel,.card,.row,.pref,.ag-card,.setup-step,
-  .kcard,.kcol,.trow,.grid-row,.alink,.file,.ai-prop-section{break-inside:avoid;page-break-inside:avoid}
+  .kcard,.kcol,.trow,.alink,.file,.ai-prop-section{break-inside:avoid;page-break-inside:avoid}
   /* a filter chip is useful context on paper (it says what the list contains),
      but its remove affordance is not */
-  .chipx .del,.chipx button,.filter-chip button,.pill button{display:none!important}
+  .chipx .del,.chipx button,.pill button{display:none!important}
   h1,h2,h3,.panel-head,.eyebrow{break-after:avoid;page-break-after:avoid}
 
   /* 6 · print the colours the screen shows, on white paper */
@@ -502,7 +493,6 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .file-actions .badge{white-space:nowrap}
 .file-actions .btn{white-space:nowrap}
 .file .m{min-width:0;flex-wrap:wrap;row-gap:2px}
-.file .m .mono{flex:none}
 @media (max-width:640px){
   /* §515 narrow: metadata and actions stack under the title, still no overlap */
   .file{grid-template-columns:auto minmax(0,1fr)}
@@ -528,7 +518,7 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .tag-picker-add svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4}
 .tag-picker-limit{margin-top:6px;font-size:11px}
 .tag-picker-limit.warn{color:var(--color-warning);font-weight:650}
-.tag-picker-pop{position:fixed;z-index:180;display:none;min-width:290px;max-width:340px;padding:0;overflow:hidden;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+.tag-picker-pop{position:fixed;display:none;min-width:290px;max-width:340px;padding:0;overflow:hidden;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
 .tag-picker-pop.open{display:block}
 .tag-pick-search{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--color-border)}
 .tag-pick-search svg{width:15px;height:15px;flex:none;stroke:var(--color-text-tertiary);fill:none;stroke-width:2}
@@ -547,23 +537,15 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .tag-create:hover{background:var(--color-primary-soft)}
 .tag-create svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4}
 /* §339 in tables the picker stays compact and never stretches the row */
-.trow .tag-chips,.grid-cell .tag-chips{flex-wrap:nowrap;overflow:hidden}
+.trow .tag-chips{flex-wrap:nowrap;overflow:hidden}
 /* §7.1 Tags settings: search field + row rhythm (no colour column) */
 .tag-settings-search{width:100%;margin-bottom:10px;border:1px solid var(--color-border);border-radius:var(--pill);padding:7px 13px;background:var(--color-surface);font:inherit;font-size:var(--fs-sm);color:var(--color-text-primary)}
 .tag-row .ord-num{min-width:18px;text-align:right}
-/* §18 Task gear menu — radio rows read as a choice, not as actions */
-.gear-radio{display:flex;align-items:center;gap:8px;width:100%;padding:7px 12px;text-align:left;font-size:var(--fs-sm);color:var(--color-text-primary);background:none;border:0;cursor:pointer}
-.gear-radio:hover,.gear-radio:focus-visible{background:var(--color-surface-hover);outline:none}
-.gear-radio.on{font-weight:650}
-.gear-check{width:14px;display:grid;place-items:center;flex:none;color:var(--color-primary)}
-.gear-check svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.6}
 /* §P0-8 quota readouts */
 .ai-quota{margin:10px 0;border:1px solid var(--color-border);border-radius:var(--radius);overflow:hidden}
 .ai-quota-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 12px;font-size:var(--fs-sm)}
 .ai-quota-row+.ai-quota-row{border-top:1px solid var(--color-border)}
 .ai-quota-row b.warn{color:var(--color-danger)}
-.ag-quota-pill{font-family:var(--font-mono);font-size:10.5px;opacity:.75;margin-left:5px}
-.ag-quota-pill.warn{color:var(--color-danger);opacity:1}
 /* §P1-3 AI settings sub-navigation */
 .subnav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:var(--sp-4);padding:4px;background:var(--color-surface-sunken);border-radius:var(--pill)}
 .subnav :is(button,a){padding:6px 14px;border-radius:var(--pill);font-size:var(--fs-sm);font-weight:600;color:var(--color-text-secondary);background:none;border:0;cursor:pointer}
@@ -576,8 +558,6 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .setup-body{min-width:0;flex:1}
 .setup-body>b{display:block;margin-bottom:8px;font-size:var(--fs-sm)}
 .setup-body .field{margin-bottom:8px}
-/* §P1-7 sticky save bar for long admin panels */
-.sticky-save{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 14px;margin-top:var(--sp-4);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);box-shadow:0 -2px 12px rgba(17,18,20,.06)}
 
 /* Backup restore: make a high-impact operation understandable at a glance. */
 .restore-summary{display:flex;flex-direction:column;gap:3px;margin:14px 0;padding:12px 14px;border:1px solid color-mix(in srgb,var(--color-warning) 40%,var(--color-border));border-radius:var(--radius);background:color-mix(in srgb,var(--color-warning) 8%,var(--color-surface));line-height:1.45}
@@ -656,14 +636,7 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .ai-prop-section-head::-webkit-details-marker{display:none}
 .ai-prop-head-unit{display:inline-flex;margin-left:auto;border:1px solid var(--color-border);
   border-radius:99px;overflow:hidden;background:var(--color-surface)}
-.ai-prop-head-unit button{min-width:30px;height:20px;padding:0 8px;border:0;background:none;cursor:pointer;
-  font:inherit;font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--color-text-tertiary)}
-.ai-prop-head-unit button:hover{color:var(--color-text-primary)}
-.ai-prop-head-unit button.on{background:var(--color-primary-soft);color:var(--color-primary)}
-.ai-prop-head-unit+::after,.ai-prop-head-unit~*{margin-left:6px}
-.ai-prop-section-head:has(.ai-prop-head-unit)::after{margin-left:6px}
-.ai-prop-section-head::after{content:"";margin-left:auto;width:7px;height:7px;flex:none;
-  border-right:1.8px solid currentColor;border-bottom:1.8px solid currentColor;transform:rotate(45deg);
+.ai-prop-section-head::after{margin-left:auto;
   transition:transform .15s ease}
 .ai-prop-section[open]>.ai-prop-head-unit{display:inline-flex;margin-left:auto;border:1px solid var(--color-border);
   border-radius:99px;overflow:hidden;background:var(--color-surface)}
@@ -673,7 +646,6 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .ai-prop-head-unit button.on{background:var(--color-primary-soft);color:var(--color-primary)}
 .ai-prop-head-unit+::after,.ai-prop-head-unit~*{margin-left:6px}
 .ai-prop-section-head:has(.ai-prop-head-unit)::after{margin-left:6px}
-.ai-prop-section-head::after{transform:rotate(-135deg)}
 .ai-prop-section-head:hover{color:var(--color-text-secondary)}
 .ai-prop-section-body{display:flex;flex-direction:column;gap:var(--ai-prop-gap);padding-bottom:var(--ai-prop-section-py)}
 
@@ -823,8 +795,6 @@ label.chipx,label.report-slide-chip{
 .gear-note{padding:0 11px 5px;margin:0;line-height:1.3;font-size:11px}
 .gear-divider{height:1px;margin:5px 0;background:var(--color-border)}
 .menu .mh{padding:6px 11px 3px}
-/* one AI setup notice, with room to breathe */
-.ai-setup-notice{margin-bottom:var(--sp-4);align-items:center}
 
 /* ---- §399 personal "checked" tick on task cards and rows ----------------
    A marker, not state: it never leaves this browser. Muted until it is on, so
@@ -904,14 +874,13 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
 @media(max-width:760px){
  .kb-bi-grid{grid-template-columns:1fr}.kb-bi-grid textarea{min-height:180px}
  .team-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
- .task-pagehead .actions{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center}.task-pagehead .actions .seg{grid-column:1/-1;overflow-x:auto;justify-content:flex-start}.task-pagehead .task-export{display:none}.task-pagehead .actions>.primary{grid-column:2}.task-pagehead .bulk-btn{grid-column:1;width:40px;min-width:40px;padding:0;justify-content:center}.task-pagehead .bulk-label{display:none}
- .calendar-pagehead{align-items:center}.calendar-pagehead>div:first-child .muted{display:none}.calendar-pagehead .actions{display:grid;grid-template-columns:minmax(0,1fr) auto}.calendar-pagehead .actions .seg{width:auto}.calendar-pagehead .actions>.primary{width:42px;height:42px;padding:0;font-size:0}.calendar-pagehead .actions>.primary svg{margin:0}
+ .calendar-pagehead .actions{grid-template-columns:minmax(0,1fr) auto}.calendar-pagehead .actions .seg{width:auto}.calendar-pagehead .actions>.primary svg{margin:0}
  .calendar-toolbar{padding:0;gap:10px;margin-top:12px;margin-bottom:12px}.calendar-display-controls{width:100%;justify-content:space-between}.calendar-display-controls .legend{display:none}.calendar-toolbar+.cal{margin-bottom:18px}.calendar-toolbar+.cal+.panel{margin-top:18px}
  .cal-nav{grid-template-columns:38px minmax(0,1fr) 38px!important}.cal-nav>.btn{grid-row:2}.cal-nav>#calLabelBtn{grid-column:2/-1;justify-self:end}.calendar-display-controls>.seg{width:100%;justify-content:center}
- .cal-grid{grid-auto-rows:minmax(118px,auto)}.cal-day{padding:4px;gap:3px}.cal-day .dn{font-size:10px}.cal-grid .chip{padding:4px 5px;min-height:25px;gap:0;border-radius:5px}.cal-grid .chip-eyebrow,.cal-grid .chip-main>.av,.cal-grid .chip-main>.tcheck,.cal-grid .chip-main>.pd{display:none}.cal-grid .chip-main{display:block}.cal-grid .chip-t{display:block;font-size:10px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cal-grid .chip.ms{font-size:10px;line-height:1.25;padding-block:5px}.todaytag{font-size:8px;margin-left:2px}
+ .cal-grid .chip{gap:0;}.cal-grid .chip.ms{line-height:1.25;padding-block:5px}.todaytag{margin-left:2px}
  .tl-row.group .tl-bar{display:none}.tl-row.group .tl-lbl{z-index:4}.tlw{border-radius:12px}
- .dr-top .enh-tools{display:none}.dr-top .task-close{margin-left:auto;flex:0 0 34px}.dr-top .spacer{display:none}.dr-top{overflow:visible}.dr-top>.badge:not(:first-of-type),.dr-top>.tbadge{display:none}
- .msg-quick{gap:7px}.msg-quick .btn{width:40px;height:40px;padding:0;justify-content:center;border-radius:50%}.msg-quick .btn svg,.msg-quick .btn .drive-logo{width:18px;height:18px;margin:0}.msg-quick-label{display:none}.content:has(.msg-layout)~#aiFab,body:has(.msg-layout) #aiFab,body:has(.msg-layout) #msgFab{display:none!important}
+ .dr-top{overflow:visible}.dr-top>.badge:not(:first-of-type),.dr-top>.tbadge{display:none}
+ .content:has(.msg-layout)~#aiFab,body:has(.msg-layout) #aiFab,body:has(.msg-layout) #msgFab{display:none!important}
 }
 
 /* Custom families share the same segmented typography control as built-ins. */
@@ -934,14 +903,9 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
 @media(max-width:760px){
  /* My Tasks: one compact view rail, then one stable action row. */
  .task-pagehead{align-items:flex-start;gap:12px}
- .task-pagehead>div:first-child{width:100%}
- .task-pagehead .actions{display:grid!important;grid-template-columns:40px minmax(0,1fr)!important;gap:8px;width:100%;align-items:center}
- .task-pagehead .actions .seg{grid-column:1/-1!important;grid-row:1;display:flex;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding:3px;scrollbar-width:none}
- .task-pagehead .actions .seg::-webkit-scrollbar{display:none}
- .task-pagehead .actions .seg button{flex:0 0 auto;padding:7px 10px;font-size:11.5px}
+ .task-pagehead .actions{grid-template-columns:40px minmax(0,1fr)!important;}
  .task-pagehead .bulk-btn{grid-column:1!important;grid-row:2;width:40px!important;min-width:40px!important;height:40px;padding:0!important;border-radius:50%;justify-content:center}
  .task-pagehead .bulk-label{display:none}
- .task-pagehead .actions>.primary{grid-column:2!important;grid-row:2;width:100%;height:40px;padding:0 14px;justify-content:center}
  .task-pagehead .actions:not(:has(.bulk-btn))>.primary{grid-column:1/-1!important;grid-row:2}
  .task-pagehead .task-export{display:none}
  .task-pagehead+.toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;margin-top:12px;align-items:center}
@@ -949,73 +913,69 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
  .task-pagehead+.toolbar .seg button,.task-pagehead+.toolbar>.btn,.task-pagehead+.toolbar>.pillsel{min-height:36px;font-size:11.5px}
  .task-pagehead+.toolbar .fchips:empty{display:none}
  .task-pagehead+.toolbar>.seg{grid-column:1;grid-row:1;justify-self:start}.task-pagehead+.toolbar>[data-tour="task-dependency-filter"]{grid-column:2;grid-row:1}.task-pagehead+.toolbar>[data-menu]{grid-column:3;grid-row:1;margin-left:0}.task-pagehead+.toolbar>.pillsel:first-of-type{grid-column:1/3;grid-row:2;width:100%;box-sizing:border-box;justify-content:space-between}.task-pagehead+.toolbar>.pillsel:first-of-type+button{grid-column:3;grid-row:2}
- .kanban{gap:10px;min-height:0;padding-bottom:12px;scroll-snap-type:x proximity}
- .kanban .kcol{flex-basis:min(82vw,300px);max-height:calc(100dvh - 330px);scroll-snap-align:start}
- .kcol-head{padding:10px 12px}.kcol-body{padding:7px}.kcard{padding:11px}.kadd{padding:10px 12px}
+ .kanban{min-height:0;padding-bottom:12px;}
+ .kanban .kcol{scroll-snap-align:start}
 
  /* Project actions never reflow when selection is toggled. */
- .project-pagehead{align-items:flex-start;gap:12px}
- .project-pagehead>div:first-child{width:100%}
- .project-pagehead .actions{display:flex!important;flex-wrap:nowrap!important;gap:7px;width:100%;overflow-x:auto;align-items:center;scrollbar-width:none}
+ .project-pagehead{align-items:flex-start;}
+ .project-pagehead .actions{scrollbar-width:none}
  .project-pagehead .actions::-webkit-scrollbar{display:none}
  .project-pagehead .bulk-btn{order:0;width:38px;min-width:38px;height:38px;padding:0;justify-content:center;border-radius:50%}
  .project-pagehead .bulk-label{display:none}
  .project-pagehead .enh-proj{order:1;width:38px;min-width:38px;height:38px}
  .project-pagehead .pillsel{order:2;min-width:128px;height:38px;box-sizing:border-box;padding:5px 8px 5px 10px}
- .project-pagehead .project-new-task{order:3;flex:0 0 112px!important;width:112px;height:38px;padding:0 10px;justify-content:center;white-space:nowrap}
- .ptabs{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.ptabs::-webkit-scrollbar{display:none}.ptabs .tab{flex:0 0 auto;padding-inline:12px;font-size:11.5px}
+ .project-pagehead .project-new-task{order:3;padding:0 10px;justify-content:center;white-space:nowrap}
+ .ptabs .tab{padding-inline:12px;}
 
  /* Calendar: one compact, horizontally stable control row. */
- .calendar-pagehead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
- .calendar-pagehead>div:first-child{min-width:0}.calendar-pagehead>div:first-child .muted{display:none}.calendar-pagehead h1{font-size:21px}
- .calendar-pagehead .actions{width:auto!important;display:flex!important;flex-wrap:nowrap;gap:8px}
+ .calendar-pagehead{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+ .calendar-pagehead>div:first-child .muted{display:none}
+ .calendar-pagehead .actions{width:auto!important;flex-wrap:nowrap;gap:8px}
  .calendar-pagehead .actions .seg{display:none}
- .calendar-pagehead .actions>.primary{width:38px!important;min-width:38px;height:38px!important;border-radius:50%;padding:0!important;font-size:0;justify-content:center}
  .calendar-pagehead+.toolbar,.calendar-toolbar{display:none!important}
- .calendar-mobile-controls{display:flex;align-items:center;gap:3px;width:100%;margin:8px 0 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;white-space:nowrap}
- .calendar-mobile-controls::-webkit-scrollbar{display:none}.cal-mobile-date,.cal-mobile-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto}.cal-mobile-actions{margin-left:auto}
- .cal-mobile-date .iconbtn,.cal-mobile-actions>.iconbtn{width:24px;height:24px;min-width:24px;border:1px solid var(--color-border);background:var(--color-surface)}.cal-mobile-date .iconbtn svg,.cal-mobile-actions>.iconbtn svg{width:13px;height:13px}
- .cal-mobile-date strong{width:74px;overflow:hidden;text-overflow:ellipsis;text-align:center;font-size:9px;font-weight:750}.cal-mobile-today{min-height:24px!important;height:24px;padding:2px 5px!important;font-size:8.5px!important}
- .cal-mobile-actions .seg{padding:1px;gap:0}.cal-mobile-actions .seg button{padding:3px 3px;font-size:8px;min-height:22px}.cal-mobile-scope-toggle{min-height:24px!important;height:24px;padding:2px 5px!important;font-size:8.5px!important;background:var(--color-ink)!important;color:var(--color-ink-text)!important}
- .cal-mobile-actions>.iconbtn.active{background:var(--color-primary);color:var(--color-primary-ink);border-color:var(--color-primary)}.cal-mobile-actions>.iconbtn{position:relative}.cal-mobile-count{position:absolute;right:-3px;top:-4px;display:grid;place-items:center;min-width:14px;height:14px;padding:0 2px;border-radius:8px;background:var(--color-secondary);color:#111;font-size:8px;font-weight:800}
+ .calendar-mobile-controls{display:flex;align-items:center;width:100%;scrollbar-width:none;white-space:nowrap}
+ .calendar-mobile-controls::-webkit-scrollbar{display:none}.cal-mobile-date,.cal-mobile-actions{display:flex;align-items:center;}
+ .cal-mobile-date .iconbtn,.cal-mobile-actions>.iconbtn{border:1px solid var(--color-border);background:var(--color-surface)}
+ .cal-mobile-date strong{font-weight:750}
+ .cal-mobile-actions .seg{gap:0}.cal-mobile-scope-toggle{background:var(--color-ink)!important;color:var(--color-ink-text)!important}
+ .cal-mobile-actions>.iconbtn.active{background:var(--color-primary);color:var(--color-primary-ink);border-color:var(--color-primary)}.cal-mobile-actions>.iconbtn{position:relative}.cal-mobile-count{position:absolute;right:-3px;top:-4px;display:grid;place-items:center;padding:0 2px;border-radius:8px;background:var(--color-secondary);color:#111;font-weight:800}
  .calendar-mobile-controls+.calendar-toolbar+.cal{margin:0 0 14px!important;border-radius:12px;overflow:hidden}.calendar-mobile-controls+.calendar-toolbar+.cal+.panel{margin-top:14px!important}
  .cal-head>div{padding:7px 2px;font-size:9px}
- .cal-grid{grid-auto-rows:minmax(76px,76px)!important}.cal-week{min-height:260px}
- .cal-day{padding:3px!important;gap:2px!important;overflow:hidden}.cal-day .dn{font-size:9px;min-height:13px}.todaytag{font-size:7px!important}
+ .cal-grid{grid-auto-rows:minmax(76px,76px)}.cal-week{min-height:260px}
+ .cal-day{padding:3px!important;gap:2px!important;overflow:hidden}.cal-day .dn{font-size:9px;min-height:13px}
  .cal-grid .chip{padding:2px 3px!important;min-height:18px!important;border-radius:4px;font-size:8px!important;line-height:1.1!important}
  .cal-grid .chip-eyebrow,.cal-grid .chip-main>.av,.cal-grid .chip-main>.av-stack,.cal-grid .chip-main>.tcheck,.cal-grid .chip-main>.pd{display:none!important}
- .cal-grid .chip-main{display:block!important}.cal-grid .chip-t{display:block;font-size:8.5px!important;line-height:1.15!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .cal-grid .chip-main{display:block!important}.cal-grid .chip-t{display:block;font-size:8.5px!important;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .cal-grid .chip.bulk-selectable .chip-main{display:flex!important}.cal-grid .bulk-calendar-check{margin-right:2px!important}.cal-grid .bulk-calendar-check input{width:12px;height:12px}
  .cal-grid .chip.ms{padding:3px!important;min-height:18px!important;font-size:8px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .cal-grid .chip.more{font-size:8px!important;border:0;background:transparent;color:var(--color-text-secondary)}
 
  /* Messages: preserve a useful chat viewport and anchor new-chat inside it. */
- .content:has(.msg-layout){height:calc(100dvh - var(--topbar-h) - 68px);box-sizing:border-box;padding:7px 10px 4px!important;overflow:hidden;display:flex;flex-direction:column}
- .msg-head{flex:none;align-items:center;gap:6px;margin-bottom:6px;min-height:32px}.msg-head h1{font-size:17px}.msg-head .sub{display:none}
+ .content:has(.msg-layout){box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column}
+ .msg-head{flex:none;align-items:center;gap:6px;min-height:32px}.msg-head h1{font-size:17px}.msg-head .sub{display:none}
  .msg-head .actions{width:auto!important;flex-wrap:nowrap}.msg-head .msg-new-conv{display:none}.msg-head .iconbtn{width:30px;height:30px}.msg-head .iconbtn svg{width:15px;height:15px}
- .msg-layout{flex:1;height:auto!important;min-height:0!important;gap:0}.msg-layout>.panel{height:100%;border-radius:14px}
- .msg-main{position:relative;min-height:0}.msg-chead{padding:6px 7px 5px;gap:5px;min-height:42px}.msg-cicon.lg{width:30px;height:30px;border-radius:9px}.msg-cicon.lg svg{width:16px;height:16px}.msg-chead-text b{font-size:12.5px}.msg-chead-text span{font-size:9px}.msg-chead .iconbtn{width:28px;height:28px}.msg-chead .iconbtn svg{width:15px;height:15px}.msg-members-btn{min-height:28px;padding:3px 5px;font-size:10px}.msg-members-btn svg{width:14px;height:14px}
- .msg-tabs{padding:0 5px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.msg-tabs::-webkit-scrollbar{display:none}.msg-tabs button{padding:6px 8px;font-size:10px;flex:0 0 auto}
- .msg-timeline-wrap{position:relative;display:flex;flex:1;min-height:0;overflow:hidden}.msg-timeline{flex:1;min-height:0;padding:7px 8px 8px;overflow-y:auto;overflow-x:hidden}.msg{grid-template-columns:32px minmax(0,1fr);gap:2px 7px;padding:5px 3px;min-width:0;max-width:100%}.msg-body,.msg-refs{min-width:0;max-width:100%}.msg-actions{position:absolute;right:4px;top:4px;z-index:2}.msg-card{max-width:100%;box-sizing:border-box;gap:7px;padding:8px}.msg-card-ico{width:32px;height:32px;border-radius:9px}.msg-card-ico svg,.msg-card-ico .drive-logo{width:16px;height:16px}.msg-card-body b{font-size:11.5px}.msg-card-body span{font-size:10px}.msg-card-foot .btn.xs{display:none}.msg-card>.btn.xs{padding:4px 6px;font-size:9px}.msg .av.lg{width:30px;height:30px;font-size:9px}.msg-meta b{font-size:11.5px}.msg-meta span{font-size:9px}.msg-text{font-size:12px;line-height:1.45}.msg-day{font-size:9.5px;margin:8px 0 6px}.msg-file-thumb{width:68px;height:50px}
- .msg-composer{flex:none;padding:6px 8px 7px;gap:5px}.msg-input{display:grid!important;grid-template-columns:auto auto auto minmax(0,1fr);align-items:center;gap:3px;padding:4px 5px;border-radius:13px}
- .msg-input .msg-ta-wrap{grid-column:1/-1;grid-row:1;min-height:32px}.msg-input textarea{font-size:12px!important;line-height:1.35!important;min-height:32px;max-height:82px!important;padding:5px 4px!important}.msg-input .msg-ta-mirror{font-size:12px!important;line-height:1.35!important;padding:5px 4px!important}
- .msg-input>button:first-child{grid-column:1;grid-row:2}.msg-input>button:nth-of-type(2){grid-column:2;grid-row:2}.msg-input>button:nth-of-type(3){grid-column:3;grid-row:2}.msg-input>.msg-send-wrap{grid-column:4;grid-row:2;justify-self:end}
- .msg-input .iconbtn{width:27px;height:27px}.msg-send{width:29px;height:29px}.msg-sched-btn{width:22px}
- .msg-quick{gap:4px;flex-wrap:nowrap}.msg-quick .btn{width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;flex:0 0 38px!important;aspect-ratio:1/1;border-radius:50%!important;padding:0!important;justify-content:center}.msg-quick .btn svg,.msg-quick .btn .drive-logo{width:15px;height:15px;flex:none;margin:0}.msg-quick-label{display:none}
+ .msg-layout{flex:1;height:auto!important;min-height:0!important;}.msg-layout>.panel{height:100%;border-radius:14px}
+ .msg-main{position:relative;}.msg-chead{min-height:42px}.msg-cicon.lg svg{width:16px;height:16px}.msg-chead .iconbtn{width:28px;height:28px}.msg-chead .iconbtn svg{width:15px;height:15px}.msg-members-btn{min-height:28px;padding:3px 5px;font-size:10px}
+ .msg-tabs{overflow-y:hidden;scrollbar-width:none}.msg-tabs::-webkit-scrollbar{display:none}
+ .msg{min-width:0;max-width:100%}.msg-body,.msg-refs{min-width:0;max-width:100%}.msg-card{max-width:100%;box-sizing:border-box;}.msg-card-foot .btn.xs{display:none}.msg-card>.btn.xs{padding:4px 6px;font-size:9px}
+ .msg-input{grid-template-columns:auto auto auto minmax(0,1fr);}
+ .msg-input .msg-ta-wrap{min-height:32px}.msg-input textarea{font-size:12px!important;line-height:1.35!important;min-height:32px;padding:5px 4px!important}.msg-input .msg-ta-mirror{font-size:12px!important;line-height:1.35!important;padding:5px 4px!important}
+ .msg-input>button:first-child{grid-column:1;grid-row:2}.msg-input>button:nth-of-type(2){grid-column:2;grid-row:2}.msg-input>button:nth-of-type(3){grid-column:3;grid-row:2}.msg-input>.msg-send-wrap{justify-self:end}
+ .msg-sched-btn{width:22px}
+ .msg-quick .btn{width:38px!important;height:38px!important;min-width:38px!important;min-height:38px!important;flex:0 0 38px;aspect-ratio:1/1;border-radius:50%!important;padding:0!important;justify-content:center}.msg-quick .btn svg,.msg-quick .btn .drive-logo{width:15px;height:15px;flex:none;margin:0}.msg-quick-label{display:none}
  .msg-new-floating{display:grid;place-items:center;position:absolute;right:10px;bottom:10px;z-index:8;width:40px;height:40px;border-radius:50%;background:var(--color-primary);color:var(--color-primary-ink);box-shadow:var(--shadow-md)}.msg-new-floating svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9}
 
  /* AI canvas and Gallery consume less vertical space on phones. */
  .ai-artboard .panel-head{padding:10px 12px}.ai-artboard .panel-head .sq{width:34px;height:34px}.ai-artboard .panel-body.pad{padding:0 10px 10px}
- #aiCanvas.ai-zoom-viewport{height:300px!important;min-height:200px!important;padding:10px!important}
- .ai-canvas-frame{grid-template-columns:16px minmax(0,1fr)!important;grid-template-rows:16px minmax(0,1fr)!important;border-radius:10px}.ai-ruler-corner{line-height:16px;font-size:7px}.ai-ruler-x{height:16px!important}.ai-ruler-y{width:16px!important}
+ #aiCanvas.ai-zoom-viewport{padding:10px!important}
+ .ai-canvas-frame{border-radius:10px}.ai-ruler-corner{line-height:16px;font-size:7px}.ai-ruler-x{height:16px!important}.ai-ruler-y{width:16px!important}
  .ai-canvas-toolbar{gap:5px;margin-top:8px}.ai-canvas-toolbar .ai-zoom-tools{height:34px}.ai-zoom-tools .iconbtn,.ai-zoom-tools .btn,.ai-zoom-tools label{height:26px;min-height:26px}.ai-canvas-toolbar .ai-view-pill{height:34px;min-height:34px;padding:0 9px;font-size:11px}
  .ag-pagehead{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px}.ag-pagehead .ag-title{font-size:21px;gap:8px}.ag-pagehead .ag-title>.i{width:24px;height:24px}.ag-pagehead .sub{font-size:11px;line-height:1.35;margin-top:3px}.ag-pagehead .actions{width:auto!important;display:flex;flex-wrap:nowrap;gap:6px}.ag-pagehead .actions .btn{width:36px;min-width:36px;height:36px;padding:0;border-radius:50%;justify-content:center}.ag-pagehead .actions .btn span{display:none}.ag-pagehead .actions .btn svg{margin:0}
  .ag-local-banner{padding:10px 12px;font-size:11px;line-height:1.45;margin-top:10px}.ag-toolbar{gap:8px;margin:12px 0;align-items:center!important}.ag-toolbar>input{order:0;flex:1 1 100%;min-width:0;max-width:none;padding:8px 12px;font-size:12px}.ag-toolbar .seg{order:1;width:100%;display:flex;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start!important;scrollbar-width:none}.ag-toolbar .seg::-webkit-scrollbar{display:none}.ag-toolbar .seg button{flex:0 0 auto;padding:6px 10px;font-size:11px}.ag-toolbar>.btn{order:2}.ag-toolbar .ag-sort{order:3;margin-left:auto;font-size:11px}
 }
 @media(max-width:480px){
- .calendar-mobile-controls{gap:2px}.calendar-mobile-controls .cal-mobile-date,.calendar-mobile-controls .cal-mobile-actions{gap:2px}.cal-mobile-date strong{width:72px;font-size:8.5px}.cal-mobile-actions .seg button{padding-inline:3px;font-size:7.5px}
- .project-pagehead .pillsel{min-width:116px}.project-pagehead .project-new-task{flex-basis:94px!important;width:94px}.project-pagehead .actions{gap:5px}
- #aiCanvas.ai-zoom-viewport{height:260px!important;min-height:180px!important}
+ .calendar-mobile-controls .cal-mobile-date,.calendar-mobile-controls .cal-mobile-actions{gap:2px}.cal-mobile-actions .seg button{padding-inline:3px;}
+ .project-pagehead .pillsel{min-width:116px}
 }
 
 /* ===== v29 readiness fixes ===== */
@@ -1053,7 +1013,6 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
 .stage.empty{opacity:1}
 .stage.empty .n,.stage.empty .bar{opacity:.45}
 .stage.empty .l{color:var(--color-text-secondary)}
-fieldset.zc-readonly{border:0;margin:0;padding:0;min-width:0;pointer-events:none;opacity:.72}
 /* v30 a11y: #EF4444 on white is 3.8:1, below AA for the small "overdue" text.
    Light theme uses red-600 (4.8:1); dark theme keeps the brighter red. */
 :root:not([data-theme="dark"]){--color-danger:#DC2626}
@@ -1067,7 +1026,7 @@ html.zc-booting #meBtn,html.zc-booting .cnt,html.zc-booting #notifDot,html.zc-bo
 .eb,.chip-eyebrow{font-size:max(10.5px,.9em)}
 .todaytag{font-size:10px!important}
 /* the struck-through title of a finished task no longer strikes through its status badge */
-.chip.closed .sb,.chip.closed .badge{text-decoration:none!important}
+.chip.closed .sb,.chip.closed .badge{text-decoration:none}
 /* v33 stage move rules */
 .zc-rules{display:grid;gap:2px;border:1px solid var(--color-border);border-radius:12px;overflow:hidden}
 .zc-rule-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(150px,auto) minmax(220px,1.4fr);gap:12px;align-items:center;padding:8px 12px;background:var(--color-surface)}
@@ -1093,7 +1052,6 @@ html.zc-booting #meBtn,html.zc-booting .cnt,html.zc-booting #notifDot,html.zc-bo
 #msgTimeline .msg.grouped{padding-top:2px;padding-bottom:2px;flex-shrink:0}
 #msgTimeline .msg.grouped .msg-gutter{height:21px;line-height:21px;padding-top:0;align-self:start;white-space:nowrap;overflow:visible;font-size:10px}
 .msg.grouped .msg-actions{top:-18px}
-.msg-text{display:block}
 .msg-inline-meta{display:inline-flex;gap:6px;align-items:center;margin-left:6px;font-size:11px;color:var(--color-text-tertiary);vertical-align:baseline}
 .msg-inline-meta .badge{font-size:10.5px}
 @media (hover:none){ .msg.grouped .msg-gutter{opacity:.75} }
