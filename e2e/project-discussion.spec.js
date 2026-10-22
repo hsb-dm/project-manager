@@ -52,15 +52,23 @@ test("Overview and the Discussion tab show one discussion: write, reply, edit, r
     await onOverview();
     const cid = await card.locator(".cmt").first().getAttribute("data-cid");
     const ov = card.locator('.cmt[data-cid="' + cid + '"]');
-    /* Reply on Overview stays on Overview: the box says whom it answers; the reply shows under its comment */
-    await ov.locator(".acts button", { hasText: "Reply" }).click();
+    /* Reply on Overview stays on Overview: a box opens under the comment, there, and says whom it answers (the box
+       at the bottom stays, for new comments); the reply shows under its comment, and the focus is back on Reply */
+    const shape = loc => loc.locator(".cmts > *").evaluateAll(els => els.map(e => e.getAttribute("data-cid") || (e.classList.contains("cmt-reply-box") ? "box" : e.className)));
+    await ov.locator(".acts .cmt-reply-btn").click();
     await onOverview();
-    await expect(card.locator(".composer .hint").first()).toContainText("Replying to");
-    await expect(card.locator("#pdText")).toBeFocused();
+    const rbox = card.locator(".cmt-reply-box");
+    await expect(rbox.locator(".cmt-reply-to")).toHaveText("Replying to Admin E2E");
+    await expect(rbox.locator("#pdReplyText")).toBeFocused();
+    expect(await shape(card)).toEqual([cid, "box"]);
+    await expect(card.locator(".cmts + .composer #pdText")).toBeVisible();
+    await expect(card.locator(".cmts + .composer")).not.toContainText("Replying to");
     await page.keyboard.type("Agreed " + tag);
     await page.keyboard.press("Enter");
     await expect(card.locator(".cmt.reply")).toContainText("Agreed " + tag);
+    await expect(rbox).toHaveCount(0);
     await expect(card.locator(".pd-replies")).toHaveText("Hide replies");
+    await expect(ov.locator(".acts .cmt-reply-btn")).toBeFocused();
     await expect(card.locator(".composer .hint").first()).not.toContainText("Replying to");
     await onOverview();
     /* the thread closes and opens there */
@@ -86,12 +94,22 @@ test("Overview and the Discussion tab show one discussion: write, reply, edit, r
     const item = tab.locator('.cmt[data-cid="' + cid + '"]');
     await expect(item.locator(".body")).toContainText("revised " + tag);
     await expect(tab.locator(".cmt.reply")).toContainText("Agreed " + tag);
-    await item.locator(".acts button", { hasText: "Reply" }).click();
-    await expect(tab.locator(".composer .hint").first()).toContainText("Replying to");
-    await expect(page.locator("#pdText")).toBeFocused();
+    await item.locator(".acts .cmt-reply-btn").click();
+    await expect(tab.locator(".cmt-reply-box .cmt-reply-to")).toHaveText("Replying to Admin E2E");
+    await expect(page.locator("#pdReplyText")).toBeFocused();
+    const first = await tab.locator(".cmt.reply").getAttribute("data-cid");
+    expect(await shape(tab), "under the thread, after its reply").toEqual([cid, first, "box"]);
+    /* Esc lets it go and gives the focus back; Reply again, and it is sent */
+    await page.keyboard.type("Not this");
+    await page.keyboard.press("Escape");
+    await expect(tab.locator(".cmt-reply-box")).toHaveCount(0);
+    await expect(item.locator(".acts .cmt-reply-btn")).toBeFocused();
+    await item.locator(".acts .cmt-reply-btn").click();
+    await expect(page.locator("#pdReplyText")).toHaveValue("");
     await page.keyboard.type("Second reply " + tag);
     await page.keyboard.press("Enter");
     await expect(tab.locator(".cmt.reply")).toHaveCount(2);
+    await expect(tab.locator(".cmt-reply-box")).toHaveCount(0);
     await tab.locator(".cmt.reply").filter({ hasText: "Agreed " + tag }).locator(".acts button", { hasText: "Delete" }).click();
     await expect(tab.locator(".cmt.reply")).toHaveCount(1);
     await expect(tab.locator(".panel-head .cnt")).toHaveText("2");
@@ -189,6 +207,19 @@ test("a colleague's comment appears on the page without a reload", async ({ brow
     await two.evaluate(([id, t]) => apiFetch("POST", "/api/projects/" + id + "/comments", { text: "From a colleague " + t }), [p, tag]);
     await expect(admin.locator("#content .pd-overview .cmt .body")).toContainText("From a colleague " + tag, { timeout: 8000 });
     await expect(admin.locator("#content .pd-overview .panel-head .cnt")).toHaveText("1");
+    /* a reply being written under it keeps its box, its words and its caret while more arrives */
+    await admin.locator("#content .pd-overview .cmt .acts .cmt-reply-btn").click();
+    const rta = admin.locator("#content .pd-overview .cmt-reply-box #pdReplyText");
+    await expect(rta).toBeFocused();
+    await admin.keyboard.type("Half typed");
+    await admin.keyboard.press("ArrowLeft");
+    await two.evaluate(([id, t]) => apiFetch("POST", "/api/projects/" + id + "/comments", { text: "And another " + t }), [p, tag]);
+    await expect(admin.locator("#content .pd-overview .panel-head .cnt")).toHaveText("2", { timeout: 8000 });
+    await expect(rta).toHaveValue("Half typed");
+    await expect(rta).toBeFocused();
+    expect(await rta.evaluate(t => t.selectionStart)).toBe(9);
+    await admin.keyboard.press("Escape");
+    await expect(admin.locator("#content .pd-overview .cmt-reply-box")).toHaveCount(0);
   } finally {
     await dropProjects(admin, [p]);
     await admin.evaluate(id => apiFetch("DELETE", "/api/members/" + id).catch(() => {}), member);
@@ -214,5 +245,10 @@ test("on a phone the Discussion tab and its box fit the screen", async ({ page }
     await expect(page.locator("#content .pd-full #pdText")).toBeVisible();
     await expect(page.locator("#content .pd-full .composer .m-attach")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    /* Reply: the box is the whole width under the comment */
+    await page.locator("#content .pd-full .cmt .acts .cmt-reply-btn").click();
+    await expect(page.locator("#content .pd-full #pdReplyText")).toBeFocused();
+    const g = await page.evaluate(() => { const c = document.querySelector("#content .pd-full .cmt").getBoundingClientRect(), b = document.querySelector("#content .pd-full .cmt-reply-box").getBoundingClientRect(); return [Math.round(b.left - c.left), Math.round(b.right - c.right), document.documentElement.scrollWidth <= window.innerWidth]; });
+    expect(g).toEqual([0, 0, true]);
   } finally { await dropProjects(page, [m]); }
 });

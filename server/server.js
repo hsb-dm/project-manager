@@ -1809,14 +1809,28 @@ route("DELETE", "/api/tasks/:id/progress/:v", (u, p) => {
   tx(db, () => { db.prepare("DELETE FROM task_progress_notes WHERE id=?").run(row.id); progressTouched(p.id); act(u, "progress_removed", "task", p.id, { task: p.id, v: row.version_number }); });
   return forViewer(u, sz.readTask(db, p.id));
 });
+/* The comment a reply answers: one of the task's own comments, and one the writer can see (a stakeholder sees only
+   stakeholder-visible ones); a reply to a reply joins its thread, answering the comment the thread starts with, as
+   the task panel sends it (postComment, src/drawer.js) and a project's discussion keeps it. Anything else, none. */
+function replyParent(comments, id, u) {
+  if (!id || typeof id !== "string") return null;
+  const all = new Map((comments || []).filter(Boolean).map(c => [c.id, c]));
+  const seen = c => !!c && (!u.stakeholder || c.vis === "client");
+  let c = all.get(id); if (!seen(c)) return null;
+  for (let hop = 0; c.parent && hop < 20; hop++) { const up = all.get(c.parent); if (!seen(up)) break; c = up; }
+  return c.id;
+}
 route("POST", "/api/tasks/:id/comments", (u, p, q, b) => {
   const cur = sz.readTask(db, p.id); if (!cur || !db.prepare("SELECT 1 FROM tasks WHERE id=? AND workspace_id=?").get(p.id, WS_ID)) throw new HttpError(404, "Task not found");
   forbid(can.comment(u) && (require("./permissions").has(u, "view_all") || can.editTask(u, cur) || can.approveTask(u, cur) || cur.createdBy === u.id || u.stakeholder), "comment on this task");
   const text = String((b && b.text) || "").trim(); const att = Array.isArray(b && b.attachments) ? b.attachments : [];
   if (!text && !att.length) throw new HttpError(400, "Write something first");
   tooLong("comment", text, 10000);
-  const parent = b.parent && cur.comments.some(c => c.id === b.parent) ? b.parent : null;
-  const added = sanitizeComments([], [{ id: b.id, text, vis: b.vis, parent, attachments: att }], u)[0];
+  /* the comment it answers is decided here, after sanitizeComments: given only the new comment, that found no
+     parent beside it and dropped it, so a reply posted on this route (anyone who may comment but not edit the
+     task) landed as a comment of its own */
+  const added = sanitizeComments([], [{ id: b.id, text, vis: b.vis, attachments: att }], u)[0];
+  added.parent = replyParent(cur.comments, b.parent, u);
   if (cur.comments.some(c => c.id === added.id)) added.id = uid("cm");
   const next = Object.assign({}, cur, { comments: cur.comments.concat([added]) });
   validateStoredFiles(next, u.id);

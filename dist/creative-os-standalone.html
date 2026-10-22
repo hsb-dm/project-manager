@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="a13c9bf6355c">
+<meta name="zc-build" content="3edb11a7cea7">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -4778,6 +4778,11 @@ select{background-image:var(--zc-chev);background-position:right 11px center;bac
 :is(#drawer,.pd-box) .cmt.cmt-editing .composer .bar .cmt-edit-cancel{margin-left:2px}
 :is(#drawer,.pd-box) .cmt .body .drive-chip{vertical-align:middle;margin:1px 2px}
 @media(max-width:760px){:is(#drawer,.pd-box) .cmt.cmt-editing{padding:10px 8px;margin:2px -8px}}
+:is(#drawer,.pd-box) .cmt-reply-box{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;margin-left:36px}
+:is(#drawer,.pd-box) .cmt-reply-box .composer{padding:8px 10px;gap:6px}
+:is(#drawer,.pd-box) .cmt-reply-box .composer textarea{min-height:40px}
+:is(#drawer,.pd-box) .cmt-reply-box .cmt-reply-to b{color:var(--color-text-primary)}
+@media(max-width:760px){:is(#drawer,.pd-box) .cmt-reply-box{margin-left:0;grid-template-columns:minmax(0,1fr)}:is(#drawer,.pd-box) .cmt-reply-box>.av{display:none}}
 .panel-head .seg.dash-scope,.rail-head .seg.dash-scope{margin-left:0;flex:none;flex-wrap:nowrap;width:auto}
 .seg.dash-scope button{padding:3px 10px;font-size:12px}
 .rail-head .seg.dash-scope{margin-left:auto}
@@ -8988,29 +8993,47 @@ function attachAsset(id){ var a=asset(id); var tk=task(S.drawerTask); closeModal
 
 function commentsView(tk){ var vis=person(ME).stakeholder?"client":S.commentVis; var list=tk.comments.filter(function(c){ return vis==="internal"?true:c.vis==="client"; }); var roots=list.filter(function(c){ return !c.parent||!byId(list,c.parent); }).sort(function(a,b){ return b.ago-a.ago; });
   var editing=S.cmtEdit&&S.cmtEdit.task===tk.id?S.cmtEdit.id:null; if(editing&&!byId(list,editing)&&typeof cmtEditFinish==="function"){ cmtEditFinish(); editing=null; }
-  var one=function(c,isReply){ var ed=editing===c.id; return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtComposerHtml(tk,vis,true):"",tag:typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'',acts:'<button onclick="S.replyTo=\''+c.id+'\';renderDrawer();setTimeout(function(){var e=document.getElementById(\'cmtText\');if(e)e.focus()},50)">Reply</button>'+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment(\''+c.id+'\')">Delete</button>':'')}); };
+  var rt=!editing&&typeof cmtReplyTarget==="function"?cmtReplyTarget(tk.id,list,tk.comments):null;
+  var replyBox=function(){ return cmtReplyBoxHtml(tk.id,rt,{inputId:"cmtReplyText",vis:vis,post:"postComment("+jsq(cmtReplyKey(tk.id,rt.cid))+")"}); };
+  var one=function(c,isReply){ var ed=editing===c.id; return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtComposerHtml(tk,vis,true):"",tag:typeof revisionTagHtml==="function"?revisionTagHtml(tk,c):'',acts:cmtReplyBtnHtml(tk.id,c.id,rt)+(c.by===ME?'<button class="cmt-edit-btn" onclick="cmtEditStart('+jsq(c.id)+')">'+tr("Edit")+'</button><button onclick="deleteComment('+jsq(c.id)+')">'+tr("Delete")+'</button>':'')}); };
   var h=(person(ME).stakeholder?'':'<div class="cvis"><button class="'+(S.commentVis==="internal"?"on":"")+'" onclick="S.commentVis=\'internal\';renderDrawer()">'+I.lock+'Internal</button><button class="'+(S.commentVis==="client"?"on":"")+'" onclick="S.commentVis=\'client\';renderDrawer()">'+I.eye+'Stakeholder-visible</button></div><div class="hint" style="margin:-6px 0 12px">'+tr(S.commentVis==="internal"?"Internal comments are only visible to the creative team.":"Stakeholder-visible comments can be seen by requesters like Marketing.")+'</div>');
-  h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+'</div>';
+  h+='<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+list.filter(function(r){ return r.parent===c.id; }).sort(function(a,b){ return b.ago-a.ago; }).map(function(r){ return one(r,true); }).join("")+(rt&&rt.root===c.id?replyBox():''); }).join(""):'<div class="empty" style="padding:20px"><div class="h">No comments yet</div></div>')+(rt&&rt.gone?replyBox():'')+'</div>';
   return h+(editing?'':cmtComposerHtml(tk,vis,false)); }
+function cmtReplyBtnHtml(base,cid,rt,onclick){ var open=!!rt&&rt.cid===cid, draft=!open&&typeof cmtReplyEmpty==="function"&&!cmtReplyEmpty(cmtReplyKey(base,cid));
+  return '<button type="button" class="cmt-reply-btn" aria-expanded="'+open+'" onclick="'+(onclick||'cmtReplyOpen('+jsq(base)+','+jsq(cid)+')')+'">'+esc(tr(draft?"Reply (draft)":"Reply"))+'</button>'; }
+function cmtReplyBoxHtml(base,rt,o){ var key=cmtReplyKey(base,rt.cid);
+  return '<div class="cmt-reply-box" data-reply-for="'+attr(rt.cid)+'">'+av(ME)+'<div class="cmt-reply-main">'+cmtBoxHtml({key:key,inputId:o.inputId,vis:o.vis,inline:true,draft:cmtDraftOf(key),reply:rt.c||null,cancelReply:"cmtReplyCancel("+jsq(key)+")",post:o.post})+'</div></div>'; }
 function cmtItemHtml(c,isReply,o){ o=o||{}; return '<div class="cmt '+c.vis+(isReply?" reply":"")+(o.editing?" cmt-editing":"")+'" data-cid="'+attr(c.id||"")+'"'+(o.attrs||'')+'>'+av(c.by)+'<div><div class="who"><b>'+esc(person(c.by).name)+'</b>'+(o.tag||'')+''+(person(c.by).stakeholder?'<span class="badge client">stakeholder</span>':'')+(c.vis==="internal"?'<span class="badge">'+I.lock+'internal</span>':'<span class="badge">'+I.eye+'visible</span>')+'<span class="when">'+ago(c.ago,c.createdAt)+'</span>'+(c.editedAt?'<span class="cmt-edited" title="'+attr(tr("Edited")+" "+new Date(c.editedAt).toLocaleString(UI_LANG==="id"?"id-ID":"en-GB"))+'">· '+tr("edited")+'</span>':'')+'</div>'+(o.editing?o.editor:'<div class="body">'+(typeof cmtMentionsHtml==="function"?cmtMentionsHtml(richLinkText(c.text||"",{})):richLinkText(c.text||"",{mentions:true}))+'</div>'+commentAttachmentsHtml(c)+(o.acts!=null?'<div class="acts">'+o.acts+'</div>':''))+'</div></div>'; }
-function cmtComposerHtml(tk,vis,editing){ var d=typeof cmtDraftOf==="function"?cmtDraftOf(tk.id):{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),reply:S.replyTo||null};
-  return cmtBoxHtml({key:tk.id,inputId:"cmtText",vis:vis,editing:editing,draft:d,reply:!editing&&d.reply?byId(tk.comments,d.reply):null,cancelReply:"S.replyTo=null;renderDrawer()",post:"postComment()"}); }
-function cmtBoxHtml(o){ var d=o.draft||{}, att=d.att||[], rt=o.reply, editing=o.editing, vis=o.vis;
-  var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),newLine=" · "+shiftCombo("Enter")+" "+tr("new line"),postHint=editing?"Enter "+tr("saves")+newLine+" · Esc "+tr("cancels"):audience+" · Enter "+tr("sends")+newLine;
-  return '<div class="composer'+(editing?' cmt-edit-box" role="group" aria-label="'+attr(tr("Editing your comment")):'')+'" data-cmt-key="'+attr(o.key)+'">'+(rt?'<div class="hint">Replying to <b>'+esc(person(rt.by).name)+'</b> <button class="btn xs ghost" onclick="'+o.cancelReply+'">'+I.x+'</button></div>':'')+'<textarea id="'+attr(o.inputId)+'" class="cmt-input" data-cmt-key="'+attr(o.key)+'" placeholder="'+attr(tr("Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="cmtKey(event)">'+esc(d.text||"")+'</textarea>'+(att.length?'<div>'+att.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="cmtAttRemove('+i+')">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+(editing?'':av(ME))+'<span class="hint">'+esc(postHint)+(editing?'':' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image"))+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+(editing?'<button type="button" class="btn sm ghost cmt-edit-cancel" onclick="cmtEditCancel()">'+esc(tr("Cancel"))+'</button>':'')+'<button class="btn primary sm" onclick="'+o.post+'">'+(editing?esc(tr("Save")):'Post')+'</button></div></div>'; }
-function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); var k=e.target&&e.target.getAttribute&&e.target.getAttribute("data-cmt-key"); if(/^project:/.test(k||"")&&typeof pdSubmit==="function") return pdSubmit(k.slice(8)); postComment(); }
+function cmtComposerHtml(tk,vis,editing){ var d=typeof cmtDraftOf==="function"?cmtDraftOf(tk.id):{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[])};
+  return cmtBoxHtml({key:tk.id,inputId:"cmtText",vis:vis,editing:editing,draft:d,post:"postComment("+jsq(tk.id)+")"}); }
+function cmtBoxHtml(o){ var d=o.draft||{}, att=d.att||[], rt=o.reply, editing=o.editing, inline=!!o.inline&&!editing, vis=o.vis;
+  var audience=vis==="internal"?tr("Internal"):tr("Stakeholder-visible"),newLine=" · "+shiftCombo("Enter")+" "+tr("new line"),postHint=editing?"Enter "+tr("saves")+newLine+" · Esc "+tr("cancels"):inline?audience+" · Enter "+tr("sends")+" · Esc "+tr("cancels"):audience+" · Enter "+tr("sends")+newLine;
+  var who=inline&&rt?person(rt.by).name:"";
+  var head=inline?'<div class="hint cmt-reply-to">'+(rt?esc(tr("Replying to"))+' <b>'+esc(who)+'</b>':esc(tr("The comment you were replying to was removed — this will be posted as a comment of its own.")))+'</div>':'';
+  return '<div class="composer'+(editing?' cmt-edit-box" role="group" aria-label="'+attr(tr("Editing your comment")):inline?' cmt-reply-composer" role="group" aria-label="'+attr(rt?tr("Reply to")+" "+who:tr("Reply")):'')+'" data-cmt-key="'+attr(o.key)+'">'+head+'<textarea id="'+attr(o.inputId)+'" class="cmt-input" data-cmt-key="'+attr(o.key)+'"'+(inline?' aria-label="'+attr(rt?tr("Reply to")+" "+who:tr("Reply"))+'"':'')+' placeholder="'+attr(tr(inline?"Write a reply… type @ to mention someone":"Write a comment… type @ to mention someone"))+'" oninput="window._cmtDraft=this.value" onkeydown="cmtKey(event)">'+esc(d.text||"")+'</textarea>'+(att.length?'<div>'+att.map(function(a,i){ if(!a.preview&&(a.url||a.ref)&&typeof cmtStagedChipHtml==="function") return cmtStagedChipHtml(a,i); return '<span class="att'+(a.preview?" att-img":"")+'">'+(a.preview?'<img src="'+attr(a.preview)+'" alt="">':(a.url&&typeof isGoogleLink==="function"&&isGoogleLink(a.url)&&typeof driveIcon==="function"?driveIcon():I.link))+esc(a.name)+' <button onclick="cmtAttRemove('+i+')">×</button></span>'; }).join("")+'</div>':'')+(typeof cmtToolbarHtml==="function"?cmtToolbarHtml():'')+'<div class="bar">'+(editing||inline?'':av(ME))+'<span class="hint">'+esc(postHint)+(editing||inline?'':' · '+esc(shortcutCombo("V"))+' '+tr("pastes an image"))+'</span>'+(typeof cmtToolbarHtml==="function"?'':'<button class="btn xs ghost" onclick="attachToComment()">'+I.link+'Attach</button>')+'<span class="spacer"></span>'+(typeof cmtToolbarHtml==="function"?'<button type="button" class="iconbtn flat cmt-attach m-attach" data-menu="" title="'+attr(tr("Attach"))+'" aria-label="'+attr(tr("Attach"))+'" onclick="mAttachMenu(this,\'.cmt-tools\')"><svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg></button>':'')+(typeof cmtMentionButton==="function"?'<button type="button" class="iconbtn flat cmt-at" title="'+attr(tr("Mention"))+'" aria-label="'+attr(tr("Mention"))+'" onclick="cmtMentionButton()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></svg></button>':'')+(editing?'<button type="button" class="btn sm ghost cmt-edit-cancel" onclick="cmtEditCancel()">'+esc(tr("Cancel"))+'</button>':inline?'<button type="button" class="btn sm ghost cmt-reply-cancel" onclick="'+o.cancelReply+'">'+esc(tr("Cancel"))+'</button>':'')+'<button class="btn primary sm" onclick="'+o.post+'">'+(editing?esc(tr("Save")):inline?esc(tr("Reply")):'Post')+'</button></div></div>'; }
+function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); var k=e.target&&e.target.getAttribute&&e.target.getAttribute("data-cmt-key"); if(/^project:/.test(k||"")&&typeof pdSubmit==="function") return pdSubmit(typeof cmtKeyProject==="function"?cmtKeyProject(k):k.slice(8),k); postComment(k||undefined); }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]), forTask=S.drawerTask; inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ if(typeof cmtDraftAttach!=="function"){ window._cmtAtt.push(a); cmtRedraw(); } else if(cmtDraftAttach(forTask,a)) cmtRedraw(); };
     if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
     else uploadAny(f,{forceDrive:true}).then(function(u){ done({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type}); }).catch(function(e){ toast(f.name+": "+e.message,"bad"); }); }); }; inp.click(); }
 function cmtRedraw(){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }; var ta=box(), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
-function postComment(){ if(S.cmtEdit&&S.cmtEdit.task===S.drawerTask&&typeof cmtEditSave==="function") return cmtEditSave(); var el=document.getElementById("cmtText");
-  var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim();
-  window._cmtDraft=""; if (!txt&&!(window._cmtAtt||[]).length){ el.focus(); return; } var tk=task(S.drawerTask); var vis=person(ME).stakeholder?"client":S.commentVis; var att=window._cmtAtt||[]; window._cmtAtt=[]; window._cmtLinks=[]; var parent=S.replyTo, replyOf=parent; S.replyTo=null; for(var hop=0;parent&&hop<20;hop++){ var pc=byId(tk.comments,parent); if(!pc||!pc.parent) break; parent=pc.parent; }
+function postComment(key){ if(key&&typeof cmtActivate==="function") cmtActivate(key);
+  if(S.cmtEdit&&S.cmtEdit.task===S.drawerTask&&typeof cmtEditSave==="function") return cmtEditSave();
+  var tk=task(S.drawerTask), el=typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); if(!tk||!el) return;
+  var bkey=el.getAttribute("data-cmt-key")||tk.id, rcid=typeof cmtKeyReply==="function"?cmtKeyReply(bkey):null;
+  var raw=el.value, links=(window._cmtLinks||[]).slice(), txt=(typeof linkTokensExpand==="function"?linkTokensExpand(raw,window._cmtLinks):raw).trim();
+  window._cmtDraft=""; if (!txt&&!(window._cmtAtt||[]).length){ el.focus(); return; } var vis=person(ME).stakeholder?"client":S.commentVis; var att=window._cmtAtt||[]; window._cmtAtt=[]; window._cmtLinks=[];
+  var chosen=(window._cmtMentions||[]).slice(), mentions=[]; if(typeof cmtMentionIds==="function"){ mentions=cmtMentionIds(txt); cmtMentionsReset(); } else (txt.match(/@(\w+)/g)||[]).forEach(function(m){ var id=m.slice(1).toLowerCase(); if (PEOPLE[id]) mentions.push(id); });
+  var parent=rcid||S.replyTo, replyOf=parent; S.replyTo=null; for(var hop=0;parent&&hop<20;hop++){ var pc=byId(tk.comments,parent); if(!pc||!pc.parent) break; parent=pc.parent; }
+  if(rcid&&typeof cmtReplyDrop==="function") cmtReplyDrop(bkey);
   var snap=clone(tk); var c=C(ME,0,vis,txt,parent); c.attachments=att; tk.comments.push(c); log(tk,"comment");
   var own=API.on&&!canI.editTask(tk); var filed=own?[]:typeof cmtAssetsFrom==="function"?cmtFileAssets(tk,cmtAssetsFrom(att,txt)):(att.forEach(function(a){ if(a.preview||a.url) tk.files.push(F(a.name,a.type||(a.preview?"image":"other"),a.driveId?"gdrive":"local",a.size,0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null})); }),[]); refresh();
-  (API.on?(own?apiFetch("POST","/api/tasks/"+tk.id+"/comments",{id:c.id,text:txt,vis:vis,parent:parent,attachments:att}):apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk))).then(function(d){ replaceInto(tk,hTask(d)); refresh(); }):Promise.resolve()).then(function(saved){ if(saved===false)return false; toast("Comment posted"); if(filed.length&&typeof cmtNameFiledLinks==="function") cmtNameFiledLinks(tk,filed); var mentions=[]; if(typeof cmtMentionIds==="function"){ mentions=cmtMentionIds(txt); cmtMentionsReset(); } else (txt.match(/@(\w+)/g)||[]).forEach(function(m){ var id=m.slice(1).toLowerCase(); if (PEOPLE[id]) mentions.push(id); }); if (mentions.length) notify("mention",mentions,tk.id); var others=taskPeople(tk).concat([replyOf?(byId(tk.comments,replyOf)||{}).by:null]).filter(function(x,i,a){ return x&&a.indexOf(x)===i&&mentions.indexOf(x)<0; }); notify("comment",others,tk.id); }).catch(function(e){ replaceInto(tk,snap); window._cmtDraft=txt; window._cmtAtt=att; refresh(); var box=document.getElementById("cmtText"); if(box&&!box.value) box.value=txt; fail(e,"Couldn't post comment. "+e.message); }); }
-function deleteComment(id){ var tk=task(S.drawerTask); editTaskWith(tk,function(t){ t.comments=t.comments.filter(function(c){ return c.id!==id; }).map(function(c){ if(c.parent===id) c.parent=null; return c; }); }); }
+  if(rcid&&typeof cmtReplyBtnFocus==="function") cmtReplyBtnFocus(tk.id,rcid);
+  (API.on?(own?apiFetch("POST","/api/tasks/"+tk.id+"/comments",{id:c.id,text:txt,vis:vis,parent:parent,attachments:att}):apiFetch("PUT","/api/tasks/"+tk.id,dTask(tk))).then(function(d){ replaceInto(tk,hTask(d)); refresh(); }):Promise.resolve()).then(function(saved){ if(saved===false)return false; toast(tr("Comment posted")); if(filed.length&&typeof cmtNameFiledLinks==="function") cmtNameFiledLinks(tk,filed); if (mentions.length) notify("mention",mentions,tk.id); var others=taskPeople(tk).concat([replyOf?(byId(tk.comments,replyOf)||{}).by:null]).filter(function(x,i,a){ return x&&a.indexOf(x)===i&&mentions.indexOf(x)<0; }); notify("comment",others,tk.id); }).catch(function(e){ replaceInto(tk,snap);
+    var back=document.activeElement, toBox=rcid&&(!back||back===document.body||(back.classList&&back.classList.contains("cmt-reply-btn")));
+    if(typeof cmtDraftRestore==="function"){ cmtDraftRestore(bkey,{text:raw,att:att,links:links,mentions:chosen}); if(toBox) cmtActivate(bkey); } else { window._cmtDraft=txt; window._cmtAtt=att; }
+    refresh(); if(toBox&&typeof cmtFocusLive==="function") cmtFocusLive(); var box=document.getElementById("cmtText"); if(!rcid&&box&&!box.value&&S.drawerTask===tk.id&&!S.cmtEdit) box.value=raw; fail(e,"Couldn't post comment. "+e.message); }); }
+function deleteComment(id){ var tk=task(S.drawerTask); if(typeof CMT_REPLY_OPEN!=="undefined"&&CMT_REPLY_OPEN[tk.id]===id) cmtReplyDrop(cmtReplyKey(tk.id,id)); editTaskWith(tk,function(t){ t.comments=t.comments.filter(function(c){ return c.id!==id; }).map(function(c){ if(c.parent===id) c.parent=null; return c; }); }); }
 function activityView(tk){ return '<div class="tl">'+tk.activity.slice().sort(function(a,b){ return a.ago-b.ago; }).map(function(a){ var args={who:first(a.who),from:a.a.from?stageName(a.a.from):"",to:a.a.to?(a.k==="team"?teamName(a.a.to):a.k==="assigned"?(PEOPLE[a.a.to]?first(a.a.to):a.a.to):stageName(a.a.to)):"",v:a.a.v,name:a.a.name,what:a.a.what}; return '<div class="it'+(a.k==="approved"||a.k==="revision"?" hi":"")+(a.k==="restored"?" restored":"")+'"><i></i><div>'+activityLine(a.k,args)+'</div><div class="when">'+ago(a.ago,a.createdAt)+'</div>'+restoreButtonHtml("task",tk.id,a)+'</div>'; }).join("")+'</div>'; }
 Object.assign(UI_ID,{"Field":"Kolom","Task panel position":"Posisi panel task","Open external link":"Buka tautan eksternal","This opens in a new tab outside ZenCrevia. Only open links you trust.":"Tautan ini dibuka di tab baru di luar ZenCrevia. Buka hanya tautan yang kamu percaya.","Hide":"Sembunyikan","A structured brief is optional — use one of these, or keep the brief in the description above.":"Brief terstruktur bersifat opsional — pakai salah satu template ini, atau tulis brief di deskripsi di atas.","Attach a working file, a Google Drive link or any HTTPS link. Reference images go in the description.":"Lampirkan file kerja, tautan Google Drive, atau tautan HTTPS lain. Gambar referensi bisa dimasukkan ke deskripsi.","More details":"Detail lainnya","No dependencies yet.":"Belum ada dependensi.","This task is ready to start.":"Task ini siap dimulai.","Add dependency":"Tambah dependensi","Add context not covered by the brief…":"Tambahkan konteks yang belum tercakup di brief…","Type to see the formatting. Formatted text you paste keeps its formatting.":"Tulis langsung untuk melihat format. Paste teks berformat akan dipertahankan.","No description yet.":"Belum ada deskripsi.","Use this for additional context, constraints, or notes.":"Gunakan untuk konteks tambahan, batasan, atau catatan.","Edit date":"Ubah tanggal","Workflow stage":"Tahap workflow","deliverables":"deliverable","Attach link":"Lampirkan tautan","Attach any trusted HTTPS link. It stays connected to this task and appears with the other files and references.":"Lampirkan tautan HTTPS tepercaya. Tautan tetap terhubung ke task ini dan tampil bersama file serta referensi lainnya.","Display name":"Nama tampilan","e.g. Campaign reference":"mis. Referensi campaign","Use a valid HTTPS link":"Gunakan tautan HTTPS yang valid","External link":"Tautan eksternal","Link attached":"Tautan dilampirkan","Upload a working file, link one from Google Drive, or attach any HTTPS link.":"Unggah file kerja, tautkan dari Google Drive, atau lampirkan tautan HTTPS lain."});
 </script>
@@ -18652,7 +18675,7 @@ function cmtAttChipHtml(a){ var url=String(a.url||""), name=String(a.name||"").t
   var named=!!(name&&name!==url), label=named?name:linkLabelNow(url), pending=!named&&linkNameable(url)&&!linkNameKnown(url);
   return '<a href="'+attr(url)+'" class="drive-chip file-chip link-chip"'+(pending?' data-drive-pending="1"':'')+' target="_blank" rel="noopener nofollow" title="'+attr(label+(host&&label!==host?" — "+host:""))+'" onclick="event.stopPropagation();event.preventDefault();openExternal(this.getAttribute(\'href\'),'+jsq(label)+')">'
     +(function(){ var bi=typeof brandIconHtml==="function"?brandIconHtml(url,14):""; return bi?'<span class="link-chip-ico brand">'+bi+'</span>':badge?'<span class="file-chip-ico" style="background:'+badge[1]+'">'+badge[0]+'</span>':'<span class="link-chip-ico">'+I.link+'</span>'; })()+'<span class="lc-name">'+esc(label)+'</span></a>'; }
-function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?CMT_DRAFT_FOR.slice(8):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
+function cmtAttachRef(btn,kind){ var inProject=typeof cmtIsProjectKey==="function"&&cmtIsProjectKey(CMT_DRAFT_FOR), tk=!inProject&&S.drawerTask?task(S.drawerTask):null, pid=inProject?cmtKeyProject(CMT_DRAFT_FOR):tk&&tk.proj, box=btn&&btn.closest?btn.closest(".composer"):null, anchor=btn&&btn.offsetParent?btn:((box&&box.querySelector(".m-attach"))||document.querySelector("#drawer .composer .m-attach")||btn);
   entityPicker({kind:kind,anchor:anchor,placeholder:tr(kind==="task"?"Find a task…":"Find a project…"),context:{projectId:pid},
     search:kind==="task"?function(q){ return epTaskItems(q,{projectId:pid}).filter(function(t){ return !tk||t.id!==tk.id; }); }:undefined,
     onSelect:function(item){ cmtStage({ref:kind,refId:item.id,name:kind==="task"?item.id+" · "+item.title:item.name}); }}); }
@@ -18700,15 +18723,53 @@ window._cmtMentions=window._cmtMentions||[];
 var CMT_MENTION={open:false};
 
 function cmtIsProjectKey(k){ return /^project:/.test(String(k||"")); }
+var CMT_REPLY_OPEN={};
+function cmtReplyKey(base,cid){ return base+"#r:"+cid; }
+function cmtKeyBase(k){ return String(k||"").split("#r:")[0]; }
+function cmtKeyReply(k){ var s=String(k||""), i=s.indexOf("#r:"); return i<0?null:s.slice(i+3)||null; }
+function cmtKeyProject(k){ return cmtIsProjectKey(k)?cmtKeyBase(k).slice(8):null; }
+function cmtIsTaskBaseKey(k){ return !!k&&!cmtIsProjectKey(k)&&!cmtKeyReply(k); }
 function cmtIsInput(el){ return !!(el&&el.classList&&el.classList.contains("cmt-input")); }
-function cmtInput(){ var k=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR; if(cmtIsProjectKey(k)){ var list=document.querySelectorAll("textarea.cmt-input"); for(var i=0;i<list.length;i++) if(list[i].getAttribute("data-cmt-key")===k) return list[i]; } return document.getElementById("cmtText"); }
+function cmtInput(){ var k=typeof CMT_DRAFT_FOR==="undefined"?null:CMT_DRAFT_FOR; if(cmtIsProjectKey(k)||cmtKeyReply(k)){ var list=document.querySelectorAll("textarea.cmt-input"); for(var i=0;i<list.length;i++) if(list[i].getAttribute("data-cmt-key")===k) return list[i]; if(cmtKeyReply(k)) return null; } return document.getElementById("cmtText"); }
 function cmtActivate(key){ if(!key||key===CMT_DRAFT_FOR) return; if(S.cmtEdit) cmtEditFinish(); cmtDraftSwitch(key); }
 ["pointerdown","focusin"].forEach(function(type){ document.addEventListener(type,function(e){ var box=e.target&&e.target.closest?e.target.closest("[data-cmt-key]"):null; if(box) cmtActivate(box.getAttribute("data-cmt-key")); },true); });
 function cmtBoxRedraw(){ if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdRedraw==="function") pdRedraw(); else renderDrawer(); }
 function cmtAttRemove(i){ (window._cmtAtt||[]).splice(i,1); cmtRedraw(); }
-function cmtDraftOf(key){ var live=key===CMT_DRAFT_FOR||(!cmtIsProjectKey(key)&&!cmtIsProjectKey(CMT_DRAFT_FOR)); return live?{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),links:window._cmtLinks||[],mentions:window._cmtMentions||[],reply:S.replyTo||null}:(CMT_DRAFTS[key]||cmtDraftEmpty()); }
+function cmtDraftOf(key){ var live=key===CMT_DRAFT_FOR||(cmtIsTaskBaseKey(key)&&(!CMT_DRAFT_FOR||cmtIsTaskBaseKey(CMT_DRAFT_FOR))); return live?{text:window._cmtDraft||"",att:(window._cmtAtt=window._cmtAtt||[]),links:window._cmtLinks||[],mentions:window._cmtMentions||[],reply:S.replyTo||null}:(CMT_DRAFTS[key]||cmtDraftEmpty()); }
+function cmtBoxDraft(ta){ var k=ta&&ta.getAttribute&&ta.getAttribute("data-cmt-key"); return k?cmtDraftOf(k):cmtDraftOf(CMT_DRAFT_FOR); }
 
-function cmtVisibility(){ if(person(ME).stakeholder) return "client"; if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdBoxVis==="function") return pdBoxVis(CMT_DRAFT_FOR.slice(8)); return S.commentVis||"internal"; }
+function cmtReplyEmpty(key){ var d=key===CMT_DRAFT_FOR?{text:window._cmtDraft,att:window._cmtAtt}:CMT_DRAFTS[key]; return !d||(!String(d.text||"").trim()&&!(d.att||[]).length); }
+function cmtReplyOpen(base,cid){ if(!base||!cid) return;
+  var was=S.cmtEdit; if(was&&typeof cmtEditFinish==="function") cmtEditFinish();
+  CMT_REPLY_OPEN[base]=cid; cmtDraftSwitch(cmtReplyKey(base,cid));
+  if(was&&!!was.project!==cmtIsProjectKey(base)) cmtRedrawFor(was.project?pdKeyOf(was.project):S.drawerTask);
+  cmtRedrawFor(base); cmtFocusLive(); }
+function cmtReplyCancel(key){ var base=cmtKeyBase(key), cid=cmtKeyReply(key); if(!cid) return;
+  cmtReplyDrop(key); cmtRedrawFor(base); cmtReplyBtnFocus(base,cid); }
+function cmtRedrawFor(key){ if(cmtIsProjectKey(key)){ if(typeof pdRedraw==="function") pdRedraw(); } else if(S.drawerTask) renderDrawer(); }
+function pdKeyOf(pid){ return "project:"+pid; }
+function cmtReplyDrop(key){ var base=cmtKeyBase(key), cid=cmtKeyReply(key);
+  if(CMT_REPLY_OPEN[base]===cid) delete CMT_REPLY_OPEN[base];
+  if(CMT_DRAFT_FOR===key){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; window._cmtMentions=[]; cmtDraftSwitch(base); }
+  delete CMT_DRAFTS[key]; }
+function cmtDraftRestore(key,d){ var base=cmtKeyBase(key), cid=cmtKeyReply(key);
+  if(cid&&!CMT_REPLY_OPEN[base]) CMT_REPLY_OPEN[base]=cid;
+  var live=key===CMT_DRAFT_FOR||(cmtIsTaskBaseKey(key)&&(!CMT_DRAFT_FOR||cmtIsTaskBaseKey(CMT_DRAFT_FOR)));
+  if(live){ if(!String(window._cmtDraft||"").trim()&&!(window._cmtAtt||[]).length){ window._cmtDraft=d.text; window._cmtAtt=d.att||[]; window._cmtLinks=d.links||[]; window._cmtMentions=d.mentions||[]; } return; }
+  if(cmtReplyEmpty(key)) CMT_DRAFTS[key]={text:d.text,att:d.att||[],links:d.links||[],mentions:d.mentions||[],reply:cid}; }
+function cmtReplyTarget(base,list,all){ var cid=CMT_REPLY_OPEN[base]; if(!cid) return null; var c=byId(list,cid);
+  if(!c) return all&&!byId(all,cid)?{cid:cid,gone:true}:null;
+  var root=c; for(var hop=0;root.parent&&hop<20;hop++){ var up=byId(list,root.parent); if(!up) break; root=up; }
+  return {cid:cid,c:c,root:root.id}; }
+function cmtFocusLive(){ var ta=cmtInput(); if(!ta) return; try{ ta.focus({preventScroll:true}); }catch(e){ ta.focus(); } var n=ta.value.length; try{ ta.setSelectionRange(n,n); }catch(e){}
+  var box=ta.closest(".cmt-reply-box")||ta.closest(".composer"); if(box&&box.scrollIntoView) box.scrollIntoView({block:"nearest"}); }
+function cmtReplyBtn(base,cid){ var scope=cmtIsProjectKey(base)?document.querySelector("#content .pd-box"):document.getElementById("drawer"); return scope?scope.querySelector('.cmt[data-cid="'+String(cid).replace(/["\\]/g,"")+'"] > div > .acts .cmt-reply-btn'):null; }
+function cmtReplyBtnFocus(base,cid){ var b=cmtReplyBtn(base,cid); if(b){ try{ b.focus({preventScroll:true}); }catch(e){ b.focus(); } } }
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||e.defaultPrevented) return; var t=e.target; if(!cmtIsInput(t)||cmtPicker()) return; var k=t.getAttribute("data-cmt-key"); if(!cmtKeyReply(k)) return; e.preventDefault(); e.stopPropagation(); cmtReplyCancel(k); },true);
+function cmtReplyBtnKeep(root){ var a=document.activeElement; if(!a||!a.classList||!a.classList.contains("cmt-reply-btn")||!root||!root.contains(a)) return null; var c=a.closest(".cmt"); return c?{cid:c.getAttribute("data-cid"),el:a}:null; }
+function cmtReplyBtnBack(k,base){ if(!k||(document.activeElement&&document.activeElement!==document.body&&document.activeElement.isConnected&&document.activeElement!==k.el)||k.el.isConnected) return; cmtReplyBtnFocus(base,k.cid); }
+
+function cmtVisibility(){ if(person(ME).stakeholder) return "client"; if(cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdBoxVisFor==="function") return pdBoxVisFor(CMT_DRAFT_FOR); return S.commentVis||"internal"; }
 function cmtMentionable(id){ return !(cmtVisibility()==="internal"&&person(id).stakeholder); }
 function cmtTaskPeople(tk){
   var ids=[];
@@ -18722,7 +18783,7 @@ function cmtTaskPeople(tk){
 }
 function cmtOpenMention(ta,q){
   var tk=S.drawerTask?task(S.drawerTask):null;
-  var ctx=cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdPeople==="function"?{members:pdPeople(CMT_DRAFT_FOR.slice(8)).filter(cmtMentionable),membersTitle:"On this project"}:{members:cmtTaskPeople(tk),membersTitle:"On this task"};
+  var ctx=cmtIsProjectKey(CMT_DRAFT_FOR)&&typeof pdPeople==="function"?{members:pdPeople(cmtKeyProject(CMT_DRAFT_FOR)).filter(cmtMentionable),membersTitle:"On this project"}:{members:cmtTaskPeople(tk),membersTitle:"On this task"};
   CMT_MENTION.open=true; CMT_MENTION.dismissed=false;
   entityPicker({_cmt:true,_deferred:true,kind:"person",anchor:msgCaretAnchor(ta),align:"left",initial:q,placeholder:tr("Mention someone…"),context:ctx,
     search:function(query){ return epPersonItems(query,ctx).filter(function(id){ return id!=="@everyone"&&cmtMentionable(id); }); },
@@ -18764,7 +18825,7 @@ document.addEventListener("input",function(e){
   var at=msgCaretMention(ta), ep=cmtPicker();
   if(at!==null){ if(ep) ep._ep.setQuery(at); else cmtOpenMention(ta,at); }
   else if(ep) epClose();
-  cmtMirrorSync();
+  cmtMirrorSync(ta);
 });
 document.addEventListener("keydown",function(e){
   var ta=e.target; if(!cmtIsInput(ta)) return;
@@ -18802,8 +18863,8 @@ function cmtMirrorBarSoon(ta,mirror){ if(mirror._cmtBarSoon) return; mirror._cmt
     var bar=ta.offsetWidth-ta.clientWidth-st.bl-st.br; if(!(bar>0)) bar=0;
     if(bar!==mirror._cmtBar){ mirror._cmtBar=bar; mirror.style.paddingRight=bar?(st.pr+bar)+"px":st.v.paddingRight; }
     if(mirror.scrollTop!==ta.scrollTop) mirror.scrollTop=ta.scrollTop; }); }
-function cmtMirrorEnsure(){
-  var ta=cmtInput(); if(!ta) return null;
+function cmtMirrorEnsure(ta){
+  ta=ta||cmtInput(); if(!ta) return null;
   var wrap=ta.parentNode;
   if(!wrap.classList||!wrap.classList.contains("cmt-ta-wrap")){
     var had=document.activeElement===ta, s0=had?ta.selectionStart:null, s1=had?ta.selectionEnd:null, sd=had?ta.selectionDirection:null;
@@ -18819,22 +18880,25 @@ function cmtMirrorEnsure(){
   cmtMirrorBarSoon(ta,mirror);
   return {ta:ta,mirror:mirror};
 }
-function cmtMirrorSync(){
-  var x=cmtMirrorEnsure(); if(!x) return;
-  var text=x.ta.value, html=esc(text);
-  window._cmtMentions.map(function(m){ return m.display; }).filter(Boolean).sort(function(a,b){ return b.length-a.length; }).forEach(function(n){
+function cmtMirrorSync(ta){
+  var x=cmtMirrorEnsure(ta); if(!x) return;
+  var text=x.ta.value, html=esc(text), chosen=cmtBoxDraft(x.ta).mentions||[];
+  chosen.map(function(m){ return m.display; }).filter(Boolean).sort(function(a,b){ return b.length-a.length; }).forEach(function(n){
     var e=esc("@"+n).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
     html=html.replace(new RegExp(e+"(?=\\s|$|[.,!?;:])","g"),'<span class="msg-mention" data-no-translate>'+esc("@"+n)+'</span>');
   });
   x.mirror.innerHTML=html+(/\n$/.test(text)?"<br>":"")+"&#8203;";
   x.ta.classList.add("cmt-mirrored");
 }
+function cmtMirrorAll(root){ if(!root) return; Array.prototype.forEach.call(root.querySelectorAll("textarea.cmt-input"),function(ta){ try{ cmtMirrorSync(ta); }catch(e){} }); }
 (function(){
   if(typeof renderDrawer!=="function") return;
   var base=renderDrawer;
   renderDrawer=function(){
+    var dr=document.getElementById("drawer"), keep=cmtReplyBtnKeep(dr);
     var r=base.apply(this,arguments);
-    if(document.getElementById("cmtText")) try{ cmtMirrorSync(); }catch(e){}
+    cmtMirrorAll(document.getElementById("drBody"));
+    if(keep&&S.drawerTask) cmtReplyBtnBack(keep,S.drawerTask);
     return r;
   };
 })();
@@ -18868,6 +18932,7 @@ function cmtEditLoad(text){ var links=[];
   var mentions=(typeof refMentionIds==="function"?refMentionIds(shown):[]).map(function(id){ return {userId:id,display:person(id).name}; });
   return {text:shown,links:links,mentions:mentions}; }
 function cmtEditStart(id){ var tk=S.drawerTask?task(S.drawerTask):null, c=tk&&byId(tk.comments||[],id); if(!c||c.by!==ME) return;
+  cmtActivate(tk.id);
   if(!S.cmtEdit){ var ta=document.getElementById("cmtText"); S.cmtEditStash={text:ta?ta.value:(window._cmtDraft||""),att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null}; }
   var shown=cmtEditLoad(c.text||"");
   window._cmtDraft=shown.text; window._cmtLinks=shown.links; window._cmtMentions=shown.mentions; window._cmtAtt=clone(c.attachments||[]); S.replyTo=null;
@@ -18895,14 +18960,15 @@ function cmtEditSave(){ var d=S.cmtEdit, tk=d&&task(d.task), c=tk&&byId(tk.comme
     toast(tr("Comment updated")); };
   if(!API.on){ c.text=text; c.attachments=att; c.editedAt=new Date().toISOString(); return done(null); }
   apiFetch("PUT","/api/tasks/"+encodeURIComponent(tk.id)+"/comments/"+encodeURIComponent(c.id),{text:text,attachments:att}).then(done).catch(function(e){ if(btn) btn.disabled=false; toast(e.message||tr("Could not save the comment"),"bad"); }); }
-document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit) return; var t=e.target; if(!cmtIsInput(t)||cmtPicker()) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
+document.addEventListener("keydown",function(e){ if(e.key!=="Escape"||!S.cmtEdit||e.defaultPrevented) return; var t=e.target; if(!cmtIsInput(t)||cmtPicker()||cmtKeyReply(t.getAttribute("data-cmt-key"))) return; e.preventDefault(); e.stopPropagation(); cmtEditCancel(); },true);
 (function(){ if(typeof openTask!=="function") return; var base=openTask; openTask=function(id){ if(S.cmtEdit&&S.cmtEdit.task!==id) cmtEditFinish(); cmtDraftSwitch(id); return base.apply(this,arguments); }; })();
 var CMT_DRAFTS={}, CMT_DRAFT_FOR=null;
 function cmtDraftEmpty(){ return {text:"",att:[],links:[],mentions:[],reply:null}; }
 function cmtDraftSwitch(id){ if(!id||CMT_DRAFT_FOR===id) return;
-  if(CMT_DRAFT_FOR) CMT_DRAFTS[CMT_DRAFT_FOR]={text:window._cmtDraft||"",att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:S.replyTo||null};
+  if(CMT_DRAFT_FOR){ var cur={text:window._cmtDraft||"",att:(window._cmtAtt||[]).slice(),links:(window._cmtLinks||[]).slice(),mentions:(window._cmtMentions||[]).slice(),reply:cmtKeyReply(CMT_DRAFT_FOR)};
+    if(cur.text||cur.att.length) CMT_DRAFTS[CMT_DRAFT_FOR]=cur; else delete CMT_DRAFTS[CMT_DRAFT_FOR]; }
   var d=CMT_DRAFTS[id]||cmtDraftEmpty(); delete CMT_DRAFTS[id];
-  window._cmtDraft=d.text; window._cmtAtt=d.att; window._cmtLinks=d.links; window._cmtMentions=d.mentions; S.replyTo=d.reply; CMT_DRAFT_FOR=id; }
+  window._cmtDraft=d.text; window._cmtAtt=d.att; window._cmtLinks=d.links; window._cmtMentions=d.mentions; S.replyTo=cmtKeyReply(id); CMT_DRAFT_FOR=id; }
 function cmtDraftReplyFor(id){ return CMT_DRAFT_FOR===id?(S.replyTo||null):null; }
 function cmtDraftAttach(forTask,a){ if(!forTask||!CMT_DRAFT_FOR||forTask===CMT_DRAFT_FOR){ (window._cmtAtt=window._cmtAtt||[]).push(a); return true; } (CMT_DRAFTS[forTask]=CMT_DRAFTS[forTask]||cmtDraftEmpty()).att.push(a); return false; }
 
@@ -18911,7 +18977,10 @@ Object.assign(UI_ID,{
   "On this task":"Di task ini","On this project":"Di project ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
   "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
-  "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang"
+  "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang",
+  "Write a reply… type @ to mention someone":"Tulis balasan… ketik @ untuk menyebut seseorang",
+  "Reply":"Balas","Reply (draft)":"Balas (draf)","Reply to":"Balas","Replying to":"Membalas","Cancel":"Batal","Comment posted":"Komentar terkirim",
+  "The comment you were replying to was removed — this will be posted as a comment of its own.":"Komentar yang kamu balas sudah dihapus — ini akan dikirim sebagai komentar baru."
 });
 </script>
 <script>
@@ -19025,7 +19094,7 @@ document.addEventListener("keydown",function(e){
 (function(){
   if(typeof cmtMirrorSync==="function"){
     var baseC=cmtMirrorSync;
-    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var ta=typeof cmtInput==="function"?cmtInput():null, wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
+    cmtMirrorSync=function(box){ var r=baseC.apply(this,arguments); var ta=box||(typeof cmtInput==="function"?cmtInput():null), wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"), links=ta&&typeof cmtBoxDraft==="function"?(cmtBoxDraft(ta).links||[]):(window._cmtLinks||[]); if(m&&links.length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,links); }catch(x){ m.innerHTML=keep; } } return r; };
   }
   if(typeof msgMirrorSync==="function"){
     var baseM=msgMirrorSync;
@@ -21337,12 +21406,15 @@ function pdComposer(p){
   if(pdArchived(p)) return '<p class="pd-note pd-archived">'+I.lock+'<span>'+tr("This project is archived. Restore the project to add comments.")+'</span></p>';
   if(!pdCanPost(p)) return '';
   if(S.cmtEdit&&S.cmtEdit.project===p.id) return '';
-  var key=pdKey(p.id), d=cmtDraftOf(key), st=pdState(p.id), rt=d.reply?byId(st.items,d.reply):null, vis=pdBoxVis(p.id);
-  if(rt&&rt.vis==="internal") vis="internal";
-  return cmtBoxHtml({key:key,inputId:"pdText",vis:vis,editing:false,draft:d,reply:rt,cancelReply:"pdReplyCancel("+jsq(p.id)+")",post:"pdSubmit("+jsq(p.id)+")"}); }
-function pdActs(p,c){ if(pdArchived(p)) return null; var pid=jsq(p.id), cid=jsq(c.id);
-  return (pdCanPost(p)?'<button onclick="pdReply('+pid+','+cid+')">'+tr("Reply")+'</button>':'')+(c.by===ME?'<button class="cmt-edit-btn" onclick="pdEditStart('+pid+','+cid+')">'+tr("Edit")+'</button><button onclick="pdDelete('+pid+','+cid+')">'+tr("Delete")+'</button>':''); }
-function pdItem(p,c,isReply,extra){ var key=pdKey(p.id), ed=!!(S.cmtEdit&&S.cmtEdit.project===p.id&&S.cmtEdit.id===c.id), acts=pdActs(p,c);
+  var key=pdKey(p.id);
+  return cmtBoxHtml({key:key,inputId:"pdText",vis:pdBoxVis(p.id),editing:false,draft:cmtDraftOf(key),post:"pdSubmit("+jsq(p.id)+")"}); }
+function pdBoxVisFor(key){ var pid=cmtKeyProject(key), vis=pdBoxVis(pid), cid=cmtKeyReply(key), c=cid?byId(pdState(pid).items,cid):null;
+  return c&&c.vis==="internal"?"internal":vis; }
+function pdReplyTarget(p,shown){ if(pdArchived(p)||!pdCanPost(p)||(S.cmtEdit&&S.cmtEdit.project===p.id)) return null; return cmtReplyTarget(pdKey(p.id),shown,null); }
+function pdReplyBox(p,rt){ var key=cmtReplyKey(pdKey(p.id),rt.cid); return cmtReplyBoxHtml(pdKey(p.id),rt,{inputId:"pdReplyText",vis:pdBoxVisFor(key),post:"pdSubmit("+jsq(p.id)+","+jsq(key)+")"}); }
+function pdActs(p,c,rt){ if(pdArchived(p)) return null; var pid=jsq(p.id), cid=jsq(c.id);
+  return (pdCanPost(p)?cmtReplyBtnHtml(pdKey(p.id),c.id,rt,"pdReply("+pid+","+cid+")"):'')+(c.by===ME?'<button class="cmt-edit-btn" onclick="pdEditStart('+pid+','+cid+')">'+tr("Edit")+'</button><button onclick="pdDelete('+pid+','+cid+')">'+tr("Delete")+'</button>':''); }
+function pdItem(p,c,isReply,extra,rt){ var key=pdKey(p.id), ed=!!(S.cmtEdit&&S.cmtEdit.project===p.id&&S.cmtEdit.id===c.id), acts=pdActs(p,c,rt);
   return cmtItemHtml(c,isReply,{editing:ed,editor:ed?cmtBoxHtml({key:key,inputId:"pdText",vis:c.vis,editing:true,draft:cmtDraftOf(key),post:"pdSubmit("+jsq(p.id)+")"}):"",acts:acts==null&&!extra?null:(acts||"")+(extra||"")}); }
 function pdLoading(st){ return st.err?'<p class="pd-note pd-err">'+esc(st.err)+' <button class="btn xs" onclick="pdRetry('+jsq(S.projectId)+')">'+tr("Try again")+'</button></p>':'<div class="pd-loading" aria-busy="true">'+tr("Loading…")+'</div>'; }
 function pdRetry(pid){ pdState(pid).err=null; pdRedraw(); }
@@ -21351,9 +21423,11 @@ function pdOverviewHtml(p){ var st=pdState(p.id); pdEnsure(p.id,false);
   var body, open=PD_OPEN[p.id]||{};
   if(!st.mode) body=pdLoading(st);
   else { var roots=pdShown(p.id,pdRoots(st)).slice(-3);
+    var onShow=roots.slice(); roots.forEach(function(c){ if(open[c.id]) onShow=onShow.concat(pdShown(p.id,pdReplies(st,c.id))); });
+    var rt=pdReplyTarget(p,onShow);
     body=roots.length?'<div class="cmts pd-preview">'+roots.map(function(c){ var have=pdReplies(st,c.id), n=Math.max(c.replyCount||0,have.length), shown=!!open[c.id]&&n>0;
         var toggle=n?'<button class="pd-replies" aria-expanded="'+shown+'" onclick="pdThread('+jsq(p.id)+','+jsq(c.id)+')">'+(shown?tr("Hide replies"):n+' '+tr(n===1?"reply":"replies"))+'</button>':'';
-        return pdItem(p,c,false,toggle)+(shown?pdShown(p.id,have).map(function(r){ return pdItem(p,r,true); }).join("")+(have.length<n?'<div class="pd-thread-loading" aria-busy="true">'+tr("Loading…")+'</div>':''):''); }).join("")+'</div>'
+        return pdItem(p,c,false,toggle,rt)+(shown?pdShown(p.id,have).map(function(r){ return pdItem(p,r,true,null,rt); }).join("")+(have.length<n?'<div class="pd-thread-loading" aria-busy="true">'+tr("Loading…")+'</div>':''):'')+(rt&&rt.root===c.id?pdReplyBox(p,rt):''); }).join("")+'</div>'
       :'<p class="pd-empty">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet. Start the project discussion.")+'</p>'; }
   var all='<button type="button" class="link pd-all" onclick="pdOpen('+jsq(p.id)+')">'+tr("View all discussion")+' →</button>';
   return pdPanel(p,st.mode?st.total:null,body+pdComposer(p),all,"pd-overview"); }
@@ -21361,20 +21435,22 @@ function pdThread(pid,cid){ var o=PD_OPEN[pid]=PD_OPEN[pid]||{}; o[cid]=!o[cid];
 function pdClampMarks(){ Array.prototype.forEach.call(document.querySelectorAll("#content .pd-preview .cmt:not(.cmt-editing):not(.pd-expanded) > div > .body"),function(b){ if(b.scrollHeight<=b.clientHeight+1||(b.nextElementSibling&&b.nextElementSibling.classList.contains("pd-more-text"))) return;
   var m=document.createElement("button"); m.type="button"; m.className="pd-more-text"; m.textContent=tr("Show more"); m.onclick=function(){ var c=m.closest(".cmt"); if(c) c.classList.add("pd-expanded"); m.remove(); }; b.insertAdjacentElement("afterend",m); }); }
 function pdTabHtml(p){ var st=pdState(p.id); pdEnsure(p.id,true);
-  var one=function(c,isReply){ return pdItem(p,c,isReply); };
+  var rt=st.mode?pdReplyTarget(p,pdShown(p.id,st.items)):null;
+  var one=function(c,isReply){ return pdItem(p,c,isReply,null,rt); };
   var list;
   if(!st.mode) list=pdLoading(st);
   else { var roots=pdShown(p.id,pdRoots(st));
     list=(st.hasMore?'<div class="pd-more-row"><button class="btn sm pd-more" onclick="pdMore('+jsq(p.id)+')"'+(st.loading?' disabled':'')+'>'+tr(st.loading?"Loading…":"Load earlier comments")+'</button></div>':'')
-      +'<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+pdShown(p.id,pdReplies(st,c.id)).map(function(r){ return one(r,true); }).join(""); }).join(""):'<div class="empty" style="padding:20px"><div class="h">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet")+'</div></div>')+'</div>'; }
+      +'<div class="cmts">'+(roots.length?roots.map(function(c){ return one(c,false)+pdShown(p.id,pdReplies(st,c.id)).map(function(r){ return one(r,true); }).join("")+(rt&&rt.root===c.id?pdReplyBox(p,rt):''); }).join(""):'<div class="empty" style="padding:20px"><div class="h">'+tr(pdArchived(p)?"No discussion yet.":"No comments yet")+'</div></div>')+'</div>'; }
   return pdPanel(p,st.mode?st.total:null,'<p class="hint pd-sub">'+tr("Project-level coordination and decisions")+'</p>'+list+pdComposer(p),"","pd-full"); }
 function pdRedraw(){ if(S.screen!=="projects"||!S.projectId) return; var box=document.querySelector("#content .pd-box"), p=project(S.projectId); if(!box||!p) return;
-  var ta=document.activeElement, keep=ta&&cmtIsInput(ta)&&box.contains(ta)?{a:ta.selectionStart,b:ta.selectionEnd,top:ta.scrollTop}:null;
+  var ta=document.activeElement, keep=ta&&cmtIsInput(ta)&&box.contains(ta)?{a:ta.selectionStart,b:ta.selectionEnd,top:ta.scrollTop}:null, btn=cmtReplyBtnKeep(box);
   var tmp=document.createElement("div"); tmp.innerHTML=S.projectTab==="discussion"?pdTabHtml(p):pdOverviewHtml(p);
   if(tmp.firstElementChild) box.replaceWith(tmp.firstElementChild);
-  pdAfterRender(keep); }
+  pdAfterRender(keep); if(btn) cmtReplyBtnBack(btn,pdKey(p.id)); }
 function pdAfterRender(keep){ var n=cmtInput();
-  if(n&&cmtIsProjectKey(CMT_DRAFT_FOR)&&n.getAttribute("data-cmt-key")===CMT_DRAFT_FOR){ if(keep){ n.focus(); try{ n.setSelectionRange(keep.a,keep.b); }catch(e){} n.scrollTop=keep.top; } try{ cmtMirrorSync(); }catch(e){} }
+  if(n&&cmtIsProjectKey(CMT_DRAFT_FOR)&&n.getAttribute("data-cmt-key")===CMT_DRAFT_FOR&&keep){ n.focus(); try{ n.setSelectionRange(keep.a,keep.b); }catch(e){} n.scrollTop=keep.top; }
+  cmtMirrorAll(document.querySelector("#content .pd-box"));
   pdClampMarks(); pdFocusComment(); }
 function pdFocusComment(){ var f=PD_FOCUS; if(!f||S.projectId!==f.pid||S.projectTab!=="discussion") return; var st=pdState(f.pid); if(st.mode!=="full") return;
   if(!f.cid){ PD_FOCUS=null; return; }
@@ -21384,23 +21460,25 @@ function pdFocusComment(){ var f=PD_FOCUS; if(!f||S.projectId!==f.pid||S.project
   PD_FOCUS=null; }
 
 function pdOpen(pid,cid){ if(!project(pid)) return toast(tr("That item is not available to you"),"bad"); S.projectTab="discussion"; PD_FOCUS={pid:pid,cid:cid||null}; if(S.screen==="projects"&&S.projectId===pid) renderScreen(false); else go("projects",pid); }
-function pdFocusBox(){ setTimeout(function(){ var e=cmtInput(); if(e){ e.focus(); var n=e.value.length; try{ e.setSelectionRange(n,n); }catch(x){} } },40); }
-function pdReply(pid,cid){ cmtActivate(pdKey(pid)); S.replyTo=cid; pdRedraw(); pdFocusBox(); }
-function pdReplyCancel(pid){ cmtActivate(pdKey(pid)); S.replyTo=null; pdRedraw(); pdFocusBox(); }
-function pdSubmit(pid){ cmtActivate(pdKey(pid)); if(S.cmtEdit&&S.cmtEdit.project===pid) return pdEditSave(pid); pdPost(pid); }
+function pdReply(pid,cid){ var st=pdState(pid), root=byId(st.items,cid);
+  for(var hop=0;root&&root.parent&&hop<20;hop++){ var up=byId(st.items,root.parent); if(!up) break; root=up; }
+  if(root){ (PD_OPEN[pid]=PD_OPEN[pid]||{})[root.id]=true; if(API.on&&st.mode!=="full"&&(root.replyCount||0)>pdReplies(st,root.id).length) pdLoad(pid,true).then(function(){ var ae=document.activeElement, typing=ae&&cmtIsInput(ae); pdRedraw(); if(!typing) cmtFocusLive(); }); }
+  cmtReplyOpen(pdKey(pid),cid); }
+function pdSubmit(pid,key){ cmtActivate(key||pdKey(pid)); if(S.cmtEdit&&S.cmtEdit.project===pid) return pdEditSave(pid); pdPost(pid); }
 function pdBusy(on){ Array.prototype.forEach.call(document.querySelectorAll("#content .pd-box .composer .bar .btn.primary"),function(b){ b.disabled=!!on; b.setAttribute("aria-busy",on?"true":"false"); }); }
-function pdPost(pid){ var p=project(pid); if(!p||pdArchived(p)||PD_BUSY[pid]) return; var el=cmtInput(); if(!el||el.getAttribute("data-cmt-key")!==pdKey(pid)) return;
+function pdPost(pid){ var p=project(pid); if(!p||pdArchived(p)||PD_BUSY[pid]) return; var el=cmtInput(), key=el&&el.getAttribute("data-cmt-key"); if(!el||cmtKeyBase(key)!==pdKey(pid)) return;
   var txt=(typeof linkTokensExpand==="function"?linkTokensExpand(el.value,window._cmtLinks):el.value).trim(), att=(window._cmtAtt||[]).slice();
   if(!txt&&!att.length){ el.focus(); return; }
-  var st=pdState(pid), parent=S.replyTo||null, pc=parent?byId(st.items,parent):null, vis=pdBoxVis(pid);
-  if(pc&&pc.vis==="internal") vis="internal";
+  var st=pdState(pid), parent=cmtKeyReply(key)||null, vis=pdBoxVisFor(key);
   PD_BUSY[pid]=true; pdBusy(true);
   var saved=function(c,total){ PD_BUSY[pid]=false;
-    if(CMT_DRAFT_FOR===pdKey(pid)){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; cmtMentionsReset(); S.replyTo=null; } else delete CMT_DRAFTS[pdKey(pid)];
+    var ae=document.activeElement, refocus=parent&&(!ae||ae===document.body||ae===el||!ae.isConnected);
+    if(parent) cmtReplyDrop(key);
+    else if(CMT_DRAFT_FOR===key){ window._cmtDraft=""; window._cmtAtt=[]; window._cmtLinks=[]; cmtMentionsReset(); S.replyTo=null; } else delete CMT_DRAFTS[key];
     pdUpsert(pid,c); st.total=total!=null?total:st.total+1; if(!st.mode) st.mode="preview";
     if(c.parent){ (PD_OPEN[pid]=PD_OPEN[pid]||{})[c.parent]=true; if(API.on&&st.mode!=="full") pdLoad(pid,true).then(function(){ pdRedraw(); }); }
-    pdRedraw(); toast(tr("Comment posted")); };
-  if(!API.on){ var root=pc&&pc.parent?pc.parent:parent; return saved(pdHydrate({id:uid("pc"),by:ME,vis:vis,text:txt,parent:root,attachments:att,createdAt:new Date().toISOString(),editedAt:null})); }
+    pdRedraw(); if(refocus) cmtReplyBtnFocus(pdKey(pid),parent); toast(tr("Comment posted")); };
+  if(!API.on){ var pc=parent?byId(st.items,parent):null, root=pc&&pc.parent?pc.parent:parent; return saved(pdHydrate({id:uid("pc"),by:ME,vis:vis,text:txt,parent:root,attachments:att,createdAt:new Date().toISOString(),editedAt:null})); }
   apiFetch("POST",pdUrl(pid),{id:uid("pc"),text:txt,vis:vis,parent:parent,attachments:att}).then(function(d){ saved(pdHydrate(d.comment),d.total); })
     .catch(function(e){ PD_BUSY[pid]=false; pdBusy(false); toast(tr("Couldn't post comment. Try again.")+(e&&e.message?" "+e.message:""),"bad"); }); }
 function pdEditStart(pid,cid){ var c=byId(pdState(pid).items,cid); if(!c||c.by!==ME) return; cmtActivate(pdKey(pid));
@@ -21419,7 +21497,7 @@ function pdEditSave(pid){ var d=S.cmtEdit, st=pdState(pid), c=d&&byId(st.items,d
 function pdDelete(pid,cid){ var st=pdState(pid), c=byId(st.items,cid); if(!c) return;
   var gone=function(total){ st.items=st.items.filter(function(x){ return x.id!==cid; }).map(function(x){ return x.parent===cid?Object.assign({},x,{parent:null}):x; });
     if(c.parent){ var r=byId(st.items,c.parent); if(r&&r.replyCount) r.replyCount--; } st.total=total!=null?total:Math.max(0,st.total-1);
-    if(S.cmtEdit&&S.cmtEdit.project===pid&&S.cmtEdit.id===cid) cmtEditFinish(); if(CMT_DRAFT_FOR===pdKey(pid)&&S.replyTo===cid) S.replyTo=null;
+    if(S.cmtEdit&&S.cmtEdit.project===pid&&S.cmtEdit.id===cid) cmtEditFinish(); if(CMT_REPLY_OPEN[pdKey(pid)]===cid) cmtReplyDrop(cmtReplyKey(pdKey(pid),cid));
     pdRedraw(); toast(tr("Comment deleted")); };
   if(!API.on) return gone();
   apiFetch("DELETE",pdUrl(pid,"/"+encodeURIComponent(cid))).then(function(r){ gone(r.total); }).catch(function(e){ toast(e.message||tr("Could not delete the comment"),"bad"); }); }

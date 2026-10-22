@@ -146,8 +146,8 @@ document.addEventListener("keydown",function(e){
 (function(){
   if(typeof cmtMirrorSync==="function"){
     var baseC=cmtMirrorSync;
-    /* the layer of the box being written in — a task's or a project's */
-    cmtMirrorSync=function(){ var r=baseC.apply(this,arguments); var ta=typeof cmtInput==="function"?cmtInput():null, wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"); if(m&&(window._cmtLinks||[]).length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,window._cmtLinks); }catch(x){ m.innerHTML=keep; } } return r; };
+    /* the layer of the box given (or the one being written in) — a task's, a project's, a reply's — with that box's links */
+    cmtMirrorSync=function(box){ var r=baseC.apply(this,arguments); var ta=box||(typeof cmtInput==="function"?cmtInput():null), wrap=ta&&ta.parentNode, m=wrap&&wrap.querySelector?wrap.querySelector(".cmt-ta-mirror"):document.querySelector("#drawer .cmt-ta-mirror"), links=ta&&typeof cmtBoxDraft==="function"?(cmtBoxDraft(ta).links||[]):(window._cmtLinks||[]); if(m&&links.length){ var keep=m.innerHTML; try{ m.innerHTML=linkChipMark(keep,links); }catch(x){ m.innerHTML=keep; } } return r; };
   }
   if(typeof msgMirrorSync==="function"){
     var baseM=msgMirrorSync;

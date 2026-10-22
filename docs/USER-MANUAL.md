@@ -405,6 +405,11 @@ foldernya — di kotak komentar, di chat, dan di editor deskripsi (sebagai chip 
 Tautan yang diketik manual berubah dengan menekan **Tab**. Arahkan kursor ke chip untuk kartu kecil
 **Buka pratinjau**, **Buka tautan**, dan **Salin tautan**.
 **⌘/Ctrl + Enter** mengirim. Bisa membalas komentar dan melampirkan file.
+**Balas** membuka kotak balasan tepat di bawah komentar itu — di utasnya, setelah balasan yang sudah ada,
+tempat balasannya nanti muncul — dengan @mention, lampiran, gambar yang di-paste, dan Enter untuk mengirim;
+**Esc** atau **Batal** menutupnya. Kotak di paling bawah tetap untuk komentar baru. Satu kotak balasan terbuka
+sekaligus; balasan yang belum dikirim tersimpan per komentar (tombolnya menjadi **Balas (draf)**). Sama di
+**Diskusi** project.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.
 

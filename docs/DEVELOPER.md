@@ -457,6 +457,13 @@ Hanya untuk **non-admin** (`wqEligible()`).
 - `renderDrawer()` — menulis `#drHead` / `#drBody` / `#drFoot`.
 - Tab: `brief` · `files` (Assets & versions) · `comments` · `activity`.
   Ada normalisasi legacy: `if (S.drawerTab==="versions") S.drawerTab="files";`
+- Komentar (`src/comment-mention.js`): tiap kotak komentar punya key — id task, `project:<id>`, atau kotak
+  balasan `<key panel>#r:<id komentar>` (`cmtReplyKey`). Draf kotak yang sedang ditulis ada di
+  `window._cmtDraft/_cmtAtt/_cmtLinks/_cmtMentions` (`CMT_DRAFT_FOR`), draf kotak lain di `CMT_DRAFTS[key]`.
+  **Balas** (`cmtReplyOpen`) membuka kotak balasan di bawah utas komentar itu; `CMT_REPLY_OPEN[key panel]`
+  = komentar yang kotaknya terbuka (satu per panel). `S.replyTo` mengikuti key kotak yang sedang ditulis;
+  kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
+  lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
 
 ### Gear menu
 
