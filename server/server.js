@@ -34,7 +34,18 @@ const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; cha
 const KEPT_A_YEAR = /^(assets|fonts)[\\/][^\\/]+$/;
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".svg"]);
 const staticFiles = delivery.createStatic({ mime: MIME, compressible: COMPRESSIBLE, cacheDir: path.join(require("./db").DATA_DIR, "page-cache") });
-try { staticFiles.entry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
+/* the files of the builds this server served, kept a while in the data folder for the tabs still open on them
+   (server/delivery.js createAssetKeeper, Oct 2026) */
+const keptAssets = delivery.createAssetKeeper({ publicAssets: path.join(PUBLIC, "assets"), keepDir: path.join(require("./db").DATA_DIR, "asset-history"), keep: 5, statics: staticFiles });
+/* the page, and the files it names under /assets/ (its script, style sheet and dictionary): compressed in the background
+   from the start, so the first visit after a start or a build already gets the smallest copies */
+function warmPage() {
+  const e = staticFiles.entry(path.join(PUBLIC, "index.html"));
+  for (const m of e.raw.toString("utf8").matchAll(/\/assets\/([\w-]+\.[0-9a-f]{10}\.(?:js|css|json))\b/g)) { try { staticFiles.entry(path.join(PUBLIC, "assets", m[1])); } catch (x) { /* not built */ } }
+  keptAssets.note(e.raw);
+  return e;
+}
+try { warmPage(); } catch (e) { /* no built page yet */ }
 let db = open();
 const FIRST_START = !db.prepare("SELECT 1 FROM workspaces LIMIT 1").get();
 require("./preflight").run({ firstStart: FIRST_START });
@@ -2142,10 +2153,13 @@ route("GET", "/api/auth/status", () => { const ws = db.prepare("SELECT name, log
    repeat visits cost one 304 instead of a full download. The shell revalidates every load (no-cache) so deploys show
    up immediately; nothing is cached without revalidation. Since Oct 2026 every copy is compressed in the background
    (server/delivery.js, started at the top of this file) — never on this thread inside a request — and the page's
-   smallest copy is kept in the data folder for the next start. */
-function sendStatic(req, res, file) {
+   smallest copy is kept in the data folder for the next start. Since performance stage 3 (Oct 2026) the shell is a
+   few KB of HTML and its code, style sheet and dictionary are content-named files under /assets/ (build.js), kept a
+   year by the browser without asking (immutable, with the same strong ETag) so it keeps their compiled code too;
+   kept: a copy of such a file from an earlier build (createAssetKeeper). */
+function sendStatic(req, res, file, kept) {
   security.applyHeaders(res);
-  staticFiles.send(req, res, file, e => ({ "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : KEPT_A_YEAR.test(path.relative(PUBLIC, file)) ? "public, max-age=31536000, immutable" : "public, max-age=3600, must-revalidate" })); /* the service worker checks for itself on every load, so an update reaches everyone at once */
+  staticFiles.send(req, res, file, e => ({ "Cache-Control": (e.type.startsWith("text/html") || /[\\/]sw\.js$/.test(file)) ? "no-cache" : kept || KEPT_A_YEAR.test(path.relative(PUBLIC, file)) ? "public, max-age=31536000, immutable" : "public, max-age=3600, must-revalidate" })); /* the service worker checks for itself on every load, so an update reaches everyone at once */
 }
 /* The version of the page being served, as build.js stamps it (<meta name="zc-build">). Every API reply says it, so a
    tab left open across an update — which keeps running the page it loaded — offers to reload (src/new-version.js).
@@ -2155,7 +2169,7 @@ let PAGE_BUILD = { key: "", id: "" };
 function pageBuild() {
   try {
     const e = staticFiles.entry(path.join(PUBLIC, "index.html"));
-    if (e.key !== PAGE_BUILD.key) { const m = /<meta name="zc-build" content="([\w-]{1,40})">/.exec(e.raw.toString("utf8", 0, 4096)); PAGE_BUILD = { key: e.key, id: m ? m[1] : "" }; }
+    if (e.key !== PAGE_BUILD.key) { const m = /<meta name="zc-build" content="([\w-]{1,40})">/.exec(e.raw.toString("utf8", 0, 4096)); PAGE_BUILD = { key: e.key, id: m ? m[1] : "" }; if (PAGE_BUILD.id) setImmediate(() => { try { warmPage(); } catch (x) { /* rebuilt meanwhile */ } }); }
     return PAGE_BUILD.id;
   } catch (e) { return ""; }
 }
@@ -2241,6 +2255,9 @@ const server = http.createServer(async (req, res) => {
        path without a file extension that is not /api or /shared gets the app shell; the router in
        the page decides what to show. Paths that look like files (/logo.png) still 404. */
     if (missing && (req.method === "GET" || req.method === "HEAD") && !url.pathname.startsWith("/shared/") && !/\.[a-z0-9]{1,8}$/i.test(url.pathname) && /^\/[-\w\/.~%]*$/.test(url.pathname)) return sendStatic(req, res, path.join(PUBLIC, "index.html"));
+    /* a file of an earlier build, for a tab still open on it (createAssetKeeper) */
+    const kept = missing && (req.method === "GET" || req.method === "HEAD") && /^\/assets\/[^/]+$/.test(url.pathname) ? keptAssets.find(url.pathname.slice(8)) : null;
+    if (kept) return sendStatic(req, res, kept, true);
     if (missing) return send(404, "Not found", "text/plain");
     if (req.method !== "GET" && req.method !== "HEAD") return send(405, "Method not allowed", "text/plain");
     return sendStatic(req, res, file);
@@ -2258,7 +2275,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log("ZenCrevia running at http://localhost:" + server.address().port + "  (db: " + require("./db").DB_PATH + ")");
   /* the page's background compression started when this file was loaded; a page built since starts its own now */
-  try { staticFiles.entry(path.join(PUBLIC, "index.html")); } catch (e) { /* no built page yet */ }
+  try { warmPage(); } catch (e) { /* no built page yet */ }
 });
 /* v36 graceful shutdown (systemd/pm2 stop, deploys): stop accepting connections, end live
    streams, let requests in flight finish (max 8 s), then checkpoint and close the database so

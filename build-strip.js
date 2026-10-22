@@ -82,8 +82,13 @@ const jsNeedsSpace = (a, b) => !/[(){}\[\];,]/.test(a) && !/[(){}\[\];,]/.test(b
 const cssWord = c => !!c && (idPart(c.charCodeAt(0)) || c === "-" || c === "." || c === "#" || c === "%" || c === "+");
 
 // ---------- JavaScript ----------
-function stripJs(src) {
+// seen (optional, Oct 2026, performance stage 3): told of every token as it is read, with where it starts in src —
+// seen("open", at, "{" | "(" | "${"), seen("close", at, "{" | "(" | "${"), seen("name", at, word), seen("str" | "tpl" |
+// "regex" | "num", at, end) and seen("punc", at, text) — so build-i18n.js can see the code's brackets with the very
+// rules that tell a regular expression from a division here. What stripJs returns is the same either way.
+function stripJs(src, seen) {
   const out = new Out(), n = src.length;
+  const note = typeof seen === "function" ? seen : null;
   let i = 0;
   // the last thing read that is not a space or a comment: whether a / here starts a regular expression
   let prev = { t: "start", v: "" };
@@ -109,6 +114,7 @@ function stripJs(src) {
       if (c === q) break;
       if (c === "\n" || c === "\r") { j--; break; }   // not JavaScript; stop at the line as a browser would
     }
+    if (note) note("str", i, j);
     out.push(src.slice(i, j)); i = j; prev = { t: "str" };
   };
   // template text from i (after the ` or the } of a ${ ... }) to the closing ` or the next ${
@@ -117,10 +123,11 @@ function stripJs(src) {
     while (j < n) {
       const c = src.charAt(j);
       if (c === "\\") { j += 2; continue; }
-      if (c === "`") { j++; out.push(src.slice(i, j)); i = j; prev = { t: "tpl" }; return; }
-      if (c === "$" && src.charAt(j + 1) === "{") { j += 2; out.push(src.slice(i, j)); i = j; stack.push("${"); prev = { t: "punc", v: "${" }; return; }
+      if (c === "`") { j++; if (note) note("tpl", i, j); out.push(src.slice(i, j)); i = j; prev = { t: "tpl" }; return; }
+      if (c === "$" && src.charAt(j + 1) === "{") { j += 2; if (note) { note("tpl", i, j - 2); note("open", j - 2, "${"); } out.push(src.slice(i, j)); i = j; stack.push("${"); prev = { t: "punc", v: "${" }; return; }
       j++;
     }
+    if (note) note("tpl", i, j);
     out.push(src.slice(i, j)); i = j;
   };
   const readRegex = () => {
@@ -133,6 +140,7 @@ function stripJs(src) {
       if (cls) { if (c === "]") cls = false; } else if (c === "[") cls = true; else if (c === "/") break;
     }
     while (j < n && idPart(src.charCodeAt(j))) j++;   // flags
+    if (note) note("regex", i, j);
     out.push(src.slice(i, j)); i = j; prev = { t: "regex" };
   };
   while (i < n) {
@@ -154,11 +162,11 @@ function stripJs(src) {
     if (c === "`") { out.push(c); i++; readTemplate(); continue; }
     if (c === "/") {
       if (regexAllowed()) { readRegex(); continue; }
-      const op = d === "=" ? "/=" : "/"; out.push(op); i += op.length; prev = { t: "punc", v: op }; continue;
+      const op = d === "=" ? "/=" : "/"; if (note) note("punc", i, op); out.push(op); i += op.length; prev = { t: "punc", v: op }; continue;
     }
     if (idStart(k)) {
       let j = i + 1; while (j < n && idPart(src.charCodeAt(j))) j++;
-      const word = src.slice(i, j); out.push(word); i = j;
+      const word = src.slice(i, j); if (note) note("name", i, word); out.push(word); i = j;
       prev = { t: "name", v: word, prop: prev.t === "punc" && (prev.v === "." || prev.v === "?.") };
       continue;
     }
@@ -170,17 +178,20 @@ function stripJs(src) {
         if ((x === "+" || x === "-") && /[eE]/.test(src.charAt(j - 1)) && !/^0[xX]/.test(src.slice(i, j))) { j++; continue; }
         break;
       }
+      if (note) note("num", i, j);
       out.push(src.slice(i, j)); i = j; prev = { t: "num" }; continue;
     }
-    if (c === "{") { stack.push("{"); out.push(c); i++; prev = { t: "punc", v: "{" }; continue; }
-    if (c === "}") { const top = stack.pop(); out.push(c); i++; if (top === "${") readTemplate(); else prev = { t: "punc", v: "}" }; continue; }
-    if (c === "(") { stack.push(prev.t === "name" && !prev.prop && PAREN_KEYWORDS.has(prev.v) ? "(head" : "("); out.push(c); i++; prev = { t: "punc", v: "(" }; continue; }
+    if (c === "{") { if (note) note("open", i, "{"); stack.push("{"); out.push(c); i++; prev = { t: "punc", v: "{" }; continue; }
+    if (c === "}") { const top = stack.pop(); if (note) note("close", i, top === "${" ? "${" : "{"); out.push(c); i++; if (top === "${") readTemplate(); else prev = { t: "punc", v: "}" }; continue; }
+    if (c === "(") { if (note) note("open", i, "("); stack.push(prev.t === "name" && !prev.prop && PAREN_KEYWORDS.has(prev.v) ? "(head" : "("); out.push(c); i++; prev = { t: "punc", v: "(" }; continue; }
     if (c === ")") {
       let top = ""; while (stack.length) { top = stack.pop(); if (top.charAt(0) === "(") break; }   // (anything left open inside is not JavaScript)
+      if (note) note("close", i, "(");
       out.push(c); i++; prev = { t: "punc", v: ")", head: top === "(head" }; continue;
     }
-    if ((c === "+" || c === "-") && d === c) { out.push(c + d); i += 2; prev = { t: "punc", v: c + d }; continue; }
-    if (c === "?" && d === "." && !digit(src.charCodeAt(i + 2))) { out.push("?."); i += 2; prev = { t: "punc", v: "?." }; continue; }
+    if ((c === "+" || c === "-") && d === c) { if (note) note("punc", i, c + d); out.push(c + d); i += 2; prev = { t: "punc", v: c + d }; continue; }
+    if (c === "?" && d === "." && !digit(src.charCodeAt(i + 2))) { if (note) note("punc", i, "?."); out.push("?."); i += 2; prev = { t: "punc", v: "?." }; continue; }
+    if (note) note("punc", i, c);
     out.push(c); i++; prev = { t: "punc", v: c };
   }
   return out.str();

@@ -4,7 +4,7 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
-COPY build.js build-strip.js ./
+COPY build.js build-strip.js build-i18n.js ./
 COPY src ./src
 COPY shared ./shared
 # what the build does not make (the fonts, icons, service worker): kept, the page and public/assets/ rebuilt

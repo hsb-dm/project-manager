@@ -7,7 +7,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const src = path.join(__dirname, '..', 'src');
-/* deliberate replacements: the later file is a superset of the earlier one */
+/* deliberate replacements: the later file is a superset of the earlier one. Since the page's scripts are one file
+   (build.js, Oct 2026: a function declared at the top of a script is there from the start of it), the later one is
+   the one from the start; nothing calls either while the page loads. */
 const INTENDED = { aiGradient: ['ai.js', 'style-effects.js'], localizeVisibleText: ['core.js', 'i18n.js'], notifRows: ['core.js', 'enhance.js'] };
 
 test('no two front-end files declare the same global function (except documented overrides)', () => {

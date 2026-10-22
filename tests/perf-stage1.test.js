@@ -198,6 +198,9 @@ test("the timers' KPI/OKR sweep works in steps of 50 changed tasks, the server f
 /* ---------- 4. static files, compressed in the background ---------- */
 const delivery = require('../server/delivery');
 const page = fs.readFileSync(path.join(root, 'public', 'index.html'));
+/* the page's code (Oct 2026, performance stage 3: a file of its own, tests/built-page.js): what is large now, and the
+   large text the tests below compress */
+const built = require('./built-page').builtPage(), code = built.raw.js;
 function fakeReq(o) { return { method: (o && o.method) || 'GET', headers: Object.assign({}, (o && o.headers) || {}) }; }
 function fetchStatic(st, file, o) {
   return new Promise(resolve => {
@@ -219,7 +222,7 @@ test('static files: compressed in the background, never on the server thread; a 
   const calls = noSyncZlib(t);
   const dir = fs.mkdtempSync(path.join(tmp, 'static-'));
   const small = path.join(dir, 'app.js'), big = path.join(dir, 'index.html');
-  fs.writeFileSync(small, page.subarray(0, 60 * 1024)); fs.writeFileSync(big, page.subarray(0, 600 * 1024));
+  fs.writeFileSync(small, code.subarray(0, 60 * 1024)); fs.writeFileSync(big, code.subarray(0, 600 * 1024));
   const st = delivery.createStatic({ mime: { '.js': 'text/javascript; charset=utf-8', '.html': 'text/html; charset=utf-8' }, compressible: new Set(['.js', '.html']), bestFrom: 256 * 1024, cacheDir: path.join(dir, 'page-cache') });
   const firstOf = {};
   for (const file of [small, big]) {
@@ -255,7 +258,7 @@ test('static files: compressed in the background, never on the server thread; a 
 
 test('a browser that takes brotli is never sent gzip because the gzip copy was ready first', async () => {
   const dir = fs.mkdtempSync(path.join(tmp, 'order-')), big = path.join(dir, 'index.html');
-  fs.writeFileSync(big, page.subarray(0, 700 * 1024));
+  fs.writeFileSync(big, code.subarray(0, 700 * 1024));
   const st = delivery.createStatic({ mime: { '.html': 'text/html; charset=utf-8' }, compressible: new Set(['.html']), bestFrom: 256 * 1024 });
   const e = st.entry(big), asked = [];
   /* a request at every turn of the event loop until the first copies are there */
@@ -270,7 +273,7 @@ test('the page kept compressed on disk: a restart sends the smallest copy at onc
   const calls = noSyncZlib(t);
   const dir = fs.mkdtempSync(path.join(tmp, 'restart-')), cacheDir = path.join(dir, 'page-cache'), big = path.join(dir, 'index.html');
   const opts = { mime: { '.html': 'text/html; charset=utf-8' }, compressible: new Set(['.html']), bestFrom: 256 * 1024, cacheDir };
-  fs.writeFileSync(big, page.subarray(0, 500 * 1024));
+  fs.writeFileSync(big, code.subarray(0, 500 * 1024));
   const a = delivery.createStatic(opts), ea = a.entry(big); await ea.best;
   /* "restart": a new server on the same data folder */
   const b = delivery.createStatic(opts);
@@ -291,7 +294,7 @@ test('the page kept compressed on disk: a restart sends the smallest copy at onc
   await c.entry(big).best;
   assert.ok(fs.readFileSync(brFile).equals(good), 'the copy on disk is made again');
   /* a new version of the page: its own copies; the old version's are removed */
-  fs.writeFileSync(big, page.subarray(0, 520 * 1024));
+  fs.writeFileSync(big, code.subarray(0, 520 * 1024));
   const hex2 = require('node:crypto').createHash('sha1').update(fs.readFileSync(big)).digest('hex');
   const e2 = c.entry(big); await e2.best;
   assert.deepEqual(fs.readdirSync(cacheDir).sort(), ['index.html.' + hex2 + '.br', 'index.html.' + hex2 + '.gz']);
@@ -372,22 +375,26 @@ test('the server: the page and the start-up data are compressed off its thread; 
   assert.deepEqual(s.sync(), [], 'no synchronous compression of 64 KB or more');
 });
 
-test('the server keeps the smallest copy of the page: after a restart it is sent from the first request', { timeout: 120000 }, async t => {
+/* the page's code is the large file since performance stage 3 (Oct 2026): the page itself is a few KB, compressed once */
+test('the server keeps the smallest copy of the page\'s code: after a restart it is sent from the first request', { timeout: 120000 }, async t => {
   const dir = fs.mkdtempSync(path.join(tmp, 'keep-'));
   let s = await start(dir);
+  const url = '/assets/' + built.names.js;
   try {
-    const first = await s.get('/', { 'accept-encoding': 'br' });
+    const first = await s.get(url, { 'accept-encoding': 'br' });
     let wire = first.body.length;
-    for (let i = 0; i < 240 && wire >= first.body.length; i++) { await wait(250); wire = (await s.get('/', { 'accept-encoding': 'br' })).body.length; }
+    for (let i = 0; i < 240 && wire >= first.body.length; i++) { await wait(250); wire = (await s.get(url, { 'accept-encoding': 'br' })).body.length; }
     assert.ok(wire < first.body.length, 'quality 11 replaced the first copy (' + wire + ' < ' + first.body.length + ')');
-    const hex = require('node:crypto').createHash('sha1').update(page).digest('hex');
-    for (let i = 0; i < 40 && !fs.existsSync(path.join(dir, 'page-cache', 'index.html.' + hex + '.gz')); i++) await wait(100);
-    assert.deepEqual(fs.readdirSync(path.join(dir, 'page-cache')).sort(), ['index.html.' + hex + '.br', 'index.html.' + hex + '.gz'], 'kept in the data folder, named by the page');
+    const hex = require('node:crypto').createHash('sha1').update(code).digest('hex'), mine = n => n.startsWith(built.names.js + '.');
+    for (let i = 0; i < 40 && !fs.existsSync(path.join(dir, 'page-cache', built.names.js + '.' + hex + '.gz')); i++) await wait(100);
+    assert.deepEqual(fs.readdirSync(path.join(dir, 'page-cache')).filter(mine).sort(), [built.names.js + '.' + hex + '.br', built.names.js + '.' + hex + '.gz'], 'kept in the data folder, named by the file');
+    assert.ok(!fs.readdirSync(path.join(dir, 'page-cache')).some(n => n.startsWith('index.html.')), 'the page, a few KB, is compressed once and not kept');
     await s.stop();
     s = await start(dir);
-    const r = await s.get('/', { 'accept-encoding': 'gzip, deflate, br' });
+    const r = await s.get(url, { 'accept-encoding': 'gzip, deflate, br' });
     assert.equal(r.headers['content-encoding'], 'br'); assert.equal(r.body.length, wire, 'the smallest copy at once');
-    assert.ok(r.decoded.equals(page));
+    assert.ok(r.decoded.equals(code));
+    assert.ok((await s.get('/', { 'accept-encoding': 'br' })).decoded.equals(page), 'and the page');
     assert.deepEqual(s.sync(), []);
   } finally { await s.stop(); }
 });

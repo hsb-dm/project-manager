@@ -10,13 +10,19 @@
    when this browser was signed in (cos.signedIn, the account's id: set when a workspace arrives, removed when the
    server says nobody is or on signing out) and is not acting as someone else (cos.actAs), and it is used only for
    the account the session names.
-   Signed out, the sign-in page's flag is fetched with the page instead (it is a file of its own, build.js). */
-(function(){ var Z=window.ZC_EARLY={}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
+   Signed out, the sign-in page's flag is fetched with the page instead (it is a file of its own, build.js).
+   The Indonesian dictionary (Oct 2026, performance stage 3) is a file of its own too (build.js puts its address
+   here): asked for here, side by side with the rest, when this browser shows Indonesian — the language last chosen on
+   it (cos.language), or that of whoever is signed in on it (cos.signedInLang, src/core.js restoreLanguagePreference).
+   ZC_EARLY.i18nData is the dictionary once it is here; src/core.js ZC_I18N takes it. */
+(function(){ var Z=window.ZC_EARLY={i18nSrc:"__I18N_ID_SRC__"}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
   var signedIn=false; try{ var who=localStorage.getItem("cos.signedIn"), act=localStorage.getItem("cos.actAs"); signedIn=!!who&&(!act||act===who); }catch(e){}
+  var id=false; try{ id=localStorage.getItem("cos.language")==="id"||(signedIn&&localStorage.getItem("cos.signedInLang")==="id"); }catch(e){}
   try{ Z.ctrl=new AbortController(); }catch(e){}
   Z.session=fetch("/api/auth/session",{credentials:"same-origin",signal:Z.ctrl&&Z.ctrl.signal}); Z.session.catch(function(){});
   if(signedIn){ Z.bootstrap=fetch("/api/bootstrap",{method:"GET",credentials:"same-origin",headers:{"Content-Type":"application/json"}}); Z.bootstrap.catch(function(){}); }
   else try{ (new Image()).src="__FLAG_EN_DATA__"; }catch(e){}
+  if(id&&/^\/assets\//.test(Z.i18nSrc)) Z.i18n=fetch(Z.i18nSrc,{credentials:"same-origin"}).then(function(r){ return r.ok?r.json():null; }).then(function(d){ if(d&&typeof d==="object") Z.i18nData=d; return Z.i18nData||null; },function(){ return null; });
 })();
 </script>
 <!-- installable app (PWA): public/manifest.webmanifest, public/sw.js, public/icons/ -->

@@ -53,7 +53,10 @@ Drive, bendera EN dan suara notifikasi (di server: `public/assets/`, nama file m
 setahun), data demo lengkap (halaman server hanya membawa pengaturan awalnya; datanya `public/assets/demo-data.*.js`,
 dibaca hanya oleh halaman tanpa API, misalnya host statis) dan font Poppins (di server: `public/fonts/`, lisensi
 `public/fonts/OFL.txt`; di `dist/`: tautan Google Fonts). Komentar di `src/` dibuang saat build (`build-strip.js`);
-`shared/*` masuk apa adanya. Yang membedakan perilaku adalah runtime, bukan build:
+`shared/*` masuk apa adanya. Sejak performance stage 3 (Oktober 2026) `public/index.html` hanya ~14 KB HTML: semua
+script-nya satu file `public/assets/app.<hash>.js`, semua CSS-nya `public/assets/app.<hash>.css`, dan kamus Indonesia
+`public/assets/i18n-id.<hash>.json` yang hanya diambil saat bahasa Indonesia dibutuhkan (lihat §3 dan §8); `dist/`
+membawa ketiganya di dalam dirinya. Yang membedakan perilaku adalah runtime, bukan build:
 `API.on === true` ketika `GET /api/auth/session` berhasil, `false` kalau gagal.
 
 Stack:
@@ -69,6 +72,7 @@ Stack:
 ```
 build.js                  concatenator: src/* -> public/index.html + dist/*.html (+ public/assets/)
 build-strip.js            membuang komentar JS/CSS dari src/ saat build (tests/build-strip.test.js)
+build-i18n.js             mengeluarkan kamus UI_ID dari kode ke i18n-id.<hash>.json (tests/build-split.test.js)
 package.json              scripts, engines (node >= 22.13), zero deps
 .env.example              seluruh environment variable
 db/schema.sql             seluruh CREATE TABLE (dieksekusi tiap boot, idempotent)
@@ -135,6 +139,54 @@ Karena `refinements.css` berada **paling akhir** di dalam satu `<style>`, dia me
 seri specificity terhadap `head.html` semata-mata karena urutan sumber.
 
 **c. Output.** Menulis kedua file, mencetak ukuran.
+
+### Halaman yang dipecah (Oktober 2026, performance stage 3)
+
+Dulu `public/index.html` membawa ~120 `<script>` inline dan semua CSS (3,3 MB). Script inline tidak pernah
+masuk code cache V8, jadi setiap kunjungan — juga yang hangat — mem-parse dan meng-compile ~3 MB JS lagi di main
+thread. Sekarang `build.js` menulis:
+
+| File | Isi |
+|---|---|
+| `public/index.html` (~14 KB) | `<head>` dengan script awal kecil (session, workspace, kamus), font Poppins, `<link rel="stylesheet" href="/assets/app.<hash>.css">`; markup `body.html`; satu `<script src="/assets/app.<hash>.js">` di tempat script pertama dulu (akhir `<body>`) |
+| `public/assets/app.<hash>.js` | semua script, **urutan sama**: pengaturan demo, `shared/*` (apa adanya), lalu `src/*.js` menurut `parts`; tiap script didahului `;/* <file> */` |
+| `public/assets/app.<hash>.css` | CSS `head.html`, lalu `refinements.css`, `v18.css`, `responsive.css`, `v38.css` (`HEAD_CSS`), lalu `<style>` tiap file JS menurut urutan halaman |
+| `public/assets/i18n-id.<hash>.json` | kamus `UI_ID` (§8) |
+
+Nama file = SHA-1 isinya; server mengirimnya `Cache-Control: public, max-age=31536000, immutable` dengan ETag kuat,
+sehingga browser menyimpan file *dan* hasil compile-nya: Chrome membuat code cache pada kunjungan ketiga dan
+memakainya mulai kunjungan keempat; sejak kunjungan pertama pun compile-nya di-stream di thread lain (bukan main
+thread). `<script src>` itu script biasa (bukan `defer`/`async`), jadi tetap jalan sebelum `DOMContentLoaded`, dengan
+`document.readyState === "loading"`, dan `boot()` tetap yang terakhir. `pageSources()` menolak HTML di antara script
+(tidak bisa dipindah), dan `public/assets/` hanya berisi file build terakhir — file build sebelumnya disimpan server
+(lihat "Deploy" di bawah).
+
+**Apa yang berubah karena satu script, bukan ~120** (dicek: `tests/v37-code-health.test.js`, `tests/build-split.test.js`):
+fungsi yang dideklarasikan di level atas sebuah file sudah ada sejak awal seluruh script (tiga fungsi yang sengaja
+dideklarasikan dua kali — `localizeVisibleText`, `notifRows`, `aiGradient` — adalah versi file belakangan sejak awal;
+tidak ada yang memanggilnya selama load); `then` sebuah promise jalan setelah seluruh script, bukan setelah filenya;
+error di level atas sebuah file menghentikan sisanya. Tidak ada file yang memakai `let`/`const`/`class` di level atas
+(dua akan bentrok dalam satu script) atau `"use strict"`. Karakter NUL yang ditulis mentah (`src/v38.js`, di regex)
+ditulis `\x00` di bundle supaya Git tidak menganggap filenya biner. `.gitattributes` menandai output build `-text`:
+tidak ada konversi line ending di checkout mana pun.
+
+**`dist/creative-os-standalone.html`** = halaman server dengan `standaloneFrom(page)`: CSS jadi `<style>`, script jadi
+satu `<script>` (dengan data demo lengkap), kamus jadi `<script>var ZC_I18N_INLINE={…}</script>`, aset jadi `data:`.
+`tests/audit.test.js` mengecek `standaloneFrom(public/index.html)` (membaca file-nya dari `public/assets/`) === `dist/`.
+
+**Test yang membaca halaman** memakai `tests/built-page.js` (`builtPage()`: HTML, kode, CSS, kamus;
+`scriptOf(code, "shared/scoring-engine.js")`: satu script di dalam bundle, byte demi byte). Batas ukuran di
+`tests/v29-readiness.test.js` (3,6 MB / 860 KB) berlaku untuk total yang diunduh: halaman + ketiga file.
+
+**Deploy.** Tab yang terbuka sebelum update tetap menjalankan halaman lamanya dan masih bisa meminta file-nya
+(kamus saat seseorang memilih Indonesia, script bila browser sudah membuangnya, halaman yang kembali lewat Back).
+Server mencatat setiap halaman yang disajikannya (`server/delivery.js createAssetKeeper`): file yang disebut halaman
+dan script/CSS-nya disalin ke `<data>/asset-history/` (tidak tersentuh deploy, zip maupun Docker), untuk 5 build
+terakhir (`builds.json`); `/assets/<nama>` yang tidak ada lagi di `public/assets/` dikirim dari sana, juga immutable.
+Salinan terkompresi (`page-cache/`) file yang sudah tidak disimpan ikut dihapus. `index.html` tetap `no-cache` (selalu
+divalidasi ulang, 304 kalau sama), jadi tab baru selalu memuat build baru; bar "versi baru" (`src/new-version.js`)
+tetap menawarkan reload ke tab lama. Service worker (`public/sw.js`) tidak menyentuh `/assets/` (hanya navigasi, saat
+offline), jadi tidak pernah menyajikan `index.html` basi yang menunjuk bundle yang sudah hilang.
 
 ### Kenapa urutan `parts` penting
 
@@ -399,6 +451,28 @@ Yang penting untuk diketahui:
 2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`.
 3. Kalau string itu konten user yang **tidak boleh** diterjemahkan, beri `data-no-translate`.
 4. `node build.js`.
+
+### Kamus yang dimuat saat dibutuhkan (Oktober 2026, performance stage 3)
+
+Blok `UI_ID` tetap ditulis di file yang memakainya, seperti biasa (test yang memuat file `src/` apa adanya punya
+kamusnya). Tapi halaman server tidak membawanya: `build-i18n.js` menjalankan setiap blok — `var UI_ID={…}`,
+`Object.assign(UI_ID,{…})` (yang belakangan menang), fungsi kecil yang langsung dipanggil dengan objek kata dan menulis
+`UI_ID` (`(function(d){ … if(!(k in UI_ID)) … })({…})`: yang pertama menang; kalimat engine Smart Scoring lewat
+kuncinya; `var SC_T=(function(t){…})({…})` yang nilainya tetap dipakai, menjadi `var SC_T={…}`) — di sandbox, dalam
+urutan halaman, lalu menulis hasilnya ke `i18n-id.<hash>.json` dan mengganti blok di bundle dengan `void 0`.
+Aturannya: blok harus jalan saat load — di level atas file, atau di level fungsi modul `(function(){ … })()` —
+dan selain itu tidak boleh ada yang menulis `UI_ID`; kalau tidak, build berhenti dengan pesan yang menunjuk tempatnya.
+Kunci yang diberi kata berbeda oleh dua blok: `node build.js --i18n-conflicts` (halaman tetap memakai yang dipakainya dulu).
+
+Di runtime (`src/core.js ZC_I18N`, `src/i18n.js zcI18n…`): halaman berbahasa Inggris tidak pernah memintanya. Script
+awal di `<head>` memintanya bersamaan dengan session dan workspace bila browser ini menampilkan Indonesia
+(`cos.language`, atau `cos.signedInLang` = bahasa orang yang login di sini); `boot()` menunggunya sebelum menggambar
+apa pun, `afterLogin()` bila preferensi orang itu Indonesia, `setLanguage("id")` dari klik mengganti bahasa setelah
+katanya ada (sudah diminta saat pointer/fokus sampai di pilihan Indonesia; menu tetap terbuka; pilihan yang datang
+belakangan menang; gagal = tetap Inggris + pesan), ekspor berbahasa Indonesia menunggunya, dan placeholder nama
+Indonesia di Settings diisi di tempat. Kode yang memanggil `setLanguage("id")` atau mengeset `UI_LANG="id"` sendiri
+tanpa menunggu (seperti test browser) tetap benar: kalau belum ada yang memintanya, kamus diambil sekali secara
+sinkron (`zcI18nNow`, juga dari `tr()` dan `localizeVisibleText()`) — jalan terakhir yang tidak dipakai klik pengguna.
 
 ---
 
@@ -668,7 +742,8 @@ Modul:
 | `shared/gallery-model.js` | validasi & permission gallery, **dipakai server dan browser** |
 
 Static file: `/` → `public/index.html`; `/shared/*` dari root repo; sisanya dari `public/`.
-Ada guard path traversal. **Static tidak butuh autentikasi.**
+Ada guard path traversal. **Static tidak butuh autentikasi.** `public/assets/` dan `public/fonts/` immutable setahun;
+`/assets/<nama>` dari build sebelumnya dikirim dari `<data>/asset-history/` (§3, "Deploy").
 
 ---
 

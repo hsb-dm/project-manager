@@ -3,7 +3,12 @@
    notifications the server sends (server/push.js) while the app is closed. It never caches the app or its
    data: every page load goes to the network, so a deploy reaches everyone at once, and nothing anyone
    works on is kept on the device. Served with no-cache, so a new version of this file is picked up on the
-   next visit. */
+   next visit.
+   The page's code, style sheet and Indonesian dictionary (Oct 2026: /assets/app.<hash>.js and .css,
+   /assets/i18n-id.<hash>.json, build.js) are left to the browser too: each is named after its content and kept
+   by the browser's own cache a year, which is also where it keeps the compiled code. This worker never keeps a
+   page, so it can never hand out an old index.html naming files a deploy removed; and the server still sends
+   the files of the last builds to a tab opened before a deploy (server/delivery.js createAssetKeeper). */
 const OFFLINE_CACHE = "zc-offline-v1";
 const OFFLINE_URL = "/offline.html";
 

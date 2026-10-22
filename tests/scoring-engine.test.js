@@ -627,12 +627,14 @@ test('the engine is pure: no clock, no randomness, no page, no imports, and it n
 /* ---------- the same numbers in the browser ---------- */
 test('the page built by build.js carries the same engine, and it gives the same numbers as require()', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'shared', 'scoring-engine.js'), 'utf8').replace(/\r\n/g, '\n');
+  /* the served page's code is a file of its own since Oct 2026 (performance stage 3: tests/built-page.js), and the
+     standalone file carries the same code inside: the engine is one script of it, byte for byte */
+  const { builtPage, scriptOf } = require('./built-page');
   for (const file of [['public', 'index.html'], ['dist', 'creative-os-standalone.html']]) {
-    const html = fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8');
+    const html = file[0] === 'public' ? builtPage().code : fs.readFileSync(path.join(__dirname, '..', ...file), 'utf8');
     const at = html.indexOf('SMART SCORING ENGINE (Oct 2026)');
     assert.ok(at > 0, file.join('/') + ' has the engine — run node build.js');
-    const start = html.lastIndexOf('<script>', at) + '<script>'.length, end = html.indexOf('</script>', at);
-    const inlined = html.slice(start, end);
+    const inlined = scriptOf(html, 'shared/scoring-engine.js');
     assert.equal(inlined, source, file.join('/') + ' carries the current engine — run node build.js');
     const page = {};
     vm.createContext(page);

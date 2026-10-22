@@ -54,24 +54,42 @@ test('clean production install: no demo data, configured admin, one-time setup',
   assert.equal(demo.status, 401);
 });
 
-test('app shell is compressed, cacheable by ETag, and small', { timeout: 60000 }, async t => {
+test('app shell is compressed, cacheable by ETag, and small', { timeout: 90000 }, async t => {
   const s = await startServer(t);
+  /* Since performance stage 3 (Oct 2026) the page is a few KB of HTML, and its code, its style sheet and the Indonesian
+     dictionary are files of their own under /assets/, named after their content (build.js, tests/built-page.js): the
+     page revalidates at every visit (no-cache), its files are kept a year without asking (immutable). What a visit
+     downloads is the page and those files, so the limits below — the same numbers as before — apply to their total,
+     the dictionary included (what someone reading Indonesian downloads; someone reading English is spared it). */
+  const built = require('./built-page').builtPage();
   const r = await fetch(s.base + '/', { headers: { 'accept-encoding': 'br, gzip' } });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-encoding'), 'br');
   assert.equal(r.headers.get('cache-control'), 'no-cache');
   const etag = r.headers.get('etag'); assert.ok(etag);
-  /* first sent at brotli quality 9 at once, then — when the server's background compression at quality 11 is done —
-     smaller: what every later visit gets (server.js staticEntry, Oct 2026). The smaller copy must still be the page. */
-  const first = Number(r.headers.get('content-length')); await r.arrayBuffer();
-  let wire = first, body = null;
-  for (let i = 0; i < 160 && wire >= first; i++) {
-    await new Promise(res => setTimeout(res, 250));
-    const again = await fetch(s.base + '/', { headers: { 'accept-encoding': 'br, gzip' } });
-    body = Buffer.from(await again.arrayBuffer()); wire = Number(again.headers.get('content-length'));
+  const body = Buffer.from(await r.arrayBuffer());
+  assert.ok(body.equals(built.raw.html), 'it is the page, byte for byte (fetch decodes it)');
+  let wire = Number(r.headers.get('content-length'));
+  /* each file: first sent at once (brotli quality 5 for a large one), then — when the server's background compression
+     at quality 11 is done — smaller: what every later visit gets (server/delivery.js). The smaller copy must still be
+     the file. The script is large enough that its first copy is always the quick one. */
+  for (const k of ['js', 'css', 'i18n']) {
+    const url = s.base + '/assets/' + built.names[k], get = () => fetch(url, { headers: { 'accept-encoding': 'br, gzip' } });
+    const a = await get(); assert.equal(a.status, 200, k); assert.equal(a.headers.get('content-encoding'), 'br', k);
+    assert.equal(a.headers.get('cache-control'), 'public, max-age=31536000, immutable', k + ' is kept a year without asking');
+    assert.match(a.headers.get('etag'), /^"[\w-]{27}"$/, k + ': a strong ETag, the SHA-1 of the file');
+    const first = Number(a.headers.get('content-length')); await a.arrayBuffer();
+    let size = first, last = null, same = 0;
+    for (let i = 0; i < 240 && (k === 'js' ? size >= first : same < 8); i++) {
+      await new Promise(res => setTimeout(res, 250));
+      const again = await get(); last = Buffer.from(await again.arrayBuffer());
+      const n = Number(again.headers.get('content-length')); same = n === size ? same + 1 : 0; size = n;
+    }
+    if (k === 'js') assert.ok(size < first, 'the background compression sends less than the first copy (' + size + ' vs ' + first + ')');
+    assert.ok(last.equals(built.raw[k]), k + ': and it is the file, byte for byte');
+    assert.equal((await fetch(url, { headers: { 'if-none-match': a.headers.get('etag') } })).status, 304, k);
+    wire += size;
   }
-  assert.ok(wire < first, 'the background compression sends less than the first copy (' + wire + ' vs ' + first + ')');
-  assert.ok(body.equals(fs.readFileSync(path.join(root, 'public', 'index.html'))), 'and it is the page, byte for byte (fetch decodes it)');
   /* 700 → 760 KB (October 2026): AI Hub's poster look, brand characters and fonts, templates saved from the canvas
      (for everyone or oneself), the screen-fitting layout and extra permissions for one person took the compressed
      shell 2 KB past 700 KB (about 702 KB). */
@@ -81,8 +99,11 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 60000 }
      points, KPIs and OKRs, analytics, efficiency bonus and AI suggestions) it is about 826 KB, under this limit.
      Since 20 October 2026 the server sends it at brotli quality 11 once compressed in the background: about 790 KB
      for a page that is 858 KB at quality 9. */
-  assert.ok(wire < 860 * 1024, 'compressed shell under 860 KB, got ' + wire);
-  const html = fs.readFileSync(path.join(root, 'public', 'index.html'));
+  /* 3.6 MB and 860 KB unchanged (October 2026, performance stage 3): the page and its files together, as above —
+     about 3.13 MB, about 690 KB compressed at quality 11 (the page alone was 3.16 MB, 671 KB: one file compresses a
+     little better than four). Someone reading English downloads all but the dictionary: about 2.80 MB, 599 KB. */
+  assert.ok(wire < 860 * 1024, 'compressed shell and its files under 860 KB, got ' + wire);
+  const html = Buffer.concat([built.raw.html, built.raw.js, built.raw.css, built.raw.i18n]);
   /* 2.2 → 2.4 MB (October 2026): the comment toolbar, @mentions, the simplified Assets & versions
      tab and named Drive links took the shell 14 KB past 2.2 MB. What is downloaded is the
      compressed size above — about 520 KB of its 700 KB — which is unchanged as a limit.
@@ -103,12 +124,14 @@ test('app shell is compressed, cacheable by ETag, and small', { timeout: 60000 }
   /* 3.5 → 3.6 MB (October 2026): choosing which List columns show, the styled Kind of work dropdown and the team's
      context for the AI took it 3 KB past 3.5 MB (about 3.503 MB); compressed it is about 804 KB at quality 11, the
      860 KB limit unchanged. */
-  assert.ok(html.length < 3.6 * 1024 * 1024, 'uncompressed shell under 3.6 MB, got ' + html.length);
+  assert.ok(html.length < 3.6 * 1024 * 1024, 'uncompressed shell and its files under 3.6 MB, got ' + html.length);
   const again = await fetch(s.base + '/', { headers: { 'if-none-match': etag } });
   assert.equal(again.status, 304);
-  const gz = await new Promise((res, rej) => require('node:http').get(s.base + '/', { headers: { 'accept-encoding': 'gzip' } }, m => { const c = []; m.on('data', d => c.push(d)); m.on('end', () => res({ enc: m.headers['content-encoding'], body: Buffer.concat(c) })); m.on('error', rej); }));
-  assert.equal(gz.enc, 'gzip');
-  assert.equal(zlib.gunzipSync(gz.body).length, html.length);
+  for (const p of ['/', '/assets/' + built.names.js]) {
+    const gz = await new Promise((res, rej) => require('node:http').get(s.base + p, { headers: { 'accept-encoding': 'gzip' } }, m => { const c = []; m.on('data', d => c.push(d)); m.on('end', () => res({ enc: m.headers['content-encoding'], body: Buffer.concat(c) })); m.on('error', rej); }));
+    assert.equal(gz.enc, 'gzip', p);
+    assert.ok(zlib.gunzipSync(gz.body).equals(p === '/' ? built.raw.html : built.raw.js), p);
+  }
   for (const p of ['/package.json', '/server/server.js', '/data/creative-os.db', '/.env.example', '/README.md']) assert.equal((await fetch(s.base + p)).status, 404, p);
 });
 
@@ -121,8 +144,9 @@ test('notification sound is a real, small, audio-only MP3', () => {
   assert.equal((mp3[off + 1] & 0xE0), 0xE0, 'MPEG audio frame sync');
   assert.equal((mp3[off + 1] >> 1) & 0x3, 1, 'Layer III');
   assert.notEqual(mp3.readUInt32BE(0), 0x000001BA, 'not an MPEG program stream');
-  /* Oct 2026: the served page plays it as a file of its own (public/assets/, kept a year by the browser); the standalone file carries it inside */
-  const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+  /* Oct 2026: the served page plays it as a file of its own (public/assets/, kept a year by the browser); the standalone file carries it inside.
+     The page's code, which names it, is a file of its own too (tests/built-page.js). */
+  const html = require('./built-page').builtPage().code;
   const url = (html.match(/"(\/assets\/zen-chime\.[0-9a-f]{10}\.mp3)"/) || [])[1];
   assert.ok(url && fs.readFileSync(path.join(root, 'public', url)).equals(mp3), 'the served page plays the new chime');
   assert.ok(fs.readFileSync(path.join(root, 'dist', 'creative-os-standalone.html'), 'utf8').includes('data:audio/mpeg;base64,' + mp3.toString('base64')), 'the standalone file inlines it');

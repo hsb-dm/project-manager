@@ -163,7 +163,7 @@ test('in the page the module is window.ScoringSettings, after the engine whose b
   vm.runInContext(fs.readFileSync(path.join(root, 'shared', 'scoring-settings.js'), 'utf8'), ctx.window);
   assert.equal(typeof ctx.window.ScoringSettings.normalizeSettings, 'function');
   assert.equal(ctx.window.ScoringSettings.normalizeSettings({}).kinds.length, 14);
-  const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+  const html = require('./built-page').builtPage().code;   /* the page's code, a file of its own since Oct 2026 */
   assert.ok(html.includes('root.ScoringSettings = model'), 'build.js inlines it');
   assert.ok(html.indexOf('root.ScoringEngine = engine') < html.indexOf('root.ScoringSettings = model'), 'after the engine');
   assert.ok(html.indexOf('root.ScoringSettings = model') < html.indexOf('function scoringSettings('), 'before the page\'s scoring code');

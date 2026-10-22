@@ -57,8 +57,10 @@ test('HTML: only <script> (JavaScript) and <style> are read', () => {
 });
 
 test('the built page: no comments of src/ left, everything else as written, every script compiles', () => {
-  const page = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
-  for (const m of page.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(m[1]);
+  /* the page and its files (tests/built-page.js): its code and its style sheet are files of their own since performance stage 3 */
+  const built = require('./built-page').builtPage(), page = built.html + built.code + built.css;
+  for (const m of built.html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(m[1]);
+  new vm.Script(built.code);
   /* src/'s comments are gone … */
   for (const gone of ['THE LAST VIEW, KEPT (Oct 2026)', 'v41 storage shim', 'TOKENS — workspace theme']) assert.ok(!page.includes(gone), gone);
   /* … shared/* goes in exactly as written (tests/scoring-engine.test.js compares the engine byte for byte) … */
@@ -66,4 +68,14 @@ test('the built page: no comments of src/ left, everything else as written, ever
   /* … and what holds slash-star in src/ is still there, unchanged */
   for (const kept of ['"image/*"', '"*/*"', '"image/*,.pdf,.psd,.ai,.mp4,.mov"', '/\\*\\*([^*]+)\\*\\*/g', '/\\*([^*]+)\\*/g', '/(^|[^*])\\*([^*\\n]+)\\*/g', '/\\*\\*\\s*\\*\\*/g', '/\\*\\*[^\\s*][^\\n]*?\\*\\*/', '/^(Today|Hari ini),\\s*/']) assert.ok(page.includes(kept), kept);
   assert.ok(page.includes('function routeApply('), 'names are kept as they are');
+});
+
+test('seen: every token, read by the same rules, and the output unchanged (build-i18n.js reads the brackets with it)', () => {
+  const src = 'var a=/[{(]/g, b="{(", c=`x${ {d:1}.d }(`; /* { */ if(a) { f((1)); } // )\nvar e=x/2/1;';
+  const events = [];
+  assert.equal(stripJs(src, (t, at, v) => events.push([t, at, v])), stripJs(src));
+  const brackets = events.filter(e => e[0] === 'open' || e[0] === 'close').map(e => e[0] === 'open' ? e[2] : '/' + e[2]).join(' ');
+  assert.equal(brackets, '${ { /{ /${ ( /( { ( ( /( /( /{', 'the braces in the regular expression, the string, the template text and the comments are not brackets');
+  assert.deepEqual(events.filter(e => e[0] === 'regex').map(e => src.slice(e[1], e[2])), ['/[{(]/g'], 'x/2/1 is two divisions');
+  assert.deepEqual(events.filter(e => e[0] === 'name').map(e => e[2]).slice(0, 4), ['var', 'a', 'b', 'c']);
 });

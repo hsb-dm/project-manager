@@ -692,7 +692,7 @@ function uiContentNode(el){return !!el.closest(UI_CONTENT_SEL);}
 var UI_ID_SHOWN=false;
 function localizeVisibleText(root){
  if(!root)return;
- if(UI_LANG==="id")UI_ID_SHOWN=true;else if(!UI_ID_SHOWN)return;
+ if(UI_LANG==="id"){UI_ID_SHOWN=true;if(typeof ZC_I18N!=="undefined"&&!ZC_I18N.ready)zcI18nNow();}else if(!UI_ID_SHOWN)return;
  /* user content (names, titles, written text) is skipped a whole subtree at a time */
  var skipText=root.nodeType===1&&!!root.closest(UI_CONTENT_SEL);
  var w=document.createTreeWalker(root,1|4/* SHOW_ELEMENT|SHOW_TEXT */,function(n){return n.nodeType===1?(n.matches(UI_CONTENT_SEL)?2/* REJECT */:3/* SKIP */):1/* ACCEPT */;}),nodes=[],n;
@@ -1083,4 +1083,72 @@ Object.assign(UI_ID,{
  "Got it": "Mengerti",
  "Checking…": "Memeriksa…"
 });
+
+/* ---------- the Indonesian dictionary, when it is needed (Oct 2026, performance stage 3) ----------
+   The served page carries no UI_ID words (src/core.js ZC_I18N, build-i18n.js): they are one file,
+   /assets/i18n-id.<hash>.json, the browser keeps a year. zcI18nLoad() brings it once and adds it to UI_ID, from the
+   head's early request when there is one (src/head.html: this browser shows Indonesian), else asking for it then.
+   What waits for it, so that nothing is drawn in Indonesian without its words (no English first, no redraw):
+   - boot(), when the page starts in Indonesian (zcI18nBoot): its first drawing — usually it is here already, asked
+     for side by side with the session and the workspace, and boot() goes on at once;
+   - afterLogin(), when the person's own choice is Indonesian on a browser that showed English (zcI18nFor);
+   - setLanguage("id") from a click: it switches once the words are here (the menu stays open; a second choice
+     meanwhile wins) and says so when they cannot come; called from code, with nothing asked for yet, it has them
+     at once (zcI18nNow);
+   - an export in Indonesian (src/export.js), and the Indonesian names offered as placeholders in Settings
+     (src/settings.js trIdOf), which are filled in in place when the words arrive.
+   Pointing at or focusing an Indonesian choice asks for it already, so a click seldom waits. Should boot() wait
+   longer than ZC_I18N_WAIT_MS, it goes on, and the page is drawn again in Indonesian when the words arrive. */
+var ZC_I18N_WAIT_MS=8000;
+function zcI18nTake(d){ if(ZC_I18N.ready||!d||typeof d!=="object") return; Object.keys(d).forEach(function(k){ if(!Object.prototype.hasOwnProperty.call(UI_ID,k)) UI_ID[k]=d[k]; }); ZC_I18N.ready=true; }
+function zcI18nLoad(){
+  if(ZC_I18N.ready) return Promise.resolve(true);
+  if(ZC_I18N.loading) return ZC_I18N.loading;
+  var Z=window.ZC_EARLY||{};
+  if(Z.i18nData){ zcI18nTake(Z.i18nData); return Promise.resolve(true); }
+  var asked=Z.i18n; Z.i18n=null;
+  var got=asked||(ZC_I18N.src&&typeof fetch==="function"?fetch(ZC_I18N.src,{credentials:"same-origin"}).then(function(r){ return r.ok?r.json():null; }):Promise.resolve(null));
+  ZC_I18N.loading=got.then(function(d){ ZC_I18N.loading=null; if(!d||typeof d!=="object") return false; zcI18nTake(d); if(ZC_I18N.late) zcI18nLate(); return true; },function(){ ZC_I18N.loading=null; return false; });
+  return ZC_I18N.loading;
+}
+/* The words, now, for code that shows Indonesian without having waited for them (UI_LANG set by hand, as the browser
+   tests do): tr() and localizeVisibleText() ask before they read. One synchronous request for the file the browser
+   keeps — a last resort that the app's own ways never reach (they wait, above), tried once, and never while the
+   file is on its way already (the page is then drawn again when it arrives). */
+function zcI18nNow(){
+  if(ZC_I18N.ready||ZC_I18N.loading||ZC_I18N.tried) return;
+  var Z=window.ZC_EARLY||{}; if(Z.i18nData){ zcI18nTake(Z.i18nData); return; }
+  if(Z.i18n||!ZC_I18N.src||typeof XMLHttpRequest==="undefined") return;
+  ZC_I18N.tried=true;
+  try{ var x=new XMLHttpRequest(); x.open("GET",ZC_I18N.src,false); x.send(null); if(x.status===200) zcI18nTake(JSON.parse(x.responseText)); }catch(e){}
+}
+/* boot(): true when it must wait for the words (it is called again once they are here, or after ZC_I18N_WAIT_MS) */
+function zcI18nBoot(go){
+  if(UI_LANG!=="id"||ZC_I18N.ready||ZC_I18N.late) return false;   /* late: it waited its time already */
+  var Z=window.ZC_EARLY||{}; if(Z.i18nData){ zcI18nTake(Z.i18nData); return false; }
+  var done=false, run=function(){ if(done) return; done=true; clearTimeout(timer); if(!ZC_I18N.ready) ZC_I18N.late=true; go(); }, timer=setTimeout(run,ZC_I18N_WAIT_MS);
+  zcI18nLoad().then(run); return true;
+}
+/* fn() now when lang needs no words or they are here, else once they are (or after ZC_I18N_WAIT_MS): its value, or a promise of it */
+function zcI18nFor(lang,fn){
+  if(lang!=="id"||ZC_I18N.ready) return fn();
+  return new Promise(function(resolve){ var done=false, run=function(){ if(done) return; done=true; clearTimeout(timer); if(!ZC_I18N.ready) ZC_I18N.late=true; resolve(); }, timer=setTimeout(run,ZC_I18N_WAIT_MS); zcI18nLoad().then(run); }).then(fn);
+}
+/* setLanguage("id") before the words are here: the switch, once they are */
+function zcI18nSwitch(button){
+  var busy=document.querySelectorAll('.lang-choice[data-lang="id"]'); busy.forEach(function(b){ b.setAttribute("aria-busy","true"); });
+  return zcI18nLoad().then(function(ok){
+    document.querySelectorAll('.lang-choice[aria-busy]').forEach(function(b){ b.removeAttribute("aria-busy"); });
+    if(LANG_WANTED!=="id") return false;
+    if(!ok){ if(typeof toast==="function") toast(tr("Couldn't load Indonesian. Check your connection and try again."),"bad"); return false; }
+    setLanguage("id",button); return true;
+  });
+}
+/* the words came after the page was drawn without them (boot waited ZC_I18N_WAIT_MS): drawn again, in Indonesian */
+function zcI18nLate(){ ZC_I18N.late=false; if(UI_LANG!=="id"||typeof document==="undefined"||!document.body) return;
+  if(document.body.classList.contains("auth")){ if(document.getElementById("au_email")&&typeof showLogin==="function") showLogin(); return; }
+  if(typeof languageRedraw==="function") languageRedraw(); }
+/* an Indonesian choice pointed at or focused: the words are asked for already */
+if(typeof document!=="undefined"&&document.addEventListener) ["pointerover","focusin","touchstart"].forEach(function(type){ document.addEventListener(type,function(e){ if(typeof ZC_I18N==="undefined"||ZC_I18N.ready||ZC_I18N.loading||!ZC_I18N.src) return; var t=e.target; if(t&&t.closest&&t.closest('[data-lang="id"]')) zcI18nLoad(); },{capture:true,passive:true}); });
+Object.assign(UI_ID,{"Couldn't load Indonesian. Check your connection and try again.":"Bahasa Indonesia tidak bisa dimuat. Periksa koneksi lalu coba lagi."});
 </script>

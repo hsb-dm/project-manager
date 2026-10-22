@@ -82,7 +82,7 @@ test('registration can be switched on from Settings and the sign-in page lists r
 });
 
 test('front end: v38 layer is built and keeps its promises', () => {
-  const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
+  const html = require('./built-page').builtPage().code;   /* the page's code, a file of its own since Oct 2026 */
   assert.ok(html.includes('function routeApply('), 'router');
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'src/tasks.js'), 'utf8'), /"laura"/, 'no demo reviewer default');
   const v38 = fs.readFileSync(path.join(root, 'src/v38.js'), 'utf8');
@@ -94,7 +94,7 @@ test('v38.1 clean URLs: app routes get the shell, files and API stay strict', { 
   const s = await start(t);
   for (const p of ['/tasks', '/projects/p1', '/register', '/tasks/kanban?task=T-101', '/settings/ai']) {
     const r = await fetch(s.base + p); assert.equal(r.status, 200, p); assert.match(r.headers.get('content-type'), /text\/html/, p);
-    assert.match(await r.text(), /function routeApply\(/, p);
+    assert.equal(await r.text(), require('./built-page').builtPage().html, p + ': the shell, whose script holds the router');
   }
   assert.equal((await fetch(s.base + '/logo.png')).status, 404, 'a missing file is still a 404');
   assert.equal((await fetch(s.base + '/shared/nope.js')).status, 404);

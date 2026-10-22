@@ -116,7 +116,63 @@ function createStatic(o) {
     const timer = setTimeout(go, firstWaitMs); if (timer.unref) timer.unref();
     e.first.then(go, go);
   }
-  return { entry, send, pick, cacheDir };
+  /* the copies of files no longer served (gone(file) says which): out of memory and out of cacheDir (Oct 2026: the
+     page's code is in files named after their content, a new name at every build) */
+  async function forget(gone) {
+    for (const f of [...cache.keys()]) if (gone(f)) cache.delete(f);
+    if (!cacheDir) return;
+    let names = []; try { names = await fs.promises.readdir(cacheDir); } catch (e) { return; }
+    for (const n of names) { const m = /^(.+)\.[0-9a-f]{40}\.(br|gz)$/.exec(n); if (m && gone(m[1])) await fs.promises.rm(path.join(cacheDir, n), { force: true }).catch(() => {}); }
+  }
+  return { entry, send, pick, forget, cacheDir };
+}
+
+/* ---------- the files of earlier builds (Oct 2026, performance stage 3) ----------
+   The page's code, style sheet and Indonesian dictionary are files named after their content
+   (public/assets/app.<hash>.js, build.js), and each build replaces them. A tab opened before an update keeps running
+   the page it loaded, and that page still asks for its own files: the dictionary when someone there chooses
+   Indonesian, the script or the style sheet when the browser has dropped them from its cache, or the whole page
+   brought back by Back or a restored session. So every page the server serves is noted (note(page), when it
+   changes): the files it names, and those its script and style sheet name, are copied to keepDir in the data folder,
+   which no update touches, for the last `keep` builds (keepDir/builds.json), and find(name) gives the copy of a
+   file public/assets/ no longer has. Copies of builds older than that go, and so do their compressed copies
+   (forget). Only content-named files are kept: name.<10 hex>.ext. */
+const KEPT_NAME = /^[\w-]+\.[0-9a-f]{10}\.[a-z0-9]{2,5}$/;
+function createAssetKeeper(o) {
+  const dir = o.publicAssets, keepDir = o.keepDir, keep = Math.max(1, o.keep || 5), statics = o.statics || null;
+  const log = o.log || ((msg) => console.warn(msg));
+  const manifest = path.join(keepDir, "builds.json");
+  let queue = Promise.resolve(), lastId = null;
+  const named = text => { const out = new Set(); for (const m of String(text).matchAll(/\/assets\/([\w.-]+)/g)) if (KEPT_NAME.test(m[1])) out.add(m[1]); return out; };
+  async function readManifest() { try { const j = JSON.parse(await fs.promises.readFile(manifest, "utf8")); return Array.isArray(j) ? j.filter(b => b && typeof b.id === "string" && Array.isArray(b.files)) : []; } catch (e) { return []; } }
+  async function run(page) {
+    const html = page.toString("utf8"), id = ((/<meta name="zc-build" content="([\w-]{1,40})">/.exec(html.slice(0, 4096)) || [])[1]) || crypto.createHash("sha1").update(page).digest("hex").slice(0, 12);
+    if (id === lastId) return;
+    const files = named(html);
+    for (const f of [...files]) if (/\.(js|css)$/.test(f)) { try { named(await fs.promises.readFile(path.join(dir, f), "utf8")).forEach(x => files.add(x)); } catch (e) { /* not there: named only */ } }
+    await fs.promises.mkdir(keepDir, { recursive: true, mode: 0o700 });
+    for (const f of files) {
+      const to = path.join(keepDir, f);
+      if (fs.existsSync(to)) continue;
+      const tmp = to + "." + process.pid + "-" + crypto.randomBytes(4).toString("hex") + ".tmp";
+      try { await fs.promises.copyFile(path.join(dir, f), tmp); await fs.promises.rename(tmp, to); } catch (e) { await fs.promises.rm(tmp, { force: true }).catch(() => {}); }
+    }
+    const builds = (await readManifest()).filter(b => b.id !== id);
+    builds.unshift({ id, at: new Date().toISOString(), files: [...files].sort() });
+    builds.length = Math.min(builds.length, keep);
+    const tmp = manifest + "." + process.pid + ".tmp";
+    await fs.promises.writeFile(tmp, JSON.stringify(builds, null, 1), { mode: 0o600 }); await fs.promises.rename(tmp, manifest);
+    /* what no kept build names goes, here and among the compressed copies */
+    const live = new Set(); builds.forEach(b => b.files.forEach(f => live.add(f)));
+    for (const n of await fs.promises.readdir(keepDir)) if (KEPT_NAME.test(n) && !live.has(n)) await fs.promises.rm(path.join(keepDir, n), { force: true }).catch(() => {});
+    if (statics) await statics.forget(file => { const b = path.basename(file); return KEPT_NAME.test(b) && !live.has(b) && !fs.existsSync(path.join(dir, b)); });
+    lastId = id;
+  }
+  /* the page as served now: noted in the background, one at a time */
+  function note(page) { queue = queue.then(() => run(page)).catch(err => log("[static] could not keep the files of this build: " + err.message)); return queue; }
+  /* the kept copy of a file public/assets/ does not have, or null */
+  function find(name) { if (!KEPT_NAME.test(String(name || ""))) return null; const p = path.join(keepDir, name); try { return fs.statSync(p).isFile() ? p : null; } catch (e) { return null; } }
+  return { note, find, keepDir, idle: () => queue };
 }
 
 /* ---------- JSON ---------- */
@@ -155,4 +211,4 @@ function toJson(obj) {
   return out + "}";
 }
 
-module.exports = { createStatic, sendJson, toJson, withParts, rawJson, JSON_ASYNC_FROM, FIRST_BR_QUALITY };
+module.exports = { createStatic, createAssetKeeper, sendJson, toJson, withParts, rawJson, JSON_ASYNC_FROM, FIRST_BR_QUALITY };

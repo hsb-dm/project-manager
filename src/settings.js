@@ -462,11 +462,16 @@ function setLocName(obj,lang,value){
 /* What an Indonesian reader sees when no Indonesian name is set: the dictionary's word for a
    built-in name, otherwise the English one. Shown as the placeholder, so the fallback is visible. */
 function trIdOf(s){ s=String(s||""); var v=(typeof UI_ID!=="undefined"&&UI_ID[s])||s; return typeof idTerms==="function"?idTerms(v):v; }
+/* Before the Indonesian dictionary is here (an English page: src/i18n.js), the placeholder is left empty and filled in
+   in place once it has come, so it never shows the English word first */
+function trIdPlaceholder(en){ if(typeof ZC_I18N==="undefined"||ZC_I18N.ready||typeof zcI18nLoad!=="function") return ' placeholder="'+attr(trIdOf(en))+'"';
+  zcI18nLoad().then(function(){ document.querySelectorAll("input[data-tr-id-of]").forEach(function(el){ el.setAttribute("placeholder",trIdOf(el.getAttribute("data-tr-id-of"))); el.removeAttribute("data-tr-id-of"); }); });
+  return ' placeholder="" data-tr-id-of="'+attr(en)+'"'; }
 function bilingualNameInputs(en,idn,onEn,onId,disabled,label){
   var dis=disabled?" disabled":"";
   return '<span class="bi-name">'
     + '<span class="bi-in"><span class="bi-tag" aria-hidden="true">EN</span><input class="bi-en" lang="en" aria-label="'+attr(label+" — English")+'"'+dis+' value="'+attr(en||"")+'" placeholder="'+attr(idn||"")+'" onchange="'+onEn+'"></span>'
-    + '<span class="bi-in"><span class="bi-tag" aria-hidden="true">ID</span><input class="bi-id" lang="id" aria-label="'+attr(label+" — Bahasa Indonesia")+'"'+dis+' value="'+attr(idn||"")+'" placeholder="'+attr(trIdOf(en))+'" onchange="'+onId+'"></span>'
+    + '<span class="bi-in"><span class="bi-tag" aria-hidden="true">ID</span><input class="bi-id" lang="id" aria-label="'+attr(label+" — Bahasa Indonesia")+'"'+dis+' value="'+attr(idn||"")+'"'+trIdPlaceholder(en)+' onchange="'+onId+'"></span>'
     + '</span>';
 }
 /* workflow */

@@ -1,0 +1,6 @@
+# What build.js writes is kept byte for byte as it is written, on every machine (no line-ending conversion): a file
+# under public/assets/ is named after its content, and the standalone file is the served page with its files put
+# inside it (tests/audit.test.js compares the two).
+public/index.html -text
+public/assets/** -text
+dist/creative-os-standalone.html -text
