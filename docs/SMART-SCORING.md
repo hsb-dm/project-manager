@@ -375,11 +375,15 @@ Catches up first (the same re-evaluation as after a write, §5.2.6; `bumpData()`
 
 ```
 { taskId,
+  kinds: [{k, n}] | null,         // several kinds of work (§11.2): the task's split as it counts now — meta.kinds with the
+                                  // kinds active now; null with fewer than 2 of them (the same as context.kinds)
   rows: { hours: Row|null, story: Row|null, weighted: Row|null },
   audit: [Audit],                 // this task's last 50, newest first; module 'efficiency' rows only for viewEfficiency
   on: { feature, enabled, hours, story, weighted, kpi, okr },          // master switch && module
-  context: { kind,                // ScoringEngine.kindOfTask(task, settings.kinds): meta.kind if active, else the title's; or null
-             kindPicked,          // true when kind is the one chosen on the task (meta.kind)
+  context: { kind,                // ScoringEngine.kindOfTask(task, settings): the split's primary kind (§11.2), else
+                                  // meta.kind if active, else the title's; or null
+             kindPicked,          // true when kind is the one chosen on the task (meta.kind, or the split's)
+             kinds,               // = kinds above
              assetCount, deliverables /* max(1, assetCount) */, openDeps /* dependencies on unfinished tasks */,
              dependencies /* all */, scope: {value, source:"assets", assetCount, assumed /* no count */},
              stage, stageKind, lockPolicy, requireReason, requireApproval, configVersion },
@@ -396,7 +400,9 @@ Row = { module, unit, value /* final */, source: "math"|"ai"|"manual"|"legacy"|n
         aiValue, aiRunId, factors: {complexity?, scope?, uncertainty?, dependencies?}, mappingVersion, configVersion,
         lockedValue, lockedAt, lockedBy, approvedBy, approvedAt,
         approvedAtLock /* approved in the act of locking: approvedAt===lockedAt && approvedBy===lockedBy */,
-        proposal: {value, ratings, use, by, at, reason}|null, scope: {assets, deps, text}|null, updatedBy, updatedAt, rev }
+        proposal: {value, ratings, use, by, at, reason}|null, scope: {assets, deps, text, kinds?}|null, updatedBy, updatedAt, rev,
+        mix /* the hours row only: [{kind, units, value, low, high}] — each kind's hours when its math was worked out
+               for several kinds of work (math.inputs.mix), else null (§11.2) */ }
 Audit = { id, module, action, by /* null = the server */, impersonatedBy, at, reason, from: Snap|null, to: Snap|null, meta }
 Snap  = { value, source, status, mathValue, aiValue, factors, lockedValue, lockedAt, lockedBy, approvedBy, approvedAt,
           proposal, scope, rev }
@@ -415,6 +421,14 @@ Body `{ module: "hours", inputs?: { kind?, units?, complexity? } }` or `{ module
   else the one stored on the hours row (`"stored"`), else on the story/weighted row (`"story"`/`"weighted"`), else
   unrated (the engine takes 3); open dependencies = the task's dependencies on unfinished tasks (always the server's).
   `ScoringEngine.hours(settings.hours, …)`. "Feed post Ramadan", 5 assets, nothing rated → **6 h**.
+  **Several kinds of work** (§11.2): the task's split (`meta.kinds`, 2 or more active kinds) takes the place of the kind
+  and the deliverables — `ScoringEngine.hours(settings.hours, {mix, complexity1to5, openDeps})`, `kind` its primary kind
+  (`kindSource "mix"`), `units` all its deliverables (`unitsSource "mix"`), and two more inputs: `mix` (each kind's
+  `{kind, units, value, low, high}`) and `mixSource` (`"task"`). `inputs.mix` `[{kind, units}]` works it out for another
+  split (`mixSource "given"`; active kinds, counts 1–500, at most 8 kinds, else 400; one kind is that kind, `"given"`;
+  `[]` is none: the primary kind with the asset count); `inputs.kind` works out that one kind instead of the split; with
+  a split `inputs.units` is not used. The podcast (video 1, reels 4, kv 1) → 8 + 16.8 + 6 = **30.8 h** (31 on the task).
+  Without a split `inputs` is exactly as before (no `mix` keys).
 - **Story / Weighted**: each rating given, else stored on this row (`"stored"`), else on the other points row; Scope,
   when nobody rated it, the suggestion from the asset count (1 → 1, 2–3 → 2, 4–6 → 3, 7–12 → 4, 13+ → 5; `"assets"`).
   `ScoringEngine.storyPoints(settings.story, …)` / `weightedPoints(settings.weighted, …)`; a factor still missing →
@@ -466,10 +480,11 @@ estimate." (admins too) unless `overrides.allowSelfApproveEstimate` (then audite
 `calculated` (`meta {value, setFinal, reason}`), `changed`, `proposed`, `approved`, `rebaselined`, `locked_changed`
 (`meta {via: "scoring"|"task"|"restore"|"sync"|…, approvalCleared, unlocked}`), `estimate_set` / `estimate_changed`
 (the hours row following the task's Estimate, `meta.via`), `frozen_at_work_start` (`meta {trigger: "stage"|"time",
-stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"]}`), `scope_restored`, `scope_recorded`,
+stage}`), `scope_changed` (`meta {from, to, what: ["assets"|"deps"|"text"|"kinds"]}`), `scope_restored`, `scope_recorded`,
 `removed_with_task` (§4), `backfilled` (task NULL, `meta {counts}`), `ai_suggested` (§5.4: only the AI value
 changed, `meta {runId, far, confidence, trigger, cached?}`), module `efficiency` `reopened` (`meta
-{awards, stage}`), and module `kinds` `kind_fallback` (the kind the task chose was deleted, `meta {kind, name}`; §5.1).
+{awards, stage}`), and module `kinds` `kind_fallback` (the kind the task chose, or one of its split, was deleted, `meta
+{kind, name}`, with `mix: true, mixKept` when it was in the split — kept with 2 or more kinds left, else gone; §5.1, §11.2).
 `by` NULL = done by the server (a sweep, a catch-up).
 
 #### 5.2.6 The task's own writes (server.js hook points) and the re-evaluation
@@ -489,6 +504,10 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), module `efficiency`
   `guardNewTask`, `guardTaskWrite` and `guardRestore`, `meta.kind` stays only when it is an active kind of
   `settings.kinds`, or (save, restore) the very kind the task already has (switched off since: it stays chosen and
   counts again when switched back on); anything else is deleted from `meta` (the task is then "Auto").
+- **A task's split by kind** (`meta.kinds`, §11.2), in the same three guards (`cleanKinds`): `[{k, n}]` of active
+  kinds of `settings.kinds` — an unknown or switched-off kind (unlike `meta.kind`, also one the task already had) or an
+  entry without a number is dropped, `n` rounded and kept within 1–500, the same kind twice added together, at most 8
+  kinds (the first); fewer than 2 left → `meta.kinds` is deleted. A save that does not send it keeps the stored one.
 - **Time-log mode** = `scoring.timeLogMode()` = feature && master switch && Effort Hours on. Then `meta.actualEffort`
   is the time log's: `guardTaskWrite` and `guardRestore` keep the stored one, **`guardNewTask(u, b)`** (end of
   `sanitizeNewTask`) drops a sent one. Off: exactly as today.
@@ -505,7 +524,8 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), module `efficiency`
   of its own (`task_time_entries`, not deleted, `source 'manual'`) → `status "locked"`, `locked_by` NULL, nobody's
   approval: an unapproved baseline that earns no bonus (`frozen_at_work_start`); (3) **scope** — every locked row of a
   module that is on remembers `{assets: max(1, assetCount), deps: number of dependencies, text:
-  ScoringEngine.inputHash({description, brief})}` from its lock; a difference → `rebaseline_needed`
+  ScoringEngine.inputHash({description, brief})}` — and, for a task with a split (§11.2), `kinds: "kv:1,reels:4,video:1"`
+  (the stored split in kind order; a lock without it compares as before) — from its lock; a difference → `rebaseline_needed`
   (`scope_changed`), the same again → back to `approved` (approved_by set) or `locked` (`scope_restored`); (4) **reopen**
   — a task not in a completed stage (`bonus.completionStages`, else closed but not Declined) has its awards
   `approved|pending_review|ineligible` set back to `provisional` (`efficiency` `reopened`).
@@ -524,7 +544,8 @@ changed, `meta {runId, far, confidence, trigger, cached?}`), module `efficiency`
 - **Other hooks for later modules**: `scoring.extendView(fn(u, task, out))` adds to the `GET`/write answers;
   `scoring.liveCollection(kind, fn(u))` serves `GET /api/live/:kind` for a kind server.js does not know (`LIVE_KINDS`
   maps `/api/outcomes…` to `"outcomes"`); `scoring.removeTaskRows`, `scoring.sweep()`, `scoring.backfill()`,
-  `scoring.kindOf(title)` / `scoring.kindOfTask(task)` (with the workspace's kinds), `scoring.scopeFromAssets(n)`; pure:
+  `scoring.kindOf(title)` / `scoring.kindOfTask(task)` (with the workspace's kinds and hours: a split's primary kind) /
+  `scoring.kindMix(task)` (its split, §11.2), `scoring.scopeFromAssets(n)`; pure:
   `require("./scoring").calculate(settings, task, body, ctx)` (what Calculate works out; `task` is `{title, assetCount,
   meta?}`; `tests/scoring-sanity.test.js`).
 - `TEXT_LIMITS`: `reason` ≤ 1000 on `/api/tasks/:id/(scoring|time|efficiency)…` (413).
@@ -615,8 +636,9 @@ aiResult = { status: "ok"|"cached"|"invalid"|"error"|"timeout"|"quota"|"off",
           | "timeout" | "provider_error",
   message,                      // plain English; the panel words it itself from `reason`
   runId, cachedFrom?, at?, trigger, modules, stored /* modules whose AI value changed */, missingModules /* asked, no usable value */,
-  suggestion /* validateAi's value */ | null, errors /* validateAi's sentences */, math: { <module>: {value, reason} } /* what
-  Calculate gives now — not stored */, gaps: ["no_description"|"no_brief"|"no_deliverables"|"no_kind"], hash, configVersion,
+  suggestion /* validateAi's value, with mix (§11.2) */ | null, errors /* validateAi's sentences */, math: { <module>: {value,
+  reason} } /* what Calculate gives now — not stored; hours also mix: the split it was worked out for ([{kind, units}]) or
+  null */, gaps: ["no_description"|"no_brief"|"no_deliverables"|"no_kind"], hash, configVersion,
   promptVersion, ms?, provider?, model?, usage?: {in, out}, examples? /* finished tasks sent */, error?, quota: Quota,
   docs: [Doc] /* §5.4.1: what this run sent or could not read; [] when the documents are not read */,
   context: { used /* this task's own context went along */, similar: [{id, title}] /* whose notes went along */ }
@@ -636,8 +658,10 @@ ai = { on, modules /* on and not math only */, modes: {hours, story, weighted}, 
   quota: Quota /* user part only for scoring_request_ai holders */, docs: DocsView /* §5.4.1 */, context: ContextView /* §5.4.2 */ }
 Suggestion = { module, value /* row.aiValue */, runId, at, by, requestedBy, trigger, background, confidence /* the AI's */,
   shownConfidence /* × 0.6 when far */, lowConfidence /* shown < ai.minConfidence, or none given */,
-  far: true|false|null /* null: nothing calculated to compare with */, math, mathSource: "score"|"calculation"|null, stale,
+  far: true|false|null /* null: nothing calculated to compare with */, math, mathSource: "score"|"calculation"|null /* which
+  one math is — the run's calculation also when the task's split changed since the score was calculated (§11.2) */, stale,
   explanation, assumptions, missing, factors, kind, deliverables, comparables,
+  mix /* the split by kind the AI proposes, [{kind, count}] (validateAi's); [] when none — for "Use this split" (§11.2) */,
   warnings: [{ code: "far" (math, ratio|steps|diff) | "no_math" | "low_confidence" (confidence, min) | "no_confidence"
                | "stale" | "kind_differs" (ai, title) | "deliverables_differ" (ai, task) }],
   acceptable /* not locked, not stale, its run ok */, reasonRequired /* far, or overrides.requireReason */,
@@ -649,7 +673,11 @@ Suggestion = { module, value /* row.aiValue */, runId, at, by, requestedBy, trig
 **Far from the calculation** (the "make sense" rule): against the score's math value, else what Calculate gives at the
 run — hours outside ×0.5–×2 (exactly ×0.5 and ×2 are near), story points more than one step apart on 1, 2, 3, 5, 8, 13,
 weighted points more than 3 apart. Far → the shown confidence is the AI's × 0.6, taking it needs a reason (whatever
-`requireReason` says), and nothing takes it by itself.
+`requireReason` says), and nothing takes it by itself. For a task of several kinds of work (§11.2) the calculation is
+the split's — each kind's hours added up — and when the split is not the one the score's math was worked out for (set,
+changed or taken off since), the run's calculation (made with the split as it was asked; `math.hours.mix` says which)
+is used instead of the score's, so a sensible answer is never "far" from a calculation of the wrong deliverables. Runs
+from before Oct 2026 carry no split: the score's math, as then.
 
 **Taking it** — `PUT /api/tasks/:id/scoring/:module {use:"ai", reason, rev}` (§5.2.3 extended): set for
 `scoring_edit_task` holders (final = the AI value — hours to the half hour within the bounds — `source "ai"`; hours write
@@ -665,14 +693,22 @@ The run's suggestion itself is audited as **`ai_suggested`** (`meta {runId, far,
 
 **What the AI is told** (built on the server, `buildPrompt`; `pure.cleanText` takes links → `[link]`, e-mail addresses →
 `[e-mail]`, markup and angle brackets out, spaces collapsed): the title (≤ 200), the task's kind ("Kind of work chosen on
-the task: …" for `meta.kind`, else "Kind of work the title names: …"), the deliverable
-count (`asset_count`), the team's name, the label names, the brief template's name and its fields by their labels (each
+the task: …" for `meta.kind`, else "Kind of work the title names: …"; for a split, its primary kind "… (the kind with the
+most hours of the several below)"), the deliverable
+count (`asset_count`), for a split (§11.2) "Deliverables by kind: video 1, reels (reels or short video) 4, kv (key visual)
+1" (each kind's id, its name when that says more, its count — inside `<task>`) and after the task "The team set the task's
+deliverables by kind: estimate the hours of all of them together, and give that split back in mix unless the brief
+clearly says otherwise.", the team's name, the label names, the brief template's name and its fields by their labels (each
 ≤ 300, ≤ 1 500 in all, ≤ 14), the description ≤ 800; the hours of the workspace's **active** kinds as a yardstick (a kind
 with no hours is left out of it), how to count deliverables (Oct 2026, the owner's "baca juga FEED itu kan berarti satu
 feed doang": the pieces to produce, not the pages or slides that describe them — "1 feed", "feed IG" or a part marked
 FEED is one feed post, a carousel of N slides one carousel, higher in its range for more slides, each story frame one
 story, the deck or document holding the brief no deliverable unless the brief asks for it to be designed; copy, visual
-direction, sizes and variations rate complexity and scope instead), the reply's `kind` asked as one of the active kinds'
+direction, sizes and variations rate complexity and scope instead; and, since prompt version 3, work that spans several
+kinds — "a full video, short clips cut from it and a cover, say" — counted kind by kind, estimated together and given as
+the split in `mix`, `[]` for work of one kind), the reply's `mix` (`[{"kind": "<one of the kinds above>", "count": <whole
+number>}]`, validateAi's: active kinds, counts 1–500, the same kind added together, at most 8, fewer than 2 kinds dropped;
+kept with the run, shown as the suggestion's `mix`, never applied by itself), the reply's `kind` asked as one of the active kinds'
 ids, the rating scale, the story scale and the weighted weights; the team's context and similar tasks' notes (§5.4.2);
 finished tasks like it — `[id] "title": hours (logged, else the estimate),
 deliverables`, ≤ 5, only of this workspace, finished (`bonus.completionStages`, else closed but not Declined), of the
@@ -699,16 +735,18 @@ requestedBy, taskId, trigger, status, modules, ms, provider, model, tokensIn, to
 
 **Cache**: the latest `ok` run with the same `(task_id, input_hash, config_version, prompt_version)` answers (a `cached`
 row pointing at it, its values stored if missing); two asks at once wait for one call. `input_hash` =
-`ScoringEngine.inputHash({title, description, brief, deliverables, labels, team, kind})` of what the AI is told (cleaned
-text, label and team names; `kind` only when chosen on the task — without it the hash is what it always was), so a link
-edited in the description or a change of case is not a change, and a kind chosen by hand is. While the brief's documents
+`ScoringEngine.inputHash({title, description, brief, deliverables, labels, team, kind, mix})` of what the AI is told (cleaned
+text, label and team names; `kind` only when chosen on the task, `mix` only for a split, in kind order — without them the
+hash is what it always was), so a link edited in the description or a change of case is not a change, and a kind chosen
+by hand or another split is. While the brief's documents
 are read (§5.4.1) two parts follow it: `~d<16 hex>` (the budget and the documents it would read) and `~c<16 hex>` (what
 each said); with nothing to read the hash is the task's alone, as before. The team's context adds `~t<16 hex>` to the
 part a view compares and similar tasks' notes `~s<16 hex>` to the run's only (§5.4.2), so the parts are, in order, `~d`
 `~t` (the view's) and `~c` `~s` (the run's).
 
-**The prompt version** (`PROMPT_VERSION`, in the cache key and in "stale"): **2** since Oct 2026, when every prompt got the
-deliverables line and `contextEffect`. A run of version 1 is stale (it cannot be taken: ask again) and is never the cache,
+**The prompt version** (`PROMPT_VERSION`, in the cache key and in "stale"): **3** since 22 Oct 2026, when the reply got
+`mix` and the prompt the deliverables by kind (§11.2); 2 (Oct 2026) gave every prompt the deliverables line and
+`contextEffect`. A run of an earlier version is stale (it cannot be taken: ask again) and is never the cache,
 so each task's next ask asks the model once, counted against the quotas; "AI on brief revision" is not set off by it.
 
 **Quotas**: rolling 24 hours, counted from runs that asked the model (`ok|invalid|error|timeout` with `ms` set; cached
@@ -744,7 +782,8 @@ PROMPT_VERSION, LIMITS, MESSAGES }`. It uses `scoring.ai` (server/scoring.js): `
 `setSuggestion(taskId, module, value, runId, actor, meta)`, `completed(statusId)`, `isAssignee`, `LOCKED`, `NAME`.
 Also returned: `viewHash(input)` (the hash a view compares, §5.4.1) and `docsReader` (the documents' reader, for tests),
 `readContext(taskId)` and `similarFor(input)` (§5.4.2); `pure` also has `CTX, cleanContext, teamContextBlock,
-similarBlock`; deps also take `fetchDoc(url, init) → Response` (default the global fetch), `docsLimits`,
+similarBlock` and `mixLine(mix, kinds)` (the "Deliverables by kind" words, §11.2); `taskInput(id)` also has `mix` (the
+split, `[{kind, units}]` or null); deps also take `fetchDoc(url, init) → Response` (default the global fetch), `docsLimits`,
 `docsFileFor(name) → path`. `scoring.ai.contextRoute(fn)` hands `PUT …/scoring/context` to it (§5.4.2).
 
 ### 5.4.1 The brief's documents — built (Oct 2026, `server/scoring-docs.js`)
@@ -1164,7 +1203,9 @@ All in build.js `parts` after `cap-grants.js`, before `live-redraw.js`/`boot.js`
 `shared/scoring-settings.js` (it reads the engine's built-in kinds and default numbers) right after the demo data,
 before any `src/` file. `src/effort-estimate.js`: `estKindList()` (the workspace's kinds, else the engine's),
 `estKinds()` (the active ones as `[id, name, nameId, keywords, typical, low, high, next]`, hours null when none),
-`estKindOf(tk)` (= `ScoringEngine.kindOfTask(tk, estKindList())`), `estKind(title, tk?)` (the row, only with hours),
+`estKindOf(tk)` (= `ScoringEngine.kindOfTask(tk, estKindList(), estHoursSet())`: a split's primary kind),
+`estKindMix(tk)` (the split, §11.2), `estMixHours(mix)` (its usual hours, added up), `estHoursSet()` (the workspace's
+hours, else the engine's), `estKind(title, tk?)` (the row, only with hours),
 `estKindName(id)`; `EST_KINDS` is the engine's own 14 (used where there are no workspace settings).
 
 Rules: every file starts with `<script>` and a titled "(Oct 2026)" header; overrides as `var base=f; f=function(){…}`
@@ -1271,6 +1312,10 @@ The schema and `build.js` belong to Phase 0: later phases do not change them (as
   sent back and audited. `e2e/kinds-of-work.spec.js` — the admin adds "Podcast", the box finds it, a new task gets its
   3 h with Smart Scoring off, a kind chosen on the Effort line, a built-in switched off, the kind deleted; Indonesian,
   a phone. `tests/scoring-sanity.test.js` has a kind of the workspace's own making sense.
+- `tests/scoring-mix.test.js` (§11.2) — several kinds of work in one task: the engine, the prompt, the far check,
+  Calculate, the server in process and the estimator on Create; `tests/scoring-sanity.test.js` has realistic mixed tasks
+  making sense (plausible hours, each kind as its own task added up, more never less, points between its kinds', the
+  estimator agreeing with the engine).
 - Fragile tests to keep green: `e2e/settings-access.spec.js` (exact tab list and group list — now includes "scoring"
   and "Smart Scoring", 11 group icons), `e2e/mobile-settings.spec.js` (sweeps every tab at phone width, "scoring"
   included), `tests/v37-code-health.test.js`, `e2e/progress-note.spec.js` (`.enh-blocks` Brief only),
@@ -1288,7 +1333,8 @@ kind of work**; it is never hours, base points or the bonus, and never the bonus
 
 **Kinds of work — one list, one matcher.** See §11.1. The engine's `KINDS` are the 14 built-ins; the workspace's list is
 `settings.kinds`; every reader (the estimator, Calculate, the panel, the asset points in the page and on the server,
-the analytics, the Teams bars, the AI) reads a task's kind with `ScoringEngine.kindOfTask(task, settings.kinds)`.
+the analytics, the Teams bars, the AI) reads a task's kind with `ScoringEngine.kindOfTask(task, settings)` — for a task
+of several kinds of work, the primary kind of its split (§11.2).
 
 ### 11.1 Kinds of work, the workspace's own (Oct 2026)
 
@@ -1299,9 +1345,11 @@ switchable but never deleted; the admin's own added, edited, deleted.
 - **Engine** (`shared/scoring-engine.js`): `KINDS` `[{id, name, nameId, keywords}]` (frozen; the old title patterns as
   plain keywords), `KIND_LIMITS {kinds: 50, keywords: 40, keyword: 40, name: 40}`, `kindKeyword(text)` (lower case,
   NFC, spaces collapsed, a `*` only at the end and only after 3 characters, at least one letter or digit, ≤ 40
-  characters; else ""), `kindMatch(title, kinds) → {id, keyword} | null`, `kindOf(title, kinds) → id | null`,
-  `kindPick(task, kinds)` (`task.meta.kind` if an active kind), `kindOfTask(task, kinds)` (pick, else title). `kinds` is
-  a list, or a settings object (its `kinds`), else `KINDS`. **Matching**: the title lower-cased (NFC, spaces
+  characters; else ""), `kindMatch(title, kinds) → {id, keyword} | null`, `kindMatches(title, kinds) → [{id, keyword}]`
+  (every active kind the title names, §11.2), `kindOf(title, kinds) → id | null`,
+  `kindPick(task, kinds, hours?)` (the primary kind of the task's split, §11.2, else `task.meta.kind` if an active kind),
+  `kindOfTask(task, kinds, hours?)` (pick, else title). `kinds` is a list, or a settings object (its `kinds`, and its
+  `hours` for the primary kind), else `KINDS`; `hours` is `settings.hours` or the whole settings. **Matching**: the title lower-cased (NFC, spaces
   collapsed); each active kind, in list order, is one expression built from its keywords escaped as text — a keyword
   must start at the title's start or after a character that is not a letter or digit (Unicode `\p{L}\p{N}`) and end
   before one (a final `*`: may go on). The first kind that matches wins. Never a pattern from the admin: `(a+)+` and
@@ -1330,7 +1378,8 @@ pointsPerAsset, kind, kindKnown, countUnvalidated, isValidated, reason ('no_asse
 Per person: validated when the count equals the validated one (per person when the validation holds a split, else the
 task's total), `changedSinceValidation` when it differs. `countUnvalidated` (default): every count counts, marked. Off:
 a never-validated count earns 0, a changed one at most `min(now, validated)`. Points = counted × perKind (unknown kind →
-`unknownKind`), 2 decimals; counts ≤ 0 left out; never negative. The caller checks the module is on.
+`unknownKind`), 2 decimals; counts ≤ 0 left out; never negative. The caller checks the module is on. With `mix` (a task
+of several kinds of work, §11.2) the split's worth per asset instead, and `mix`, `mixRule` in the answer.
 
 **Settings.** `modules.assets.on` is the switch (off by default, no mode; an object with only `assets.on` is read too);
 `assets.on` mirrors it and is not reported by `diffSettings`. `perKind` values 0–20, unknown kinds dropped.
@@ -1342,7 +1391,8 @@ for a non-holder asking for someone else. Counted: tasks with `completed_at` in 
 (`bonus.completionStages`, default every closed stage but Declined), `asset_count > 0`; open work counts in the week it
 is completed. `team` = the task's team; `project` = its project or one of `alsoIn`; `person` = the row. Hidden tasks and
 tasks of archived projects count (points earned do not disappear with a display choice). Kind: the one chosen on the
-task (`meta.kind`), else the title's (§11.1) — a kind picked only in Calculate's dialog does not change asset points. Crediting = the reports' rule on the stored task
+task (`meta.kind`), else the title's (§11.1) — a kind picked only in Calculate's dialog does not change asset points;
+a task of several kinds of work earns by its split and is listed in `byKind` under its primary kind (§11.2). Crediting = the reports' rule on the stored task
 (the uploads are the stored versions' `uploaded_by`; no linked asset records or `producedByUserId` exist server-side), so
 `assets` equals `personAssetCredit(id, sameTasks).count` (tested). `scoring_view_analytics` holders: every credited
 person (or `person`); anyone else: their own row only, zeros included. Answer:
@@ -1359,6 +1409,80 @@ the page in the offline demo by `scoringAssetsCompute(q)`), cached for `scoringA
 `scoringAssetsSummaryHtml(data)` → the "Assets produced" points view for Analytics (the answer or its `people`).
 `scoringAssetsTask(tk)` → `{credit, kind, r}`. Tests: `tests/scoring-engine.test.js`, `tests/scoring-sanity.test.js`,
 `tests/scoring-settings.test.js`, `tests/scoring-assets.test.js`, `e2e/scoring-assets.spec.js`.
+
+### 11.2 Several kinds of work in one task (22 Oct 2026)
+
+Why: "Youtube Podcast (Full Video, Clippers Socmed & Cover)" is 1 video + 4 reels + 1 cover. With one kind per task the
+hours baseline was 8 h with one asset (too low) or 8 × (1 + 0.6 × 5) = 32 h as six videos (too high: clips and covers
+are lighter), and a sensible AI answer of 22 h was "far from the math", its confidence × 0.6. Now a task can carry its
+split by kind, and every estimate reads it. The UI (the split editor beside the kind dropdown, "Use this split" on the
+AI's suggestion, the hint for a title that names several kinds — `ScoringEngine.kindMatches(title, settings)` →
+`[{id, keyword}]`, every active kind the title names in the list's order, never applied by itself) is
+`src/scoring-kinds.js` / `src/scoring-panel.js` and the user manual; this section is the contract under it.
+
+- **The field.** `meta.kinds = [{k: "<active kind id>", n: <whole number 1–500>}]`, 2–8 entries, each kind once
+  (`ScoringEngine.MIX_LIMITS {min: 2, max: 8, units: 500}`). While it is there it takes the place of `meta.kind` (the
+  single pick, which stays as it is) for estimating. The server cleans it on create, save and restore (§5.2.6): an
+  unknown or switched-off kind, or an entry without a number, dropped; `n` rounded and kept within 1–500; the same kind
+  twice added together; at most 8; fewer than 2 left and it goes. Read anywhere through `ScoringEngine.kindMix(task,
+  settings)` → `[{kind, units}]` of the kinds active **now**, or null with fewer than 2 (a kind switched off after the
+  save no longer counts, and the next save drops it). A deleted kind leaves every split (§5.1; `kind_fallback` with
+  `mix: true, mixKept`). `src/drawer.js duplicateTask` copies it with the rest of `meta` (a duplicate of a mixed task is
+  usually the same mix).
+- **The hours** (`ScoringEngine.hours(settings.hours, {mix, complexity1to5, openDeps})`): value = Σ over the kinds of
+  perUnit_k × (1 + nextUnitFactor_k × (n_k − 1)), each from the kind's own template, then × the complexity factor ×
+  the dependency factor **once**, within the bounds; low and high added up the same way. A kind with no hours adds
+  nothing and says so; none with hours: no estimate (`no_template`). The explanation has one step per kind ('"reels": 4
+  deliverables, 6 h for the first and each next one at 60%: 16.8 h.'), then the total ("All the kinds of work together:
+  8 + 16.8 + 6 = 30.8 h."), the factors and the range. A split of one kind is exactly that kind. So a split is exactly
+  each kind as a task of its own, added up: the "each next one is quicker" share never runs across kinds (a logo and a
+  web page are not variants of one piece). The podcast with the default templates: video 8 + reels 6 × 2.8 = 16.8 + kv
+  6 = **30.8 h** (range 19.2–54 h), 31 h on the task; the AI's 22 h is ×0.71 of it — not far.
+- **The primary kind** (`ScoringEngine.kindPrimary(mix, hours)`): the kind with the most hours in the split (its
+  template's for its count, before complexity and dependencies; the first of equal ones; with no hours at all, the most
+  deliverables) — reels for the podcast (16.8 h). `kindPick`/`kindOfTask` give it for a task with a split, so everything
+  that reads **one kind per task** reads the primary one: Calculate's `inputs.kind`, the view's `context.kind`, the AI's
+  "kind" line, the similar notes' ranking (§5.4.2), and **analytics by kind** — the asset points' `byKind`
+  (`GET /api/scoring/assets` and its offline twin): a mixed task's assets and points count, whole, under its primary
+  kind. (The points themselves follow the split — next bullet; only the bucket they are listed under is the primary
+  kind.) The hours come from the settings passed (`settings` or `settings.hours`); a bare list of kinds uses the defaults.
+- **Output points** (`ScoringEngine.assetPoints(settings.assets, {kind, mix, split, validated…})`, server and page): the
+  assets produced (the crediting's total) are credited to the split's kinds — each kind its own count when as many were
+  produced as planned (`mixRule "equal"`: the podcast earns 1 × 4 + 4 × 3 + 1 × 3 = 19 points), else the produced count
+  shared in proportion to the plan (`"proportional"`: 5 of the 6 → 19 × 5 ÷ 6 = 15.83). An asset is worth Σ n_k ×
+  perKind_k ÷ Σ n_k on average (`pointsPerAsset`, 3.17 for the podcast), a person's points are their count × that,
+  worked out before rounding (2 of 6 → 6.33, not 2 × 3.17); `mix` lists each kind's planned, credited, per and points.
+  Validation and the person split are exactly as without a split. The task panel's row shows the split's kinds and "3.17
+  pts per asset on average", each person "2 of 6 = 6.33 pts". Used by `server/scoring-assets.js`,
+  `server/scoring-analytics.js` and `server/scoring-teams.js` (`meta.kinds` read with `json_extract`) and
+  `src/scoring-assets.js`.
+- **Calculate** (§5.2.2): the task's split, `kindSource`/`unitsSource "mix"`, `inputs.mix` each kind's hours and
+  `inputs.mixSource "task"`; `inputs.mix` in the body for another split (`"given"`), `inputs.kind` for one kind instead.
+  The task's Estimate mark (`meta.effortAuto`) gets `mix: [{k, n}]` beside the primary `kind` and all the `items`.
+- **The view** (§5.2.1): `kinds` (and `context.kinds`) = the split as it counts now, `[{k, n}]` or null; the hours row's
+  `mix` = each kind's hours `[{kind, units, value, low, high}]` when its math was worked out for a split (else null —
+  compare `rows.hours.math.inputs.mix` with `kinds` to tell a calculation made before the split changed).
+- **The lock** remembers the split (`scope.kinds`, §5.2.6): another split after the lock is a scope change
+  (`rebaseline_needed`, `what: ["kinds"]`), the same one again restores it.
+- **The AI** (§5.4): told "Deliverables by kind: …" and asked to estimate all of it and give the split back; its reply
+  may propose a split (`mix: [{kind, count}]`, `[]` for one kind), kept with the run and shown as the suggestion's `mix`
+  so the panel can offer "Use this split" / "Pakai pembagian ini" — never applied by itself; validateAi keeps it (active
+  kinds, counts 1–500, the same kind added together, at most 8, fewer than 2 kinds dropped with a sentence); the far
+  check compares with the split's hours, and with the run's calculation when the split changed since the score was
+  calculated; the input hash has the split (another split makes a suggestion stale); **prompt version 3**.
+- **The estimate on Create** (`src/effort-estimate.js`): with a split (`estKindMix(tk)`) the kind's usual hours are
+  each kind's for its count, added up (`estMixHours`) — weighed with one or two finished tasks like it as a kind always
+  was — marked `effortAuto {src: "kind", kind: <primary>, items: <all>, mix: [{k, n}]}`, and its "why" says "Typical
+  for 1 video, 4 reels or short video, 1 key visual (19–54 h)." / "Lazimnya untuk …". Like the one-kind estimate it is
+  not held to the bounds. The chat route's prompt (Smart Scoring off) gets "Deliverables by kind: video 1, reels 4, kv 1".
+- **Decided here**: an inactive kind is dropped from a split on save even when the task already had it (the contract;
+  `meta.kind` keeps such a kind); the AI's split of one kind is no split (dropped, with a sentence), since `meta.kinds`
+  needs two; a 0 count is read as 1 and 600 as 500 on save (Calculate's own `inputs.mix` refuses them, 400).
+- Tests: `tests/scoring-mix.test.js` (the engine — the podcast by hand, bounds, one-kind equivalence, the primary kind,
+  kindMatches, cleaning, asset points equal and proportional, validateAi, the hash; the prompt line only with a split; the far check;
+  Calculate; the server in process — the guards, Calculate, the view, the AI's suggestion with its `mix` taken, the far
+  check after a split is set, the lock, a deleted kind, the asset route; the estimator on Create), `tests/scoring-sanity.test.js`
+  (realistic mixed tasks), `tests/scoring-panel.test.js` (the new sentences' Indonesian).
 
 ## 12. KPIs and OKRs (Phase 4 B — built: `server/outcomes.js`, `src/scoring-outcomes.js`)
 

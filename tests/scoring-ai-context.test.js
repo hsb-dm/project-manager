@@ -202,9 +202,10 @@ test('the hash: the task\'s own context is part of what a view compares; a note 
   await k.context(O, { note: 'This client asks for 4 rounds.' });
   assert.equal((await k.view(T)).ai.rows.hours.stale, false);
   assert.equal((await k.ask(T)).aiResult.status, 'ok', 'another note there: asked again'); assert.equal(k.calls.length, 3);
-  /* PROMPT_VERSION 2: an answer of another prompt is stale and never the cache */
-  assert.equal(AI.pure.PROMPT_VERSION, 2);
-  k.db.prepare('UPDATE scoring_ai_runs SET prompt_version=1 WHERE task_id=?').run(T);
+  /* PROMPT_VERSION 3 (the deliverables by kind and the reply's mix, Oct 2026): an answer of another prompt is stale and
+     never the cache */
+  assert.equal(AI.pure.PROMPT_VERSION, 3);
+  k.db.prepare('UPDATE scoring_ai_runs SET prompt_version=2 WHERE task_id=?').run(T);
   v = await k.view(T); assert.equal(v.ai.rows.hours.stale, true);
   assert.equal((await k.ask(T)).aiResult.status, 'ok'); assert.equal(k.calls.length, 4);
 });

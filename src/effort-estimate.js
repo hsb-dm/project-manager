@@ -6,7 +6,9 @@
    it actually took (its estimate when nobody logged the actual). The weighted median, rounded to half an hour,
    with the range. Fewer than three alike and the title says what kind of work it is (a feed post, a carousel,
    reels…)? What that kind usually takes (EST_KINDS), per deliverable for work made in sets, weighed with the one
-   or two alike. Nothing at all? Finished tasks of the same brief template, then of the same team (three or more).
+   or two alike. A task of several kinds of work (its split, meta.kinds — a full video, four clips and a cover) takes
+   each kind's usual hours for its own count, added up, and is marked with the split (effortAuto.mix, the primary kind
+   as effortAuto.kind). Nothing at all? Finished tasks of the same brief template, then of the same team (three or more).
    Text only, in the browser — no cost, no wait.
    Only when neither says enough, and the workspace lets the AI work for it, the AI is asked once, on Create, with
    the task, the usual hours of each kind as a yardstick (and the closest examples, when the workspace shares its
@@ -25,9 +27,17 @@ function estTable(kinds,t){ return kinds.filter(function(k){ return k.active!==f
 var EST_KINDS=typeof ScoringEngine!=="undefined"?estTable(ScoringEngine.KINDS,ScoringEngine.ENGINE_DEFAULTS.hours.templates):[];
 function estSettings(){ return typeof scoringSettings==="function"&&scoringSettings(); }
 function estKindList(){ var s=estSettings(); return s?s.kinds:ScoringEngine.KINDS; }
+/* the workspace's hours (a task of several kinds of work: its primary kind is the one with the most hours) */
+function estHoursSet(){ var s=estSettings(); return s&&s.hours?s.hours:ScoringEngine.ENGINE_DEFAULTS.hours; }
 /* the workspace's active kinds as the table above (no hours typed yet: none) */
 function estKinds(){ var s=estSettings(); return s?estTable(s.kinds,s.hours.templates):EST_KINDS; }
-function estKindOf(tk){ return tk?ScoringEngine.kindOfTask(tk,estKindList()):null; }
+function estKindOf(tk){ return tk?ScoringEngine.kindOfTask(tk,estKindList(),estHoursSet()):null; }
+/* a task of several kinds of work: its split ([{kind, units}], meta.kinds with 2 or more active kinds), else null */
+function estKindMix(tk){ return tk&&typeof ScoringEngine.kindMix==="function"?ScoringEngine.kindMix(tk,estKindList()):null; }
+/* the split's hours: each kind's own for its count, added up — only the kinds with hours ({k: the primary kind's row, items, mix, h, low, high}) */
+function estMixHours(mix){ var rows=estKinds(), parts=mix.map(function(m){ var k=rows.filter(function(x){ return x[0]===m.kind; })[0]; return k&&k[4]>0?{k:k,n:m.units}:null; }).filter(Boolean);
+  if(!parts.length) return null; var top=ScoringEngine.kindPrimary(mix,estHoursSet()), lead=parts.filter(function(p){ return p.k[0]===top; })[0]||parts[0];
+  return parts.reduce(function(a,p){ var h=estKindHours(p.k,p.n); a.h+=h.h; a.low+=h.low; a.high+=h.high; return a; },{k:lead.k,items:mix.reduce(function(n,m){ return n+m.units; },0),mix:mix.map(function(m){ return {k:m.kind,n:m.units}; }),h:0,low:0,high:0}); }
 /* the kind, with its hours, of a title (and the task, which may have a kind chosen by hand) */
 function estKind(title,tk){ var id=estKindOf(Object.assign({},tk,{title:String(title||"")})), k=estKinds().filter(function(x){ return x[0]===id; })[0]; return k&&k[4]>0?k:null; }
 /* the kind's hours for this many deliverables: the first in full, each next one at the kind's share */
@@ -45,26 +55,30 @@ function effortEstimate(tk){ var title=String(tk.title||"").trim(); if(!title||t
   var alike=pool.map(function(t){ var s=simScore(title,tk.description||"",t); if(s<EST_MIN) return null;
       if(tpl&&t.brief&&t.brief.tpl===tpl) s+=0.1; if(tk.team&&t.team===tk.team) s+=0.05; if(labels.some(function(l){ return (t.labels||[]).indexOf(l)>=0; })) s+=0.05;
       return {t:t,h:estHours(t),w:s}; }).filter(Boolean).sort(function(a,b){ return b.w-a.w; }).slice(0,8);
-  var k=estKind(title,tk), items=Math.max(1,Math.round(+tk.assetCount||0)), kh=k?estKindHours(k,items):null;
+  var mix=estKindMix(tk), mh=mix?estMixHours(mix):null;
+  var k=mh?mh.k:estKind(title,tk), items=mh?mh.items:Math.max(1,Math.round(+tk.assetCount||0)), kh=mh||(k?estKindHours(k,items):null), split=mh?{mix:mh.mix}:{};
   /* enough finished work like it: that is the answer */
   if(alike.length>=EST_ENOUGH||(alike.length&&!k)) return estFrom(alike,"alike");
   /* one or two like it: weighed with what the kind usually takes (the kind counts as two) */
-  if(alike.length){ var e=estFrom(alike,"alike"), n=alike.length; return Object.assign(e,{h:estRound((n*estMedian(alike)+2*kh.h)/(n+2)),low:estRound(Math.min(e.low,kh.low)),high:estRound(Math.max(e.high,kh.high)),kind:k[0],items:items}); }
-  if(k) return {h:estRound(kh.h),n:0,low:estRound(kh.low),high:estRound(kh.high),src:"kind",basis:"",kind:k[0],items:items};
+  if(alike.length){ var e=estFrom(alike,"alike"), n=alike.length; return Object.assign(e,{h:estRound((n*estMedian(alike)+2*kh.h)/(n+2)),low:estRound(Math.min(e.low,kh.low)),high:estRound(Math.max(e.high,kh.high)),kind:k[0],items:items},split); }
+  if(k) return Object.assign({h:estRound(kh.h),n:0,low:estRound(kh.low),high:estRound(kh.high),src:"kind",basis:"",kind:k[0],items:items},split);
   var same=function(f,basis){ var l=pool.filter(f).map(function(t){ return {t:t,h:estHours(t),w:1}; }); return l.length>=EST_ENOUGH?estFrom(l,basis):null; };
   return (tpl&&same(function(t){ return t.brief&&t.brief.tpl===tpl; },"template"))||(tk.team&&same(function(t){ return t.team===tk.team; },"team"))||null; }
 /* the AI is asked only when neither the workspace's finished work nor the kind of work says enough */
 function effortWantsAi(est){ return !est||(!est.kind&&(est.basis!=="alike"||est.n<EST_ENOUGH)); }
 /* fill it in — unless the person has typed their own; with nothing to go on, back to what the draft started with */
 function effortApply(tk,est){ var m=taskMeta(tk); if(m.effortManual) return false; var k=tk._draftKey||tk.id; if(!(k in EST_BASE)) EST_BASE[k]=+tk.effort||0;
-  if(est){ tk.effort=est.h; m.effortAuto={src:est.src,basis:est.basis||"",n:est.n||0,low:est.low||est.h,high:est.high||est.h,reason:est.reason||""}; if(est.kind){ m.effortAuto.kind=est.kind; m.effortAuto.items=est.items||1; } }
+  if(est){ tk.effort=est.h; m.effortAuto={src:est.src,basis:est.basis||"",n:est.n||0,low:est.low||est.h,high:est.high||est.h,reason:est.reason||""}; if(est.kind){ m.effortAuto.kind=est.kind; m.effortAuto.items=est.items||1; if(est.mix) m.effortAuto.mix=est.mix; } }
   else if(m.effortAuto){ tk.effort=EST_BASE[k]; delete m.effortAuto; }
   return true; }
 /* a number typed by the person (every place the estimate is edited calls this) */
 function effortManual(t){ var m=taskMeta(t); m.effortManual=true; delete m.effortAuto; }
 function effortWhy(a){ if(!a) return ""; var range=a.low!==a.high?" ("+a.low+"–"+a.high+" h)":"";
   var items=a.items>1?", "+a.items+" "+tr("deliverables"):"", like=function(n){ return n+" "+tr(n===1?"finished task like this one":"finished tasks like this one"); };
+  /* several kinds of work: "Typical for 1 video, 4 reels or short video, 1 key visual" */
+  var mix=Array.isArray(a.mix)&&a.mix.length>1?a.mix.map(function(x){ return (+x.n||1)+" "+estKindName(x.k); }).join(", "):"";
   var s=a.src==="ai"?tr("Estimated by AI")+(a.reason?": "+a.reason:"")+(a.n?" · "+tr("Examples")+": "+a.n+" "+tr(a.n===1?"similar task":"similar tasks"):"")
+    :mix?tr("Typical for")+" "+mix+(a.n?", "+tr("weighed with")+" "+like(a.n):"")+range
     :a.kind?tr("Typical for a")+" "+estKindName(a.kind)+items+(a.n?", "+tr("weighed with")+" "+like(a.n):"")+range
     :tr("Filled in from")+" "+(a.basis==="template"?a.n+" "+tr("finished tasks with the same brief template"):a.basis==="team"?a.n+" "+tr("finished tasks of the same team"):like(a.n))+range;
   return s+". "+tr("Type a number to set your own."); }
@@ -87,6 +101,7 @@ function effortAiPrompt(tk,ex){ var tpl=tk.brief&&tk.brief.tpl&&byId(WS.briefTem
     tk.description?"Description: "+String(tk.description).slice(0,800):"",
     tpl?"Brief template: "+tpl.name:"", tm?"Team: "+tm.name:"", "Priority: "+(tk.prio||"medium"),
     tk.assetCount?"Deliverables: "+tk.assetCount:"",
+    (function(){ var mix=estKindMix(tk); return mix?"Deliverables by kind: "+mix.map(function(m){ return m.kind+" "+m.units; }).join(", "):""; })(),
     ex.length?"Finished tasks of this team that read alike, with the hours they took:\n"+ex.map(function(t){ return '- "'+String(t.title).slice(0,120)+'": '+estHours(t)+" h"; }).join("\n"):"",
     'Reply with JSON only: {"hours": <number>, "reason": "<one short sentence in '+(UI_LANG==="id"?"Indonesian":"English")+'>"}'].filter(Boolean).join("\n"); }
 function effortAskAi(id,probe,est){ var c=aiCfg(), ex=c.processing.workspaceContextEnabled&&est&&est.ids?est.ids.map(task).filter(Boolean):[];
@@ -124,5 +139,5 @@ function effortAskScoring(id,est){
 Object.assign(UI_ID,{"auto":"otomatis","Filled in automatically":"Diisi otomatis","Estimated by AI":"Diperkirakan oleh AI","Examples":"Contoh","similar task":"task serupa","similar tasks":"task serupa",
   "Filled in from":"Diisi dari","finished task like this one":"task serupa yang sudah selesai","finished tasks like this one":"task serupa yang sudah selesai",
   "finished tasks with the same brief template":"task selesai dengan template brief yang sama","finished tasks of the same team":"task selesai dari tim yang sama",
-  "Type a number to set your own.":"Ketik angka untuk menentukan sendiri.","Typical for a":"Lazimnya untuk","weighed with":"ditimbang dengan"});
+  "Type a number to set your own.":"Ketik angka untuk menentukan sendiri.","Typical for a":"Lazimnya untuk","Typical for":"Lazimnya untuk","weighed with":"ditimbang dengan"});
 </script>

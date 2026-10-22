@@ -547,6 +547,74 @@ test('a kind of the workspace\'s own makes sense: its own hours, more for more d
   for (const [title, not] of [['Copywriter onboarding', 'copy'], ['Promotion plan', 'video'], ['Adalah rapat', 'banner'], ['Ppts', 'deck']]) assert.notEqual(S.kindOf(title, s.kinds), not, title + ': not found inside another word');
 });
 
+/* several kinds of work in one task (Oct 2026, meta.kinds; docs/SMART-SCORING.md §11.2): real mixed tasks get plausible
+   hours — the owner's podcast (a full video, four clips, a cover) lands between one video and six — a split is exactly
+   each kind as a task of its own, added up, more work never recommends less, a sensible answer is not "far", the points
+   of an asset stay between its kinds', and the estimator on Create agrees with the engine */
+test('realistic tasks of several kinds of work make sense: plausible hours, each kind its own, more never less, points between its kinds\'', () => {
+  const mixH = (mix, c = 3, d = 0) => S.hours(D.hours, { mix, complexity1to5: c, openDeps: d }).value;
+  const m = (...pairs) => pairs.map(([kind, units]) => ({ kind, units }));
+  const within = (h, lo, hi, what) => assert.ok(h >= lo && h <= hi, what + ': ' + h + ' h is outside ' + lo + '–' + hi);
+  const tasks = {
+    'Youtube podcast: full video, 4 clips for socmed, a cover': m(['video', 1], ['reels', 4], ['kv', 1]),
+    'Campaign launch: key visual, 5 feed posts, 5 stories, 10 resizes': m(['kv', 1], ['feed', 5], ['story', 5], ['resize', 10]),
+    'Webinar promo: 3 banners, an email, 3 feed posts': m(['banner', 3], ['email', 1], ['feed', 3]),
+    'Product launch: a video and a deck': m(['video', 1], ['deck', 1]),
+    'Brand refresh: logo, landing page, brand deck': m(['logo', 1], ['web', 1], ['deck', 1]),
+    'Ramadan content: carousel, 4 feed posts, captions': m(['carousel', 1], ['feed', 4], ['copy', 5])
+  };
+  const ranges = [[20, 40], [14, 32], [8, 20], [10, 20], [18, 40], [8, 18]];
+  Object.keys(tasks).forEach((what, i) => {
+    const mix = tasks[what], h = mixH(mix);
+    within(h, ranges[i][0], ranges[i][1], what);
+    /* exactly each kind as a task of its own, added up: a split never takes the "each next one is quicker" discount across kinds */
+    assert.equal(h, S.round2(mix.reduce((n, x) => n + hours(x.kind, x.units), 0)), what + ': the kinds as tasks of their own');
+    /* never less than its heaviest part, never more than the bound */
+    assert.ok(h >= Math.max(...mix.map(x => hours(x.kind, x.units))) && h <= D.hours.bounds.max, what);
+    /* more of any kind, another kind, more complexity or a dependency: never less */
+    mix.forEach((x, j) => assert.ok(mixH(mix.map((y, k) => (k === j ? { kind: y.kind, units: y.units + 1 } : y))) >= h, what + ': one more ' + x.kind));
+    assert.ok(mixH(mix.concat(m(['resize', 2]))) >= h, what + ': another kind of work');
+    for (let c = 2; c <= 5; c++) assert.ok(mixH(mix, c) > mixH(mix, c - 1), what + ': complexity ' + c);
+    for (let d = 1; d <= 3; d++) assert.ok(mixH(mix, 3, d) > mixH(mix, 3, d - 1), what + ': ' + d + ' dependencies');
+    /* the primary kind is one of the mix and has the most hours */
+    const p = S.kindPrimary(mix);
+    assert.ok(mix.some(x => x.kind === p) && mix.every(x => hours(x.kind, x.units) <= hours(p, mix.find(y => y.kind === p).units)), what + ': primary ' + p);
+    /* an answer of 70 % to 150 % of the math is never "far" (×0.5–×2) */
+    const far = require('../server/scoring-ai').pure.farFrom;
+    for (const r of [0.7, 1, 1.5]) assert.equal(far('hours', S.round2(h * r), h).far, false, what + ' × ' + r);
+    /* the points of one asset of the mix lie between its kinds'; producing more never earns less; as planned is the sum */
+    const per = x => S.assetPoints(D.assets, { kind: x, split: { a: 1 } }).pointsPerAsset, planned = mix.reduce((n, x) => n + x.units, 0);
+    const ap = n => S.assetPoints(D.assets, { mix, split: { a: n } });
+    assert.ok(ap(1).pointsPerAsset >= Math.min(...mix.map(x => per(x.kind))) - 0.005 && ap(1).pointsPerAsset <= Math.max(...mix.map(x => per(x.kind))) + 0.005, what + ': points per asset');
+    assert.equal(ap(planned).total, S.round2(mix.reduce((n, x) => n + x.units * per(x.kind), 0)), what + ': as planned, each kind its own');
+    let last = 0; for (let n = 0; n <= planned + 5; n++) { const t = ap(n).total; assert.ok(t >= last, what + ': ' + n + ' assets earn less'); last = t; }
+  });
+  /* the owner's case: one video was too low, six videos too high, the split in between; 22 h is far only from one video */
+  const pod = tasks['Youtube podcast: full video, 4 clips for socmed, a cover'];
+  assert.ok(hours('video', 1) < mixH(pod) && mixH(pod) < hours('video', 6));
+  const far = require('../server/scoring-ai').pure.farFrom;
+  assert.equal(far('hours', 22, hours('video', 1)).far, true); assert.equal(far('hours', 22, mixH(pod)).far, false);
+
+  /* the estimator on Create, run whole as the page runs it, gives the engine's hours for a split (to the half hour) */
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const c = { UI_ID: {}, UI_LANG: 'en', tr: s => s, console, document: { addEventListener() {} }, TASKS: [], simScore: () => 0 };
+  vm.createContext(c);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'shared', 'scoring-engine.js'), 'utf8'), c);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'effort-estimate.js'), 'utf8').replace(/<\/?script>/g, ''), c);
+  let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 200; i++) {
+    const ids = S.KIND_IDS.filter(() => rnd() < 0.3).slice(0, 8);
+    if (ids.length < 2) continue;
+    const mix = ids.map(kind => ({ kind, units: 1 + Math.floor(rnd() * 12) }));
+    const est = c.effortEstimate({ title: 'Something', meta: { kinds: mix.map(x => ({ k: x.kind, n: x.units })) } });
+    const r = S.hours(D.hours, { mix });
+    /* (the estimator, like it always was for one kind, does not hold the hours to the bounds: the engine's figure before them) */
+    assert.equal(est.h, Math.max(0.5, Math.round(S.round2(r.factors.raw) * 2) / 2), JSON.stringify(mix) + ': the estimator and the engine disagree');
+    assert.equal(est.kind, r.inputs.kind, 'the same primary kind');
+    assert.ok(est.low <= est.h && est.h <= est.high);
+  }
+});
+
 /* the brief's documents read for the AI (server/scoring-docs.js): whatever the documents, one ask never sends more than
    the workspace's budget, more than five documents or more of a document than it has; a document within its even
    share is never cut; a larger budget never gives a document less; nothing is negative */

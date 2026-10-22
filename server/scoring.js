@@ -16,7 +16,11 @@
    scoring analytics. For whoever manages roles; nothing else about the roles changes; audited.
    Kinds of work (settings.kinds) are used even while Smart Scoring is off — the estimator on Create reads them: a kind
    added gets its id here; one removed sends the tasks that chose it by hand back to their title's kind, each audited;
-   a task keeps meta.kind (the kind chosen by hand) only as an active kind, or the one it already had.
+   a task keeps meta.kind (the kind chosen by hand) only as an active kind, or the one it already had. A task of several
+   kinds of work (Oct 2026) keeps its mix in meta.kinds, [{k, n}]: 2–8 active kinds, each once, n a whole number 1–500
+   (an unknown or switched-off kind dropped, a count kept within 1–500, the same kind twice added together; fewer than
+   2 left and the mix goes); while it is there it takes the place of meta.kind for estimating, and a removed kind leaves
+   it too.
 
    A TASK'S SCORES. Each task has at most one row per module in task_scoring — Effort Hours, Story Points, Weighted
    Points — with the math, the AI's suggestion (server/scoring-ai.js writes only that), the final value, where the final
@@ -100,7 +104,12 @@ const rating = (v, what) => { const n = numOr(v); if (n === null) return null; i
    Hours: the kind chosen on the task (meta.kind), else the title's (inputs.kind, an active kind, corrects it), the
    asset count as the deliverables (inputs.units to
    correct it), the complexity given, else the one already rated on the task (its hours, then its story or weighted
-   ratings), else unrated (3); the open dependencies are always the task's own. Story and Weighted Points: each rating
+   ratings), else unrated (3); the open dependencies are always the task's own. Several kinds of work in one task (Oct
+   2026): the task's mix (meta.kinds, 2 or more active kinds) takes the place of the kind and the deliverables — each
+   kind's own hours for its count, added up (ScoringEngine.hours' mix); inputs.mix ([{kind, units}], active kinds; []:
+   none) works it out for another split, and inputs.kind for one kind instead; with a mix, inputs.units is not used.
+   The kind is then the mix's primary kind ("mix"), the deliverables all of them ("mix"), and inputs.mix each kind's
+   hours. Story and Weighted Points: each rating
    given, else the one stored on this score, else on the other points score; Scope, when nobody rated it, from the
    asset count. Every input says where it came from. */
 function calculate(settings, task, body, ctx) {
@@ -110,15 +119,28 @@ function calculate(settings, task, body, ctx) {
   const assetCount = Math.max(0, Math.round(+task.assetCount || 0)), scope = scopeFromAssets(assetCount), stored = ctx.factors || {};
   if (module === "hours") {
     const inp = isObj(body.inputs) ? body.inputs : {};
-    const kinds = kindsIn(settings), picked = engine.kindPick(task, kinds), detected = picked || kindOf(task.title, kinds);
+    const kinds = kindsIn(settings), withHours = settings && settings.hours ? settings : null, picked = engine.kindPick(task, kinds, withHours), detected = picked || kindOf(task.title, kinds);
+    const known = id => typeof id === "string" && kinds.some(k => k.id === id && k.active !== false);
     let kind = detected, kindSource = picked ? "picked" : detected ? "title" : null;
-    if (inp.kind !== undefined && inp.kind !== null && inp.kind !== "") {
-      if (typeof inp.kind !== "string" || !kinds.some(k => k.id === inp.kind && k.active !== false)) throw new CalcError("Unknown kind of work: " + String(inp.kind).slice(0, 40));
+    const kindGiven = inp.kind !== undefined && inp.kind !== null && inp.kind !== "";
+    if (kindGiven) {
+      if (!known(inp.kind)) throw new CalcError("Unknown kind of work: " + String(inp.kind).slice(0, 40));
       kind = inp.kind; kindSource = "given";
     }
+    /* the split: given (a split of one kind is that kind; [] is none), else the task's — not when one kind is given */
+    let mix = null, mixSource = null, one = null;
+    if (inp.mix !== undefined && inp.mix !== null) {
+      if (!Array.isArray(inp.mix)) throw new CalcError("A split of the work is a list of kinds of work, each with its deliverables");
+      const problems = [], m = engine.mixClean(inp.mix, kinds, problems);
+      const p = problems.find(x => x.code === "kind" || x.code === "count" || x.code === "cut" || (x.code === "clamped" && Math.round(Number(x.value)) !== x.used));
+      if (p) throw new CalcError(p.code === "kind" ? "Unknown kind of work: " + String(isObj(p.value) ? JSON.stringify(p.value) : p.value).slice(0, 40) : p.code === "cut" ? "A split names at most " + engine.MIX_LIMITS.max + " kinds of work" : "Each kind of work in the split needs its deliverables, a whole number from 1 to " + engine.MIX_LIMITS.units);
+      if (m && m.length === 1) one = m[0]; else if (m) { mix = m; mixSource = "given"; }
+    } else if (!kindGiven) { mix = engine.kindMix(task, kinds); mixSource = mix ? "task" : null; }
     let units = Math.max(1, assetCount), unitsSource = "assets";
     const u = numOr(inp.units);
-    if (u !== null) { if (Number.isNaN(u) || u < 1 || u > 999) throw new CalcError("Deliverables are a whole number from 1 to 999"); units = Math.round(u); unitsSource = "given"; }
+    if (one) { kind = one.kind; kindSource = "given"; units = one.units; unitsSource = "given"; }
+    else if (mix) { kind = engine.kindPrimary(mix, withHours); kindSource = "mix"; units = mix.reduce((n, x) => n + x.units, 0); unitsSource = "mix"; }
+    else if (u !== null) { if (Number.isNaN(u) || u < 1 || u > 999) throw new CalcError("Deliverables are a whole number from 1 to 999"); units = Math.round(u); unitsSource = "given"; }
     let complexity = rating(inp.complexity, "complexity"), complexitySource = complexity === null ? null : "given";
     if (complexity === null) for (const m of MODULES) {
       const v = stored[m] ? numOr(stored[m].complexity) : null;
@@ -126,10 +148,13 @@ function calculate(settings, task, body, ctx) {
     }
     if (complexity !== null) complexity = Math.round(complexity);
     const openDeps = Math.max(0, Math.round(+ctx.openDeps || 0));
-    const r = engine.hours(settings.hours, { kind, units, complexity1to5: complexity, openDeps });
+    const r = engine.hours(settings.hours, mix ? { mix, complexity1to5: complexity, openDeps } : { kind, units, complexity1to5: complexity, openDeps });
+    const inputs = { kind, kindSource, units, unitsSource, assetCount, complexity, complexitySource, openDeps };
+    /* several kinds of work: each kind's hours, and where the split came from (only then: one kind is as it always was) */
+    if (r.mix) Object.assign(inputs, { mix: r.mix.map(x => ({ kind: x.kind, units: x.units, value: x.value, low: x.low, high: x.high })), mixSource });
     return {
       module, value: r.value, unit: UNIT.hours, final: r.value === null ? null : halfHour(r.value), low: r.low, high: r.high, bounded: r.bounded, reason: r.reason,
-      inputs: { kind, kindSource, units, unitsSource, assetCount, complexity, complexitySource, openDeps },
+      inputs,
       factors: complexity === null ? {} : { complexity }, steps: r.steps, explanation: r.explanation, suggestions: { scope }
     };
   }
@@ -211,10 +236,14 @@ module.exports = function scoring(db, WS_ID, d) {
     const left = new Set(next.kinds.map(k => k.id)), out = {};
     cur.kinds.filter(k => !left.has(k.id)).forEach(k => {
       db.prepare("SELECT id, meta FROM tasks WHERE workspace_id=? AND meta LIKE ?").all(WS_ID, "%" + k.id + "%").forEach(t => {
-        const m = parse(t.meta, null); if (!isObj(m) || m.kind !== k.id) return;
-        delete m.kind;
+        const m = parse(t.meta, null); if (!isObj(m)) return;
+        /* the kind chosen by hand, and the kind in a mix (fewer than 2 kinds left: the mix goes) */
+        const picked = m.kind === k.id, inMix = Array.isArray(m.kinds) && m.kinds.some(x => isObj(x) && x.k === k.id);
+        if (!picked && !inMix) return;
+        if (picked) delete m.kind;
+        if (inMix) { const rest = m.kinds.filter(x => !(isObj(x) && x.k === k.id)); if (rest.length >= engine.MIX_LIMITS.min) m.kinds = rest; else delete m.kinds; }
         db.prepare("UPDATE tasks SET meta=?, updated_at=? WHERE id=?").run(JSON.stringify(m), now(), t.id);
-        audit({ taskId: t.id, module: "kinds", action: "kind_fallback", actor: u.id, impersonatedBy: u.impersonatedBy, oldValue: { kind: k.id, name: k.name }, meta: { kind: k.id, name: k.name } });
+        audit({ taskId: t.id, module: "kinds", action: "kind_fallback", actor: u.id, impersonatedBy: u.impersonatedBy, oldValue: { kind: k.id, name: k.name }, meta: Object.assign({ kind: k.id, name: k.name }, inMix ? { mix: true, mixKept: !!m.kinds } : {}) });
         (out[k.id] = out[k.id] || []).push(t.id);
       });
     });
@@ -226,6 +255,14 @@ module.exports = function scoring(db, WS_ID, d) {
     if (!b || !isObj(b.meta) || !Object.prototype.hasOwnProperty.call(b.meta, "kind")) return;
     const v = b.meta.kind, k = typeof v === "string" ? settings().kinds.find(x => x.id === v) : null;
     if (!k || !(k.active || (cur && isObj(cur.meta) && cur.meta.kind === v))) delete b.meta.kind;
+  }
+  /* meta.kinds, several kinds of work in one task, on its create, save or restore: [{k, n}] of 2–8 active kinds, each
+     once (the same kind twice added together), n a whole number kept within 1–500; an unknown or switched-off kind, or
+     an entry without a count, is dropped, and with fewer than 2 kinds left the mix goes */
+  function cleanKinds(b) {
+    if (!b || !isObj(b.meta) || !Object.prototype.hasOwnProperty.call(b.meta, "kinds")) return;
+    const m = engine.mixClean(b.meta.kinds, settings().kinds);
+    if (m && m.length >= engine.MIX_LIMITS.min) b.meta.kinds = m.map(x => ({ k: x.kind, n: x.units })); else delete b.meta.kinds;
   }
   /* a task that keeps its documents from the AI (Oct 2026, server/scoring-docs.js): meta.aiReadDocs is false, or not
      there at all (the workspace's switch decides) — anything else sent is dropped. Whoever may save the task may set it. */
@@ -317,9 +354,18 @@ module.exports = function scoring(db, WS_ID, d) {
   function moduleParam(m) { if (MODULES.indexOf(m) < 0) throw new HttpError(400, "Unknown score: " + String(m).slice(0, 40) + " (hours, story or weighted)"); return m; }
   const stageOf = id => (id ? db.prepare("SELECT id, kind FROM task_statuses WHERE id=?").get(id) : null) || null;
   const openDeps = id => db.prepare("SELECT count(*) n FROM task_dependencies d JOIN tasks t ON t.id=d.depends_on_task_id JOIN task_statuses s ON s.id=t.status_id WHERE d.task_id=? AND coalesce(s.is_completed,0)=0").get(id).n;
-  /* the scope a lock remembers: the deliverables (no count is one), the brief and description, the dependencies */
-  const scopeOf = t => ({ assets: Math.max(1, Math.round(+t.assetCount || 0)), deps: t.deps || 0, text: engine.inputHash({ description: t.description, brief: t.brief }) });
-  const sameScope = (a, b) => !!a && !!b && a.assets === b.assets && a.deps === b.deps && a.text === b.text;
+  /* the scope a lock remembers: the deliverables (no count is one), the brief and description, the dependencies — and,
+     for a task of several kinds of work, its split as stored (kinds: "kv:1,reels:4,video:1"; only when there is one, so
+     a lock taken before it compares as it always did) */
+  const mixKey = m => (Array.isArray(m) && m.length ? m.map(x => x.kind + ":" + x.units).sort().join(",") : "");
+  const scopeOf = t => {
+    const o = { assets: Math.max(1, Math.round(+t.assetCount || 0)), deps: t.deps || 0, text: engine.inputHash({ description: t.description, brief: t.brief }) };
+    const m = engine.mixClean(t.meta && t.meta.kinds, null); if (m && m.length >= engine.MIX_LIMITS.min) o.kinds = mixKey(m);
+    return o;
+  };
+  const SCOPE_KEYS = ["assets", "deps", "text", "kinds"];
+  const scopePart = (s, k) => (k === "kinds" ? s.kinds || "" : s[k]);
+  const sameScope = (a, b) => !!a && !!b && SCOPE_KEYS.every(k => scopePart(a, k) === scopePart(b, k));
   /* "completed": the stages the settings name, else every closed stage but Declined */
   function completedStage(statusId, s) {
     const list = s.bonus && s.bonus.completionStages;
@@ -341,15 +387,19 @@ module.exports = function scoring(db, WS_ID, d) {
   /* a row as the panel reads it */
   function rowOut(r) {
     if (!r) return null;
-    return {
+    const math = parse(r.math_inputs, {}) || {}, mi = isObj(math.inputs) ? math.inputs : {};
+    const out = {
       module: r.module, unit: r.unit || UNIT[r.module], value: r.final_value, source: r.source || null, status: r.status, locked: LOCKED.has(r.status),
-      mathValue: r.math_value, math: parse(r.math_inputs, {}) || {}, aiValue: r.ai_value, aiRunId: r.ai_run_id || null, factors: parse(r.factors, {}) || {},
+      mathValue: r.math_value, math, aiValue: r.ai_value, aiRunId: r.ai_run_id || null, factors: parse(r.factors, {}) || {},
       mappingVersion: r.mapping_version, configVersion: r.config_version,
       lockedValue: r.locked_value, lockedAt: r.locked_at || null, lockedBy: r.locked_by || null, approvedBy: r.approved_by || null, approvedAt: r.approved_at || null,
       /* approved in the act of locking it (not a baseline frozen earlier and approved later) */
       approvedAtLock: !!(r.approved_by && r.approved_at && r.locked_at === r.approved_at && r.locked_by === r.approved_by),
       proposal: parse(r.proposal, null), scope: parse(r.scope_fingerprint, null), updatedBy: r.updated_by || null, updatedAt: r.updated_at || null, rev: r.rev
     };
+    /* the hours row: each kind's hours when its math was worked out for several kinds of work, else null */
+    if (r.module === "hours") out.mix = Array.isArray(mi.mix) && mi.mix.length ? mi.mix : null;
+    return out;
   }
   /* what the audit keeps of a row (without the explanation steps) */
   const snap = r => r ? { value: r.final_value, source: r.source || null, status: r.status, mathValue: r.math_value, aiValue: r.ai_value, factors: parse(r.factors, {}) || {}, lockedValue: r.locked_value, lockedAt: r.locked_at || null, lockedBy: r.locked_by || null, approvedBy: r.approved_by || null, approvedAt: r.approved_at || null, proposal: parse(r.proposal, null), scope: parse(r.scope_fingerprint, null), rev: r.rev } : null;
@@ -366,7 +416,14 @@ module.exports = function scoring(db, WS_ID, d) {
     db.prepare("UPDATE tasks SET estimated_minutes=?, meta=?, updated_at=? WHERE id=?").run(minutes(hours), JSON.stringify(meta), now(), taskId);
   }
   /* the estimator's mark for an estimate taken from the math: "typical for this kind, n deliverables" */
-  const mathMarks = row => { const mi = parse(row && row.math_inputs, {}) || {}, inp = mi.inputs || {}; const v = row && row.math_value != null ? halfHour(row.math_value) : null; return inp.kind && v ? { src: "kind", basis: "", n: 0, low: mi.low != null ? halfHour(mi.low) : v, high: mi.high != null ? halfHour(mi.high) : v, reason: "", kind: inp.kind, items: inp.units || 1 } : "manual"; };
+  /* (several kinds of work: mix [{k, n}] beside the primary kind and all the deliverables, as src/effort-estimate.js marks it) */
+  const mathMarks = row => {
+    const mi = parse(row && row.math_inputs, {}) || {}, inp = mi.inputs || {}; const v = row && row.math_value != null ? halfHour(row.math_value) : null;
+    if (!(inp.kind && v)) return "manual";
+    const marks = { src: "kind", basis: "", n: 0, low: mi.low != null ? halfHour(mi.low) : v, high: mi.high != null ? halfHour(mi.high) : v, reason: "", kind: inp.kind, items: inp.units || 1 };
+    if (Array.isArray(inp.mix) && inp.mix.length) marks.mix = inp.mix.map(x => ({ k: x.kind, n: x.units }));
+    return marks;
+  };
   /* the estimator's mark for an estimate taken from the AI's suggestion (server/scoring-ai.js gives a fuller one) */
   const aiMarks = v => ({ src: "ai", basis: "", n: 0, low: halfHour(v), high: halfHour(v), reason: "" });
   /* where a final value taken from {use} comes from, and the task's mark for it (hours) */
@@ -445,7 +502,7 @@ module.exports = function scoring(db, WS_ID, d) {
         const was = parse(r.scope_fingerprint, null);
         let changes = null, action = null, meta = null;
         if (!was) { changes = { scope_fingerprint: J(scope) }; action = "scope_recorded"; }
-        else if (r.status !== "rebaseline_needed" && !sameScope(was, scope)) { changes = { status: "rebaseline_needed" }; action = "scope_changed"; meta = { from: was, to: scope, what: ["assets", "deps", "text"].filter(k => was[k] !== scope[k]) }; }
+        else if (r.status !== "rebaseline_needed" && !sameScope(was, scope)) { changes = { status: "rebaseline_needed" }; action = "scope_changed"; meta = { from: was, to: scope, what: SCOPE_KEYS.filter(k => scopePart(was, k) !== scopePart(scope, k)) }; }
         else if (r.status === "rebaseline_needed" && sameScope(was, scope)) { changes = { status: r.approved_by ? "approved" : "locked" }; action = "scope_restored"; }
         if (!changes) return;
         const next = saveRow(t.id, m, r, changes, actorId, s); auditRow(t.id, m, action, actor, r, next, "", meta); rows[m] = next; changed = true;
@@ -543,7 +600,7 @@ module.exports = function scoring(db, WS_ID, d) {
   const hoursLocked = id => { const r = db.prepare("SELECT status FROM task_scoring WHERE task_id=? AND module='hours'").get(id); return !!r && LOCKED.has(r.status); };
   /* PUT /api/tasks/:id — after the concurrent-edit merge (and a slim copy's), before the task is cleaned and saved */
   function guardTaskWrite(u, cur, b) {
-    cleanKind(cur, b); cleanReadDocs(b); cleanDocParts(b);
+    cleanKind(cur, b); cleanKinds(b); cleanReadDocs(b); cleanDocParts(b);
     if (!timeLogMode() || !b || !cur) return;
     if (hoursLocked(cur.id)) {
       if (b.effort === undefined) b.effort = cur.effort;
@@ -552,10 +609,10 @@ module.exports = function scoring(db, WS_ID, d) {
     keepActual(cur, b);
   }
   /* POST /api/tasks: a new task has logged no time */
-  function guardNewTask(u, b) { cleanKind(null, b); cleanReadDocs(b); cleanDocParts(b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
+  function guardNewTask(u, b) { cleanKind(null, b); cleanKinds(b); cleanReadDocs(b); cleanDocParts(b); if (timeLogMode() && b && isObj(b.meta)) delete b.meta.actualEffort; }
   /* POST /api/restore/task/:id: a locked estimate and the logged Actual stay as they are now */
   function guardRestore(u, cur, next) {
-    cleanKind(cur, next); cleanReadDocs(next); cleanDocParts(next);
+    cleanKind(cur, next); cleanKinds(next); cleanReadDocs(next); cleanDocParts(next);
     if (!timeLogMode() || !cur || !next) return;
     if (hoursLocked(cur.id)) next.effort = cur.effort;
     keepActual(cur, next);
@@ -654,12 +711,15 @@ module.exports = function scoring(db, WS_ID, d) {
     const seesAll = sees && (has(u, "scoring_approve_completion") || has(u, "scoring_view_analytics"));
     const policy = s.overrides, assignee = isAssignee(u, t), approve = can.scoringApproveEstimate(u, t, policy);
     const edit = can.scoringEditTask(u, t), propose = can.scoringPropose(u, t), stage = stageOf(t.status);
+    /* several kinds of work: the task's split as it counts now ([{k, n}], active kinds only), or null */
+    const mix = engine.kindMix(t, s), kinds = mix ? mix.map(x => ({ k: x.kind, n: x.units })) : null;
     const out = {
       taskId: id,
+      kinds,
       rows: { hours: rowOut(rows.hours), story: rowOut(rows.story), weighted: rowOut(rows.weighted) },
       audit: db.prepare("SELECT * FROM scoring_audit WHERE workspace_id=? AND task_id=? AND (coalesce(module,'') <> 'efficiency' OR ?) ORDER BY created_at DESC, rowid DESC LIMIT ?").all(WS_ID, id, sees ? 1 : 0, TASK_AUDIT).map(auditOut),
       on: { feature: !!featureOn(), enabled: s.enabled, hours: model.moduleOn(s, "hours"), story: model.moduleOn(s, "story"), weighted: model.moduleOn(s, "weighted"), kpi: model.moduleOn(s, "kpi"), okr: model.moduleOn(s, "okr") },
-      context: { kind: engine.kindOfTask(t, s.kinds), kindPicked: !!engine.kindPick(t, s.kinds), assetCount: t.assetCount, deliverables: Math.max(1, t.assetCount), openDeps: openDeps(id), dependencies: t.deps, scope: scopeFromAssets(t.assetCount), stage: t.status, stageKind: stage ? stage.kind : null, lockPolicy: s.hours.lockPolicy, requireReason: !!policy.requireReason, requireApproval: !!policy.requireApproval, configVersion: s.configVersion },
+      context: { kind: engine.kindOfTask(t, s), kindPicked: !!engine.kindPick(t, s), kinds, assetCount: t.assetCount, deliverables: Math.max(1, t.assetCount), openDeps: openDeps(id), dependencies: t.deps, scope: scopeFromAssets(t.assetCount), stage: t.status, stageKind: stage ? stage.kind : null, lockPolicy: s.hours.lockPolicy, requireReason: !!policy.requireReason, requireApproval: !!policy.requireApproval, configVersion: s.configVersion },
       can: {
         view: true, calculate: edit || propose, propose, edit, approve, rebaseline: approve, requestAi: can.scoringRequestAi(u, t), logTime: can.logTime(u, t),
         approveCompletion: can.scoringApproveCompletion(u, t, credited), viewEfficiency: sees, viewAnalytics: can.scoringViewAnalytics(u),
@@ -843,8 +903,9 @@ module.exports = function scoring(db, WS_ID, d) {
     liveCollection: (kind, fn) => { if (typeof fn === "function") live[kind] = fn; },
     liveRead: (kind, u) => (Object.prototype.hasOwnProperty.call(live, kind) ? live[kind](u) : null),
     sweep, sweepInBatches, backfill, scopeFromAssets,
-    /* a task's kind of work with the workspace's kinds: the one chosen on it, else its title's */
-    kindOf: title => kindOf(title, settings().kinds), kindOfTask: t => engine.kindOfTask(t, settings().kinds),
+    /* a task's kind of work with the workspace's kinds: the one chosen on it (its mix's primary kind), else its title's;
+       and its mix of several kinds ([{kind, units}] or null) */
+    kindOf: title => kindOf(title, settings().kinds), kindOfTask: t => engine.kindOfTask(t, settings()), kindMix: t => engine.kindMix(t, settings()),
     /* for server/scoring-ai.js: the checks and answers of the task scoring routes, the task as the scores read it, the
        suggestion write, and the check {use:"ai"} asks of it */
     ai: {
