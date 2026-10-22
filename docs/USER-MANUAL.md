@@ -289,6 +289,13 @@ yang dibuat workspace.
 
 Field mana yang tampil diatur admin di **Settings → Custom fields**.
 
+**Project** — satu task bisa masuk sampai 5 project. Picker-nya menaruh project task ini paling atas, di bawah
+**Selected (N)** / **Dipilih (N)**: project utamanya dulu, lalu yang lain sesuai urutan ditambahkan; project itu
+tidak muncul lagi di **Recent** / **Terbaru** atau **Active projects** / **Project aktif**. Klik untuk menambah atau
+melepas (centangnya dan angka N ikut berubah); selama picker terbuka baris tidak berpindah, dan saat dibuka lagi
+pilihan baru sudah di atas. Saat mencari, project terpilih yang cocok tetap di atas. **Select project later** /
+**Pilih proyek nanti** mengeluarkan task dari semua project untuk sementara.
+
 **Estimate otomatis** (bertanda *auto*) diambil dari task serupa yang sudah selesai. Kalau belum ada, dari jam
 yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama
 dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, story, banner, carousel, KV, web,

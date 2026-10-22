@@ -86,7 +86,7 @@ function taskSelectMenu(a,kind,cur){ var opts=taskSelectOptions(kind), label=kin
 /* One task can be in several projects (it can serve two campaigns): a click adds or removes one; the first
    chosen is its own project. "Select project later" leaves it in none for now. */
 function taskProjectPicker(a){ var tk=task(S.drawerTask); if(!tk)return; var none={id:"",name:tr("Select project later"),_none:true};
-  var o={kind:"project",anchor:a,title:tr("Project"),placeholder:tr("Search projects…"),multi:true,selected:taskProjectIds(tk).length?taskProjectIds(tk):[""],
+  var o={kind:"project",anchor:a,title:tr("Project"),placeholder:tr("Search projects…"),multi:true,pinSelected:true,selected:taskProjectIds(tk).length?taskProjectIds(tk):[""],
     lead:function(q){ var ql=(q||"").toLowerCase(); return !ql||none.name.toLowerCase().indexOf(ql)>=0?[none]:[]; },
     onSelect:function(p){ var ids=taskProjectIds(tk);
       if(p._none) ids=[];
