@@ -292,9 +292,14 @@ Field mana yang tampil diatur admin di **Settings → Custom fields**.
 **Project** — satu task bisa masuk sampai 5 project. Picker-nya menaruh project task ini paling atas, di bawah
 **Selected (N)** / **Dipilih (N)**: project utamanya dulu, lalu yang lain sesuai urutan ditambahkan; project itu
 tidak muncul lagi di **Recent** / **Terbaru** atau **Active projects** / **Project aktif**. Klik untuk menambah atau
-melepas (centangnya dan angka N ikut berubah); selama picker terbuka baris tidak berpindah, dan saat dibuka lagi
-pilihan baru sudah di atas. Saat mencari, project terpilih yang cocok tetap di atas. **Select project later** /
-**Pilih proyek nanti** mengeluarkan task dari semua project untuk sementara.
+melepas: project yang dicentang langsung naik ke **Dipilih** (paling bawah di bagian itu) dan yang dilepas langsung
+turun lagi ke tempatnya (Terbaru kalau tadi ada di sana, kalau tidak Project aktif); barisnya meluncur singkat ke
+tempat barunya dan menyala sebentar, angka N ikut berubah. Pindahan pertama selalu diikuti daftarnya sampai
+terlihat; sesudah itu, kalau Anda sedang mencentang beberapa project di tengah daftar, daftarnya tetap di tempat Anda
+(project berikutnya naik ke bawah pointer). Dengan keyboard sorotannya ikut pindah bersama barisnya, fokus tetap di
+kotak pencarian, dan panah lanjut dari situ. Saat mencari, project terpilih yang cocok tetap di atas, dan yang
+dicentang langsung naik ke situ. Kalau perangkat diatur untuk mengurangi gerakan, barisnya langsung pindah tanpa
+animasi. **Select project later** / **Pilih proyek nanti** mengeluarkan task dari semua project untuk sementara.
 
 **Estimate otomatis** (bertanda *auto*) diambil dari task serupa yang sudah selesai. Kalau belum ada, dari jam
 yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama

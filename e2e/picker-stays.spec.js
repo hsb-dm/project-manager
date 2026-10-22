@@ -1,11 +1,13 @@
 /* Choosing several projects for a task: each choice redraws the task panel, and the picker used to lose
    the button it hung from and jump to the top-left corner; the project just chosen also jumped into
-   "Recent" at the top of the list. It now stays beside the field, scrolled where it was, in the same order. */
+   "Recent" at the top of the list. It now stays beside the field; what is chosen moves up under "Selected"
+   at once, in the order chosen (the owner's call, Oct 2026: e2e/project-picker-selected.spec.js), and the
+   rest of the list keeps its order, nothing going into "Recent" while the picker is open. */
 const { test, expect } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
 
-test("the project picker stays put, in the same order and scroll, while projects are chosen", async ({ page }) => {
+test("the project picker stays put while projects are chosen: what is chosen moves up, the rest keeps its order", async ({ page }) => {
   await page.goto("/");
   await page.locator("#au_email").fill(ADMIN.email);
   await page.locator("#au_pw").fill(ADMIN.pw);
@@ -30,15 +32,20 @@ test("the project picker stays put, in the same order and scroll, while projects
     const state = () => page.evaluate(() => { const l = document.querySelector("#entityPicker .ep-list"); return { top: l.scrollTop, order: [...l.querySelectorAll(".ep-row")].map(b => b.textContent.replace(/\s+/g, " ").trim()) }; });
     const before = await state();
     const pick = async n => { await picker.locator(".ep-row", { hasText: "Stay " + tag + " " + n }).click(); await page.waitForTimeout(250); };
+    const row = n => before.order.find(o => o.indexOf("Stay " + tag + " " + n) === 0);
+    const chosen = [];
     for (const n of [8, 3]) {
       await pick(n);
+      chosen.push(row(n));
       await expect(picker).toBeVisible();
       const box = await picker.boundingBox();
       expect(Math.abs(box.x - box0.x), "stays beside the field (x)").toBeLessThan(3);
       expect(Math.abs(box.y - box0.y), "stays beside the field (y)").toBeLessThan(3);
       const now = await state();
-      expect(now.order, "the list keeps its order").toEqual(before.order);
-      if (n === 8) expect(Math.abs(now.top - before.top), "and its scroll").toBeLessThan(3);
+      expect(now.order.slice(0, chosen.length), "what is chosen leads the list, in the order chosen").toEqual(chosen);
+      expect(now.order.slice(chosen.length), "the rest keeps its order").toEqual(before.order.filter(o => chosen.indexOf(o) < 0));
+      /* the first choice is followed up into view, so it is clear where it went */
+      if (n === 8) expect(await page.evaluate(() => { const l = document.querySelector("#entityPicker .ep-list"), r = l.querySelector(".ep-row.chosen").getBoundingClientRect(), lr = l.getBoundingClientRect(); return r.top >= lr.top - 1 && r.bottom <= lr.bottom + 1; }), "and shown").toBe(true);
       await expect(picker.locator(".ep-row.chosen", { hasText: "Stay " + tag + " " + n })).toHaveCount(1);
     }
     /* both are the task's */
