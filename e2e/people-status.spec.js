@@ -66,7 +66,7 @@ test("Projects: All projects or My projects, and the choice is remembered", asyn
     await page.evaluate(() => { S.projectId = null; go("projects"); });
     await expect(page.locator(".proj-scope button.on")).toContainText("My projects");
     await expect(card("Theirs")).toHaveCount(0);
-    expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = [tr("All projects"), tr("My projects")]; UI_LANG = was; return r; })).toEqual(["Semua proyek", "Proyek saya"]);
+    expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = [tr("All projects"), tr("My projects")]; UI_LANG = was; return r; })).toEqual(["Semua project", "Project saya"]);
     await page.locator(".proj-scope button", { hasText: "All projects" }).click();
     await expect(card("Theirs")).toBeVisible();
   } finally {

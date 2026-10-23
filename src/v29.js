@@ -74,16 +74,16 @@ Object.assign(UI_ID,{
   "Deactivate":"Nonaktifkan","Reactivate":"Aktifkan lagi",
   "Member reactivated":"Anggota diaktifkan lagi",
   "Member deactivated — sign-in blocked, work kept":"Anggota dinonaktifkan — tidak bisa masuk, pekerjaannya tetap ada",
-  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Tugas, komentar, dan riwayatnya tetap utuh. Kamu bisa mengaktifkannya lagi kapan saja.",
+  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Task, komentar, dan riwayatnya tetap utuh. Kamu bisa mengaktifkannya lagi kapan saja.",
   "Allow this member to sign in again":"Izinkan anggota ini masuk lagi",
   "Block sign-in but keep their work and history":"Blokir akses masuk tanpa menghapus pekerjaan dan riwayat",
   "The server sets this schedule through COS_BACKUP_INTERVAL_HOURS":"Jadwal ini diatur server lewat COS_BACKUP_INTERVAL_HOURS",
   "Remove the variable to manage it here.":"Hapus variabel itu agar bisa diatur dari sini.",
   "set by server":"diatur server","Every":"Setiap","Manual only":"Manual saja",
   "Off":"Mati","Daily":"Harian","Weekly":"Mingguan",
-  "No projects yet":"Belum ada proyek","No archived projects":"Belum ada proyek terarsip",
-  "Completed projects move here automatically the month after they finish.":"Proyek selesai otomatis pindah ke sini sebulan setelah rampung.",
-  "Projects group related tasks, milestones and final assets. Create the first one to start planning.":"Proyek mengelompokkan tugas, milestone, dan aset final. Buat proyek pertama untuk mulai merencanakan."
+  "No projects yet":"Belum ada project","No archived projects":"Belum ada project terarsip",
+  "Completed projects move here automatically the month after they finish.":"Project selesai otomatis pindah ke sini sebulan setelah rampung.",
+  "Projects group related tasks, milestones and final assets. Create the first one to start planning.":"Project mengelompokkan task, milestone, dan aset final. Buat project pertama untuk mulai merencanakan."
 });
 </script>
 <script>

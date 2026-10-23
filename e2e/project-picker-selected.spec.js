@@ -286,20 +286,20 @@ test("the keyboard: the highlight goes with the moved row, the focus stays in th
   } finally { await cleanup(page, m); }
 });
 
-test("in Indonesian: Dipilih (N), then Pilih proyek nanti, Terbaru and Project aktif, and a tick moves up at once", async ({ page }) => {
+test("in Indonesian: Dipilih (N), then Pilih project nanti, Terbaru and Project aktif, and a tick moves up at once", async ({ page }) => {
   await signIn(page);
   const m = await setup(page);
   try {
     await page.evaluate(() => setLanguage("id"));
     await openPicker(page, m.task);
-    await expect(page.locator("#entityPicker .ep-search")).toHaveAttribute("placeholder", "Cari proyek…");
-    expect(await layout(page, m.tag)).toEqual(["# Dipilih (2)", "Charlie [x]", "Alpha [x]", "---", "Pilih proyek nanti", "# Terbaru", "Delta", "Bravo", "# Project aktif", "Echo"]);
+    await expect(page.locator("#entityPicker .ep-search")).toHaveAttribute("placeholder", "Cari project…");
+    expect(await layout(page, m.tag)).toEqual(["# Dipilih (2)", "Charlie [x]", "Alpha [x]", "---", "Pilih project nanti", "# Terbaru", "Delta", "Bravo", "# Project aktif", "Echo"]);
     await page.locator("#entityPicker .ep-row", { hasText: "Bravo " + m.tag }).click();
     await expect(page.locator("#entityPicker .ep-sel-h")).toHaveText("Dipilih (3)");
-    expect(await layout(page, m.tag)).toEqual(["# Dipilih (3)", "Charlie [x]", "Alpha [x]", "Bravo [x]", "---", "Pilih proyek nanti", "# Terbaru", "Delta", "# Project aktif", "Echo"]);
+    expect(await layout(page, m.tag)).toEqual(["# Dipilih (3)", "Charlie [x]", "Alpha [x]", "Bravo [x]", "---", "Pilih project nanti", "# Terbaru", "Delta", "# Project aktif", "Echo"]);
     await settled(page);
     await page.locator("#entityPicker .ep-row", { hasText: "Charlie " + m.tag }).click();
-    expect(await layout(page, m.tag)).toEqual(["# Dipilih (2)", "Alpha [x]", "Bravo [x]", "---", "Pilih proyek nanti", "# Terbaru", "Delta", "# Project aktif", "Charlie", "Echo"]);
+    expect(await layout(page, m.tag)).toEqual(["# Dipilih (2)", "Alpha [x]", "Bravo [x]", "---", "Pilih project nanti", "# Terbaru", "Delta", "# Project aktif", "Charlie", "Echo"]);
     await settled(page);
     await page.locator("#entityPicker .ep-search").fill(m.tag);
     expect((await layout(page, m.tag))[0]).toBe("# Dipilih");

@@ -226,9 +226,9 @@ di view Grid, dan di export Excel.
 **Settings → Workflow stages → Siapa yang boleh memindahkan task ke setiap tahap.** Per tahap ada dua aturan:
 
 - **Reviewer wajib diisi** — task tidak bisa masuk tahap ini sebelum ada reviewer.
-- **Siapa yang boleh memindahkan ke sini** — *Siapa pun yang bisa mengedit task*, atau *Reviewer, requester, lead tim, atau admin*. Pada pilihan kedua, assignee tidak bisa menutup pekerjaannya sendiri.
+- **Siapa yang boleh memindahkan ke sini** — *Siapa pun yang bisa mengedit task*, atau *Reviewer, requester, lead tim, atau admin*. Pada pilihan kedua, penanggung jawab tidak bisa menutup pekerjaannya sendiri.
 
-Default (**Fleksibel**): reviewer wajib sejak tahap review pertama; assignee boleh memindahkan task-nya sendiri sampai **Delivered**; **Done** dan **Declined** hanya reviewer, requester, lead tim, atau admin. Preset lain: **Review ketat** (semua tahap keputusan setelah review pertama hanya untuk reviewer) dan **Tanpa batasan**. Setiap tahap bisa diubah satu per satu.
+Default (**Fleksibel**): reviewer wajib sejak tahap review pertama; penanggung jawab boleh memindahkan task-nya sendiri sampai **Delivered**; **Done** dan **Declined** hanya reviewer, requester, lead tim, atau admin. Preset lain: **Review ketat** (semua tahap keputusan setelah review pertama hanya untuk reviewer) dan **Tanpa batasan**. Setiap tahap bisa diubah satu per satu.
 
 Keluar dari tahap yang reviewer-only (mis. membuka lagi task yang sudah Done) butuh hak yang sama dengan masuk ke tahap itu (v34).
 
@@ -249,9 +249,9 @@ password dari **Members → ikon gembok**.
 
 ### Nonaktifkan vs hapus (v29)
 
-**Deactivate** memblokir login dan mengakhiri sesi, tapi tugas, komentar, dan riwayat
+**Deactivate** memblokir login dan mengakhiri sesi, tapi task, komentar, dan riwayat
 tetap atas nama orang itu. **Reactivate** memulihkannya. Pakai ini untuk karyawan cuti
-atau keluar; **Remove** memindahkan tugasnya ke kamu dan tidak bisa dibatalkan.
+atau keluar; **Remove** memindahkan task-nya ke kamu dan tidak bisa dibatalkan.
 
 ### Menambah orang
 
@@ -454,7 +454,7 @@ Nilai bawaan yang direkomendasikan:
 |---|---:|---:|
 | Layer per desain | 40 | 150 |
 | Layer gambar per desain | 10 | 50 |
-| History generasi per anggota | 24 | 200 |
+| Riwayat generate per anggota | 24 | 200 |
 | Lebar / tinggi kanvas | 4096 | 4096 |
 | Desain gallery per anggota | 30 | 500 |
 | Desain baru per hari | 5 | 100 |
@@ -483,7 +483,7 @@ Tombol **Reset to recommended** mengembalikan seluruh nilai ke default.
 Kunci API bersifat **write-only**: *"Leave blank to keep the existing key. To remove it, type: clear"*.
 Kunci dienkripsi di server dan **tidak pernah dikirim balik ke browser**.
 
-Ada juga **Brand default prompt** — teks yang disertakan pada setiap generasi AI Hub dan
+Ada juga **Brand default prompt** — teks yang disertakan pada setiap generate di AI Hub dan
 hanya bisa diubah administrator.
 
 Kartu **AI Intelligence — chat model** adalah *Workspace connection* di **Models → Chat models**: model chat
@@ -505,7 +505,7 @@ Mematikan saklar pertama otomatis mematikan yang kedua.
 
 ### Data & Privacy
 
-Catatan read-only tentang apa yang dikirim saat generasi gambar, apa yang dikirim saat
+Catatan read-only tentang apa yang dikirim saat generate gambar, apa yang dikirim saat
 bertanya ke AI, apa yang tidak pernah dikirim, serta cap waktu dan nama orang yang
 menyetujuinya. Cap ini ditulis server saat salah satu saklar di atas pertama kali dinyalakan.
 
@@ -642,7 +642,7 @@ Default-nya hanya Admin. Tombol **Beri izin ini ke Team Lead dan Creative Lead**
 **Akses & visibilitas**) menambahkan tiga izin itu
 (approve estimasi, approve bonus, analytics) ke kedua role tersebut dalam satu klik.
 
-Pemisahan tugas berlaku untuk semua orang, admin juga:
+Pemisahan peran berlaku untuk semua orang, admin juga:
 - yang ditugaskan di task tidak bisa meng-approve estimasinya sendiri;
 - yang ikut mengerjakan tidak bisa meng-approve bonusnya sendiri;
 - tidak ada approval saat sedang *acting as* orang lain.
@@ -668,7 +668,7 @@ angkanya diketik. Rumus bawaan dari spec:
 - hemat waktu di bawah 10% tidak mendapat bonus;
 - di atasnya, bonus = 0,5 × penghematan, maksimal 20% dari base point;
 - tidak pernah negatif;
-- kalau aktual kurang dari 40% estimasi, task ditandai untuk ditinjau.
+- kalau aktual kurang dari 40% estimasi, task ditandai untuk di-review.
 
 Contohnya: estimasi 8 jam, aktual 5 jam, base 8 poin → bonus +1,10 → total 9,10.
 
@@ -910,7 +910,7 @@ Yang tertua dihapus setelah batas terlampaui — **kecuali** safety copy.
 
 Sejak v29 pilihan **Off / Daily / Weekly** di halaman Automatic Backups **menggerakkan
 scheduler** (default Daily di production bila belum pernah disimpan). Scheduler memeriksa
-tiap 10 menit dan menghitung jatuh tempo dari **Last automatic backup**, jadi restart tidak
+tiap 10 menit dan menghitung jadwal berikutnya dari **Last automatic backup**, jadi restart tidak
 mereset jadwal. Backup terjadwal tercatat `kind: scheduled` dan memakai retensi dashboard.
 
 `COS_BACKUP_INTERVAL_HOURS` hanya dipakai sebagai override operator. Bila diisi, dashboard
@@ -1001,7 +1001,7 @@ Settings → Integrations → **Storage & Deletion**, untuk yang punya izin *man
   (maks. 8 kali); 403, akses dicabut, atau Drive terputus menjadi *Drive sync failed*. Sebelum
   memanggil Drive, job memeriksa lagi apakah file dipakai lagi atau di-Undo — kalau ya, file tetap.
 - Semuanya tercatat di riwayat workspace dan `security.log` (`drive_file_delete_requested`,
-  `drive_trash_trashed`, `drive_trash_failed`, …). Mengubah setelan hanya berlaku untuk penghapusan
+  `drive_trash_trashed`, `drive_trash_failed`, …). Mengubah pengaturan hanya berlaku untuk penghapusan
   baru; file lama tidak pernah dibersihkan otomatis.
 
 ---
@@ -1175,12 +1175,12 @@ Sebelum server dijalankan pertama kali:
 - [ ] `NODE_ENV=production`
 - [ ] Terminasi HTTPS di reverse proxy; set `APP_URL` dan `COS_ALLOWED_ORIGINS` ke alamat produksi yang sebenarnya
 - [ ] `COS_TRUST_PROXY=1` kalau memang di belakang proxy
-- [ ] Biarkan `COS_ALLOW_REGISTRATION=0` dan `COS_ALLOW_IMPERSONATION=0` kecuali ada alasan operasional yang sudah ditinjau
+- [ ] Biarkan `COS_ALLOW_REGISTRATION=0` dan `COS_ALLOW_IMPERSONATION=0` kecuali ada alasan operasional yang sudah di-review
 - [ ] Simpan secret di secret manager atau environment server — **tidak pernah** di source, ZIP, database, atau chat tim
 - [ ] Simpan password admin yang dihasilkan saat boot pertama, lalu ganti dengan yang permanen
 - [ ] Verifikasi `COS_BACKUP_INTERVAL_HOURS` dan jalankan satu backup manual
 - [ ] **Uji restore ke environment test** — bukan sekadar memverifikasi checksum
-- [ ] Tinjau daftar model AI dan matikan yang tidak dipakai
+- [ ] Review daftar model AI dan matikan yang tidak dipakai
 - [ ] Biarkan **Allow external AI providers** mati sampai ketentuan data provider disetujui
 - [ ] Konfigurasi SMTP, jalankan **Test connection** **dan** **Send test email**
 - [ ] Bagikan folder Google Drive ke Google Group, pastikan **Anyone with the link** mati
@@ -1199,7 +1199,7 @@ batas ukuran request; preview dibatasi PNG/JPEG/WebP; demo reset dan user switch
 
 **Mingguan**
 
-- Tinjau `data/security.log` — perhatikan `login_failed` yang berulang dan `registration_rejected`
+- Review `data/security.log` — perhatikan `login_failed` yang berulang dan `registration_rejected`
 - Periksa panel **Delivery log** untuk kegagalan email
 - Pastikan backup terakhir ada dan berstatus terverifikasi
 
@@ -1207,13 +1207,13 @@ batas ukuran request; preview dibatasi PNG/JPEG/WebP; demo reset dan user switch
 
 - **Uji restore sungguhan di environment test.** Checksum yang lolos bukan bukti backup bisa didekripsi
 - Nonaktifkan atau hapus anggota yang sudah keluar — sesinya langsung terhapus
-- Tinjau daftar model AI dan pemakaian gallery
+- Review daftar model AI dan pemakaian AI Gallery
 
 **Kuartalan**
 
 - Rotasi password admin dan kunci provider sesuai kebijakan
 - Audit izin folder Drive dan keanggotaan Google Group
-- Tinjau definisi role terhadap struktur tim sekarang
+- Review definisi peran terhadap struktur tim sekarang
 
 ---
 
@@ -1322,7 +1322,7 @@ saat kamu menjelaskannya ke tim.
 | Layar Requests terpisah | tidak ada. Request adalah task biasa bertag `request` |
 | Rate limit | login, registrasi, lupa password, reset password, dan notifikasi (v29). Belum ada rate limit untuk endpoint AI |
 | Rate limiter | disimpan di memori proses: reset saat restart dan tidak dibagi antar-instance |
-| Batas panjang teks (v31) | judul task 240, deskripsi 20.000, komentar 10.000, halaman Knowledge 200.000, nama proyek 160, nama tim 80 karakter; pesan chat dipotong di 4.000. Melewati batas → HTTP 413 |
+| Batas panjang teks (v31) | judul task 240, deskripsi 20.000, komentar 10.000, halaman Knowledge 200.000, nama project 160, nama tim 80 karakter; pesan chat dipotong di 4.000. Melewati batas → HTTP 413 |
 | Integritas data task (v32) | Komentar, aktivitas, dan keputusan approval milik server: editor tidak bisa menulis ulang/menghapus komentar orang lain, memalsukan aktivitas, mengangkat diri jadi reviewer, atau menyetujui versi tanpa izin. POST create menolak ID yang sudah ada (409). |
 | Edit bersamaan (v34) | Dua orang yang mengedit field berbeda pada task yang sama sama-sama tersimpan; perubahan dari salinan lama tanpa daftar field ditolak (409), tidak menimpa |
 | Board live (v34) | Setiap perubahan task dikirim ke semua user yang sedang online; board, kalender, dan drawer ikut diperbarui tanpa reload |
@@ -1342,7 +1342,7 @@ saat kamu menjelaskannya ke tim.
 | `GOOGLE_DRIVE_SETUP.md` | langkah OAuth Google Drive versi panjang |
 | `AUDIT.md` | catatan audit lengkap |
 | `CHANGELOG-v16.md`, `CHANGELOG-v17.md` | riwayat perubahan |
-| `LEGAL/` | draf EULA, kebijakan privasi, ketentuan layanan, pemrosesan data AI |
+| `LEGAL/` | draft EULA, kebijakan privasi, ketentuan layanan, pemrosesan data AI |
 
-> Seluruh placeholder dalam tanda kurung siku di folder `LEGAL` wajib diisi dan ditinjau
+> Seluruh placeholder dalam tanda kurung siku di folder `LEGAL` wajib diisi dan di-review
 > penasihat hukum sebelum dipublikasikan.

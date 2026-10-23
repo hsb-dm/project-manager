@@ -418,7 +418,7 @@ function useAsFinalHtml(tk,f){
 function finalVersionText(key,n,name,stage){ var id=UI_LANG==="id", q="“"+name+"”";
   return {
     approve:id?q+" menjadi Versi "+n+" dan disetujui sebagai versi final — tanpa upload ulang. Task pindah ke "+stage+".":q+" becomes Version "+n+" and is approved as the final version — nothing is uploaded again. The task moves to "+stage+".",
-    review:id?q+" menjadi Versi "+n+" lalu dikirim untuk review — tanpa upload ulang. Reviewer yang menyetujuinya sebagai versi final.":q+" becomes Version "+n+" and goes to review — nothing is uploaded again. The reviewer approves it as the final version.",
+    review:id?q+" menjadi Versi "+n+" lalu dikirim untuk review — tanpa unggah ulang. Reviewer yang menyetujuinya sebagai versi final.":q+" becomes Version "+n+" and goes to review — nothing is uploaded again. The reviewer approves it as the final version.",
     makeFinal:id?"Jadikan Versi "+n+" final":"Make Version "+n+" final",
     addOnly:id?"Tambahkan sebagai Versi "+n+" saja":"Add as Version "+n+" only",
     submit:id?"Buat Versi "+n+" dan kirim untuk review":"Create Version "+n+" and submit for review"
@@ -743,7 +743,7 @@ ATEXT_ID.version_deleted="<b>{who}</b> menghapus Versi {v}";
 Object.assign(UI_ID,{
   "Versions":"Versi",
   "Attach a link as Version":"Lampirkan tautan sebagai Versi",
-  "Paste a link to the work — Figma, Canva, Dropbox, a page — and it becomes the next version, ready for review.":"Tempel tautan ke hasil kerja — Figma, Canva, Dropbox, sebuah halaman — dan tautan itu menjadi versi berikutnya, siap ditinjau.",
+  "Paste a link to the work — Figma, Canva, Dropbox, a page — and it becomes the next version, ready for review.":"Tempel tautan ke hasil kerja — Figma, Canva, Dropbox, sebuah halaman — dan tautan itu menjadi versi berikutnya, siap di-review.",
   "Version note (optional)":"Catatan versi (opsional)",
   "What changed in this version?":"Apa yang berubah di versi ini?",
   "Attach as a version":"Lampirkan sebagai versi",
@@ -769,9 +769,9 @@ Object.assign(UI_ID,{
   "Approved by":"Disetujui oleh",
   "Open final":"Buka file final",
   "Sent back for revision":"Dikembalikan untuk revisi",
-  "Waiting for your review":"Menunggu review Anda",
+  "Waiting for your review":"Menunggu review-mu",
   "Waiting for":"Menunggu",
-  "to review it":"untuk meninjaunya",
+  "to review it":"untuk me-review-nya",
   "Not in review yet":"Belum masuk tahap review",
   "Link from Google Drive":"Tautkan dari Google Drive",
   "No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.":"Belum ada file final. Unggah file yang diserahkan, tautkan dari Google Drive, atau lampirkan tautan HTTPS.",
@@ -913,14 +913,14 @@ function restoreDo(type,id,actId){
   }).catch(function(e){ toast(e.message,"bad"); });
 }
 /* only words not translated already: a common word keeps the translation it has elsewhere */
-(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Go back":"Kembalikan","Go back to this point":"Kembalikan ke titik ini","Go back to this point?":"Kembalikan ke titik ini?","The task is put back to how it was on":"Task dikembalikan seperti keadaannya pada","The project is put back to how it was on":"Project dikembalikan seperti keadaannya pada","Now":"Sekarang","After going back":"Setelah dikembalikan","Nothing would change — it is already like this.":"Tidak ada yang berubah — keadaannya sudah seperti ini.","Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.":"Komentar dan riwayat tetap seperti sekarang. Pengembalian juga tercatat, jadi bisa dibatalkan dengan cara yang sama.","Gone back to the earlier point":"Sudah dikembalikan ke titik sebelumnya","goes back to how it was":"kembali seperti semula","Stage":"Tahap","Assignees":"Assignee","Reviewers":"Reviewer","Due date":"Tenggat","Start date":"Tanggal mulai","Versions":"Versi","Files":"File","Description":"Deskripsi","Creative brief":"Creative brief","Tags":"Tag","Labels":"Label","Name":"Nama","Status":"Status","Teams":"Tim","Title":"Judul","Priority":"Prioritas"});
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Go back":"Kembalikan","Go back to this point":"Kembalikan ke titik ini","Go back to this point?":"Kembalikan ke titik ini?","The task is put back to how it was on":"Task dikembalikan seperti keadaannya pada","The project is put back to how it was on":"Project dikembalikan seperti keadaannya pada","Now":"Sekarang","After going back":"Setelah dikembalikan","Nothing would change — it is already like this.":"Tidak ada yang berubah — keadaannya sudah seperti ini.","Comments and the history stay as they are. Going back is recorded too, so it can be undone the same way.":"Komentar dan riwayat tetap seperti sekarang. Pengembalian juga tercatat, jadi bisa dibatalkan dengan cara yang sama.","Gone back to the earlier point":"Sudah dikembalikan ke titik sebelumnya","goes back to how it was":"kembali seperti semula","Stage":"Tahap","Assignees":"Penanggung jawab","Reviewers":"Reviewer","Due date":"Tenggat","Start date":"Tanggal mulai","Files":"File","Description":"Deskripsi","Creative brief":"Brief kreatif","Tags":"Tag","Labels":"Label","Name":"Nama","Status":"Status","Teams":"Tim","Title":"Judul","Priority":"Prioritas"});
 /* Assets produced, per person (avCountRow) */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"each person's own, used in reports":"milik masing-masing, dipakai di laporan","Total":"Total",
   "not on the task now":"sudah tidak di task ini","Assets produced by":"Aset dihasilkan oleh",
-  "An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Perkiraan sampai jumlah tiap orang diisi — dari siapa yang mengunggah versi, atau dibagi rata.",
+  "An estimate until each person's count is typed — from who uploaded the versions, or shared out.":"Estimasi sampai jumlah tiap orang diisi — dari siapa yang mengunggah versi, atau dibagi rata.",
   "Type what each person produced; the total adds them up.":"Isi berapa yang dihasilkan tiap orang; totalnya dijumlahkan otomatis.",
   "Type each person's count under Assets & versions — the total adds them up.":"Isi jumlah tiap orang di Aset & versi — totalnya dijumlahkan otomatis.",
-  "estimate":"perkiraan","Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validated":"Berubah sejak divalidasi",
+  "estimate":"estimasi","Validated":"Divalidasi","Not validated yet":"Belum divalidasi","Changed since validated":"Berubah sejak divalidasi",
   "Validated by":"Divalidasi oleh","Changed since":"Berubah sejak","validated it":"memvalidasinya","Validate the counts.":"Validasi jumlahnya.",
   "They count even before they are validated.":"Tetap dihitung walau belum divalidasi.","Approve counts":"Setujui jumlah","Approve again":"Setujui lagi",
   "Asset counts validated":"Jumlah aset divalidasi"});

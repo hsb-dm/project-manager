@@ -52,7 +52,7 @@ Object.assign(UI_ID,{"Waiting for approval":"Menunggu persetujuan","They signed 
   "{n} sign-up is waiting for your approval":"{n} pendaftar menunggu persetujuanmu","{n} sign-ups are waiting for your approval":"{n} pendaftar menunggu persetujuanmu","See all":"Lihat semua","chose":"memilih","No team":"Tanpa tim","Role":"Peran","Team":"Tim",
   "Approve or turn away people who sign up":"Menyetujui atau menolak orang yang mendaftar",
   "New sign-ups wait for approval":"Pendaftar baru menunggu persetujuan","Someone who registers can sign in only after an approver lets them in. Who may approve is set in Roles & permissions.":"Orang yang mendaftar baru bisa masuk setelah disetujui. Siapa yang boleh menyetujui diatur di Peran & izin.",
-  "Thanks":"Terima kasih","Your account is waiting for approval":"Akunmu menunggu persetujuan","An admin or team lead will let you in. You will get an e-mail when they do.":"Admin atau team lead akan menyetujuinya. Kamu akan mendapat e-mail saat sudah disetujui.","Back to sign in":"Kembali ke halaman masuk",
-  "New accounts are approved by an admin or team lead before they can sign in.":"Akun baru perlu disetujui admin atau team lead sebelum bisa masuk.",
-  "Your account is waiting for approval. An admin or team lead will let you in, and you will get an e-mail when they do.":"Akunmu menunggu persetujuan. Admin atau team lead akan menyetujuinya, dan kamu akan mendapat e-mail saat sudah disetujui."});
+  "Thanks":"Terima kasih","Your account is waiting for approval":"Akunmu menunggu persetujuan","An admin or team lead will let you in. You will get an e-mail when they do.":"Admin atau lead tim akan menyetujuinya. Kamu akan mendapat email saat sudah disetujui.","Back to sign in":"Kembali ke halaman masuk",
+  "New accounts are approved by an admin or team lead before they can sign in.":"Akun baru perlu disetujui admin atau lead tim sebelum bisa masuk.",
+  "Your account is waiting for approval. An admin or team lead will let you in, and you will get an e-mail when they do.":"Akunmu menunggu persetujuan. Admin atau lead tim akan menyetujuinya, dan kamu akan mendapat email saat sudah disetujui."});
 </script>

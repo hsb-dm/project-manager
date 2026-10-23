@@ -102,9 +102,9 @@ function aiFontDelete(id){
     var done=false, draw=function(){ if(done) return; done=true; base.apply(self,args); }; wait.then(draw); setTimeout(draw,previewOnly?8000:30000); }; })();
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Brand fonts":"Font brand",
-  "Fonts uploaded here appear in every font list in AI Hub and draw in every export. TTF, OTF, WOFF or WOFF2, up to 5 MB. Each file is one font: upload the weights you use as separate files (Bold, Black Italic…). Only upload fonts your licence lets the team use this way.":"Font yang di-upload di sini muncul di semua pilihan font AI Hub dan ikut di setiap ekspor. TTF, OTF, WOFF, atau WOFF2, maksimal 5 MB. Satu file adalah satu font: upload setiap ketebalan yang dipakai sebagai file terpisah (Bold, Black Italic…). Upload hanya font yang lisensinya mengizinkan tim memakainya seperti ini.",
+  "Fonts uploaded here appear in every font list in AI Hub and draw in every export. TTF, OTF, WOFF or WOFF2, up to 5 MB. Each file is one font: upload the weights you use as separate files (Bold, Black Italic…). Only upload fonts your licence lets the team use this way.":"Font yang diunggah di sini muncul di semua pilihan font AI Hub dan ikut di setiap ekspor. TTF, OTF, WOFF, atau WOFF2, maksimal 5 MB. Satu file adalah satu font: unggah setiap ketebalan yang dipakai sebagai file terpisah (Bold, Black Italic…). Unggah hanya font yang lisensinya mengizinkan tim memakainya seperti ini.",
   "No brand fonts yet.":"Belum ada font brand.",
-  "Upload font":"Upload font",
+  "Upload font":"Unggah font",
   "Font name":"Nama font",
   "Delete font":"Hapus font",
   "Delete font?":"Hapus font?",

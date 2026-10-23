@@ -89,15 +89,15 @@ Yang memicu notifikasi: penugasan, mention, approval, request, dan deadline.
 Ikon tema di topbar membuka popover **Quick theme**: **Accent** (swatch warna + warna kustom),
 **Appearance** (Light / Dark / System), dan **Density** (Comfortable / Compact).
 
-> Tema bersifat **workspace-wide**. Kalau role kamu tidak boleh mengelola workspace,
+> Tema bersifat **workspace-wide**. Kalau peranmu tidak boleh mengelola workspace,
 > perubahan hanya berlaku untuk sesi ini dan tidak tersimpan.
 
 ---
 
 ## 2. Home
 
-Header menyapa dengan nama depan dan merangkum: berapa yang menunggu review kamu,
-berapa jatuh tempo hari ini, berapa terlambat, berapa selesai minggu ini.
+Header menyapa dengan nama depan dan merangkum: berapa yang menunggu review-mu,
+berapa yang tenggatnya hari ini, berapa terlambat, berapa selesai minggu ini.
 
 ### Sembilan kartu
 
@@ -109,7 +109,7 @@ berapa jatuh tempo hari ini, berapa terlambat, berapa selesai minggu ini.
 | **Needs your review** | Hingga 6 task yang menunggu keputusanmu |
 | **Team workload** | Beban kerja per tim |
 | **Active projects** | Project yang belum selesai |
-| **Upcoming deadlines** | Hingga 6 task jatuh tempo dalam 7 hari |
+| **Upcoming deadlines** | Hingga 6 task dengan tenggat dalam 7 hari |
 | **Inbox — new requests** | Hingga 6 request yang belum ditriase |
 | **Recent activity** | 10 aktivitas terakhir, dengan toggle **Mine / All** |
 
@@ -139,7 +139,7 @@ Semua perubahan di sini **hanya untuk akunmu sendiri**.
 
 **Kanban** — satu kolom per stage. Kartu menampilkan thumbnail versi terakhir, chip label,
 penanda centang pribadi, judul, badge (hidden / dependency / request / tim / project),
-bar prioritas, chip jatuh tempo, jam estimasi, badge aset, dan tumpukan assignee.
+bar prioritas, chip tenggat, jam estimasi, badge aset, dan tumpukan penanggung jawab.
 
 - Seret **di dalam** kolom = mengurutkan ulang. Ini hanya bekerja saat **Sort** = **Manual**;
   kalau tidak, muncul pesan *"Switch sort to Manual to reorder cards"*.
@@ -189,7 +189,7 @@ untuk mengubahnya langsung. Seret baris ke baris lain untuk mengurutkan, atau ke
   semua kolom.
 
 **Grid** — seperti spreadsheet. Setiap sel menulis langsung ke task: judul, status, tim,
-assignee, reviewer, project, prioritas, tanggal mulai & jatuh tempo, estimasi, tag, dan
+penanggung jawab, reviewer, project, prioritas, tanggal mulai & tenggat, estimasi, tag, dan
 setiap custom field. Tombol **Fields** memilih kolom mana yang tampil.
 
 **Calendar** — lihat [bagian 5](#5-calendar).
@@ -295,11 +295,11 @@ tidak muncul lagi di **Recent** / **Terbaru** atau **Active projects** / **Proje
 melepas: project yang dicentang langsung naik ke **Dipilih** (paling bawah di bagian itu) dan yang dilepas langsung
 turun lagi ke tempatnya (Terbaru kalau tadi ada di sana, kalau tidak Project aktif); barisnya meluncur singkat ke
 tempat barunya dan menyala sebentar, angka N ikut berubah. Pindahan pertama selalu diikuti daftarnya sampai
-terlihat; sesudah itu, kalau Anda sedang mencentang beberapa project di tengah daftar, daftarnya tetap di tempat Anda
+terlihat; sesudah itu, kalau kamu sedang mencentang beberapa project di tengah daftar, daftarnya tetap di tempatmu
 (project berikutnya naik ke bawah pointer). Dengan keyboard sorotannya ikut pindah bersama barisnya, fokus tetap di
 kotak pencarian, dan panah lanjut dari situ. Saat mencari, project terpilih yang cocok tetap di atas, dan yang
 dicentang langsung naik ke situ. Kalau perangkat diatur untuk mengurangi gerakan, barisnya langsung pindah tanpa
-animasi. **Select project later** / **Pilih proyek nanti** mengeluarkan task dari semua project untuk sementara.
+animasi. **Select project later** / **Pilih project nanti** mengeluarkan task dari semua project untuk sementara.
 
 **Estimate otomatis** (bertanda *auto*) diambil dari task serupa yang sudah selesai. Kalau belum ada, dari jam
 yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama
@@ -378,12 +378,12 @@ atau **n required fields missing**.
      atau lampirkan screenshot untuk menunjukkannya. Catatan dicentang saat sudah dikerjakan.
    - **Minta revisi** (reviewer, saat task di stage review) — sekali tekan, versi langsung
      dikembalikan dan task pindah ke stage **Revision**. Catatan yang belum selesai ikut terkirim ke
-     assignee dan diposting ke Comments sebagai satu pesan. Kalau belum ada catatan, kotak catatan
+     penanggung jawab dan diposting ke Comments sebagai satu pesan. Kalau belum ada catatan, kotak catatan
      langsung terbuka untuk menulisnya.
    - **Versi yang sudah disetujui** masih bisa dikembalikan lewat **Minta revisi** kalau ada
      perubahan mendadak — task dibuka lagi dan pindah ke stage revisi.
    - Semua perilaku ini bisa diatur di **Settings → Automation → Review & revision** (lihat di bawah).
-   - **Sudah direvisi → V2** (assignee) — kotak yang sama berubah menjadi versi berikutnya dengan
+   - **Sudah direvisi → V2** (penanggung jawab) — kotak yang sama berubah menjadi versi berikutnya dengan
      tautan yang sama (atau tautan baru). Simpan file versi lama di subfolder tautan itu. Versi
      baru belum masuk review: klik **Kirim untuk review** saat sudah siap, baru reviewer bisa
      menyetujui atau meminta revisi lagi.
@@ -413,7 +413,7 @@ Tautan yang diketik manual berubah dengan menekan **Tab**. Arahkan kursor ke chi
 **Balas** membuka kotak balasan tepat di bawah komentar itu — di utasnya, setelah balasan yang sudah ada,
 tempat balasannya nanti muncul — dengan @mention, lampiran, gambar yang di-paste, dan Enter untuk mengirim;
 **Esc** atau **Batal** menutupnya. Kotak di paling bawah tetap untuk komentar baru. Satu kotak balasan terbuka
-sekaligus; balasan yang belum dikirim tersimpan per komentar (tombolnya menjadi **Balas (draf)**). Sama di
+sekaligus; balasan yang belum dikirim tersimpan per komentar (tombolnya menjadi **Balas (draft)**). Sama di
 **Diskusi** project.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.
@@ -426,7 +426,7 @@ Dua panel: **BLOCKED BY** (prasyarat) dan **BLOCKING** (yang menunggu task ini).
 **All tasks**. Aturannya *Finish → Start*: task ini siap ketika semua prasyaratnya berada
 di stage tertutup. Sistem menolak dependensi ke diri sendiri, duplikat, dan rantai melingkar.
 
-Prasyarat yang jatuh temponya **setelah** task ini diberi badge **Schedule risk**.
+Prasyarat yang tenggatnya **setelah** tenggat task ini diberi badge **Schedule risk**.
 
 ### Footer
 
@@ -450,7 +450,7 @@ Panah kiri/kanan/atas/bawah berpindah antar ikon, Enter/Space memilih, Escape me
 Pilihannya **Left**, **Center**, atau **Right** (default Right). Ini **preferensi pribadi**.
 
 Mengubahnya tidak pernah mengganggu task yang sedang terbuka — tab, versi yang dilihat,
-draf brief, dan balasan komentar yang belum dikirim semuanya tetap utuh.
+draft brief, dan balasan komentar yang belum dikirim semuanya tetap utuh.
 Panel berpindah dengan cross-fade halus, bukan lompat.
 
 Ada dua tempat mengaturnya, dan keduanya selalu sinkron: menu gear di panel, dan
@@ -553,7 +553,7 @@ dihitung per jenis pekerjaan: 1 post feed = 1 poin, resize 0,25, reels 3, logo 5
 
 **Bonus efisiensi.** Kalau aktif, baris bonus tampil hanya untuk yang mendapat kredit, approver, dan pemegang izin
 analytics. Contohnya: "Estimated 8h · Actual 5h · Saved 3h · Base 8 pts · Efficiency Bonus +1,10 pts · Earned 9,10 pts
-· Pending/Approved". Bonus di-approve oleh orang yang tidak ikut mengerjakan task. Ini angka operasional, bukan gaji
+· Pending/Approved". Bonus disetujui oleh orang yang tidak ikut mengerjakan task. Ini angka operasional, bukan gaji
 atau ranking.
 
 
@@ -573,11 +573,11 @@ dipilih dan tombol panah (atau Home / End) memindahkannya.
 
 - **Seret chip ke hari lain** untuk menjadwal ulang — durasinya dipertahankan.
 - **Klik hari kosong** untuk membuat task pada tanggal itu.
-- **+n more** membuka daftar semua task yang jatuh tempo pada hari itu.
+- **+n more** membuka daftar semua task yang tenggatnya hari itu.
 - **Show labels / Hide labels** menampilkan atau menyembunyikan nama label pada chip.
 - Chip milestone (◆) dan deadline project (⚑) juga muncul dan mengarah ke project-nya.
 
-Di bawah kalender ada panel **Next 14 days** berisi setiap task terbuka yang jatuh tempo
+Di bawah kalender ada panel **Next 14 days** berisi setiap task belum selesai yang tenggatnya
 dalam dua minggu ke depan.
 
 Penanda centang pribadi tersedia di chip kalender, di sheet **+n more**, dan di agenda
@@ -600,7 +600,7 @@ Sepuluh tab:
 
 | Tab | Isinya |
 |---|---|
-| **Overview** | KPI (Open tasks / In review / Overdue / Remaining effort), **Description & objective**, slider **Progress**, **Milestones**, aset final, task terbuka, dan tim |
+| **Overview** | KPI (Open tasks / In review / Overdue / Remaining effort), **Description & objective**, slider **Progress**, **Milestones**, aset final, task belum selesai, dan tim |
 | **Board / List / Grid / Calendar / Timeline** | lima view task yang sama, dibatasi ke project ini |
 | **Assets** | panel **Final assets** dengan segmen **Done only / All tasks** |
 | **Files** | semua file dan versi di seluruh task project ini |
@@ -623,11 +623,11 @@ Satu kartu per tim dengan ikon, nama, deskripsi, statistik, bar utilisasi, dan c
 Panel **Workload by person** dan **Stakeholders** ada di bawahnya. Di samping jam tiap orang
 ada jumlah **aset yang dihasilkan** (total; arahkan kursor untuk yang sudah terkirim dan bulan ini). Aset
 dikreditkan ke orang yang mengunggah versinya; kalau sebuah task tidak punya versi, aset
-diperkirakan dari assignee dan angkanya diberi tanda \*.
+diestimasi dari penanggung jawab dan angkanya diberi tanda \*.
 
 **Bar Smart Scoring.** Kalau admin menyalakan Smart Scoring, di bawah bar utilisasi (jam) setiap kartu tim, di bawah
 bar beban kerja tiap orang, dan di halaman tim (di bawah kotak-kotak KPI) ada bar kecil untuk **4 minggu terakhir**:
-- **Story Points / Weighted Points / Poin aset** (hanya modul yang ON) — poin task yang jatuh tempo dalam 4 minggu
+- **Story Points / Weighted Points / Poin aset** (hanya modul yang ON) — poin task yang tenggatnya dalam 4 minggu
   terakhir (kecuali Declined) dibanding yang sudah selesai, misalnya `34 / 40 poin · 85%`. Task tanpa skor tidak
   dihitung dan disebut di keterangannya. Task yang dikerjakan beberapa orang dibagi rata per orang; poin aset
   mengikuti kredit aset masing-masing. Kalau tidak ada yang direncanakan, tertulis *tidak ada yang direncanakan dalam
@@ -650,7 +650,7 @@ KPI Utilization / Open tasks / In review / Overdue, lalu panel **Members** (deng
 
 ### Halaman anggota
 
-Foto (klik untuk mengganti), nama, jabatan, badge role dan tim, angka **Capacity** (jam/minggu),
+Foto (klik untuk mengganti), nama, jabatan, badge peran dan tim, angka **Capacity** (jam/minggu),
 serta KPI Utilization / Open tasks / To review / Overdue / **Assets produced** (total, dengan jumlah
 yang sudah terkirim dan bulan ini di bawahnya). Lead sebuah tim juga punya KPI **Aset tim**.
 
@@ -659,7 +659,7 @@ yang sudah terkirim dan bulan ini di bawahnya). Lead sebuah tim juga punya KPI *
 - Task dengan **satu orang**: satu angka **Aset dihasilkan**, seperti biasa.
 - Task dengan **lebih dari satu orang**: di bawah **Aset & versi**, setiap orang punya angkanya
   sendiri — berapa aset yang *dia* hasilkan, bukan total yang dibagi rata. **Total** task adalah
-  penjumlahannya. Selama belum diisi, angka yang tampil adalah perkiraan laporan (dari siapa yang
+  penjumlahannya. Selama belum diisi, angka yang tampil adalah estimasi laporan (dari siapa yang
   mengunggah versi, atau dibagi rata) dan ditandai begitu. Total tidak bisa diketik di tempat lain
   selama ada angka per orang.
 - Bagian ini terlipat jadi satu baris (siapa, berapa, total); klik untuk membukanya. Terbuka atau
@@ -670,7 +670,7 @@ yang sudah terkirim dan bulan ini di bawahnya). Lead sebuah tim juga punya KPI *
   angka yang diubah setelah divalidasi tampil sebagai *berubah sejak divalidasi* untuk disetujui lagi.
   Berlaku juga untuk task dengan **satu orang**: badge dan tombol ada di baris angkanya.
 - Tanpa angka per orang, laporan memberi kredit ke yang mengunggah versi; kalau tidak ada unggahan,
-  dibagi rata ke assignee dan ditandai `*` (perkiraan).
+  dibagi rata ke penanggung jawab dan ditandai `*` (estimasi).
 - **Settings → Teams → Aset dihasilkan, per orang** (yang mengelola workspace):
   - **Team lead ikut terhitung dari aset timnya** (default) — setiap orang tetap punya angkanya
     sendiri; lead tim (yang dipilih sebagai *Lead* di tim itu) juga mendapat angka **Tim**: yang
@@ -724,7 +724,7 @@ pin, **Edit**, dan hapus. Isi ditulis dalam Markdown:
 Request **bukan layar terpisah** — ia adalah task biasa dengan ciri khusus.
 
 Dari Home, tombol **Create ▾ → Request work** (*"Send unassigned work to the Inbox for triage."*)
-membuat task tanpa assignee, di stage pertama workflow, dengan tag `request` dan
+membuat task tanpa penanggung jawab, di stage pertama workflow, dengan tag `request` dan
 brief *General Creative Request*.
 
 Request masuk ke kartu Home **Inbox — new requests** untuk ditriase.
@@ -757,11 +757,11 @@ Studio untuk membuat visual berlabel brand.
   muncul di semua pilihan font AI Hub dan di editor template.
 - **Font lalu Gaya** — pilih keluarga font dulu (mis. Stolzl, atau font Google seperti Poppins), lalu
   gayanya (Thin, Light, Regular, Medium, Bold …). File font brand dikelompokkan otomatis dari namanya.
-- **Simpan sebagai template** (ikon bintang, untuk role yang diizinkan) — kanvas menjadi template
+- **Simpan sebagai template** (ikon bintang, untuk peran yang diizinkan) — kanvas menjadi template
   untuk semua orang. Template yang dibuka bisa diubah di kanvas lalu di-**Update**, disimpan
   sebagai template baru, atau dihapus (pembuatnya dan admin).
 - **Visual brief** — deskripsi visual yang kamu inginkan
-- **Specific generation prompt** — opsional, prompt persis untuk generasi ini
+- **Specific generation prompt** — opsional, prompt persis untuk hasil generate ini
 - **Visual style** — Editorial photography, Product photography, Cinematic, Minimal, 3D,
   Illustration, Flat illustration, Collage, atau Custom
 - **Advanced generation** — **Reference image**, **AI image generation model**
@@ -934,7 +934,7 @@ Everything in the period / Open tasks only / Completed tasks only.
   Slide sampul selalu ikut.
 - XLSX: Summary, Tasks, Task assets, Projects, Teams, Workload, Weekly, Pipeline, Asset library.
   Sheet **Workload** memuat **Assets produced**, **Assets delivered** (task selesai), dan
-  **Asset credit** (diisi per orang, dari unggahan versi, atau perkiraan dari assignee) untuk tiap
+  **Asset credit** (diisi per orang, dari unggahan versi, atau estimasi dari penanggung jawab) untuk tiap
   orang, plus **Team assets (as lead)** untuk lead tim bila pengaturannya aktif. Slide
   **Workload by person** menulis jumlah aset di bawah nama, dan **Performance by person**
   menampilkannya sebagai salah satu angka.
@@ -1050,5 +1050,5 @@ Daftar lengkap ada di tombol bantuan pintasan di dalam AI Hub.
 
 ---
 
-*Kalau ada yang tidak sesuai dengan yang kamu lihat di layar, kemungkinan role kamu
+*Kalau ada yang tidak sesuai dengan yang kamu lihat di layar, kemungkinan peranmu
 tidak memiliki izin untuk fitur itu — tanyakan ke administrator workspace.*

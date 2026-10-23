@@ -325,7 +325,7 @@ Object.assign(UI_ID,{
   "Optional":"Opsional",
   "Reading the name from Google Drive…":"Membaca nama dari Google Drive…",
   "Reading the name…":"Membaca nama…",
-  "The name could not be read — the link is probably private. It will show as":"Nama tidak terbaca — link-nya kemungkinan privat. Akan tampil sebagai",
+  "The name could not be read — the link is probably private. It will show as":"Nama tidak terbaca — tautannya kemungkinan privat. Akan tampil sebagai",
   "The name could not be read — the link is probably not shared with anyone who has it. It will show as":"Namanya tidak bisa dibaca — kemungkinan tautan tidak dibagikan ke siapa pun yang memilikinya. Akan tampil sebagai",
   "The asset library is empty":"Pustaka aset masih kosong",
   "Use a Google Drive, Docs, Sheets, or Slides share link":"Gunakan tautan berbagi Google Drive, Docs, Sheets, atau Slides"

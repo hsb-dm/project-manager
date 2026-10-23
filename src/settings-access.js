@@ -53,7 +53,7 @@ Object.assign(UI_ID,{
   "Turn all on":"Nyalakan semua","Set which events the workspace sends, in the app and by e-mail":"Mengatur event yang dikirim workspace, di aplikasi dan lewat email","Saved":"Tersimpan","Turn all off":"Matikan semua",
   "Set up e-mail delivery (SMTP), see the delivery log":"Mengatur pengiriman email (SMTP), melihat log pengiriman",
   "Connect and set up cloud storage (Google Drive)":"Menghubungkan dan mengatur cloud storage (Google Drive)",
-  "See, create, verify and restore backups":"Melihat, membuat, memeriksa, dan memulihkan backup","Submit a request (a task in the first stage, unassigned) for the creative team to triage":"Mengajukan permintaan (task di tahap pertama, tanpa penanggung jawab) untuk disortir tim kreatif",
+  "See, create, verify and restore backups":"Melihat, membuat, memeriksa, dan memulihkan cadangan","Submit a request (a task in the first stage, unassigned) for the creative team to triage":"Mengajukan permintaan (task di tahap pertama, tanpa penanggung jawab) untuk disortir tim kreatif",
   "Open AI Hub and generate visuals":"Membuka AI Hub dan membuat visual","Browse the shared AI Gallery":"Menjelajah AI Gallery bersama","Publish their own designs to the AI Gallery":"Menerbitkan desain sendiri ke AI Gallery",
   "Duplicate someone else's gallery design":"Menduplikat desain galeri milik orang lain","Rename, archive and delete their own designs":"Mengganti nama, mengarsipkan, dan menghapus desain sendiri","Manage any member's gallery design":"Mengelola desain galeri anggota mana pun"
 });

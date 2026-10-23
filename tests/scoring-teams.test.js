@@ -169,7 +169,7 @@ test('every word the Teams bars and their setting show has its Indonesian, with 
   const missing = [...literals].filter(x => !(x in c.UI_ID));
   assert.deepEqual(missing, [], 'no Indonesian for: ' + missing.join(' | '));
   for (const x of literals) assert.equal(marks(c.UI_ID[x]), marks(x), 'the placeholders differ: ' + x);
-  for (const x of literals) if (/[a-z]{4}/.test(x) && !/^(Smart Scoring|Story Points)$/.test(x)) assert.notEqual(c.UI_ID[x], x, 'not translated: ' + x);
+  for (const x of literals) if (/[a-z]{4}/.test(x) && !/^(Smart Scoring|Story Points|Weighted Points|Effort Hours)$/.test(x)) assert.notEqual(c.UI_ID[x], x, 'not translated: ' + x);
 });
 
 /* Fast on a few thousand tasks: the route's queries, in this process, on a database made from db/schema.sql */

@@ -66,14 +66,14 @@ function annSendNow(){ var b=document.getElementById("annGo"); if(b) b.disabled=
 Object.assign(UI_ID,{
   "Announcement email":"Email pengumuman","Send announcement emails to every member":"Mengirim email pengumuman ke semua anggota",
   "An e-mail to everyone in the workspace — a new feature, a change in how the team works, planned downtime. It is sent from the e-mail settings below.":"Email ke semua orang di workspace — fitur baru, perubahan cara kerja tim, jadwal pemeliharaan. Dikirim lewat pengaturan email di bawah.",
-  "Subject":"Subjek","Message":"Pesan","Link (optional)":"Link (opsional)","e.g. New: discussions on every project":"mis. Baru: diskusi di setiap project","What changed, and what people should do about it":"Apa yang berubah, dan apa yang perlu dilakukan",
-  "The e-mail's button opens it; without one, the button opens ZenCrevia.":"Tombol di email membuka link ini; tanpa link, tombolnya membuka ZenCrevia.",
+  "Subject":"Subjek","Message":"Pesan","Link (optional)":"Tautan (opsional)","e.g. New: discussions on every project":"mis. Baru: diskusi di setiap project","What changed, and what people should do about it":"Apa yang berubah, dan apa yang perlu dilakukan",
+  "The e-mail's button opens it; without one, the button opens ZenCrevia.":"Tombol di email membuka tautan ini; tanpa tautan, tombolnya membuka ZenCrevia.",
   "Also send to stakeholders ({n})":"Kirim juga ke stakeholder ({n})","Counting who it goes to…":"Menghitung penerima…","It goes to {n} person.":"Dikirim ke {n} orang.","It goes to {n} people.":"Dikirim ke {n} orang.",
   "to everyone":"ke semua orang","to everyone, with stakeholders":"ke semua orang, termasuk stakeholder","to {n} person chosen":"ke {n} orang terpilih","to {n} people chosen":"ke {n} orang terpilih",
   "Recipients":"Penerima","Everyone":"Semua orang","Choose people":"Pilih orang","Select all":"Pilih semua","Select all found":"Pilih semua yang ditemukan","Search people":"Cari orang","{n} selected":"{n} dipilih","No one matches":"Tidak ada yang cocok","stakeholder":"stakeholder",
   "Send to {n} person":"Kirim ke {n} orang","Send to {n} people":"Kirim ke {n} orang","Send to the people chosen?":"Kirim ke orang yang dipilih?","and {n} more":"dan {n} lainnya","Choose at least one person":"Pilih minimal satu orang","Sending to {n} person…":"Mengirim ke {n} orang…","Sent before":"Terkirim sebelumnya","Send a test to me":"Kirim tes ke saya","Send to everyone":"Kirim ke semua","Send to everyone?":"Kirim ke semua?","Send":"Kirim",
   "This e-mail goes to {n} person. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.","This e-mail goes to {n} people. It cannot be called back once sent.":"Email ini dikirim ke {n} orang. Tidak bisa ditarik kembali setelah terkirim.",
   "Test sent to {to}":"Tes terkirim ke {to}","Sending to {n} people…":"Mengirim ke {n} orang…","Sending…":"Mengirim…","Sent to {n}":"Terkirim ke {n}","{n} failed":"{n} gagal",
-  "Write a subject":"Tulis subjeknya","Write a message":"Tulis pesannya","The link must start with https://":"Link harus diawali https://"
+  "Write a subject":"Tulis subjeknya","Write a message":"Tulis pesannya","The link must start with https://":"Tautan harus diawali https://"
 });
 </script>

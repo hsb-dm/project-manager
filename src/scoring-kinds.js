@@ -392,7 +392,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
   "Kind of work removed: read from the title again":"Jenis pekerjaan dihapus: dibaca dari judul lagi",
   "Find a kind":"Cari jenis","A name or a word":"Nama atau kata","New kind of work":"Jenis pekerjaan baru","No words yet":"Belum ada kata","View":"Lihat",
   "Low, high and each next":"Terendah, tertinggi, dan tiap berikutnya","No kind of work has “{q}” in its name or words.":"Tidak ada jenis pekerjaan dengan “{q}” di nama atau katanya.",
-  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
+  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"kustom","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
   /* several kinds of work in one task */
   "Kind of work":"Jenis pekerjaan","Several kinds…":"Beberapa jenis…","Mixed":"Campuran","{n} kinds":"{n} jenis","Several kinds of work":"Beberapa jenis pekerjaan",
   "Each kind with how many of it; the hours add up.":"Tiap jenis dengan jumlahnya; jamnya dijumlahkan.","Choose a kind":"Pilih jenis","Kind of work {n}":"Jenis pekerjaan {n}","this kind":"jenis ini",

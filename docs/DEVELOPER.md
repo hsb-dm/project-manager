@@ -72,7 +72,7 @@ Stack:
 ```
 build.js                  concatenator: src/* -> public/index.html + dist/*.html (+ public/assets/)
 build-strip.js            membuang komentar JS/CSS dari src/ saat build (tests/build-strip.test.js)
-build-i18n.js             mengeluarkan kamus UI_ID dari kode ke i18n-id.<hash>.json (tests/build-split.test.js)
+build-i18n.js             mengeluarkan kamus UI_ID dari kode ke i18n-id.<hash>.json (tests/build-split.test.js); build berhenti bila satu English punya dua kata Indonesia (tests/i18n-conflicts.test.js)
 package.json              scripts, engines (node >= 22.13), zero deps
 .env.example              seluruh environment variable
 db/schema.sql             seluruh CREATE TABLE (dieksekusi tiap boot, idempotent)
@@ -448,7 +448,9 @@ Yang penting untuk diketahui:
 
 1. Bungkus literal English dengan `tr("…")` di titik pakai (`esc(tr(...))` untuk teks,
    `attr(tr(...))` untuk atribut).
-2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`.
+2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`, dengan istilah
+   dari **`docs/GLOSSARY-ID.md`** (task, project, workspace, brand, template, file, password, review, tenggat, kamu, …).
+   Kalau English yang sama sudah ada di blok lain, pakai kata yang persis sama.
 3. Kalau string itu konten user yang **tidak boleh** diterjemahkan, beri `data-no-translate`.
 4. `node build.js`.
 
@@ -462,7 +464,15 @@ kuncinya; `var SC_T=(function(t){…})({…})` yang nilainya tetap dipakai, menj
 urutan halaman, lalu menulis hasilnya ke `i18n-id.<hash>.json` dan mengganti blok di bundle dengan `void 0`.
 Aturannya: blok harus jalan saat load — di level atas file, atau di level fungsi modul `(function(){ … })()` —
 dan selain itu tidak boleh ada yang menulis `UI_ID`; kalau tidak, build berhenti dengan pesan yang menunjuk tempatnya.
-Kunci yang diberi kata berbeda oleh dua blok: `node build.js --i18n-conflicts` (halaman tetap memakai yang dipakainya dulu).
+**Satu English, satu Indonesia (Oktober 2026).** Kunci yang diberi kata berbeda oleh dua blok, atau dua kali dalam satu
+objek, dulu diselesaikan diam-diam (halaman memakai salah satunya); 224 kunci seperti itu sudah diseragamkan ke
+`docs/GLOSSARY-ID.md`, dan sekarang `node build.js` **berhenti** tanpa menulis apa pun bila ada yang baru, dengan pesan
+yang menyebut kuncinya, tiap file dengan katanya, dan cara memperbaikinya (`build.js checkI18n`,
+`build-i18n.js conflicts`/`conflictMessage`). `node build.js --i18n-conflicts` mendaftar semuanya.
+`tests/i18n-conflicts.test.js` menjaga ini, dan juga gagal bila kata yang diganti glosarium (*proyek*, *tugas*,
+*ruang kerja*, *merek*, *templat*, *berkas*, *kata sandi*, *tinjau*, *jatuh tempo*, *Anda*, …) muncul lagi di kamus.
+Blok boleh mengulang kunci file lain (dengan kata yang sama) bila modulnya dimuat sendiri oleh test; dalam satu file
+cukup sekali.
 
 Di runtime (`src/core.js ZC_I18N`, `src/i18n.js zcI18n…`): halaman berbahasa Inggris tidak pernah memintanya. Script
 awal di `<head>` memintanya bersamaan dengan session dan workspace bila browser ini menampilkan Indonesia
@@ -1058,6 +1068,7 @@ npm test    # node --no-warnings --test tests/*.test.js
 | `audit.test.js` | integritas data end-to-end: db + seed + serialize + analytics |
 | `gallery.test.js` | `server/gallery` + `shared/gallery-model` di SQLite `:memory:`; ownership, permission, pagination, penolakan gambar tak aman, prototype key |
 | `i18n.test.js` | round-trip EN→ID→EN dan protected content |
+| `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
 | `security.test.js` | postur production (`NODE_ENV=production`, secret di-set) |
 | `server-security-integration.test.js` | **spawn server sungguhan** dan cek startup aman, auth, backup |
@@ -1266,7 +1277,7 @@ All phone, tablet and wide-desktop layout rules live in **one file**, `src/respo
 
 ## Indonesian terminology & colour accessibility (v39)
 
-- **"Task", not "tugas".** Indonesian UI text is normalised by `idTerms()` (core.js) at every exit point — `tr()`, `localizeVisibleText()` (via `_idt()` in i18n.js), dynamic count text, the tutorial (`wqL`) and AI replies (`L()` in ai.js). Dictionary entries may still say "tugas"; they render as "Task/task". User-authored content is never touched.
+- **"Task", not "tugas".** Indonesian UI text is normalised by `idTerms()` (core.js) at every exit point — `tr()`, `localizeVisibleText()` (via `_idt()` in i18n.js), dynamic count text, the tutorial (`wqL`) and AI replies (`L()` in ai.js). User-authored content is never touched. Since October 2026 the dictionary itself says "task" and "project" (and follows `docs/GLOSSARY-ID.md` throughout), so `idTerms()` is only a safety net; `tests/i18n-conflicts.test.js` fails if "tugas" or "proyek" come back.
 - **Dark theme accent.** `applyTheme()` lightens a dark accent in dark mode (`mixHex`, ~42 % towards white) and picks the text-on-accent colour by real WCAG contrast (`inkByContrast`). Text on the accent must use `var(--color-primary-ink)`, never a hard-coded `#fff`.
 - **The accent as text where something is chosen** (Oct 2026) uses `var(--color-primary-text)`, not `var(--color-primary)`: a picker's chosen names and their ✓ (`.ep-row.chosen`, `.ep-check`: projects, assignees, reviewers), the kind of work dropdown's chosen row and its Auto/Mixed mark, the pill-selects' menu (chosen and hovered option), the availability menu's current state. The token is the primary itself in light (computed styles identical) and `color-mix(in srgb, primary 60%, #fff)` in dark, where the dark primary on its soft highlight was only 4.6–4.8:1 (3.1:1 with the Ink accent); now 7.2–10:1 with the workspace accent and at least 6.3:1 with every preset accent. Icons alone (the gear menu's panel position, the tag picker's ✓, checkboxes) keep the primary: they need 3:1 and have at least 3.2:1. `e2e/dark-selected-contrast.spec.js` measures it.
 - **Status colours as text** use text-safe shades defined in the *Accessibility* section at the end of `src/responsive.css`; the `--color-success/warning/danger` tokens remain for fills, bars and charts.

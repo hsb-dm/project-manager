@@ -272,7 +272,7 @@ test("the labels are in Indonesian when the app is", async ({ page }) => {
   await page.evaluate(() => { UI_LANG = "id"; });
   await page.evaluate(id => { openTask(id); renderDrawer(); }, taskId);
   await expect(page.locator(".tab-expand")).toHaveText("Perbesar");
-  /* not "Buka", which is what tr("Expand") gives — a different word for a different thing */
+  /* not "Perluas", which is what tr("Expand") gives (AI Hub's Expand) — a different word for a different thing */
   await page.locator(".tab-expand").click();
   await expect(page.locator(".tab-expand")).toHaveText("Perkecil");
   await expect(page.locator(".tab-expand")).toHaveAttribute("title", "Tampilkan lagi detail task");

@@ -205,8 +205,8 @@ function refInsertRef(w,kind,id,label){
 })();
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
-  "Mention someone":"Sebut seseorang","Insert a task":"Sisipkan task","Insert a project":"Sisipkan proyek","Not available":"Tidak tersedia",
-  "Find a task…":"Cari task…","Find a project…":"Cari proyek…","Mention":"Sebut",
-  "Type @ to mention someone. A task or a project goes in as a chip:":"Ketik @ untuk menyebut seseorang. Task atau proyek masuk sebagai chip:"
+  "Mention someone":"Sebut seseorang","Insert a task":"Sisipkan task","Insert a project":"Sisipkan project","Not available":"Tidak tersedia",
+  "Find a task…":"Cari task…","Find a project…":"Cari project…","Mention":"Mention",
+  "Type @ to mention someone. A task or a project goes in as a chip:":"Ketik @ untuk menyebut seseorang. Task atau project masuk sebagai chip:"
 });
 </script>

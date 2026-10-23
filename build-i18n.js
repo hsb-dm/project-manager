@@ -19,9 +19,10 @@
 //
 // What they add up to is found by running them, in the page's order, in a sandbox that holds UI_ID and the shared
 // code (ScoringEngine, for the sentences): the page's own semantics, whichever rule each block follows, and the keys
-// in the page's order. A key given different words by two blocks is a conflict: the page keeps what the last
-// Object.assign, or the first block that only adds, gave it, and so does the sandbox; conflicts() lists them
-// (node build.js --i18n-conflicts).
+// in the page's order. A key given different words by two blocks, or twice in one object literal, is a conflict: the
+// page would keep what the last Object.assign, or the first block that only adds, gave it, and silently drop the rest.
+// conflicts() lists them; build.js stops on any (Oct 2026: the 224 there were are settled to the terms of
+// docs/GLOSSARY-ID.md), and node build.js --i18n-conflicts lists them all.
 "use strict";
 const vm = require("vm");
 const { stripJs } = require("./build-strip");
@@ -83,8 +84,8 @@ function writesAt(T, k) {
 
 const SMALL = 600;   /* the body of a function that only fills UI_ID: a module doing more than that is never taken for one */
 // the dictionary statements of one script: [{ kind, name, from, to (character offsets) }]
-function statements(src, file) {
-  const T = tokens(src), found = [];
+function statements(src, file, given) {
+  const T = given || tokens(src), found = [];
   const taken = k => found.some(s => k >= s.a && k <= s.b);
   for (const tok of T) {
     if (!isName(tok, "UI_ID") || taken(tok.k)) continue;
@@ -145,6 +146,33 @@ function runWith(ctx, text, src, at, file) {
     }
   }
 }
+// a string literal's value: most are JSON already; the rest ('...', \x..) are read by one shared sandbox
+let literalCtx = null;
+function literal(text) {
+  if (text.charAt(0) === '"') try { return JSON.parse(text); } catch (e) { /* a JavaScript-only escape */ }
+  return vm.runInContext(text, literalCtx || (literalCtx = vm.createContext({})));
+}
+// The keys one object literal of a block gives twice ("Save":"Simpan", … "Save":"Simpan dulu"): the language keeps the
+// second without a word, and the sandbox never sees the first. [{ key, values }] for every key written twice or more
+// with different words; T: the script's tokens, from/to: the block's characters.
+function givenTwice(T, code, from, to) {
+  const seen = new Map();   /* "<object>\u0001<key>" -> [values] */
+  let lo = 0, hi = T.length;   /* the block's first token: they are in the order of the text */
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (T[mid].at < from) lo = mid + 1; else hi = mid; }
+  for (let i = lo; i < T.length && T[i].at < to; i++) {
+    const tok = T[i];
+    if (tok.t !== "str" && tok.t !== "name") continue;
+    const p = T[tok.k - 1], c = T[tok.k + 1], v = T[tok.k + 2], n = T[tok.k + 3];
+    if (!p || !(isOpen(p, "{") || isP(p, ",")) || !isP(c, ":") || !v || v.t !== "str" || !n || !(isP(n, ",") || n.t === "close")) continue;
+    if (tok.parent < 0 || T[tok.parent].v !== "{") continue;
+    const key = tok.t === "str" ? literal(code.slice(tok.at, tok.v)) : tok.v, value = literal(code.slice(v.at, v.v));
+    const id = tok.parent + "\u0001" + key, l = seen.get(id) || [];
+    l.push(value); seen.set(id, l);
+  }
+  const out = [];
+  for (const [id, values] of seen) if (new Set(values).size > 1) out.push({ key: id.slice(id.indexOf("\u0001") + 1), values });
+  return out;
+}
 // strings, numbers, booleans, null, arrays and plain objects only
 function plain(v) {
   if (v === null || typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && isFinite(v))) return true;
@@ -161,10 +189,12 @@ function extract(blocks, shared) {
   vm.runInContext("var UI_ID;", ctx);
   const proposals = new Map();   /* key -> [{ file, value }], every block that gives it words */
   const propose = (file, obj) => { Object.keys(obj).forEach(k => { const l = proposals.get(k) || []; l.push({ file, value: obj[k] }); proposals.set(k, l); }); };
+  const twice = [];   /* [{ file, key, values }]: a key one object literal gives twice, with different words */
   const out = blocks.map(b => {
-    const list = statements(b.code, b.file);
+    const T = tokens(b.code), list = statements(b.code, b.file, T);
     let code = b.code;
     for (const s of list) {
+      givenTwice(T, b.code, s.from, s.to).forEach(x => twice.push({ file: b.file, key: x.key, values: x.values }));
       const text = b.code.slice(s.from, s.to);
       /* what it gives words to, on its own */
       const alone = runWith(ctx, "(function(UI_ID){ var __v=(" + text + "); return { add: UI_ID, value: __v }; })(" + (s.kind === "var" ? "undefined" : "{}") + ")", b.code, s.from, b.file);
@@ -185,12 +215,21 @@ function extract(blocks, shared) {
   if (!dict || typeof dict !== "object") throw new Error("build-i18n.js: no var UI_ID={...} found");
   if (Object.prototype.hasOwnProperty.call(dict, "__proto__")) throw new Error("build-i18n.js: a UI_ID key may not be __proto__");
   const json = JSON.stringify(dict);
-  return { blocks: out, dict: JSON.parse(json), json, proposals, statements: out.reduce((a, b) => a + b.taken, 0), files: new Set(out.filter(b => b.taken).map(b => b.file)).size };
+  return { blocks: out, dict: JSON.parse(json), json, proposals, twice, statements: out.reduce((a, b) => a + b.taken, 0), files: new Set(out.filter(b => b.taken).map(b => b.file)).size };
 }
-// keys given different words by more than one block: what each file gave, and what the page keeps
+// keys given different words by more than one block, or twice in one: what each file gave, and what the page keeps.
+// The build stops on any (build.js): one English text has one Indonesian wording, the one docs/GLOSSARY-ID.md gives.
 function conflicts(result) {
   const list = [];
   for (const [key, l] of result.proposals) if (new Set(l.map(x => x.value)).size > 1) list.push({ key, kept: result.dict[key], given: l });
+  for (const t of result.twice || []) list.push({ key: t.key, kept: t.values[t.values.length - 1], given: t.values.map(value => ({ file: t.file + " (twice in one block)", value })), twice: true });
   return list;
 }
-module.exports = { extract, conflicts, statements, tokens };
+// the message the build stops with: what clashes, and how to settle it
+function conflictMessage(list, more) {
+  const show = list.slice(0, more || 8).map(c => "  " + JSON.stringify(c.key) + "\n" + c.given.map(g => "      " + g.file + ": " + JSON.stringify(g.value)).join("\n")).join("\n");
+  return "build.js: " + list.length + " English text" + (list.length === 1 ? " has" : "s have") + " different Indonesian words in the UI_ID blocks, so the page would show one of them and the other block would be ignored:\n"
+    + show + (list.length > (more || 8) ? "\n  … and " + (list.length - (more || 8)) + " more (node build.js --i18n-conflicts lists them all)" : "") + "\n"
+    + "Fix: give the English text the same Indonesian words in every block that has it (docs/GLOSSARY-ID.md has the standard terms), or keep it in one block only. Never change the English: it is the key.";
+}
+module.exports = { extract, conflicts, conflictMessage, statements, tokens };

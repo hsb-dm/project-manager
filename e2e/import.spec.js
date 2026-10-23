@@ -160,7 +160,7 @@ test("the import screen speaks Indonesian too", async ({ page }) => {
   await importFile(page, snapshot);
   await expect(page.locator("#modal")).toContainText("Impor snapshot");
   await expect(page.locator("#modal")).toContainText("Pertahankan yang ada dan lewati");
-  await expect(page.locator("#modal")).toContainText("Setelan & preset AI");
+  await expect(page.locator("#modal")).toContainText("Pengaturan & preset AI");
   await page.evaluate(() => { closeModal(); setLanguage("en"); });
 });
 
