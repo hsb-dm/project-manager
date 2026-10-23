@@ -74,7 +74,7 @@ Object.assign(UI_ID,{
   "Deactivate":"Nonaktifkan","Reactivate":"Aktifkan lagi",
   "Member reactivated":"Anggota diaktifkan lagi",
   "Member deactivated — sign-in blocked, work kept":"Anggota dinonaktifkan — tidak bisa masuk, pekerjaannya tetap ada",
-  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Task, komentar, dan riwayatnya tetap utuh. Anda bisa mengaktifkannya lagi kapan saja.",
+  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Task, komentar, dan riwayatnya tetap utuh. Kamu bisa mengaktifkannya lagi kapan saja.",
   "Allow this member to sign in again":"Izinkan anggota ini masuk lagi",
   "Block sign-in but keep their work and history":"Blokir akses masuk tanpa menghapus pekerjaan dan riwayat",
   "The server sets this schedule through COS_BACKUP_INTERVAL_HOURS":"Jadwal ini diatur server lewat COS_BACKUP_INTERVAL_HOURS",
@@ -160,8 +160,8 @@ window.addEventListener("load",function(){ setTimeout(function(){
 },1200); });
 Object.assign(UI_ID,{
   "Forgot password?":"Lupa password?","Reset your password":"Atur ulang password",
-  "Enter the email you sign in with. We will send you a link to choose a new password.":"Masukkan email yang Anda pakai untuk masuk. Kami akan mengirim tautan untuk membuat password baru.",
-  "Send reset link":"Kirim tautan reset","Back to sign in":"Kembali ke halaman masuk","Check your email":"Cek email Anda",
+  "Enter the email you sign in with. We will send you a link to choose a new password.":"Masukkan email yang kamu pakai untuk masuk. Kami akan mengirim tautan untuk membuat password baru.",
+  "Send reset link":"Kirim tautan reset","Back to sign in":"Kembali ke halaman masuk","Check your email":"Cek email kamu",
   "If that address belongs to an active account, a reset link is on its way. Check your inbox and spam folder.":"Jika alamat itu terdaftar di akun aktif, tautan reset sedang dikirim. Cek kotak masuk dan folder spam.",
   "The link works once and expires in":"Tautan hanya bisa dipakai sekali dan berlaku","minutes.":"menit.",
   "Choose a new password":"Buat password baru","At least 8 characters. A short sentence is easier to remember than random symbols.":"Minimal 8 karakter. Kalimat pendek lebih mudah diingat daripada simbol acak.",
@@ -252,16 +252,16 @@ Object.assign(UI_ID,{
      parts — its font list and how task cards are coloured — are drawn for admins only (settings.js) */
   setThemeTab=function(){ var h=base.apply(this,arguments); if(canI.manageWorkspace()) return h;
     return '<div class="banner" role="note" style="margin-bottom:12px">'+tr("Your look is personal: only your account changes.")+'</div>'+h; };
-  Object.assign(UI_ID,{"Only workspace admins can change the theme. Your own light/dark preference is in the top bar.":"Hanya admin workspace yang bisa mengubah tema. Preferensi terang/gelap pribadi Anda ada di bilah atas."});
+  Object.assign(UI_ID,{"Only workspace admins can change the theme. Your own light/dark preference is in the top bar.":"Hanya admin workspace yang bisa mengubah tema. Preferensi terang/gelap pribadimu ada di bilah atas."});
 })();
 </script>
 <script>
 /* ---------- v31: connection state, friendly network errors, dialogs ---------- */
-Object.assign(UI_ID,{"Can't reach the ZenCrevia server":"Server ZenCrevia tidak dapat dihubungi","Check your connection. Nothing has been lost; the app will try again automatically.":"Periksa koneksi Anda. Tidak ada yang hilang; aplikasi akan mencoba lagi otomatis.","Try again now":"Coba lagi sekarang","Retrying in":"Mencoba lagi dalam",
+Object.assign(UI_ID,{"Can't reach the ZenCrevia server":"Server ZenCrevia tidak dapat dihubungi","Check your connection. Nothing has been lost; the app will try again automatically.":"Periksa koneksimu. Tidak ada yang hilang; aplikasi akan mencoba lagi otomatis.","Try again now":"Coba lagi sekarang","Retrying in":"Mencoba lagi dalam",
   "Offline — changes will not be saved":"Offline — perubahan tidak tersimpan","Reconnecting…":"Menghubungkan ulang…",
-  "No connection. Your change was not saved — try again when you are back online.":"Tidak ada koneksi. Perubahan Anda tidak tersimpan — coba lagi saat kembali online.",
-  "The server did not respond. Your change was not saved.":"Server tidak merespons. Perubahan Anda tidak tersimpan.",
-  "Your session has ended. Sign in again.":"Sesi Anda sudah berakhir. Silakan masuk lagi.",
+  "No connection. Your change was not saved — try again when you are back online.":"Tidak ada koneksi. Perubahanmu tidak tersimpan — coba lagi saat kembali online.",
+  "The server did not respond. Your change was not saved.":"Server tidak merespons. Perubahanmu tidak tersimpan.",
+  "Your session has ended. Sign in again.":"Sesi kamu sudah berakhir. Silakan masuk lagi.",
   "Notifications for this conversation":"Notifikasi untuk percakapan ini"});
 /* 1. The status pill said "Connected" while the browser was offline. */
 (function(){

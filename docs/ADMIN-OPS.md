@@ -29,7 +29,7 @@
 ## 1. Peta layar Settings
 
 Tujuh belas tab, dalam urutan tampil. Header menampilkan badge **read-only for your role**
-kalau Anda tidak punya `manage_workspace`.
+kalau kamu tidak punya `manage_workspace`.
 
 | # | Tab | Yang diatur | Izin |
 |---|---|---|---|
@@ -160,7 +160,7 @@ sebelum v16 tetap bekerja: siapa pun yang punya `upload_file` **atau** `manage_a
 bisa melihat, menerbitkan, dan menduplikasi desain — meskipun capability AI Gallery-nya
 belum dicentang.
 
-Kalau Anda ingin membatasi AI Gallery secara ketat, kedua capability lama itu juga harus dicabut.
+Kalau kamu ingin membatasi AI Gallery secara ketat, kedua capability lama itu juga harus dicabut.
 
 ---
 
@@ -251,7 +251,7 @@ password dari **Members → ikon gembok**.
 
 **Deactivate** memblokir login dan mengakhiri sesi, tapi task, komentar, dan riwayat
 tetap atas nama orang itu. **Reactivate** memulihkannya. Pakai ini untuk karyawan cuti
-atau keluar; **Remove** memindahkan task-nya kepada Anda dan tidak bisa dibatalkan.
+atau keluar; **Remove** memindahkan task-nya ke kamu dan tidak bisa dibatalkan.
 
 ### Menambah orang
 
@@ -278,7 +278,7 @@ Baris anggota → reset. Password baru minimal 8 karakter.
 ### Menghapus anggota
 
 Task dan project-nya dialihkan ke admin yang melakukan penghapusan, keanggotaan tim dan
-project dihapus, dan akunnya tidak bisa masuk lagi. Anda tidak bisa menghapus diri Anda sendiri.
+project dihapus, dan akunnya tidak bisa masuk lagi. Kamu tidak bisa menghapus dirimu sendiri.
 
 > **Deaktivasi vs hapus.** Route deaktivasi berfungsi dan badge `deactivated` sudah dirender,
 > tapi **belum ada tombolnya di UI Members** — satu-satunya aksi yang tersedia adalah hapus.
@@ -573,10 +573,10 @@ mengembalikan nilai yang tersimpan; keluar dari Settings dengan perubahan yang b
    sebagai cadangan.
 4. Atur angka-angkanya lewat **Atur →** di kartu modul atau menu kiri: jenis pekerjaan (di bawah) dengan jam dan poin
    asetnya, pengali kompleksitas dan dependency, ambang Story Points, bobot faktor (harus total 100% — kalau tidak,
-   Simpan membawa Anda ke bobot yang salah), dan kebijakan AI serta perubahan manual. Lalu **Simpan** di bar bawah.
+   Simpan membawamu ke bobot yang salah), dan kebijakan AI serta perubahan manual. Lalu **Simpan** di bar bawah.
 
-Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpanan Anda ditolak, versi mereka dimuat,
-dan Anda diminta mengulang perubahan. Riwayat 20 perubahan terakhir ada di kelompok **Riwayat**.
+Setiap simpan diberi nomor versi. Kalau orang lain menyimpan lebih dulu, simpananmu ditolak, versi mereka dimuat,
+dan kamu diminta mengulang perubahan. Riwayat 20 perubahan terakhir ada di kelompok **Riwayat**.
 
 ### Jenis pekerjaan (Oktober 2026)
 
@@ -785,7 +785,7 @@ Saat mati, ZenCrevia memakai transport yang dikonfigurasi di server.
 | Zoho | `smtp.zoho.com` | 587 | Aktifkan akses IMAP/SMTP di konsol admin Zoho dulu |
 | Custom SMTP | — | 587 | |
 
-Memilih preset **tidak menimpa** kredensial atau sender yang sudah Anda ketik.
+Memilih preset **tidak menimpa** kredensial atau sender yang sudah kamu ketik.
 
 ### Test koneksi vs test kirim
 
@@ -861,7 +861,7 @@ Badge integritas:
 
 ### Restore lewat UI — jalur yang aman
 
-Anda harus mengetik nama file backup untuk mengonfirmasi. Urutannya:
+Kamu harus mengetik nama file backup untuk mengonfirmasi. Urutannya:
 
 1. Checksum diperiksa lebih dulu. **Backup yang rusak tidak pernah diterapkan.**
 2. **Safety backup** dari database yang sedang berjalan dibuat. Kalau langkah ini gagal,
@@ -1261,8 +1261,8 @@ Tiga kemungkinan, semuanya tercatat di audit trail:
 
 Dalam ketiga kasus, safety copy `pre-restore` tetap ada dan kebal terhadap pruning.
 
-Kalau Anda melihat pesan *"Set COS_CONFIRM_RESTORE=YES before restoring a backup"*,
-Anda sedang di jalur **CLI**, bukan UI.
+Kalau kamu melihat pesan *"Set COS_CONFIRM_RESTORE=YES before restoring a backup"*,
+kamu sedang di jalur **CLI**, bukan UI.
 
 ### Test SMTP gagal
 
@@ -1308,7 +1308,7 @@ yang sedang login tetap memakai data lama sampai mereka reload.
 ## 14. Batasan yang perlu diketahui
 
 Hal-hal berikut adalah kondisi aplikasi apa adanya. Didaftarkan agar tidak jadi kejutan
-saat Anda menjelaskannya ke tim.
+saat kamu menjelaskannya ke tim.
 
 | Hal | Kondisi |
 |---|---|

@@ -176,7 +176,7 @@ function scanMemberHtml(id){ scanOwner(); var q=scanQuery(id), key=scanKey(q); S
   "{n} h":"{n} jam","{n} pts":"{n} poin","no data":"tidak ada data","No data in this period.":"Tidak ada data pada periode ini.","Switched off — history":"Dimatikan — riwayat",
   "Smart Scoring's analytics come from the server: the offline demo has none.":"Analitik Smart Scoring berasal dari server: demo offline tidak memilikinya.",
   "Tasks completed":"Task selesai","Tasks finished in the period, in a completed stage. Declined and open work are not counted.":"Task yang selesai dalam periode ini, di tahap selesai. Pekerjaan yang ditolak (Declined) dan yang masih berjalan tidak dihitung.",
-  "Tasks you are assigned to, finished in the period in a completed stage. Declined and open work are not counted.":"Task yang ditugaskan kepada Anda dan selesai dalam periode ini di tahap selesai. Pekerjaan yang ditolak dan yang masih berjalan tidak dihitung.",
+  "Tasks you are assigned to, finished in the period in a completed stage. Declined and open work are not counted.":"Task yang ditugaskan kepadamu dan selesai dalam periode ini di tahap selesai. Pekerjaan yang ditolak dan yang masih berjalan tidak dihitung.",
   "Tasks this person is assigned to, finished in the period in a completed stage. Declined and open work are not counted.":"Task yang ditugaskan kepada orang ini dan selesai dalam periode ini di tahap selesai. Pekerjaan yang ditolak dan yang masih berjalan tidak dihitung.",
   "Locked estimate → time logged":"Estimasi terkunci → waktu tercatat",
   "Tasks whose estimate was locked (approved, or frozen when work started) and whose time was logged in the time log: their estimates added up, then the time logged.":"Task yang estimasinya dikunci (disetujui, atau dibekukan saat pekerjaan dimulai) dan waktunya dicatat di catatan waktu: jumlah estimasinya, lalu waktu yang tercatat.",
@@ -197,7 +197,7 @@ function scanMemberHtml(id){ scanOwner(); var q=scanQuery(id), key=scanKey(q); S
   "Waiting for review":"Menunggu review","Base and bonus points of awards not approved yet: not counted above.":"Poin dasar dan bonus dari penghargaan yang belum disetujui: tidak dihitung di atas.",
   "Asset points":"Poin aset","Output points for assets produced, by the kind of work (Settings → Smart Scoring), counted when the task is completed. Never hours, base points or bonus.":"Poin hasil kerja untuk aset yang dihasilkan, menurut jenis pekerjaannya (Pengaturan → Smart Scoring), dihitung saat task selesai. Bukan jam, poin dasar, atau bonus.",
   "{n} assets":"{n} aset",
-  "Your own figures: the tasks you are assigned to. Whoever holds the team's scoring analytics sees everyone's.":"Angka milik Anda sendiri: task yang ditugaskan kepada Anda. Pemegang analitik skor tim melihat angka semua orang.",
+  "Your own figures: the tasks you are assigned to. Whoever holds the team's scoring analytics sees everyone's.":"Angka milikmu sendiri: task yang ditugaskan kepadamu. Pemegang analitik skor tim melihat angka semua orang.",
   "{n} estimate from before Smart Scoring":"{n} estimasi dari sebelum Smart Scoring","{n} estimate never locked":"{n} estimasi yang tidak pernah dikunci",
   "{n} estimates from before Smart Scoring":"{n} estimasi dari sebelum Smart Scoring","{n} estimates never locked":"{n} estimasi yang tidak pernah dikunci",
   "{n} with the scope changed since the lock":"{n} dengan cakupan berubah sejak dikunci","{n} with time from before the time log":"{n} dengan waktu dari sebelum catatan waktu",
@@ -221,7 +221,7 @@ function scanMemberHtml(id){ scanOwner(); var q=scanQuery(id), key=scanKey(q); S
   "In name order, each person's own figures side by side — not a ranking. Hours and points are never added together.":"Diurutkan menurut nama, angka tiap orang berdampingan — bukan peringkat. Jam dan poin tidak pernah dijumlahkan.",
   "Last {n} week":"{n} minggu terakhir","Last {n} weeks":"{n} minggu terakhir","All projects":"Semua project","All teams":"Semua tim","Person":"Orang","Everyone":"Semua orang",
   "Estimate":"Estimasi","Any estimate":"Estimasi apa pun","Approved":"Disetujui","Locked (approved or frozen)":"Terkunci (disetujui atau dibekukan)","Not locked":"Belum dikunci",
-  "Include switched-off modules":"Sertakan modul yang dimatikan","Your Smart Scoring figures":"Angka Smart Scoring milik Anda","Smart Scoring figures of {name}":"Angka Smart Scoring milik {name}",
+  "Include switched-off modules":"Sertakan modul yang dimatikan","Your Smart Scoring figures":"Angka Smart Scoring milikmu","Smart Scoring figures of {name}":"Angka Smart Scoring milik {name}",
   "The tasks assigned to this person, completed in the period. Operational metrics, not compensation or a ranking.":"Task yang ditugaskan kepada orang ini dan selesai dalam periode ini. Metrik operasional, bukan kompensasi atau peringkat.",
   "Something went wrong":"Terjadi kesalahan"
 });

@@ -46,7 +46,7 @@ function zcTaskIdle(id,ms){ return new Promise(function(res){ var done=false, t=
   };
 })();
 Object.assign(UI_ID,{"Someone else edited this task at the same time. Both changes were kept.":"Orang lain mengedit task ini bersamaan. Kedua perubahan tetap tersimpan.",
-  "Someone else changed this task while you were editing. Reload it and try again.":"Orang lain mengubah task ini saat Anda mengedit. Muat ulang lalu coba lagi.",
+  "Someone else changed this task while you were editing. Reload it and try again.":"Orang lain mengubah task ini saat kamu mengedit. Muat ulang lalu coba lagi.",
   "Only the reviewer, the requester, a team lead or an admin can move this task out of":"Hanya reviewer, requester, lead tim, atau admin yang bisa memindahkan task ini keluar dari"});
 </script>
 <script>

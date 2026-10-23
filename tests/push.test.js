@@ -92,7 +92,7 @@ test('a notification reaches the person\'s device: encrypted, signed, in their l
   assert.equal(hit.headers['content-encoding'], 'aes128gcm'); assert.ok(+hit.headers.ttl > 0);
   checkVapid(hit.headers.authorization, key.publicKey, 'http://' + svc.host);
   const p = decrypt(hit.body, kb);
-  assert.match(p.body, /menugaskan “Hero KV push” kepada Anda/, 'in Indonesian, as they chose: ' + p.body);
+  assert.match(p.body, /menugaskan “Hero KV push” kepadamu/, 'in Indonesian, as they chose: ' + p.body);
   assert.match(p.url, new RegExp('^/tasks\\?task=' + tk.id)); assert.equal(p.tag, 'task:' + tk.id);
   /* the device the service said is gone is dropped */
   await until(() => svc.got.find(g => g.path === '/sub/gone'));
@@ -113,7 +113,7 @@ test('a notification reaches the person\'s device: encrypted, signed, in their l
   const chatHit = await until(() => svc.got.slice(before).find(g => g.path === '/sub/phone'));
   assert.ok(chatHit, 'the mention was pushed');
   const cp = decrypt(chatHit.body, kb);
-  assert.match(cp.title, /menyebut Anda di #/); assert.equal(cp.body, 'Morning, please check slide 3'); assert.match(cp.url, /^\/messages\//);
+  assert.match(cp.title, /menyebutmu di #/); assert.equal(cp.body, 'Morning, please check slide 3'); assert.match(cp.url, /^\/messages\//);
 
   /* signing out on the device stops its notifications */
   await s.json('POST', '/api/auth/logout', { pushEndpoint: 'http://' + svc.host + '/sub/phone' }, member);

@@ -115,7 +115,7 @@ test("edit a comment where it is, in the same box it was written in; links in co
     /* Indonesian */
     await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
     await mine.locator(".cmt-edit-btn").click();
-    await expect(mine.locator(".composer")).toHaveAttribute("aria-label", "Mengedit komentar Anda");
+    await expect(mine.locator(".composer")).toHaveAttribute("aria-label", "Mengedit komentarmu");
     await expect(post).toHaveText("Simpan");
     await expect(mine.locator(".composer .cmt-edit-cancel")).toHaveText("Batal");
     await expect(mine.locator(".cmt-edited")).toHaveText("· diedit");

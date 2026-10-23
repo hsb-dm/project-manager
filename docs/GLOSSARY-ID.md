@@ -4,17 +4,15 @@ The standard Indonesian words for ZenCrevia's interface (October 2026). Every In
 `UI_ID` blocks in `src/`, the Indonesian halves written in code (the Workspace Quest, AI Intelligence's local answers,
 the notification texts in `src/core.js` and `server/server.js`), and `docs/USER-MANUAL.md`.
 
+**Confirmed by the owner (23 Oct 2026):** *reviewer* (never *peninjau*) and the reader as *kamu / -mu* (never *Anda*).
+"Anda" was tried for an hour the same day and taken back; do not switch it again without asking.
+
 **The owner's decision:** *task* and *project* are the standard terms and stay English in Indonesian text, as the main
 menu shows them ("Task saya", "Project"). The rest were picked from what the app used most, and where it was split,
 from the main navigation and the Settings headings.
 
-**The owner's review (23 October 2026):** the interface addresses the reader as **Anda**, never *kamu* or *-mu* (see
-"Addressing the reader" below), and *reviewer* / *review* / *di-review* stay as they are.
-
 `node build.js` stops when two blocks give one English text different Indonesian words (see "Adding a string" at the
-end), `tests/i18n-conflicts.test.js` fails when a word this glossary replaced comes back, and
-`tests/i18n-address.test.js` fails when *kamu* or a *-mu* form comes back, in the dictionary or in the Indonesian written
-in code.
+end), and `tests/i18n-conflicts.test.js` fails when a word this glossary replaced comes back.
 
 ## Work
 
@@ -25,7 +23,7 @@ in code.
 | subtask | subtask | |
 | assign, assigned to | tugaskan, ditugaskan kepada | The verbs stay Indonesian; only the noun *tugas* went. |
 | assignee | **penanggung jawab** | Never *assignee* in Indonesian text. |
-| reviewer | **reviewer** | Never *peninjau*. Confirmed by the owner (23 October 2026). |
+| reviewer | **reviewer** | Never *peninjau*. |
 | review (noun) | **review** | "Review & bonus", "Menunggu review". Never *peninjauan / tinjauan*. |
 | to review, reviewed | **me-review, di-review** | "Perlu di-review", "Sedang di-review". Never *meninjau / ditinjau / direview*. |
 | in review | dalam review | The status and its cards ("Dalam review"), which a narrow card would break at a hyphen. |
@@ -66,7 +64,7 @@ in code.
 | team | tim | |
 | member, members | anggota | The Settings tab is *Anggota*. |
 | people, person | orang | |
-| role, permission, access | **peran**, izin, akses | "Peran & izin", "Peran Anda…". Never *role* in Indonesian text. |
+| role, permission, access | **peran**, izin, akses | "Peran & izin", "Peranmu…". Never *role* in Indonesian text. |
 | Creative Lead, Team Lead | Creative Lead, Team Lead | The roles' names stay. Admin = Admin, Member = Anggota, Viewer = Pengamat. |
 | lead, team lead (of a team) | lead, lead tim | "team lead" written small is a team's own lead: *lead tim*. |
 | brand | **brand** | Never *merek*. "Pustaka brand", "Font brand", "Karakter brand". |
@@ -83,7 +81,7 @@ in code.
 | dashboard | dashboard | Never *dasbor*. |
 | Board, List, Grid, Calendar, Timeline, Kanban | Papan, Daftar, Tabel, Kalender, Linimasa, Kanban | The task views, and every sentence that names them. |
 | My space | Ruang saya | |
-| you, your | **Anda** | Always with a capital A. Never *kamu*, *-mu* or *dirimu* (see "Addressing the reader"). Menus that speak for the reader keep *saya*: "Task saya", "Profil saya". |
+| you, your | **kamu, -mu** | Never *Anda*. Menus that speak for the reader keep *saya*: "Task saya", "Profil saya". |
 
 ## Names that stay as they are
 
@@ -98,38 +96,12 @@ blocks said both "Mode Brand" and "Mode merek".
 
 ## Writing rules
 
-- **An Indonesian affix on an English word takes a hyphen:** *task-nya*, *project-nya*, *file-nya*, *di-review*,
-  *me-review*. Indonesian words take it without: *pengaturannya*, *perannya*.
+- **An Indonesian affix on an English word takes a hyphen:** *task-nya*, *project-nya*, *file-nya*, *task-mu*,
+  *review-mu*, *di-review*, *me-review*. Indonesian words take it without: *pengaturannya*, *perannya*, *peranmu*.
 - **No reduplication** of an English word for a plural: "semua task", "3 project", never *task-task*.
-- **Capitals** only where a sentence or a title begins ("Task belum selesai", "Project aktif"), for names
-  ("Mode Brand", "Smart Scoring", "Team Lead"), and for **Anda**, which is always written with a capital A, also
-  mid-sentence ("Item itu tidak tersedia untuk Anda").
+- **Capitals** only where a sentence or a title begins ("Task belum selesai", "Project aktif") and for names
+  ("Mode Brand", "Smart Scoring", "Team Lead").
 - **Never change the English.** It is the key `tr()` looks up.
-
-## Addressing the reader
-
-The interface speaks to the reader as **Anda** (the owner's decision, 23 October 2026). *Anda* is a separate word, so
-the suffix *-mu* becomes "… Anda" after the word it was on, with or without the hyphen:
-
-| Was | Now |
-|---|---|
-| kamu bisa, Kamu tidak punya izin | Anda bisa, Anda tidak punya izin |
-| task-mu, review-mu, workspace-mu, Gallery-mu | task Anda, review Anda, workspace Anda, Gallery Anda |
-| akunmu, peranmu, Peranmu, perubahanmu | akun Anda, peran Anda, Peran Anda, perubahan Anda |
-| milikmu, untukmu, kepadamu, darimu, olehmu | milik Anda, untuk Anda, kepada Anda, dari Anda, oleh Anda |
-| menyebutmu, membalasmu, memintamu, mengirimimu | menyebut Anda, membalas Anda, meminta Anda, mengirimi Anda |
-| dirimu sendiri | diri Anda sendiri |
-| perlu kamu review, yang kamu pilih | perlu Anda review, yang Anda pilih |
-
-- **Keep the sentence readable.** When *Anda* would follow a noun it does not belong to, add the comma the sentence
-  needs: "Per percakapan, Anda tetap bisa memilih…", "Saat kuota penuh, Anda masih bisa…" (without it, "percakapan
-  Anda" reads as *your conversation*). A bare verb after *sampai* takes its prefix: "sampai Anda memilih Pakai ini".
-  A person takes *kepada*: "dipindahkan kepada Anda".
-- **"Task saya" stays.** *Saya* is the reader speaking about their own things (menus and filters such as "Task saya",
-  "Project saya", "Profil saya", "Ingatkan saya", "Hanya saya"), not the app addressing them.
-- **Not the reader:** the words the AI uses to recognise an Indonesian question (`src/ai.js`, `server/server.js`: *kamu*,
-  *anda*, … as people type them) and the copy of a sample poster (an advert's own voice) keep their words. The legal
-  pages (`LEGAL/public/`) already use *Anda*.
 
 ## Adding a string
 

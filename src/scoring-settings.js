@@ -37,9 +37,9 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   gAccess:["Who sees the numbers, and who holds the Smart Scoring permissions.","Siapa yang melihat angkanya, dan siapa yang memegang izin Smart Scoring."],
   gHistory:["Every saved change: who made it, when, and what changed.","Setiap perubahan yang disimpan: siapa, kapan, dan apa yang berubah."],
   off:["{m} is off. You can prepare its settings now; they apply once it is on.","{m} sedang mati. Pengaturannya bisa disiapkan sekarang dan berlaku setelah dinyalakan."],
-  ro:["You can see these settings. Changing them takes the permission to set up Smart Scoring.","Anda bisa melihat pengaturan ini. Untuk mengubahnya perlu izin mengatur Smart Scoring."],
-  leave1:["1 change to Smart Scoring is not saved yet. It is lost if you leave.","1 perubahan Smart Scoring belum disimpan. Perubahan itu hilang kalau Anda keluar."],
-  leaveN:["{n} changes to Smart Scoring are not saved yet. They are lost if you leave.","{n} perubahan Smart Scoring belum disimpan. Semuanya hilang kalau Anda keluar."],
+  ro:["You can see these settings. Changing them takes the permission to set up Smart Scoring.","Kamu bisa melihat pengaturan ini. Untuk mengubahnya perlu izin mengatur Smart Scoring."],
+  leave1:["1 change to Smart Scoring is not saved yet. It is lost if you leave.","1 perubahan Smart Scoring belum disimpan. Perubahan itu hilang kalau kamu keluar."],
+  leaveN:["{n} changes to Smart Scoring are not saved yet. They are lost if you leave.","{n} perubahan Smart Scoring belum disimpan. Semuanya hilang kalau kamu keluar."],
   master:["Score tasks in hours and points, and link the work to KPIs and OKRs. While it is off, ZenCrevia works exactly as it does now.","Beri skor task dalam jam dan poin, lalu kaitkan pekerjaan dengan KPI dan OKR. Selama mati, ZenCrevia bekerja persis seperti sekarang."],
   masterEx:["Switched on with Effort Hours only: tasks get an estimate and a time log, and nothing else changes.","Dinyalakan dengan Effort Hours saja: task mendapat estimasi dan log waktu, selebihnya tidak berubah."],
   on:["On — the modules below appear for the people allowed to use them.","Nyala — modul di bawah muncul bagi orang yang boleh memakainya."],
@@ -105,7 +105,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   leadsHave:["Team Lead and Creative Lead have the approval and analytics permissions.","Team Lead dan Creative Lead sudah punya izin persetujuan dan analitik."],
   leadsAsk:["They will be able to approve estimates and finished work (never on their own tasks) and to see the team's scoring analytics. Nothing else about the roles changes, and each permission can be taken back in Roles & permissions.","Mereka akan bisa menyetujui estimasi dan pekerjaan selesai (tidak pernah pada task sendiri) serta melihat analitik skor tim. Hal lain dari peran tidak berubah, dan setiap izin bisa dicabut di Peran & izin."],
   leadsDone:["Team Lead and Creative Lead have the approval and analytics permissions now","Team Lead dan Creative Lead kini punya izin persetujuan dan analitik"],
-  conflict:["Someone else saved the Smart Scoring settings in the meantime. Their version is loaded now; make your change again.","Orang lain sudah menyimpan pengaturan Smart Scoring. Versi mereka kini dimuat; ulangi perubahan Anda."],
+  conflict:["Someone else saved the Smart Scoring settings in the meantime. Their version is loaded now; make your change again.","Orang lain sudah menyimpan pengaturan Smart Scoring. Versi mereka kini dimuat; ulangi perubahanmu."],
   duty:["This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way.","Peran ini bisa mengubah skor sekaligus menyetujuinya. Disarankan: berikan ke orang yang berbeda. Bagaimanapun, tidak ada yang menyetujui estimasi atau bonus pada task-nya sendiri."]
 });
 /* [id, name, icon, one line] */

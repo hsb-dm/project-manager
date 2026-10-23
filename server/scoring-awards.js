@@ -200,7 +200,7 @@ module.exports = function scoringAwards(db, WS_ID, d) {
   const NOTIF = "efficiency_review";
   /* the words of the notification, by e-mail and by push (server.js keeps them by notification type) */
   if (d.texts && d.texts.mail && !d.texts.mail[NOTIF]) d.texts.mail[NOTIF] = "“{t}” is finished: its efficiency bonus waits for your review.";
-  if (d.texts && d.texts.pushId && !d.texts.pushId[NOTIF]) d.texts.pushId[NOTIF] = "“{t}” selesai: bonus efisiensinya menunggu review Anda.";
+  if (d.texts && d.texts.pushId && !d.texts.pushId[NOTIF]) d.texts.pushId[NOTIF] = "“{t}” selesai: bonus efisiensinya menunggu review-mu.";
   const inTx = fn => (db.isTransaction ? fn() : tx(db, fn));
   db.exec("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)");
 

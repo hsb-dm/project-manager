@@ -218,6 +218,6 @@ Object.assign(UI_ID,{
   "Load earlier comments":"Muat komentar sebelumnya","reply":"balasan","replies":"balasan","Reply":"Balas","Delete":"Hapus",
   "Comment posted":"Komentar terkirim","Who can see it":"Siapa yang bisa melihat","Hide replies":"Sembunyikan balasan","Show more":"Selengkapnya","Comment deleted":"Komentar dihapus","Couldn't post comment. Try again.":"Komentar tidak terkirim. Coba lagi.",
   "Could not load the discussion":"Diskusi tidak dapat dimuat","Could not delete the comment":"Komentar tidak dapat dihapus","Try again":"Coba lagi","Loading…":"Memuat…",
-  "{who} mentioned you in the discussion on {t}":"{who} menyebut Anda di diskusi {t}","{who} replied to you in the discussion on {t}":"{who} membalas Anda di diskusi {t}","{who} commented in the discussion on {t}":"{who} berkomentar di diskusi {t}"
+  "{who} mentioned you in the discussion on {t}":"{who} menyebutmu di diskusi {t}","{who} replied to you in the discussion on {t}":"{who} membalasmu di diskusi {t}","{who} commented in the discussion on {t}":"{who} berkomentar di diskusi {t}"
 });
 </script>

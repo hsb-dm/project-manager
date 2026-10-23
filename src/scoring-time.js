@@ -270,9 +270,9 @@ function scoringTimeDemo(method,id,entryId,body,reason){
   "Smart Scoring is turned off on this server":"Smart Scoring dimatikan di server ini",
   "Task not found":"Task tidak ditemukan",
   "That time entry is not there any more. Reload the time log.":"Entri waktu itu sudah tidak ada. Muat ulang log waktunya.",
-  "You don't have permission to log time on this task: the people assigned to it log their own time.":"Anda tidak punya izin mencatat waktu di task ini: orang yang ditugaskan mencatat waktunya sendiri.",
-  "You don't have permission to change someone else's time.":"Anda tidak punya izin mengubah waktu orang lain.",
-  "You don't have permission to change this time: it is changed by the people assigned to the task.":"Anda tidak punya izin mengubah waktu ini: waktu diubah oleh orang yang ditugaskan di task.",
+  "You don't have permission to log time on this task: the people assigned to it log their own time.":"Kamu tidak punya izin mencatat waktu di task ini: orang yang ditugaskan mencatat waktunya sendiri.",
+  "You don't have permission to change someone else's time.":"Kamu tidak punya izin mengubah waktu orang lain.",
+  "You don't have permission to change this time: it is changed by the people assigned to the task.":"Kamu tidak punya izin mengubah waktu ini: waktu diubah oleh orang yang ditugaskan di task.",
   "Choose the day the time was worked":"Pilih hari waktu itu dikerjakan",
   "Choose the day the time was worked (a date like 2026-10-16)":"Pilih hari waktu itu dikerjakan (tanggal seperti 2026-10-16)",
   "Choose what the time was: work, revision or blocked":"Pilih jenis waktunya: dikerjakan, revisi, atau terblokir",
@@ -289,7 +289,7 @@ function scoringTimeDemo(method,id,entryId,body,reason){
   "This overlaps another entry of the same person on that day":"Ini bertumpuk dengan entri lain dari orang yang sama di hari itu",
   "More than 24 hours in one day for one person":"Lebih dari 24 jam dalam sehari untuk satu orang",
   "Say why this time is corrected: a correction needs a reason":"Sebutkan alasan waktu ini dikoreksi: koreksi perlu alasan",
-  "An entry from before the time log is changed only by someone who may correct scores. You can delete it and log the days instead.":"Entri dari sebelum log waktu hanya bisa diubah oleh orang yang boleh mengoreksi skor. Anda bisa menghapusnya lalu mencatat per hari.",
+  "An entry from before the time log is changed only by someone who may correct scores. You can delete it and log the days instead.":"Entri dari sebelum log waktu hanya bisa diubah oleh orang yang boleh mengoreksi skor. Kamu bisa menghapusnya lalu mencatat per hari.",
   "This task has too many time entries":"Task ini punya terlalu banyak entri waktu"
 });
 </script>

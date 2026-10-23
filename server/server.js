@@ -268,7 +268,7 @@ function deliverNotifs(list, o) {
 function projectNotice(n, actor, lang) {
   const pr = db.prepare("SELECT name FROM projects WHERE id=?").get(n.entity_id) || {}; let info = {}; try { info = JSON.parse(n.message || "{}") || {}; } catch (e) {}
   const name = pr.name || n.entity_id, id = lang === "id";
-  const line = n.type === "mention" ? (id ? "{who} menyebut Anda di diskusi “{t}”." : "{who} mentioned you in the discussion on “{t}”.") : info.reply ? (id ? "{who} membalas komentar Anda di diskusi “{t}”." : "{who} replied to your comment in the discussion on “{t}”.") : (id ? "{who} berkomentar di diskusi “{t}”." : "{who} commented in the discussion on “{t}”.");
+  const line = n.type === "mention" ? (id ? "{who} menyebutmu di diskusi “{t}”." : "{who} mentioned you in the discussion on “{t}”.") : info.reply ? (id ? "{who} membalas komentarmu di diskusi “{t}”." : "{who} replied to your comment in the discussion on “{t}”.") : (id ? "{who} berkomentar di diskusi “{t}”." : "{who} commented in the discussion on “{t}”.");
   return { name, text: line.replace("{who}", actor || "ZenCrevia").replace("{t}", name), quote: String(info.text || ""), link: "/projects/" + encodeURIComponent(n.entity_id + (urlSlug(name) ? "-" + urlSlug(name) : "")) + "?tab=discussion" + (info.comment ? "&comment=" + encodeURIComponent(info.comment) : "") };
 }
 function emailNotification(notifId) {
@@ -588,7 +588,7 @@ function pwaManifest() { const { ws, live } = pwaIcons(), v = live ? live.hash :
 /* Web Push (server/push.js): the VAPID subject is the first admin's address unless COS_VAPID_SUBJECT says otherwise */
 const push = require("./push")(db, { subject: () => process.env.COS_VAPID_SUBJECT || (() => { try { const a = db.prepare("SELECT u.email FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND u.email IS NOT NULL AND u.email<>'' LIMIT 1").get(WS_ID); return a ? "mailto:" + a.email : ""; } catch (e) { return ""; } })() });
 /* Web Push: the same notification on the person's devices, the app closed (server/push.js) — in their language */
-const PUSH_TEXT_ID = { completed: "{who} menyelesaikan “{t}”.", blocker: "“{t}” bisa dimulai — {who} menyelesaikan task yang ditunggunya.", assigned: "{who} menugaskan “{t}” kepada Anda.", reviewer: "{who} meminta Anda me-review “{t}”.", review: "{who} mengirim “{t}” untuk Anda review.", progress: "{who} memperbarui catatan progres “{t}”.", mention: "{who} menyebut Anda di komentar “{t}”.", comment: "{who} berkomentar di “{t}”.", revision: "{who} meminta revisi pada “{t}”.", approved: "{who} menyetujui “{t}”.", upload: "{who} mengunggah versi baru “{t}”.", status: "{who} memindahkan “{t}” ke tahap baru.", file: "{who} melampirkan file ke “{t}”.", deadline: "Tenggat “{t}” hari ini.", missed: "“{t}” melewati tenggat.", request: "{who} mengajukan permintaan kreatif: “{t}”.", request_status: "{who} memperbarui status permintaan Anda “{t}”." };
+const PUSH_TEXT_ID = { completed: "{who} menyelesaikan “{t}”.", blocker: "“{t}” bisa dimulai — {who} menyelesaikan task yang ditunggunya.", assigned: "{who} menugaskan “{t}” kepadamu.", reviewer: "{who} memintamu me-review “{t}”.", review: "{who} mengirim “{t}” untuk kamu review.", progress: "{who} memperbarui catatan progres “{t}”.", mention: "{who} menyebutmu di komentar “{t}”.", comment: "{who} berkomentar di “{t}”.", revision: "{who} meminta revisi pada “{t}”.", approved: "{who} menyetujui “{t}”.", upload: "{who} mengunggah versi baru “{t}”.", status: "{who} memindahkan “{t}” ke tahap baru.", file: "{who} melampirkan file ke “{t}”.", deadline: "Tenggat “{t}” hari ini.", missed: "“{t}” melewati tenggat.", request: "{who} mengajukan permintaan kreatif: “{t}”.", request_status: "{who} memperbarui status permintaanmu “{t}”." };
 /* EACH PERSON'S OWN NOTIFICATIONS (Oct 2026). Every kind of notification belongs to one of the rows a person sees in
    Settings → Notifications → "What reaches me", and each row can be on or off in the bell, by e-mail and in the
    browser. A row turned off there is not shown in their bell, not e-mailed and not pushed to them. Whoever's role does
@@ -622,13 +622,13 @@ function pushNotification(notifId) {
     if (n.entity_type === "message") {
       let info = {}; try { info = JSON.parse(n.message || "{}"); } catch (e) {}
       const c = db.prepare("SELECT name, type FROM conversations WHERE id=?").get(n.entity_id) || {}, where = c.type === "DM" ? "" : "#" + (c.name || "general");
-      const head = n.type === "chat_dm" ? actor : n.type === "chat_mention" ? actor + (id ? " menyebut Anda di " : " mentioned you in ") + where : n.type === "chat_reply" ? actor + (id ? " membalas Anda di " : " replied to you in ") + where : actor + (id ? " di " : " in ") + where;
+      const head = n.type === "chat_dm" ? actor : n.type === "chat_mention" ? actor + (id ? " menyebutmu di " : " mentioned you in ") + where : n.type === "chat_reply" ? actor + (id ? " membalasmu di " : " replied to you in ") + where : actor + (id ? " di " : " in ") + where;
       payload = { title: head, body: String(info.text || (id ? "Mengirim pesan" : "Sent a message")), url: "/messages/" + encodeURIComponent(n.entity_id) + (info.msg ? "?msg=" + encodeURIComponent(info.msg) : ""), tag: "conv:" + n.entity_id };
     } else if (n.entity_type === "project") {
       const pn = projectNotice(n, actor, id ? "id" : "en");
       payload = { title: ws.name || "ZenCrevia", body: pn.text + (pn.quote ? " “" + pn.quote.slice(0, 120) + "”" : ""), url: pn.link, tag: "project:" + n.entity_id };
     } else if (n.entity_type === "user") {
-      payload = { title: ws.name || "ZenCrevia", body: (n.message || actor) + (id ? " mendaftar dan menunggu persetujuan Anda." : " signed up and is waiting for your approval."), url: "/settings/members", tag: "signup:" + n.entity_id };
+      payload = { title: ws.name || "ZenCrevia", body: (n.message || actor) + (id ? " mendaftar dan menunggu persetujuanmu." : " signed up and is waiting for your approval."), url: "/settings/members", tag: "signup:" + n.entity_id };
     } else {
       let title = n.entity_id, slug = "";
       if (n.entity_type === "request") { const r = db.prepare("SELECT title FROM creative_requests WHERE id=?").get(n.entity_id); if (r) title = r.title; }

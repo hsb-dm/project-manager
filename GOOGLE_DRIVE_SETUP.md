@@ -8,7 +8,7 @@ Panduan ini untuk pemula. Setelah selesai, file dari Assets, Files pada task, da
 - Alamat dashboard ZenCrevia yang akan dipakai tim, misalnya `https://creative.example.com`.
 - Akses untuk membuat project di Google Cloud Console.
 
-> Untuk mencoba secara lokal, alamat dashboard biasanya `http://localhost:3000`. Alamat ini berbeda dengan alamat server produksi, sehingga keduanya perlu ditambahkan jika Anda memakai keduanya.
+> Untuk mencoba secara lokal, alamat dashboard biasanya `http://localhost:3000`. Alamat ini berbeda dengan alamat server produksi, sehingga keduanya perlu ditambahkan jika kamu memakai keduanya.
 
 ## 1. Buat project Google Cloud
 
@@ -43,7 +43,7 @@ Google Drive API menangani pemeriksaan folder dan unggahan. Google Picker API me
 ## 3. Atur layar persetujuan Google
 
 1. Buka **APIs & Services → OAuth consent screen**.
-2. Pilih tipe audience yang sesuai dengan organisasi Anda.
+2. Pilih tipe audience yang sesuai dengan organisasi kamu.
 3. Isi nama aplikasi, email dukungan, dan email developer.
 4. Pada **Data Access** atau **Scopes**, tambahkan `https://www.googleapis.com/auth/drive.file`.
 5. Tambahkan semua akun yang akan menghubungkan Drive sebagai **Test users** bila aplikasi masih dalam mode pengujian.
@@ -142,12 +142,12 @@ Keanggotaan ZenCrevia dan izin Google Drive adalah dua hal terpisah. Pengguna pe
 
 Preview di dashboard mengikuti izin file di Google Drive.
 
-- Untuk Anda sendiri atau rekan dengan akun Google yang sama-sama memiliki akses, cukup bagikan file atau folder kepada mereka di Drive.
+- Untuk kamu sendiri atau rekan dengan akun Google yang sama-sama memiliki akses, cukup bagikan file atau folder kepada mereka di Drive.
 - Untuk stakeholder luar, pilihan yang lebih aman adalah menambahkan akun Google mereka pada folder atau file tertentu.
 - Opsi **Anyone with the link** di ZenCrevia membuat setiap unggahan baru dapat dibuka tanpa login. Opsi ini mati secara bawaan dan menampilkan konfirmasi saat diaktifkan. Gunakan hanya jika seluruh unggahan baru memang sudah disetujui untuk akses publik.
 - Jangan gunakan akses publik untuk file sensitif, materi berlisensi, atau dokumen internal.
 
-Setelah itu Anda dapat memakai **Link from Google Drive** pada Assets, Files task, atau Versions. Tautan Drive akan dapat dibuka dan file yang mendukung embed akan dipreview langsung dari dashboard.
+Setelah itu kamu dapat memakai **Link from Google Drive** pada Assets, Files task, atau Versions. Tautan Drive akan dapat dibuka dan file yang mendukung embed akan dipreview langsung dari dashboard.
 
 | Pengguna | Syarat | Hasil |
 |---|---|---|

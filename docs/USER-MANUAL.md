@@ -2,7 +2,7 @@
 
 > Panduan untuk anggota tim yang memakai ZenCrevia sehari-hari.
 > Nama tombol ditulis dalam **English** persis seperti yang muncul di aplikasi saat bahasa
-> di-set ke English. Kalau Anda memakai bahasa Indonesia, labelnya diterjemahkan otomatis —
+> di-set ke English. Kalau kamu memakai bahasa Indonesia, labelnya diterjemahkan otomatis —
 > posisinya tetap sama.
 
 ---
@@ -34,19 +34,19 @@
 
 ### Lupa password
 
-Di layar masuk, pilih **Forgot password?**, isi email kerja Anda, lalu buka tautan di email
+Di layar masuk, pilih **Forgot password?**, isi email kerjamu, lalu buka tautan di email
 yang masuk (cek juga folder spam). Tautan berlaku 60 menit dan hanya sekali pakai. Setelah
-password baru disimpan, Anda keluar dari semua perangkat lain dan perlu masuk lagi.
+password baru disimpan, kamu keluar dari semua perangkat lain dan perlu masuk lagi.
 Kalau email tidak datang, minta admin mereset password dari Settings → Members.
 
 ### Sidebar
 
 Delapan menu utama: **Home**, **My Tasks**, **Projects**, **Calendar**, **Teams**,
 **Assets**, **Knowledge**, **Analytics**. **My Tasks** membawa badge berisi jumlah task
-terbuka yang ditugaskan kepada Anda.
+terbuka yang ditugaskan kepadamu.
 
 Semua menu kecuali **Home** bisa disembunyikan lewat **Settings → Menu & home layout**
-atau modal **Customize layout** di Home. Menu yang disembunyikan tetap muncul selama Anda
+atau modal **Customize layout** di Home. Menu yang disembunyikan tetap muncul selama kamu
 sedang berada di layar itu.
 
 Di layar kecil, sidebar berubah jadi tab bar berisi 4 menu pertama plus tombol **More**.
@@ -59,11 +59,11 @@ Kotak pencarian ada di topbar (**Search everything…**). Tekan **Ctrl K** (atau
 untuk langsung ke sana. Hasilnya dikelompokkan jadi panel: **Tasks**, **Briefs**, **Projects**,
 **Teams**, **People**, **Files**, **Assets**, **Knowledge**.
 
-Anda bisa mencari dengan task ID, tag, nama orang, nama tim, nama file, atau judul halaman.
+Kamu bisa mencari dengan task ID, tag, nama orang, nama tim, nama file, atau judul halaman.
 
 ### Menu akun (avatar kanan atas)
 
-- **My profile** — halaman anggota Anda
+- **My profile** — halaman anggota kamu
 - **Change password**
 - **Language** — pilih EN atau ID
 - **AI** — **AI Hub**, **AI Gallery**, **AI Intelligence**
@@ -89,14 +89,14 @@ Yang memicu notifikasi: penugasan, mention, approval, request, dan deadline.
 Ikon tema di topbar membuka popover **Quick theme**: **Accent** (swatch warna + warna kustom),
 **Appearance** (Light / Dark / System), dan **Density** (Comfortable / Compact).
 
-> Tema bersifat **workspace-wide**. Kalau peran Anda tidak boleh mengelola workspace,
+> Tema bersifat **workspace-wide**. Kalau peranmu tidak boleh mengelola workspace,
 > perubahan hanya berlaku untuk sesi ini dan tidak tersimpan.
 
 ---
 
 ## 2. Home
 
-Header menyapa dengan nama depan dan merangkum: berapa yang menunggu review Anda,
+Header menyapa dengan nama depan dan merangkum: berapa yang menunggu review-mu,
 berapa yang tenggatnya hari ini, berapa terlambat, berapa selesai minggu ini.
 
 ### Sembilan kartu
@@ -105,8 +105,8 @@ berapa yang tenggatnya hari ini, berapa terlambat, berapa selesai minggu ini.
 |---|---|
 | **KPI cards** | Dua baris berisi empat ubin: **My tasks**, **Due today**, **In review**, **Overdue**; lalu **Assets delivered**, **Assets in production**, **Asset links**, **Auto-hidden**. Setiap ubin bisa diklik dan langsung membuka Tasks/Calendar yang sudah difilter. |
 | **Creative pipeline** | Satu kolom per stage workflow dengan jumlah dan bar. Mengklik sebuah stage memfilter seluruh dashboard. |
-| **My priorities** | 8 task teratas milik Anda |
-| **Needs your review** | Hingga 6 task yang menunggu keputusan Anda |
+| **My priorities** | 8 task teratas milikmu |
+| **Needs your review** | Hingga 6 task yang menunggu keputusanmu |
 | **Team workload** | Beban kerja per tim |
 | **Active projects** | Project yang belum selesai |
 | **Upcoming deadlines** | Hingga 6 task dengan tenggat dalam 7 hari |
@@ -125,15 +125,15 @@ Tombol **Customize** di header membuka modal **Customize layout**:
 - **Top menu** — centang menu mana yang tampil (Home tidak bisa dimatikan)
 - **Presets** — simpan kombinasi kartu + menu dengan nama, lalu **Load**, **Update**, atau hapus
 
-> **Load** hanya menyiapkan preset. Anda tetap harus menekan **Apply** agar berlaku.
+> **Load** hanya menyiapkan preset. Kamu tetap harus menekan **Apply** agar berlaku.
 
-Semua perubahan di sini **hanya untuk akun Anda sendiri**.
+Semua perubahan di sini **hanya untuk akunmu sendiri**.
 
 ---
 
 ## 3. Tasks
 
-> **Aturan tahap.** Sebelum task dikirim ke review, isi reviewer-nya dulu. Anda bisa memindahkan task Anda sendiri sampai *Delivered*; menutupnya ke *Done* dilakukan reviewer, requester, atau lead (admin bisa mengubah aturan ini). Kolom yang tidak boleh Anda tuju tampil terkunci 🔒 saat kartu diseret.
+> **Aturan tahap.** Sebelum task dikirim ke review, isi reviewer-nya dulu. Kamu bisa memindahkan task-mu sendiri sampai *Delivered*; menutupnya ke *Done* dilakukan reviewer, requester, atau lead (admin bisa mengubah aturan ini). Kolom yang tidak boleh kamu tuju tampil terkunci 🔒 saat kartu diseret.
 
 ### Lima cara melihat pekerjaan
 
@@ -159,7 +159,7 @@ untuk mengubahnya langsung. Seret baris ke baris lain untuk mengurutkan, atau ke
   tetap di depan. Klik biasa (tanpa digeser) tetap mengurutkan.
 - **Ubah lebar** — seret tepi kanan judul kolom (garis tipis saat kursor di atasnya). Lebar
   minimum: Task 160 px, Est. 44 px, lainnya 60 px. **Klik dua kali** tepinya untuk lebar semula.
-  Setelah Anda mengubah lebar, kolom Task mengisi sisa ruang.
+  Setelah kamu mengubah lebar, kolom Task mengisi sisa ruang.
 - **Keyboard** — fokuskan judul kolom dengan Tab: **Alt+←/→** memindahkan, **Alt+Shift+←/→**
   mengubah lebar 16 px, **Enter** mengurutkan, **Shift+F10** (atau tombol menu) membuka menunya.
 - Di layar sentuh (tablet), **tahan** judul kolom sebentar lalu geser; usapan biasa tetap
@@ -248,7 +248,7 @@ Filter digabung dengan **AND**.
 ### Saved Views
 
 Tombol **Views** menyimpan seluruh konfigurasi tampilan sekarang: jenis view, filter,
-sort, grouping, kolom Grid, cakupan, dan arah urutan. Setelah satu view aktif, Anda bisa
+sort, grouping, kolom Grid, cakupan, dan arah urutan. Setelah satu view aktif, kamu bisa
 **Update**, **Rename**, **Delete**, atau **Exit view**.
 
 ### Penanda centang pribadi
@@ -258,7 +258,7 @@ Setiap kartu kanban, baris list, chip kalender, dan baris agenda punya tombol ce
 - Ini **murni penanda pribadi**. Tidak mengubah status task, tidak dikirim ke server,
   tidak muncul di export atau di layar orang lain, tidak tercatat di activity.
 - Berguna untuk menandai "sudah saya cek" saat menyisir board.
-- Tersimpan di browser ini untuk akun Anda saja.
+- Tersimpan di browser ini untuk akunmu saja.
 - Toolbar menampilkan chip **n checked** dengan tombol × untuk menghapus semuanya sekaligus.
   Chip ini hilang saat tidak ada yang tercentang.
 - Tidak ikut tercetak saat print.
@@ -267,7 +267,7 @@ Setiap kartu kanban, baris list, chip kalender, dan baris agenda punya tombol ce
 
 Tombol **New task** membuka panel task berisi draft. Semua field diisi lewat panel biasa.
 Footer-nya berbunyi *"Nothing is saved until you create it"* dengan tombol **Discard** dan
-**Create task**. Tanpa judul, Anda akan diingatkan lebih dulu.
+**Create task**. Tanpa judul, kamu akan diingatkan lebih dulu.
 
 ---
 
@@ -278,7 +278,7 @@ Klik task di mana pun untuk membuka **task panel**.
 ### Header
 
 Task ID · badge project · status · prioritas · tim, lalu tombol **gear** (Task settings)
-dan tombol tutup. Judul bisa diedit langsung kalau Anda punya izin.
+dan tombol tutup. Judul bisa diedit langsung kalau kamu punya izin.
 Kalau tidak, muncul badge **read-only**.
 
 ### Field
@@ -295,7 +295,7 @@ tidak muncul lagi di **Recent** / **Terbaru** atau **Active projects** / **Proje
 melepas: project yang dicentang langsung naik ke **Dipilih** (paling bawah di bagian itu) dan yang dilepas langsung
 turun lagi ke tempatnya (Terbaru kalau tadi ada di sana, kalau tidak Project aktif); barisnya meluncur singkat ke
 tempat barunya dan menyala sebentar, angka N ikut berubah. Pindahan pertama selalu diikuti daftarnya sampai
-terlihat; sesudah itu, kalau Anda sedang mencentang beberapa project di tengah daftar, daftarnya tetap di tempat Anda
+terlihat; sesudah itu, kalau kamu sedang mencentang beberapa project di tengah daftar, daftarnya tetap di tempatmu
 (project berikutnya naik ke bawah pointer). Dengan keyboard sorotannya ikut pindah bersama barisnya, fokus tetap di
 kotak pencarian, dan panah lanjut dari situ. Saat mencari, project terpilih yang cocok tetap di atas, dan yang
 dicentang langsung naik ke situ. Kalau perangkat diatur untuk mengurangi gerakan, barisnya langsung pindah tanpa
@@ -305,7 +305,7 @@ animasi. **Select project later** / **Pilih project nanti** mengeluarkan task da
 yang lazim untuk jenis pekerjaannya, dengan **Assets produced** sebagai jumlah deliverable. Deliverable pertama
 dihitung penuh, berikutnya lebih cepat sesuai jenisnya: resize 25%; post feed, story, banner, carousel, KV, web,
 dan email 50%; poster, reels, dan video 60%; copy, deck, dan konsep logo 40%. Contoh: 12 resize ≈ 5 jam, 3 reels
-≈ 13 jam. Ketik angka sendiri kapan saja; angka yang Anda ketik tidak ditimpa.
+≈ 13 jam. Ketik angka sendiri kapan saja; angka yang kamu ketik tidak ditimpa.
 
 **Jenis pekerjaan (Kind of work).** Jenis pekerjaan dikenali dari kata di judul task, memakai daftar yang diatur admin
 di Settings → Smart Scoring → Estimasi → Kinds of work (misalnya "Siniar HSB eps 4" dikenali sebagai Podcast kalau admin
@@ -314,10 +314,10 @@ baris **Effort** pada tab Brief: **Kind of work** dengan tanda kecil **otomatis*
 judul. Klik untuk membuka daftarnya: **Otomatis — dari judul: post feed** paling atas, lalu tiap jenis dengan jam
 biasanya untuk satu deliverable (misalnya video 4–16 j), ✓ pada yang dipilih, dan kotak **Cari jenis** bila jenisnya
 lebih dari 8 (cari nama atau kata di judul). Pilih jenis lain, atau kembali ke **Otomatis**; keyboard juga bisa (↑ ↓,
-Enter memilih, Esc menutup). Pilihan Anda selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
-Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat judul diubah — kecuali angka yang Anda
+Enter memilih, Esc menutup). Pilihanmu selalu menang atas judul dan dipakai untuk estimasi jam, hitungan Smart
+Scoring, dan poin aset. Setelah memilih, Estimate dihitung ulang seperti saat judul diubah — kecuali angka yang kamu
 ketik sendiri, estimasi yang sudah dikunci, atau task yang sudah selesai. Pilihan ini bisa dibuat oleh siapa pun yang
-bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang Anda pilih, task kembali dikenali
+bisa mengedit task, juga saat Smart Scoring OFF. Kalau admin menghapus jenis yang kamu pilih, task kembali dikenali
 dari judulnya.
 
 **Beberapa jenis dalam satu task (Several kinds…).** Satu task bisa berisi beberapa jenis pekerjaan, misalnya
@@ -350,7 +350,7 @@ jendela baru):
 **Brief** — kolom **Description** bebas, bagian **Dependencies**, lalu **Creative brief**.
 Brief terstruktur bersifat **opsional** — brief boleh ditulis langsung di Description, lengkap
 dengan gambarnya. Kalau belum ada brief, bagian ini bertanda **Optional** dan bisa dilipat dengan
-**Hide** (tetap terlipat untuk Anda di semua task tanpa brief, sampai dibuka lagi dengan **Show**).
+**Hide** (tetap terlipat untuk kamu di semua task tanpa brief, sampai dibuka lagi dengan **Show**).
 Teks yang **diketik** di Description dan Progress note tampil persis seperti diketik — emoji,
 huruf non-Latin, simbol, `5 * 3`, `# tag`, `- item`, `<b>`, `<u>`. Format datang dari toolbar (bold,
 italic, heading, list, quote, link), dari **Ctrl+U** untuk garis bawah (underline), atau dari teks
@@ -433,7 +433,7 @@ Prasyarat yang tenggatnya **setelah** tenggat task ini diberi badge **Schedule r
 Stepper workflow (satu tombol per stage) plus aksi utama yang menyesuaikan stage:
 
 - stage antrian/kerja/revisi → **Upload version** + **Submit for review**
-- stage review (dan Anda boleh review) → **Request revision** + **Approve**
+- stage review (dan kamu boleh review) → **Request revision** + **Approve**
 - stage tertutup dengan stage tertutup berikutnya → **Mark `<stage berikutnya>`**
 
 ### Menu gear
@@ -442,7 +442,7 @@ Bagian **Panel position** — tiga ikon (Left / Center / Right) plus pintasan ke
 Lalu pemisah, lalu aksi task: **Duplicate task**, **Export task (.csv)**,
 **Hide task** / **Unhide task**, **Delete task**.
 
-Menu tetap terbuka saat Anda memilih posisi, jadi Anda bisa mencoba ketiganya berturut-turut.
+Menu tetap terbuka saat kamu memilih posisi, jadi kamu bisa mencoba ketiganya berturut-turut.
 Panah kiri/kanan/atas/bawah berpindah antar ikon, Enter/Space memilih, Escape menutup.
 
 ### Posisi panel task
@@ -474,27 +474,27 @@ dipakai workspace (jam, Story Points, Weighted Points). Tiap baris menampilkan:
   juga bisa dibuka dari baris jam ini, dan muncul di bawahnya. Di form **Calculate**, campurannya ditampilkan apa
   adanya: tidak ada pilihan satu jenis di sana, jadi campurannya tidak tergantikan; **Ubah campuran** (Change the mix)
   membuka daftarnya.
-- **AI**: saran AI (kalau Anda boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
+- **AI**: saran AI (kalau kamu boleh memintanya) beserta tingkat keyakinan, asumsi, dan data yang kurang. Saran yang
   jauh dari hitungan diberi peringatan. Kalau AI membaca task sebagai beberapa jenis yang berbeda dari campuran task,
   tertulis misalnya **Saran AI: video 1 · reels 4 · key visual 1** (The AI suggests: …) dengan tombol **Pakai
   pembagian ini** (Use this split) untuk yang boleh mengedit task.
 - **Final**: angka yang dipakai, lengkap dengan asalnya (Math / AI / Manual / Legacy) dan statusnya (Draft, Proposed,
   Approved, Locked, Re-baseline needed).
 
-Yang bisa Anda lakukan:
+Yang bisa kamu lakukan:
 - **Calculate**: menghitung ulang.
-- **Change value**: kalau tidak punya izin mengubah, perubahan Anda menjadi usulan, dengan alasan.
-- **Approve & lock**: hanya untuk yang berhak, dan tidak bisa untuk task yang ditugaskan kepada Anda sendiri.
+- **Change value**: kalau tidak punya izin mengubah, perubahanmu menjadi usulan, dengan alasan.
+- **Approve & lock**: hanya untuk yang berhak, dan tidak bisa untuk task yang ditugaskan kepadamu sendiri.
 
 Setelah estimasi dikunci, kolom Estimate di task dan di grid menjadi abu-abu, dengan keterangan siapa yang
 menguncinya.
 
-**Konteks tim untuk AI.** Setelah AI memberi saran, Anda bisa memberi tahu AI hal-hal yang tidak tertulis di brief.
+**Konteks tim untuk AI.** Setelah AI memberi saran, kamu bisa memberi tahu AI hal-hal yang tidak tertulis di brief.
 Konteks ini disimpan di task dan ikut dikirim setiap kali AI ditanya untuk task ini, termasuk saat AI ditanya ulang
 otomatis setelah brief direvisi.
 
 - Di daftar **It assumes** (Asumsinya), tiap asumsi punya dua tombol: **✓ Right** (Benar) dan **✗ Wrong** (Salah).
-  Kalau Anda memilih Salah, muncul kolom **What is true instead…** (Yang sebenarnya…), maksimal 200 karakter.
+  Kalau kamu memilih Salah, muncul kolom **What is true instead…** (Yang sebenarnya…), maksimal 200 karakter.
   Contoh: "1 revision round" → Salah → "klien ini biasanya minta 3x revisi". Klik tombol yang sama sekali lagi
   untuk membatalkan tandanya. Paling banyak 8 asumsi bisa ditandai.
 - Di bawah baris skor ada kotak **Add context for the AI** (Tambah konteks untuk AI), maksimal 1.000 karakter,
@@ -513,7 +513,7 @@ otomatis setelah brief direvisi.
 - **Clear context** (Hapus konteks) menghapus konteks task ini tanpa bertanya ke AI.
 - Konteks bisa diubah oleh siapa pun yang boleh mengedit task (kecuali stakeholder). Yang lain hanya bisa
   melihatnya. Kalau external AI processing dimatikan, atau semua skor diatur **Math only**, bagian ini tidak tampil.
-- Teks yang sedang Anda ketik tidak hilang selama AI ditanya atau saat panel diperbarui. Konteks tidak ikut tersalin
+- Teks yang sedang kamu ketik tidak hilang selama AI ditanya atau saat panel diperbarui. Konteks tidak ikut tersalin
   saat task diduplikasi.
 
 **Rating** untuk Story/Weighted Points: empat faktor dinilai 1–5. Nilai **Scope** disarankan dari jumlah aset
@@ -544,8 +544,8 @@ sebelah judul baris tampil berapa karakter yang dibaca dari jatahnya, misalnya "
   dengan tautan ke pengaturannya).
 
 **Log waktu.** Selama Effort Hours aktif, kolom **Actual** diganti total jam yang dicatat, dengan tombol
-**Log time**. Catat jam kerja Anda per tanggal sebagai Kerja, Revisi, atau Terblokir. Actual = kerja + revisi,
-dibulatkan ke 15 menit. Waktu terblokir dicatat tapi tidak dihitung. Anda hanya mencatat jam milik Anda sendiri.
+**Log time**. Catat jam kerjamu per tanggal sebagai Kerja, Revisi, atau Terblokir. Actual = kerja + revisi,
+dibulatkan ke 15 menit. Waktu terblokir dicatat tapi tidak dihitung. Kamu hanya mencatat jam milikmu sendiri.
 Pembetulan jam orang lain hanya bisa oleh yang berhak, dan wajib disertai alasan.
 
 **Poin aset.** Kalau modulnya aktif, panel juga menampilkan poin output tiap orang dari jumlah asetnya. Poin ini
@@ -760,14 +760,14 @@ Studio untuk membuat visual berlabel brand.
 - **Simpan sebagai template** (ikon bintang, untuk peran yang diizinkan) — kanvas menjadi template
   untuk semua orang. Template yang dibuka bisa diubah di kanvas lalu di-**Update**, disimpan
   sebagai template baru, atau dihapus (pembuatnya dan admin).
-- **Visual brief** — deskripsi visual yang Anda inginkan
+- **Visual brief** — deskripsi visual yang kamu inginkan
 - **Specific generation prompt** — opsional, prompt persis untuk hasil generate ini
 - **Visual style** — Editorial photography, Product photography, Cinematic, Minimal, 3D,
   Illustration, Flat illustration, Collage, atau Custom
 - **Advanced generation** — **Reference image**, **AI image generation model**
   (daftar yang disetujui admin), dan **Avoid** (negative prompt)
 
-> Anda memilih model berdasarkan **nama tampilannya**. Tidak ada kolom untuk mengetik
+> Kamu memilih model berdasarkan **nama tampilannya**. Tidak ada kolom untuk mengetik
 > model ID — administrator workspace yang menentukan daftarnya.
 
 ### Kolom tengah — Canvas
@@ -799,16 +799,16 @@ Memilih beberapa layer sekaligus memberi **Align to** (Selection bounds / Canvas
 toolbar perataan, **Bring forward** / **Send backward**, serta **Duplicate layers** dan
 **Delete layers**. Layer terkunci tetap di tempat.
 
-Section yang Anda buka/tutup diingat untuk kunjungan berikutnya.
+Section yang kamu buka/tutup diingat untuk kunjungan berikutnya.
 
 ### Menghasilkan visual
 
 1. Isi **Visual brief** atau **Specific generation prompt** — tanpa itu tombol menolak jalan.
 2. Tekan **Generate visual**.
-3. Gambar ditempatkan **di belakang** teks dan layer Anda.
+3. Gambar ditempatkan **di belakang** teks dan layer kamu.
 
 Kalau tombolnya mati, banner di atas kanvas menjelaskan sebabnya —
-belum ada model aktif, atau provider belum terhubung. Anda tetap bisa menyusun dan
+belum ada model aktif, atau provider belum terhubung. Kamu tetap bisa menyusun dan
 mengekspor template berlabel brand.
 
 Panel **Generation history** menyimpan hingga 8 percobaan terakhir dengan tombol
@@ -827,7 +827,7 @@ Panel **Generation history** menyimpan hingga 8 percobaan terakhir dengan tombol
 
 ## 12. AI Gallery
 
-Desain tim yang siap Anda jadikan milik Anda sendiri.
+Desain tim yang siap kamu jadikan milikmu sendiri.
 
 Toolbar punya pencarian (nama, tag, atau catatan) dan segmen **All designs**, **My designs**
 (dengan pil kuota), **Favorites**, **Archived**. Halaman berisi 24 desain.
@@ -835,15 +835,15 @@ Toolbar punya pencarian (nama, tag, atau catatan) dan segmen **All designs**, **
 Setiap kartu menampilkan sampul, judul, bintang favorit, pemilik dan tanggal, tag,
 catatan desain yang bisa dibuka, dan tombol:
 
-- **Duplicate & edit** — membuat salinan Anda sendiri; aslinya tidak berubah
-- **Edit** — hanya pada desain milik Anda yang belum diarsipkan
+- **Duplicate & edit** — membuat salinanmu sendiri; aslinya tidak berubah
+- **Edit** — hanya pada desain milikmu yang belum diarsipkan
 - **Manage** — pemilik atau administrator workspace
 
 Menyimpan dari AI Hub lewat **Save to AI Gallery**: isi **File name**, **Tags**, dan
 **Design notes**. Modal ini juga menampilkan **Gallery usage**, **Published today**, dan
 **Duplicates today**.
 
-> Saat kuota penuh, Anda **masih bisa** melihat, mengedit, mengunduh, memfavoritkan,
+> Saat kuota penuh kamu **masih bisa** melihat, mengedit, mengunduh, memfavoritkan,
 > mengarsipkan, dan menghapus permanen. Yang diblokir hanya membuat desain baru,
 > menyimpan sebagai desain baru, dan menduplikasi.
 
@@ -861,8 +861,8 @@ Saran pertanyaan bawaan: **What needs my attention?**, **Team workload**,
 **Project risk check**, **Standup summary**, **Asset output report**, **Draft a creative brief**.
 
 Ia menjawab tentang task, project, orang, dan deadline; membalas dalam bahasa
-pertanyaan Anda; dan tetap memberi jawaban lokal kalau provider AI belum dikonfigurasi.
-Riwayat percakapan tersimpan di perangkat Anda (30 pesan terakhir).
+pertanyaanmu; dan tetap memberi jawaban lokal kalau provider AI belum dikonfigurasi.
+Riwayat percakapan tersimpan di perangkatmu (30 pesan terakhir).
 
 Tombol header: **New conversation**, **Prompt templates**, **AI settings**, **Close**.
 Enter mengirim, Shift+Enter membuat baris baru.
@@ -940,7 +940,7 @@ Everything in the period / Open tasks only / Completed tasks only.
   menampilkannya sebagai salah satu angka.
 - CSV: selalu satu tabel task dengan seluruh kolom.
 
-Kotak jumlah baris memperbarui diri saat Anda mengubah scope.
+Kotak jumlah baris memperbarui diri saat kamu mengubah scope.
 
 > Laporan mengikuti periode dan filter export. Task yang disembunyikan manual dan project
 > yang diarsipkan dikecualikan. Ringkasan adalah snapshot saat diekspor — mengedit task
@@ -965,7 +965,7 @@ Sepuluh chapter, total 100 XP:
 
 | Chapter | XP | Isi |
 |---|---|---|
-| Welcome & orientation | 5 | melihat apa yang perlu perhatian Anda lebih dulu |
+| Welcome & orientation | 5 | melihat apa yang perlu perhatianmu lebih dulu |
 | Home command center | 10 | prioritas dan review dari Home |
 | Task navigator | 15 | membuka task, memilih view, menemukan yang blocked |
 | Task workflow | 20 | task latihan, posisi panel, brief, versi, komentar, submit review |
@@ -986,7 +986,7 @@ Untuk chapter workflow dan dependency, dibuat dua **task latihan** sementara.
 Keduanya dihapus otomatis saat quest selesai atau dilewati, dan tidak pernah bercampur
 dengan pekerjaan sungguhan.
 
-> Progres Anda privat dan hanya membantu Anda mengenal workspace. Tidak ada yang melihatnya.
+> Progresmu privat dan hanya membantumu mengenal workspace. Tidak ada yang melihatnya.
 
 ---
 
@@ -994,18 +994,18 @@ dengan pekerjaan sungguhan.
 
 | Preferensi | Di mana | Berlaku untuk |
 |---|---|---|
-| **Bahasa** (EN / ID) | menu akun → **Language**, atau layar login | hanya Anda |
-| **Posisi panel task** | menu gear di panel, atau Settings → Menu & home layout | hanya Anda |
-| **Menu mana yang tampil** | Customize layout → Top menu | hanya Anda |
-| **Kartu Home, urutan, lebar, terlipat** | kontrol kartu + seret, atau Customize layout | hanya Anda |
-| **Layout presets** | Customize layout → Presets | hanya Anda |
-| **Tampilan pintasan keyboard** (Automatic / Ctrl / ⌘) | Settings → My profile | hanya Anda |
-| **Foto, nama, jabatan, email** | Settings → My profile | catatan pribadi Anda |
+| **Bahasa** (EN / ID) | menu akun → **Language**, atau layar login | hanya kamu |
+| **Posisi panel task** | menu gear di panel, atau Settings → Menu & home layout | hanya kamu |
+| **Menu mana yang tampil** | Customize layout → Top menu | hanya kamu |
+| **Kartu Home, urutan, lebar, terlipat** | kontrol kartu + seret, atau Customize layout | hanya kamu |
+| **Layout presets** | Customize layout → Presets | hanya kamu |
+| **Tampilan pintasan keyboard** (Automatic / Ctrl / ⌘) | Settings → My profile | hanya kamu |
+| **Foto, nama, jabatan, email** | Settings → My profile | catatan pribadimu |
 | **Password** | menu akun → Change password | mode server saja |
-| **Penanda centang task** | tombol centang di kartu/baris/chip | hanya Anda, hanya di browser ini |
-| **Section Properties AI yang terbuka** | inspector AI Hub | hanya Anda |
-| **Progres Workspace Quest** | UI quest | hanya Anda, privat |
-| **Accent, Appearance, Density, Radius, Typography** | Quick theme atau Settings → Theme | **seluruh workspace** — hanya tersimpan kalau Anda boleh mengelola workspace |
+| **Penanda centang task** | tombol centang di kartu/baris/chip | hanya kamu, hanya di browser ini |
+| **Section Properties AI yang terbuka** | inspector AI Hub | hanya kamu |
+| **Progres Workspace Quest** | UI quest | hanya kamu, privat |
+| **Accent, Appearance, Density, Radius, Typography** | Quick theme atau Settings → Theme | **seluruh workspace** — hanya tersimpan kalau kamu boleh mengelola workspace |
 
 > **Automation** (auto-hide task selesai, auto-archive project, dan alur review) **bukan**
 > preferensi pribadi. Itu pengaturan workspace yang hanya bisa diubah admin.
@@ -1050,5 +1050,5 @@ Daftar lengkap ada di tombol bantuan pintasan di dalam AI Hub.
 
 ---
 
-*Kalau ada yang tidak sesuai dengan yang Anda lihat di layar, kemungkinan peran Anda
+*Kalau ada yang tidak sesuai dengan yang kamu lihat di layar, kemungkinan peranmu
 tidak memiliki izin untuk fitur itu — tanyakan ke administrator workspace.*

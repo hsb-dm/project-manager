@@ -769,7 +769,7 @@ Object.assign(UI_ID,{
   "Approved by":"Disetujui oleh",
   "Open final":"Buka file final",
   "Sent back for revision":"Dikembalikan untuk revisi",
-  "Waiting for your review":"Menunggu review Anda",
+  "Waiting for your review":"Menunggu review-mu",
   "Waiting for":"Menunggu",
   "to review it":"untuk me-review-nya",
   "Not in review yet":"Belum masuk tahap review",

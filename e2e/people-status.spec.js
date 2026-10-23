@@ -191,7 +191,7 @@ test("a new profile photo is cropped first: drag and zoom, and the circle is wha
     await (await third).setFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
     await expect(page.locator(".toast").last()).toContainText("Choose a JPG, PNG or WebP picture");
     await expect(page.locator("#modalWrap.open #avcView")).toHaveCount(0);
-    expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = tr("Crop your photo"); UI_LANG = was; return r; })).toBe("Potong foto Anda");
+    expect(await page.evaluate(() => { const was = UI_LANG; UI_LANG = "id"; const r = tr("Crop your photo"); UI_LANG = was; return r; })).toBe("Potong foto kamu");
   } finally {
     await page.evaluate(() => { PEOPLE[ME].avatar = ""; return persistPerson(ME, false); });
   }
