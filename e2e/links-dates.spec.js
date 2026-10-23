@@ -226,7 +226,8 @@ test("a version can be any link; the empty state shows the Drive logo", async ({
   await expect(page.locator("#drBody .av-head h3").first()).toHaveText("Version 1");
   /* it opens as a link, not as "Drive" */
   await expect(page.locator("#drBody .pbar-foot")).toContainText("Link");
-  /* and shows through Figma's own embed */
+  /* and shows through Figma's own embed, once asked for: the file's picture comes first (e2e/figma-preview.spec.js) */
+  await page.locator("#drBody .fg-box").getByRole("button", { name: "Open interactive" }).click();
   await expect(page.locator("#drBody .vp-frame iframe")).toHaveAttribute("src", "https://www.figma.com/embed?embed_host=share&url=" + encodeURIComponent("https://www.figma.com/design/ABC123/Banner"));
   /* the page shows the version before its save has reached the server */
   await expect.poll(() => page.evaluate(id => apiFetch("GET", "/api/tasks/" + id).then(t => t.versions.length), taskId), { timeout: 10000 }).toBe(1);

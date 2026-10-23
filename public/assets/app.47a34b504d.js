@@ -3133,7 +3133,7 @@ function F(name,type,source,size,agoMin,url,extra){ var f={id:uid("file"),name:n
 function fileThumb(f){ if (f.preview) return '<span class="fthumb" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="Preview"></span>'; return fileIcon(f); }
 function previewFile(fid){ var tk=task(S.drawerTask); var f=byId(tk.files,fid); if (!f) return; previewModal({title:esc(f.name)+' <span class="badge" style="margin-left:6px">'+esc(tk.id)+'</span> '+statusBadge(tk.status)+(isClosed(tk)?' <span class="badge done">'+I.check+'done</span>':""),name:f.name,img:f.preview,driveId:f.driveId,url:f.url,rawTitle:true}); }
 function previewVersion(n){ var tk=task(S.drawerTask); var v=tk.versions.filter(function(x){ return x.n===n; })[0]; if (!v) return; openModal(tr("Version")+" "+n+" · "+esc(tk.title)+' '+statusBadge(tk.status)+' '+verBadge(v),versionPreviewHtml(tk,v,{full:true})+(typeof verNotesReadHtml==="function"?verNotesReadHtml(v):""),(v.driveUrl?'<button class="btn" onclick="openExternal('+jsq(v.driveUrl)+')">'+I.ext+origLabel(v.driveUrl)+'</button>':"")+((v.img||v.driveId)?'<button class="btn" onclick="saveFile('+attr(JSON.stringify({name:tk.id+" V"+v.n+" "+tk.title,img:v.img||"",driveId:v.driveId||null,url:v.driveUrl||""}))+')">'+I.download+tr("Download")+'</button>':"")+(v.img?'<button class="btn ghost" onclick="copyImageToClipboard('+jsq(v.img)+')">'+I.copy+tr("Copy image")+'</button>':"")+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">'+tr("Close")+'</button>',true); }
-function openTask(id){ if(typeof signedIn==="function"&&!signedIn()) return; var tk=task(id); if (!tk) return; if(S.drawerTask!==id){ if(S.briefEdit&&S.drawerTask) briefFlush(task(S.drawerTask)); S.drawerExpanded=!tk._draft&&drawerAutoExpand(); S.descMode=null; S.briefOptOpen=false; } var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=typeof cmtDraftReplyFor==="function"?cmtDraftReplyFor(id):null; closePops(); markRead(id);
+function openTask(id){ if(typeof signedIn==="function"&&!signedIn()) return; var tk=task(id); if (!tk) return; if(typeof figmaTaskOpened==="function") figmaTaskOpened(tk,S.drawerTask!==id); if(S.drawerTask!==id){ if(S.briefEdit&&S.drawerTask) briefFlush(task(S.drawerTask)); S.drawerExpanded=!tk._draft&&drawerAutoExpand(); S.descMode=null; S.briefOptOpen=false; } var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=typeof cmtDraftReplyFor==="function"?cmtDraftReplyFor(id):null; closePops(); markRead(id);
   document.getElementById("overlay").classList.add("open"); var d=document.getElementById("drawer"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderDrawer(); }
 function closeDrawer(){ var cur=S.drawerTask?task(S.drawerTask):null; if(cur&&S.briefEdit&&!cur._draft) briefFlush(cur); S.briefEdit=false; document.getElementById("overlay").classList.remove("open"); var d=document.getElementById("drawer"); d.classList.remove("open"); d.setAttribute("aria-hidden","true"); S.drawerTask=null; if (cur&&cur._draft){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); refresh(); } }
 function setTab(tb){ var tk=S.drawerTask?task(S.drawerTask):null; if(tk&&!tk._draft){ if(S.descMode==="editor"&&typeof descSaveNow==="function"){ descSaveNow(); S.descMode="viewer"; } if(S.briefEdit){ briefFlush(tk); S.briefEdit=false; } } S.drawerTab=tb; renderDrawer(); }
@@ -12597,7 +12597,7 @@ function embedFor(url){
   if(h==="docs.google.com"&&(m=p.match(/^\/(document|spreadsheets|presentation)\/d\/([-\w]+)/)))
     return {src:"https://docs.google.com/"+m[1]+"/d/"+m[2]+"/preview",kind:"doc",label:{document:"Google Docs",spreadsheets:"Google Sheets",presentation:"Google Slides"}[m[1]]};
   if(h==="figma.com"&&/^\/(file|design|proto|board|slides)\/[-\w]+/.test(p))
-    return {src:"https://www.figma.com/embed?embed_host=share&url="+encodeURIComponent(u.href),kind:"design",label:"Figma"};
+    return {src:"https://www.figma.com/embed?embed_host=share&url="+encodeURIComponent(u.href),kind:"design",label:"Figma",url:u.href};
   if(h==="canva.com"&&(m=p.match(/^\/design\/([-\w]+)\/([-\w]+)\/view/)))
     return {src:"https://www.canva.com/design/"+m[1]+"/"+m[2]+"/view?embed",kind:"design",label:"Canva"};
   if(h==="youtube.com"||h==="youtu.be"){
@@ -12612,9 +12612,10 @@ function embedFor(url){
   if(/\.(pdf|docx?|pptx?|xlsx?)$/i.test(p)) return {src:"https://docs.google.com/viewer?url="+encodeURIComponent(u.href)+"&embedded=true",kind:"doc",label:h};
   return null;
 }
-function embedFrameHtml(e,full){
+function embedIframeHtml(e,full){
   return '<div class="vp-frame vp-'+attr(e.kind)+(full?' full':'')+'"><iframe src="'+attr(e.src)+'" title="'+attr(e.label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation allow-downloads"></iframe></div>';
 }
+function embedFrameHtml(e,full){ return e&&e.label==="Figma"&&!figmaIsLive(e.url)?figmaBoxHtml(e,full):embedIframeHtml(e,full); }
 function versionPreviewHtml(tk,v,o){
   o=o||{};
   var e=!v.img&&v.driveUrl?embedFor(v.driveUrl):null;
@@ -12626,11 +12627,113 @@ function versionPreviewHtml(tk,v,o){
       + '<div class="annot-scroll"><div class="canvas canvas-img" style="background:transparent"><img src="'+attr(img)+'" alt="" draggable="false"></div></div>'+(o.foot||"")+'</div>';
   }
   if(e) return '<div class="preview vp">'+embedFrameHtml(e,o.full)
-    + (e.kind==="folder"?'<p class="vp-hint">'+tr("The folder's files show here when it is shared with you, or with anyone who has the link.")+'</p>':'')+(o.foot||"")+'</div>';
+    + (e.kind==="folder"?'<p class="vp-hint">'+tr("The folder's files show here when it is shared with you, or with anyone who has the link.")+'</p>':'')+(o.foot||"")+'</div>'+(o.full?'':figmaTipHtml(v.driveUrl));
   var host=""; try{ host=new URL(v.driveUrl).hostname.replace(/^www\./,""); }catch(x){}
   return '<div class="preview"><div class="canvas'+(o.full?' full':'')+'" style="background:'+attr(v.color||"#475569")+'"><div class="lbl">'+esc(tk.id)+' · V'+v.n+'<b>'+esc(tk.title)+'</b>'+(o.full?esc(v.note||""):'')+'</div>'
     + (host?'<span class="vp-nopreview">'+esc(host)+' · '+tr("open the link to see it")+'</span>':'')+'</div>'+(o.foot||"")+'</div>';
 }
+
+var FG={data:{},asked:{},pending:{},loaded:{},live:{task:null,urls:{}},tip:false,warm:false,disk:null};
+var FG_STORE="cos.figmaPreviews";
+var FG_POINTER='<svg viewBox="0 0 24 24"><path d="M5 3l13 6.5-5.5 1.8L10.7 17z"/><path d="M13 12l5 5"/></svg>';
+var FG_BULB='<svg class="fg-tip-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>';
+function figmaParts(url){ var u; try{ u=new URL(String(url||"")); }catch(e){ return null; }
+  if(u.protocol!=="https:"||!/^(www\.)?figma\.com$/i.test(u.hostname)) return null;
+  var m=u.pathname.match(/^\/(file|design|proto|board|slides|make|deck)\/([A-Za-z0-9]{2,128})(?:\/|$)/); if(!m) return null;
+  return {kind:m[1],key:m[2],node:u.searchParams.get("node-id")||""}; }
+function fgDisk(){ if(FG.disk) return FG.disk; var d=null; try{ d=JSON.parse(localStorage.getItem(FG_STORE)||"null"); }catch(e){ d=null; } return FG.disk=(d&&typeof d==="object")?d:{}; }
+function fgKeep(key,v){ var d=fgDisk(); d[key]=v; var ks=Object.keys(d);
+  if(ks.length>60) ks.sort(function(a,b){ return (d[a].at||0)-(d[b].at||0); }).slice(0,ks.length-60).forEach(function(k){ delete d[k]; });
+  try{ localStorage.setItem(FG_STORE,JSON.stringify(d)); }catch(e){} }
+function fgData(key){ return key?(FG.data[key]||fgDisk()[key]||null):null; }
+function fgAsk(url,key,refresh){
+  if(!key||!API.on) return Promise.resolve(null);
+  if(FG.pending[key]&&!refresh) return FG.pending[key];
+  var q=apiFetch("GET","/api/link-preview?url="+encodeURIComponent(url)+(refresh?"&refresh=1":"")).then(function(r){
+    var v={t:r.title||"",th:r.thumb||"",w:+r.width||0,h:+r.height||0,p:!!r.private,off:!!r.unavailable,at:Date.now()}, old=fgData(key);
+    if(v.off&&old&&old.th) return old;
+    FG.data[key]=v; if(!v.off) fgKeep(key,v); return v;
+  },function(){ if(!fgData(key)) FG.data[key]={t:"",th:"",w:0,h:0,p:false,off:true,at:Date.now()}; return null; })
+  .then(function(v){ if(FG.pending[key]===q) delete FG.pending[key]; fgPaint(key); return v; });
+  FG.pending[key]=q; return q;
+}
+function fgName(url,d){ return (d&&d.t)||(typeof cmtLinkLabel==="function"?cmtLinkLabel(url):"")||"Figma"; }
+function fgMark(url,px){ return typeof brandIconHtml==="function"?brandIconHtml(url,px):""; }
+function fgSkel(w,h){ return '<svg class="fg-skel skel" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true"></svg>'; }
+function fgWaiting(key,d){ return !d&&!!key&&API.on; }
+function fgIsCard(key,d){ return !(d&&d.th)&&!fgWaiting(key,d); }
+function fgStageHtml(url,key,d){
+  if(d&&d.th){
+    var w=d.w||800, h=d.h||448, ready=!!FG.loaded[d.th];
+    return '<div class="fg-stage'+(ready?' fg-ready':'')+'" data-sig="'+attr(d.th)+'">'+(ready?'':fgSkel(w,h))
+      + '<img class="fg-img" src="'+attr(d.th)+'" alt="'+attr(fgName(url,d))+'" width="'+w+'" height="'+h+'" onload="figmaImgReady(this)" onerror="figmaImgFailed(this)" onclick="figmaLive(this)"></div>';
+  }
+  if(fgWaiting(key,d)) return '<div class="fg-stage" data-sig="wait" role="img" aria-busy="true" aria-label="'+attr(tr("Loading preview…"))+'">'+fgSkel(800,448)+'</div>';
+  var priv=!!(d&&d.p);
+  return '<div class="fg-stage fg-card" data-sig="'+(priv?"private":"off")+'"><span class="fg-logo">'+fgMark(url,30)+'</span><b class="fg-card-name">'+esc(fgName(url,d))+'</b>'
+    + '<span class="fg-card-note">'+tr(priv?"Private file: no static preview":"No static preview right now")+'</span></div>';
+}
+function fgBarHtml(url,key){
+  return '<div class="fg-bar"><span class="fg-title">'+fgMark(url,14)+'<span class="fg-tname"></span></span>'
+    + (key&&API.on?'<button type="button" class="iconbtn flat sm fg-refresh" aria-label="'+attr(tr("Refresh preview"))+'" title="'+attr(tr("Refresh preview"))+'" onclick="figmaRefresh(this)">'+I.sync+'</button>':'')
+    + '<button type="button" class="btn sm fg-open" onclick="openExternal('+jsq(url)+')">'+I.ext+tr("Open in Figma")+'</button>'
+    + '<button type="button" class="btn sm primary fg-live" onclick="figmaLive(this)">'+FG_POINTER+tr("Open interactive")+'</button></div>';
+}
+function figmaBoxHtml(e,full){
+  var url=e.url||"", p=figmaParts(url), key=p?p.key:"", d=fgData(key);
+  if(key&&API.on&&!FG.asked[key]){ FG.asked[key]=1; setTimeout(function(){ fgAsk(url,key); },0); }
+  figmaWarm();
+  return '<div class="fg-box'+(full?' full':'')+(fgIsCard(key,d)?' fg-card-on':'')+'" data-fg="'+attr(key)+'" data-url="'+attr(url)+'">'+fgStageHtml(url,key,d)
+    + fgBarHtml(url,key).replace('<span class="fg-tname"></span>','<span class="fg-tname">'+esc(fgName(url,d))+'</span>')+'</div>';
+}
+function fgPaint(key){
+  if(!key) return; var d=fgData(key);
+  Array.prototype.forEach.call(document.querySelectorAll('.fg-box[data-fg="'+key+'"]'),function(box){
+    var url=box.getAttribute("data-url"), st=box.querySelector(".fg-stage"), html=fgStageHtml(url,key,d), sig=(html.match(/data-sig="([^"]*)"/)||[])[1];
+    if(st&&st.getAttribute("data-sig")!==sig){ var t=document.createElement("div"); t.innerHTML=html; st.parentNode.replaceChild(t.firstChild,st); }
+    box.classList.toggle("fg-card-on",fgIsCard(key,d));
+    var nm=box.querySelector(".fg-tname"); if(nm&&nm.textContent!==fgName(url,d)) nm.textContent=fgName(url,d);
+  });
+}
+function figmaImgReady(img){ FG.loaded[img.getAttribute("src")]=1; if(img.parentNode) img.parentNode.classList.add("fg-ready"); }
+function figmaImgFailed(img){ var box=img.closest(".fg-box"), st=img.parentNode; if(!box||!st) return; var url=box.getAttribute("data-url"), d=fgData(box.getAttribute("data-fg"));
+  var t=document.createElement("div"); t.innerHTML=fgStageHtml(url,"",{t:d&&d.t||"",off:true}); st.parentNode.replaceChild(t.firstChild,st); box.classList.add("fg-card-on"); }
+function fgLiveSync(){ var t=S.drawerTask||null; if(FG.live.task!==t) FG.live={task:t,urls:{}}; }
+function figmaIsLive(url){ if(!S.drawerTask||!url) return false; fgLiveSync(); return !!FG.live.urls[url]; }
+function figmaLive(el){
+  var box=el&&el.closest?el.closest(".fg-box"):null; if(!box) return;
+  var url=box.getAttribute("data-url"), e=embedFor(url); if(!e) return;
+  if(S.drawerTask){ fgLiveSync(); FG.live.urls[e.url]=1; }
+  var t=document.createElement("div"); t.innerHTML=embedIframeHtml(e,box.classList.contains("full"));
+  var fr=t.firstChild; box.parentNode.replaceChild(fr,box);
+  var ifr=fr.querySelector("iframe"); if(ifr){ try{ ifr.focus(); }catch(x){} }
+}
+function figmaRefresh(btn){
+  var box=btn.closest(".fg-box"); if(!box) return; var url=box.getAttribute("data-url"), key=box.getAttribute("data-fg");
+  btn.disabled=true; btn.setAttribute("aria-busy","true");
+  fgAsk(url,key,true).then(function(v){ btn.disabled=false; btn.removeAttribute("aria-busy"); toast(tr(v?"Preview refreshed":"The preview could not be refreshed"),v?undefined:"bad"); });
+}
+function figmaTipOff(){ try{ return localStorage.getItem("cos.figmaTip.off."+ME)==="1"; }catch(e){ return false; } }
+function figmaTipReset(){ FG.tip=false; }
+function figmaTipHtml(url){
+  var p=figmaParts(url); if(!p||p.node||!/^(file|design)$/.test(p.kind)||FG.tip||figmaTipOff()) return "";
+  FG.tip=true;
+  return '<div class="fg-tip" role="note">'+FG_BULB+'<span>'+tr("Tip: in Figma use Copy link to selection to show the exact frame — it loads faster.")+'</span>'
+    + '<button type="button" class="iconbtn flat sm fg-tip-x" aria-label="'+attr(tr("Dismiss tip"))+'" title="'+attr(tr("Dismiss tip"))+'" onclick="figmaTipDismiss(this)">'+I.x+'</button></div>';
+}
+function figmaTipDismiss(btn){
+  try{ localStorage.setItem("cos.figmaTip.off."+ME,"1"); }catch(e){}
+  var near=btn&&btn.closest?btn.closest(".fg-tip"):null, back=near&&near.previousElementSibling;
+  Array.prototype.forEach.call(document.querySelectorAll(".fg-tip"),function(n){ n.parentNode.removeChild(n); });
+  var f=back&&back.querySelector("button:not([disabled])"); if(f){ try{ f.focus(); }catch(x){} }
+}
+function figmaWarm(){
+  if(FG.warm) return; FG.warm=true;
+  [["https://www.figma.com",false],["https://www.figma.com",true],["https://static.figma.com",true]].forEach(function(x){
+    var l=document.createElement("link"); l.rel="preconnect"; l.href=x[0]; if(x[1]) l.crossOrigin="anonymous"; document.head.appendChild(l); });
+}
+function figmaInTask(tk){ return !!tk&&((tk.versions||[]).some(function(v){ return !!figmaParts(v.driveUrl); })||(tk.files||[]).some(function(f){ return !!figmaParts(f.url); })); }
+function figmaTaskOpened(tk,fresh){ if(fresh) FG.live={task:null,urls:{}}; if(figmaInTask(tk)) figmaWarm(); }
 
 void 0;
 
@@ -12753,6 +12856,7 @@ function assetsTabSimple(tk){
   var ed=tk._draft||canI.editTask(tk);
   if(tk._draft) return '<div class="av-sec">'+filesView(tk,true)+'</div>';
   setTimeout(function(){ avHealDriveNames(tk); },0);
+  if(typeof figmaTipReset==="function") figmaTipReset();
   return avVersionSection(tk,ed)+avFinalFiles(tk,ed)+avCommentFiles(tk,ed)+avCountRow(tk,ed);
 }
 
@@ -13180,7 +13284,7 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)});
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)})+avFigmaTip(f);
   }).join("")+'</section>';
 }
 
@@ -13232,9 +13336,10 @@ function avCommentFiles(tk,ed){
       var meta=c?'<span>·</span><span>'+esc(first(c.by))+' '+tr("in a comment")+'</span>':'';
       var btns=useAsVersionHtml(tk,f)+(ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
       var view=c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'';
-      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view});
+      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view})+avFigmaTip(f);
     }).join("")+'</section>';
 }
+function avFigmaTip(f){ return f&&f.url&&typeof figmaTipHtml==="function"?figmaTipHtml(f.url):""; }
 function markFileFinal(fid,on){
   var tk=task(S.drawerTask); if(!tk) return;
   editTaskWith(tk,function(t){
