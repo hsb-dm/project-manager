@@ -188,8 +188,17 @@ function compileAll(html, name) {
     try { new vm.Script(m[2]); } catch (e) { throw new Error(name + ": a script no longer compiles (" + e.message + ") near: " + m[2].slice(0, 200)); }
   }
 }
+/* One English text, one Indonesian wording (Oct 2026). Two UI_ID blocks that word the same English differently used to
+   be settled silently, the page keeping one; now nothing is written while any is left. --i18n-conflicts lists them all. */
+function checkI18n(dict, listAll) {
+  const clash = i18n.conflicts(dict);
+  if (listAll) clash.forEach(c => console.log(JSON.stringify(c.key) + " → " + JSON.stringify(c.kept) + "\n" + c.given.map(g => "    " + g.file + ": " + JSON.stringify(g.value)).join("\n")));
+  if (clash.length) throw Object.assign(new Error(i18n.conflictMessage(clash)), { i18nConflicts: clash });
+  if (listAll) console.log("No English text has two Indonesian wordings.");
+}
 function write() {
   const s = served(), byName = new Map(s.files.map(f => [f.name, f.buf.toString("utf8")]));
+  checkI18n(s.dict, process.argv.includes("--i18n-conflicts"));
   const standalone = standaloneFrom(s.html, n => byName.get(n));
   compileAll(s.html, "public/index.html"); compileAll("<script>" + byName.get(s.files[0].name) + "</script>", "public/assets/" + s.files[0].name); compileAll(standalone, "dist/creative-os-standalone.html");
   const dir = path.join(PUBLIC, "assets");
@@ -201,9 +210,8 @@ function write() {
   fs.writeFileSync(path.join(ROOT, "dist", "creative-os-standalone.html"), standalone);
   const kb = n => Math.round(n / 1024) + " KB", size = n => kb(s.files.find(f => f.name.startsWith(n)).buf.length);
   console.log("Built public/index.html (" + kb(s.html.length) + ", with app.js " + size("app.") + ", app.css " + kb(s.files[1].buf.length) + ", the Indonesian dictionary " + size("i18n-id.") + ": " + Object.keys(s.dict.dict).length + " words from " + s.dict.statements + " blocks) and dist/creative-os-standalone.html (" + kb(standalone.length) + ")");
-  const clash = i18n.conflicts(s.dict);
-  if (process.argv.includes("--i18n-conflicts")) clash.forEach(c => console.log(JSON.stringify(c.key) + " → " + JSON.stringify(c.kept) + "\n" + c.given.map(g => "    " + g.file + ": " + JSON.stringify(g.value)).join("\n")));
-  else if (clash.length) console.log(clash.length + " English texts have different Indonesian words in more than one block (the page keeps one): node build.js --i18n-conflicts lists them");
 }
-module.exports = { parts, servedPage, served, standaloneFrom, assetFiles, pageSources };
-if (require.main === module) write();
+module.exports = { parts, servedPage, served, standaloneFrom, assetFiles, pageSources, checkI18n };
+if (require.main === module) {
+  try { write(); } catch (e) { if (!e || !e.i18nConflicts) throw e; console.error(e.message); process.exitCode = 1; }
+}

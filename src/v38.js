@@ -9,7 +9,7 @@ Object.assign(UI_ID,{
   "This file is an approved version. It cannot be removed.":"File ini adalah versi yang sudah disetujui dan tidak bisa dihapus.",
   "Remove file and version?":"Hapus file dan versinya?","is also Version":"juga merupakan Versi","The version and its annotations will be removed too.":"Versi dan anotasinya ikut dihapus.",
   "Allow self-registration":"Izinkan pendaftaran mandiri","Shows a Register tab on the sign-in page and the page":"Menampilkan tab Daftar di halaman masuk dan halaman",
-  "New accounts get the default role below.":"Akun baru mendapat role bawaan di bawah.",
+  "New accounts get the default role below.":"Akun baru mendapat peran bawaan di bawah.",
   "Registration is on without a join code: anyone who knows the address can create an account. Continue?":"Pendaftaran aktif tanpa kode bergabung: siapa pun yang tahu alamatnya bisa membuat akun. Lanjutkan?",
   "The server could not be reached (":"Server tidak dapat dihubungi (","). It may be restarting — try again in a minute.":"). Server mungkin sedang restart — coba lagi sebentar lagi.",
   "The request took too long (":"Permintaan terlalu lama (","). Try again; for AI, pick a faster model or a smaller size.":"). Coba lagi; untuk AI, pilih model yang lebih cepat atau ukuran lebih kecil.",
@@ -17,7 +17,7 @@ Object.assign(UI_ID,{
   "Show password":"Tampilkan password","Hide password":"Sembunyikan password","That item is not available to you":"Item itu tidak tersedia untukmu",
   "Project not found — it may have been deleted or you no longer have access.":"Project tidak ditemukan — mungkin sudah dihapus atau kamu tidak punya akses lagi.",
   "Write":"Tulis","Preview":"Pratinjau","Done":"Selesai","Edit":"Edit","Bold":"Tebal","Italic":"Miring","Strikethrough":"Coret","Heading":"Judul","Bullet list":"Daftar poin","Numbered list":"Daftar bernomor","Quote":"Kutipan","Link":"Tautan","Code":"Kode",
-  "Confirm":"Konfirmasi","This removes the task, its versions, files and comments. Workspace activity is kept.":"Task, versi, file, dan komentarnya akan dihapus. Aktivitas workspace tetap disimpan.","It is currently blocking":"Saat ini task ini memblokir","task":"task","tasks":"task","Their dependency links will be removed.":"Tautan dependensinya akan dihapus.","Add link":"Tambah link","Link text":"Teks link","Link URL":"URL link","Enter a valid https:// link":"Masukkan link https:// yang valid","Enter a valid web link":"Masukkan link web yang valid","Google Drive":"Google Drive","Google Drive Folder":"Folder Google Drive",
+  "Confirm":"Konfirmasi","This removes the task, its versions, files and comments. Workspace activity is kept.":"Task, versi, file, dan komentarnya akan dihapus. Aktivitas workspace tetap disimpan.","It is currently blocking":"Saat ini task ini memblokir","task":"task","tasks":"task","Their dependency links will be removed.":"Tautan dependensinya akan dihapus.","Add link":"Tambah tautan","Link text":"Teks tautan","Link URL":"URL tautan","Enter a valid https:// link":"Masukkan tautan https:// yang valid","Enter a valid web link":"Masukkan tautan web yang valid","Google Drive":"Google Drive","Google Drive Folder":"Folder Google Drive",
   "Formatting uses Markdown: **bold**, *italic*, # heading, - list. Pasted text keeps its styling.":"Format memakai Markdown: **tebal**, *miring*, # judul, - daftar. Teks yang ditempel tetap mempertahankan gayanya.",
   "Nothing to preview yet.":"Belum ada yang bisa dipratinjau.","No description.":"Tidak ada deskripsi.","Description":"Deskripsi","Link URL (https://…)":"URL tautan (https://…)",
   "Appearance is personal: only your account changes.":"Tampilan bersifat pribadi: hanya akunmu yang berubah.",
@@ -29,10 +29,10 @@ Object.assign(UI_ID,{
   "Remove demo data":"Hapus data demo","Demo accounts and sample content":"Akun demo dan konten contoh",
   "This workspace still contains accounts and content from the demo seed.":"Workspace ini masih berisi akun dan konten dari data demo.",
   "No demo accounts or demo content found.":"Tidak ada akun atau konten demo.","Demo accounts":"Akun demo","Sample tasks":"Task contoh","Sample projects":"Project contoh",
-  "Demo accounts leave the workspace and cannot sign in. Their open tasks move to you. Sample content is deleted unless real work was added to it. Make a backup first.":"Akun demo keluar dari workspace dan tidak bisa login. Task mereka dipindahkan ke kamu. Konten contoh dihapus kecuali sudah berisi pekerjaan nyata. Buat backup dulu.",
+  "Demo accounts leave the workspace and cannot sign in. Their open tasks move to you. Sample content is deleted unless real work was added to it. Make a backup first.":"Akun demo keluar dari workspace dan tidak bisa login. Task mereka yang belum selesai dipindahkan ke kamu. Konten contoh dihapus kecuali sudah berisi pekerjaan nyata. Buat cadangan dulu.",
   "Remove accounts and sample content":"Hapus akun dan konten contoh","Accounts only":"Akun saja","Demo data removed":"Data demo dihapus",
   "Adding":"Menambahkan","versions":"versi","Uploading":"Mengunggah","files":"file","Choose files":"Pilih file",
-  "Task created":"Task dibuat","Open":"Buka","Couldn't create the task. Your draft is kept.":"Task gagal dibuat. Draf tetap disimpan."
+  "Task created":"Task dibuat","Open":"Buka","Couldn't create the task. Your draft is kept.":"Task gagal dibuat. Draft tetap disimpan."
 });
 
 /* ---------- shared: links in plain text (chat rules) ---------- */
@@ -565,5 +565,5 @@ function descAttachFile(file){
 /* dropped on the description: files are attached, pictures placed in the writing */
 document.addEventListener("dragover",function(e){ var t=e.target; if(t&&t.closest&&t.closest("#descSrc")&&e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0) e.preventDefault(); });
 document.addEventListener("drop",function(e){ var t=e.target, el=t&&t.closest?t.closest("#descSrc"):null; if(!el||!e.dataTransfer||!e.dataTransfer.files||!e.dataTransfer.files.length) return; e.preventDefault(); var files=Array.prototype.slice.call(e.dataTransfer.files); try{ var r=document.caretRangeFromPoint?document.caretRangeFromPoint(e.clientX,e.clientY):null; if(r&&el.contains(r.startContainer)){ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r); if(typeof descKeepCaret==="function") descKeepCaret(); } }catch(x){} files.forEach(function(f){ if(/^image\//.test(f.type||"")){ if(typeof briefPasteImage==="function") briefPasteImage(f,{key:typeof PASTE_DESC_KEY!=="undefined"?PASTE_DESC_KEY:undefined}); } else descAttachFile(f); }); });
-(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Attach file":"Lampirkan file","Uploading":"Mengunggah","File attached":"File terlampir","Could not attach that file":"Gagal melampirkan file","The upload did not return a link":"Upload tidak menghasilkan link"});
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Attach file":"Lampirkan file","File attached":"File dilampirkan","Could not attach that file":"Gagal melampirkan file","The upload did not return a link":"Unggahan tidak menghasilkan tautan"});
 </script>

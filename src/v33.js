@@ -103,10 +103,10 @@ Object.assign(UI_ID,{
   "Choose a reviewer before moving this task to":"Pilih reviewer dulu sebelum memindahkan task ini ke",
   "Only the reviewer, the requester, a team lead or an admin can move this task to":"Hanya reviewer, requester, lead tim, atau admin yang bisa memindahkan task ini ke",
   "Who can move tasks into each stage":"Siapa yang boleh memindahkan task ke setiap tahap",
-  "Flexible (default): the assignee can move their own task up to Delivered; Done and Declined need the reviewer, the requester, a team lead or an admin. A reviewer must be named before a task enters review.":"Fleksibel (default): assignee bisa memindahkan task-nya sendiri sampai Delivered; Done dan Declined butuh reviewer, requester, lead tim, atau admin. Reviewer wajib diisi sebelum task masuk review.",
+  "Flexible (default): the assignee can move their own task up to Delivered; Done and Declined need the reviewer, the requester, a team lead or an admin. A reviewer must be named before a task enters review.":"Fleksibel (bawaan): penanggung jawab bisa memindahkan task-nya sendiri sampai Delivered; Done dan Declined butuh reviewer, requester, lead tim, atau admin. Reviewer wajib diisi sebelum task masuk review.",
   "Reviewer required":"Reviewer wajib diisi","Anyone who can edit the task":"Siapa pun yang bisa mengedit task",
   "Reviewer, requester, team lead or admin":"Reviewer, requester, lead tim, atau admin",
-  "Presets":"Preset","Flexible (default)":"Fleksibel (default)","Strict review":"Review ketat","No restrictions":"Tanpa batasan",
+  "Presets":"Preset","Flexible (default)":"Fleksibel (bawaan)","Strict review":"Review ketat","No restrictions":"Tanpa batasan",
   "Stage":"Tahap","Before entering":"Syarat masuk","Who can move tasks here":"Siapa yang boleh memindahkan ke sini",
   "Who can move tasks into":"Siapa yang boleh memindahkan task ke","Stage move rules":"Aturan perpindahan tahap","Stage rules updated":"Aturan tahap diperbarui","Stage name":"Nama tahap","Stage type":"Jenis tahap"
 });

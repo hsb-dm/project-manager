@@ -325,7 +325,7 @@ test("in Indonesian", async () => {
     await expect(box.locator("#cmtReplyText")).toHaveAttribute("aria-label", "Balas Admin E2E");
     await admin.keyboard.type("Setuju");
     await replyBtn(admin, ids.b).click();
-    await expect(replyBtn(admin, ids.a)).toHaveText("Balas (draf)");
+    await expect(replyBtn(admin, ids.a)).toHaveText("Balas (draft)");
     await admin.keyboard.press("Escape");
     await replyBtn(admin, ids.a).click();
     await box.locator(".cmt-reply-cancel").click();

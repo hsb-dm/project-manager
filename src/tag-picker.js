@@ -171,14 +171,19 @@ function tagPickerPop(){
     /* deliberately not .pop — the global click handler closes those, which
        would shut the dropdown on every option click (§337). */
     pop.id="tagPickPop"; pop.className="tag-picker-pop"; pop.setAttribute("role","listbox");
+    /* Esc anywhere while it is open closes only it (src/core.js), the focus back on its Add button */
+    pop._escClose=function(){ tagPickerClose(true); };
     document.body.appendChild(pop);
   }
   return pop;
 }
-function tagPickerClose(){
-  var pop=document.getElementById("tagPickPop"); if(pop) pop.classList.remove("open");
+/* back: the focus returns to the field's Add button (closed with Esc) */
+function tagPickerClose(back){
+  var pop=document.getElementById("tagPickPop"), host=back&&TAGPICK.id?document.getElementById(TAGPICK.id):null, add=host?host.querySelector(".tag-picker-add"):null;
+  if(pop) pop.classList.remove("open");
   document.querySelectorAll(".tag-picker-add[aria-expanded='true']").forEach(function(b){ b.setAttribute("aria-expanded","false"); });
   TAGPICK.id=null; TAGPICK.active=-1;
+  if(add) escFocusBack(add,pop);
 }
 function tagPickerMatches(){
   var st=tagPickerState(TAGPICK.id); if(!st) return [];
@@ -246,7 +251,7 @@ function tagPickerKey(e){
     if(canCreateTag()) return tagPickerCreate();
     return;
   }
-  if(e.key==="Escape"){ e.preventDefault(); tagPickerClose(); }
+  if(e.key==="Escape"){ e.preventDefault(); tagPickerClose(true); }
   if(e.key==="Backspace"&&!TAGPICK.q){
     var st=tagPickerState(TAGPICK.id);
     if(st&&st.values.length) tagPickerRemove(TAGPICK.id,st.values[st.values.length-1]);
@@ -287,7 +292,8 @@ function tagPickerCommit(id){
     catch(e){ console.error("tag picker onchange",e); }
   }
 }
-/* Escape closes, matching every other overlay in the app (§351). */
+/* Escape closes, matching every other overlay in the app (§351): an open dropdown is closed by the app's Escape
+   (src/core.js, its _escClose) and nothing else with it; this only lets go of one whose dropdown is gone. */
 document.addEventListener("keydown",function(e){
   if(e.key==="Escape"&&TAGPICK.id) tagPickerClose();
 });

@@ -72,7 +72,7 @@ Stack:
 ```
 build.js                  concatenator: src/* -> public/index.html + dist/*.html (+ public/assets/)
 build-strip.js            membuang komentar JS/CSS dari src/ saat build (tests/build-strip.test.js)
-build-i18n.js             mengeluarkan kamus UI_ID dari kode ke i18n-id.<hash>.json (tests/build-split.test.js)
+build-i18n.js             mengeluarkan kamus UI_ID dari kode ke i18n-id.<hash>.json (tests/build-split.test.js); build berhenti bila satu English punya dua kata Indonesia (tests/i18n-conflicts.test.js)
 package.json              scripts, engines (node >= 22.13), zero deps
 .env.example              seluruh environment variable
 db/schema.sql             seluruh CREATE TABLE (dieksekusi tiap boot, idempotent)
@@ -448,7 +448,9 @@ Yang penting untuk diketahui:
 
 1. Bungkus literal English dengan `tr("…")` di titik pakai (`esc(tr(...))` untuk teks,
    `attr(tr(...))` untuk atribut).
-2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`.
+2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`, dengan istilah
+   dari **`docs/GLOSSARY-ID.md`** (task, project, workspace, brand, template, file, password, review, tenggat, kamu, …).
+   Kalau English yang sama sudah ada di blok lain, pakai kata yang persis sama.
 3. Kalau string itu konten user yang **tidak boleh** diterjemahkan, beri `data-no-translate`.
 4. `node build.js`.
 
@@ -462,7 +464,15 @@ kuncinya; `var SC_T=(function(t){…})({…})` yang nilainya tetap dipakai, menj
 urutan halaman, lalu menulis hasilnya ke `i18n-id.<hash>.json` dan mengganti blok di bundle dengan `void 0`.
 Aturannya: blok harus jalan saat load — di level atas file, atau di level fungsi modul `(function(){ … })()` —
 dan selain itu tidak boleh ada yang menulis `UI_ID`; kalau tidak, build berhenti dengan pesan yang menunjuk tempatnya.
-Kunci yang diberi kata berbeda oleh dua blok: `node build.js --i18n-conflicts` (halaman tetap memakai yang dipakainya dulu).
+**Satu English, satu Indonesia (Oktober 2026).** Kunci yang diberi kata berbeda oleh dua blok, atau dua kali dalam satu
+objek, dulu diselesaikan diam-diam (halaman memakai salah satunya); 224 kunci seperti itu sudah diseragamkan ke
+`docs/GLOSSARY-ID.md`, dan sekarang `node build.js` **berhenti** tanpa menulis apa pun bila ada yang baru, dengan pesan
+yang menyebut kuncinya, tiap file dengan katanya, dan cara memperbaikinya (`build.js checkI18n`,
+`build-i18n.js conflicts`/`conflictMessage`). `node build.js --i18n-conflicts` mendaftar semuanya.
+`tests/i18n-conflicts.test.js` menjaga ini, dan juga gagal bila kata yang diganti glosarium (*proyek*, *tugas*,
+*ruang kerja*, *merek*, *templat*, *berkas*, *kata sandi*, *tinjau*, *jatuh tempo*, *Anda*, …) muncul lagi di kamus.
+Blok boleh mengulang kunci file lain (dengan kata yang sama) bila modulnya dimuat sendiri oleh test; dalam satu file
+cukup sekali.
 
 Di runtime (`src/core.js ZC_I18N`, `src/i18n.js zcI18n…`): halaman berbahasa Inggris tidak pernah memintanya. Script
 awal di `<head>` memintanya bersamaan dengan session dan workspace bila browser ini menampilkan Indonesia
@@ -538,6 +548,31 @@ Hanya untuk **non-admin** (`wqEligible()`).
   = komentar yang kotaknya terbuka (satu per panel). `S.replyTo` mengikuti key kotak yang sedang ditulis;
   kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
   lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
+
+### Esc: yang paling dalam saja (Oktober 2026)
+
+Satu tekan Esc menutup satu hal, yang paling dalam: picker, popover, menu, dropdown, daftar @mention atau panel
+emoji, dan fokus kembali ke kolom yang membukanya. Tekan berikutnya menutup modal (atau AI chat), lalu panel task.
+Dulu handler global di `src/core.js` tetap jalan apa pun yang sudah dilakukan picker, jadi Esc di picker ikut
+menutup panel.
+
+- Komponen yang punya Esc sendiri menandai tekannya terpakai: `e.preventDefault()` (atau `stopPropagation()`).
+  Handler global tidak melakukan apa-apa untuk tekan yang `defaultPrevented`.
+- `escLayerOpen()` mengembalikan layer terbuka yang terakhir dari `ESC_LAYERS` dan kelihatan: `.pop.open`,
+  `.menu.open` (kecuali picker inline di dalam modal, yang ikut modalnya), `.pillsel-custom.open`,
+  `#tagPickPop.open`, `#scrKdd`, `#palette`, `.link-card.open`. Ini dicek di capture `window` sebelum handler mana
+  pun (`e._escLayer`), karena picker yang menutup dirinya sudah hilang saat tekannya sampai ke `document`. Tekan
+  yang menemukan layer terbuka hanya menutup layer itu.
+- `escCloseLayer(el)` memanggil `el._escClose()` kalau ada (entity picker, tag picker, kind dropdown, pill-select
+  toolbar, command palette, kartu link). Selain itu ia memanggil `closePops()` dan memfokus `el._anchor`.
+- `escFocusBack(el, layer)` memfokus `el` hanya kalau fokus ada di dalam layer itu atau sudah jatuh ke `body`.
+- Menambah layer baru: beri elemennya `_escClose`, tambahkan selektornya ke `ESC_LAYERS`, dan di Esc-nya sendiri
+  cukup `preventDefault()`.
+- Modal di atas panel (`src/v29.js`): saat ditutup, fokus kembali ke kontrol panel yang terakhir difokus sebelum
+  modal terbuka. Untuk modal dari menu panel, itu tombol menunya.
+- `openMenu("ctxMenu")` mengosongkan `onkeydown` menu. Menu gear memasangnya, dan dulu ikut terbawa ke setiap menu
+  sesudahnya: Esc di panel emoji memfokus tombol gear di panel yang sudah tertutup.
+- Test: `e2e/escape-layers.spec.js`.
 
 ### Gear menu
 
@@ -1038,6 +1073,7 @@ Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih por
 | `audit.test.js` | integritas data end-to-end: db + seed + serialize + analytics |
 | `gallery.test.js` | `server/gallery` + `shared/gallery-model` di SQLite `:memory:`; ownership, permission, pagination, penolakan gambar tak aman, prototype key |
 | `i18n.test.js` | round-trip EN→ID→EN dan protected content |
+| `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
 | `security.test.js` | postur production (`NODE_ENV=production`, secret di-set) |
 | `server-security-integration.test.js` | **spawn server sungguhan** dan cek startup aman, auth, backup |
@@ -1239,15 +1275,17 @@ Temuan berikut berasal dari pembacaan kode langsung. Didaftarkan supaya tidak ja
 
 All phone, tablet and wide-desktop layout rules live in **one file**, `src/responsive.css`, which `build.js` appends **after** `v18.css`, so it wins ties on specificity.
 
-- **Breakpoints:** ≤ 380/480 px small phones · ≤ 760 px phones · 761–980 px tablets (phone tab bar on) · ≥ 981 px desktop · ≥ 1181/1281 px wide desktop.
+- **Breakpoints:** ≤ 380/480 px small phones · ≤ 760 px phones · 761–980 px tablets (phone tab bar on) · ≥ 981 px desktop · ≥ 1181/1281 px wide desktop. The topbar's nav shows its words from 1,200 px and the account's name and the wide search from 1,340 px (`head.html`): below those they pushed the page sideways in English.
+- **Tasks page header (Oct 2026):** the phone header (title with a round New task, then the views and a round Select, then the toolbar) is for **≤ 599 px** only; the task toolbars (`.toolbar[data-tour="task-filters"]`, `.task-filter-toolbar`) keep their phone sizes up to 599 px too. From 600 px the Tasks page is **two rows at every width**: row 1 is `.task-pagehead .actions` (Select, the views, Excel, New task), row 2 the toolbar, and neither wraps. 600–980 px (`responsive.css` "Tasks page header", `v38.css` "From 600 px"): the views' switcher shrinks and would scroll in its own track; below 828 px the views other than the chosen one show only their icon (`.view-label`; every view has `aria-label` and `title`) and the pills show an icon for their name; the toolbar's sort group takes `flex:1 1 0; max-width:max-content`, so it gives up width (its pills truncate) instead of wrapping; controls are 36 px (also from 981 px on a touch screen, `pointer:coarse`). A project's and the Calendar's own header stay phone-style up to 760 px. Checked by `e2e/task-toolbar-rows.spec.js` (13 widths × EN/ID × light/dark × 4 views).
 - **Utilities:** `.mobile-only` (shown ≤ 760 px), `.desktop-only` (hidden ≤ 760 px), `.m-head` + `.m-primary` + `.m-icon` for the shared phone page header (title left, round primary action top-right).
 - **Rule of thumb:** edit the existing rule for a selector instead of appending a new override block at the end — that stacking is what this file replaced (v29–v36). If an override is genuinely needed, add it next to the rule it overrides.
 - **Verifying a CSS refactor:** capture computed styles for every element on every screen before and after (Playwright, 390/820/1440 px + dark) and diff them; the v37 consolidation was accepted only with zero differences outside live timestamps.
-- **A menu that hangs below its control** (Sort and Group, `pillSel` in `tasks.js`; a project's status) is drawn inside the toolbar, so no box between it and `#content` may scroll or clip (`overflow` other than `visible`): from 561 to 760 px the task toolbar used to scroll sideways and cut both menus off at its 44 px height, so on an iPhone on its side, a small tablet or a foldable a tap opened nothing visible (fixed Oct 2026). `pillSelPlace` opens the menu down, or up when there is more room above, never under the tab bar (`#tabbar`) or past the screen, as tall as the room (it scrolls inside); a redraw of the same screen (a colleague's change arriving live) keeps an open menu open (the `renderScreen` wrapper after the pill code). `e2e/touch-dropdowns.spec.js` taps every choice on eight phones and tablets in WebKit and Chromium (projects `webkit-touch` and `chromium-touch` in `playwright.config.js`, only that spec; `npx playwright install webkit` once).
+- **A menu that hangs below its control** (Sort and Group, `pillSel` in `tasks.js`; a project's status) is drawn inside the toolbar, so no box between it and `#content` may scroll or clip (`overflow` other than `visible`): from 561 to 760 px the task toolbar used to scroll sideways and cut both menus off at its 44 px height, so on an iPhone on its side, a small tablet or a foldable a tap opened nothing visible (fixed Oct 2026: up to 599 px the row wraps, from 600 px it is the tablet's one row, which shrinks its pills and never scrolls; a toolbar that must not wrap gives up width, it never becomes a scroll box). `pillSelPlace` opens the menu down, or up when there is more room above, never under the tab bar (`#tabbar`) or past the screen, as tall as the room (it scrolls inside); a redraw of the same screen (a colleague's change arriving live) keeps an open menu open (the `renderScreen` wrapper after the pill code). `e2e/touch-dropdowns.spec.js` taps every choice on eight phones and tablets in WebKit and Chromium (projects `webkit-touch` and `chromium-touch` in `playwright.config.js`, only that spec; `npx playwright install webkit` once).
 
 ## Indonesian terminology & colour accessibility (v39)
 
-- **"Task", not "tugas".** Indonesian UI text is normalised by `idTerms()` (core.js) at every exit point — `tr()`, `localizeVisibleText()` (via `_idt()` in i18n.js), dynamic count text, the tutorial (`wqL`) and AI replies (`L()` in ai.js). Dictionary entries may still say "tugas"; they render as "Task/task". User-authored content is never touched.
+- **"Task", not "tugas".** Indonesian UI text is normalised by `idTerms()` (core.js) at every exit point — `tr()`, `localizeVisibleText()` (via `_idt()` in i18n.js), dynamic count text, the tutorial (`wqL`) and AI replies (`L()` in ai.js). User-authored content is never touched. Since October 2026 the dictionary itself says "task" and "project" (and follows `docs/GLOSSARY-ID.md` throughout), so `idTerms()` is only a safety net; `tests/i18n-conflicts.test.js` fails if "tugas" or "proyek" come back.
 - **Dark theme accent.** `applyTheme()` lightens a dark accent in dark mode (`mixHex`, ~42 % towards white) and picks the text-on-accent colour by real WCAG contrast (`inkByContrast`). Text on the accent must use `var(--color-primary-ink)`, never a hard-coded `#fff`.
+- **The accent as text where something is chosen** (Oct 2026) uses `var(--color-primary-text)`, not `var(--color-primary)`: a picker's chosen names and their ✓ (`.ep-row.chosen`, `.ep-check`: projects, assignees, reviewers), the kind of work dropdown's chosen row and its Auto/Mixed mark, the pill-selects' menu (chosen and hovered option), the availability menu's current state. The token is the primary itself in light (computed styles identical) and `color-mix(in srgb, primary 60%, #fff)` in dark, where the dark primary on its soft highlight was only 4.6–4.8:1 (3.1:1 with the Ink accent); now 7.2–10:1 with the workspace accent and at least 6.3:1 with every preset accent. Icons alone (the gear menu's panel position, the tag picker's ✓, checkboxes) keep the primary: they need 3:1 and have at least 3.2:1. `e2e/dark-selected-contrast.spec.js` measures it.
 - **Status colours as text** use text-safe shades defined in the *Accessibility* section at the end of `src/responsive.css`; the `--color-success/warning/danger` tokens remain for fills, bars and charts.
 - Verified: 0 text styles below WCAG AA in light and dark on Home, Tasks (Kanban/List), Calendar, Project, Teams, Analytics, Messages, Notifications and the task drawer.

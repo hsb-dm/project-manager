@@ -55,7 +55,7 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   storyDo:["Gives each task 1, 2, 3, 5, 8 or 13 points from four quick 1–5 ratings.","Memberi tiap task 1, 2, 3, 5, 8, atau 13 poin dari empat penilaian cepat 1–5."],
   storySee:["People see Story Points on the task, and points done against planned on Teams.","Orang melihat Story Points di task, serta poin selesai dibanding rencana di Teams."],
   weightedDo:["Turns the same ratings into points on the workspace's own scale, 1–10 by default.","Mengubah penilaian yang sama menjadi poin pada skala milik workspace, bawaannya 1–10."],
-  weightedSee:["People see Weighted Points on the task; they are also the bonus's base points.","Orang melihat Poin Berbobot di task; poin ini juga menjadi poin dasar bonus."],
+  weightedSee:["People see Weighted Points on the task; they are also the bonus's base points.","Orang melihat Weighted Points di task; poin ini juga menjadi poin dasar bonus."],
   assetsDo:["Gives each person points for the assets they produce, by kind of work: a feed post 1, a resize 0.25, a logo 5.","Memberi tiap orang poin untuk aset yang dihasilkannya, menurut jenis pekerjaan: feed post 1, resize 0,25, logo 5."],
   assetsSee:["People see their asset points on the task and in Analytics.","Orang melihat poin asetnya di task dan di Analytics."],
   kpiDo:["Indicators the work counts towards, moved only by evidence: validated assets or finished tasks.","Indikator yang didukung pekerjaan, hanya bergerak karena bukti: aset yang divalidasi atau task yang selesai."],
@@ -95,18 +95,18 @@ var SC_T=(function(t){ Object.keys(t).forEach(function(k){ var p=t[k]; if(!(p[0]
   docsExt:["External AI processing is off in Settings → AI, so no document can be sent to the AI. Turn it on there first.","Pemrosesan AI eksternal dimatikan di Pengaturan → AI, jadi tidak ada dokumen yang bisa dikirim ke AI. Nyalakan dulu di sana."],
   docsChars:["More text can make suggestions more accurate but uses more AI credit per Ask AI; documents share this budget evenly.","Teks yang lebih banyak bisa membuat saran lebih akurat, tetapi memakai lebih banyak kredit AI per Ask AI; dokumen-dokumen berbagi jatah ini secara merata."],
   manual:["What happens when someone changes a calculated score by hand.","Apa yang terjadi bila seseorang mengubah skor hasil hitungan secara manual."],
-  manualEx:["An estimate changed from 6 h to 8 h needs a reason, and with approval on, it waits for an approver.","Estimasi yang diubah dari 6 jam ke 8 jam perlu alasan, dan bila persetujuan dinyalakan, perubahan itu menunggu penyetuju."],
+  manualEx:["An estimate changed from 6 h to 8 h needs a reason, and with approval on, it waits for an approver.","Estimasi yang diubah dari 6 jam ke 8 jam perlu alasan, dan bila persetujuan dinyalakan, perubahan itu menunggu approver."],
   reason:["Kept in the task's scoring history with who made the change.","Disimpan di riwayat skor task beserta siapa yang mengubahnya."],
   approval:["Someone with the permission to approve estimates confirms them first.","Orang yang berizin menyetujui estimasi mengonfirmasinya terlebih dulu."],
   self:["Not recommended. Recorded in the history, and an estimate approved this way never earns a bonus.","Tidak disarankan. Dicatat di riwayat, dan estimasi yang disetujui dengan cara ini tidak pernah mendapat bonus."],
-  holders:["Admin always holds all of them. Give one to a role in Roles & permissions, or to one person from their row in Members. Being assigned to a task never gives any of them.","Admin selalu memegang semuanya. Beri ke sebuah role di Role & izin, atau ke satu orang dari barisnya di Members. Ditugaskan pada task tidak pernah memberi izin ini."],
+  holders:["Admin always holds all of them. Give one to a role in Roles & permissions, or to one person from their row in Members. Being assigned to a task never gives any of them.","Admin selalu memegang semuanya. Beri ke sebuah peran di Peran & izin, atau ke satu orang dari barisnya di Anggota. Ditugaskan pada task tidak pernah memberi izin ini."],
   holdersEx:["Once the leads have them, a Team Lead approves the estimates of their team's tasks — never of their own.","Setelah lead memilikinya, Team Lead menyetujui estimasi task timnya — tidak pernah task-nya sendiri."],
   leadsCan:["Team Lead and Creative Lead can be given the permissions to approve estimates and finished work and to see the team's scoring analytics.","Team Lead dan Creative Lead bisa diberi izin menyetujui estimasi dan pekerjaan selesai serta melihat analitik skor tim."],
   leadsHave:["Team Lead and Creative Lead have the approval and analytics permissions.","Team Lead dan Creative Lead sudah punya izin persetujuan dan analitik."],
-  leadsAsk:["They will be able to approve estimates and finished work (never on their own tasks) and to see the team's scoring analytics. Nothing else about the roles changes, and each permission can be taken back in Roles & permissions.","Mereka akan bisa menyetujui estimasi dan pekerjaan selesai (tidak pernah pada task sendiri) serta melihat analitik skor tim. Hal lain dari role tidak berubah, dan setiap izin bisa dicabut di Role & izin."],
+  leadsAsk:["They will be able to approve estimates and finished work (never on their own tasks) and to see the team's scoring analytics. Nothing else about the roles changes, and each permission can be taken back in Roles & permissions.","Mereka akan bisa menyetujui estimasi dan pekerjaan selesai (tidak pernah pada task sendiri) serta melihat analitik skor tim. Hal lain dari peran tidak berubah, dan setiap izin bisa dicabut di Peran & izin."],
   leadsDone:["Team Lead and Creative Lead have the approval and analytics permissions now","Team Lead dan Creative Lead kini punya izin persetujuan dan analitik"],
   conflict:["Someone else saved the Smart Scoring settings in the meantime. Their version is loaded now; make your change again.","Orang lain sudah menyimpan pengaturan Smart Scoring. Versi mereka kini dimuat; ulangi perubahanmu."],
-  duty:["This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way.","Role ini bisa mengubah skor sekaligus menyetujuinya. Disarankan: berikan ke orang yang berbeda. Bagaimanapun, tidak ada yang menyetujui estimasi atau bonus pada task-nya sendiri."]
+  duty:["This role can both change scores and approve them. Recommended: give these to different people. Nobody approves an estimate or a bonus on their own task either way.","Peran ini bisa mengubah skor sekaligus menyetujuinya. Disarankan: berikan ke orang yang berbeda. Bagaimanapun, tidak ada yang menyetujui estimasi atau bonus pada task-nya sendiri."]
 });
 /* [id, name, icon, one line] */
 var SC_GROUPS=[["overview","Overview","gauge",SC_T.gOverview],["estimating","Estimating","clock",SC_T.gEstimating],["output","Output & goals","target",SC_T.gOutput],["ai","AI","sparkle",SC_T.gAi],
@@ -358,7 +358,7 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
 
 /* Indonesian, for the shorter words this tab adds (a word the page already translates keeps its translation) */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
-  "Effort Hours":"Effort Hours","Story Points":"Story Points","Weighted Points":"Poin Berbobot","KPI":"KPI","OKR":"OKR",
+  "Effort Hours":"Effort Hours","Story Points":"Story Points","Weighted Points":"Weighted Points","KPI":"KPI","OKR":"OKR",
   "AI-assisted":"Dibantu AI","Hybrid":"Hibrida","How it works":"Cara kerja",
   "must be 100% to save":"harus 100% agar bisa disimpan",
   "Estimating":"Estimasi","Output & goals":"Output & target","Review & bonus":"Review & bonus","Access & visibility":"Akses & visibilitas",
@@ -382,7 +382,7 @@ function scoringDutyWarn(){ var m=document.getElementById("modal"); if(!m) retur
   "5,000 characters (≈1.5 pages)":"5.000 karakter (±1,5 halaman)","15,000 characters (≈5 pages, default)":"15.000 karakter (±5 halaman, bawaan)","30,000 characters (≈10 pages)":"30.000 karakter (±10 halaman)",
   "Manual changes":"Perubahan manual","A reason for every manual change":"Alasan untuk setiap perubahan manual","Manual changes wait for approval":"Perubahan manual menunggu persetujuan",
   "Someone assigned to a task may approve its estimate":"Orang yang ditugaskan pada task boleh menyetujui estimasinya",
-  "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring","and, on top of their role:":"dan, di luar role-nya:",
+  "Who holds the Smart Scoring permissions":"Siapa yang memegang izin Smart Scoring","and, on top of their role:":"dan, di luar perannya:",
   "Give Team Lead and Creative Lead these permissions":"Beri izin ini ke Team Lead dan Creative Lead","Give Team Lead and Creative Lead these permissions?":"Beri izin ini ke Team Lead dan Creative Lead?",
   "They already had them":"Mereka sudah memilikinya","Recent changes":"Perubahan terakhir","The last 20 saves, newest first.":"20 penyimpanan terakhir, yang terbaru di atas.","{n} more changes":"{n} perubahan lainnya",
   "on":"nyala","off":"mati","thresholds":"ambang",

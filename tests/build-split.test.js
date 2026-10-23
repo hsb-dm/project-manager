@@ -84,12 +84,12 @@ test('the Indonesian dictionary is a file of its own: none of it in the code, al
   const b = builtPage();
   assert.match(b.code, /\nvar UI_ID=ZC_I18N\.lazy\(\);\n/);
   assert.ok(!/Object\.assign\(UI_ID/.test(b.code), 'no block adds to it');
-  for (const id of ['Mode merek', 'Pintasan keyboard', 'Belum ada emoji kustom', 'Dibaca dari kata utuh di judul', 'Tampilkan semua proyek']) {
+  for (const id of ['Mode Brand', 'Pintasan keyboard', 'Belum ada emoji kustom', 'Dibaca dari kata utuh di judul', 'Tampilkan semua project']) {
     assert.ok(!b.code.includes(id) && !b.html.includes(id), id + ' is not in the page');
     assert.ok(Object.values(b.dict).some(v => v.includes(id)), id + ' is in the dictionary');
   }
-  /* core.js starts with "Mode Brand"; a later Object.assign gives it "Mode merek", which the page has always shown */
-  assert.equal(b.dict['Brand Mode'], 'Mode merek'); assert.equal(b.dict['Keyboard shortcuts'], 'Pintasan keyboard');
+  /* "Mode Brand" in every block that has it (docs/GLOSSARY-ID.md): a later Object.assign used to give it "Mode merek" */
+  assert.equal(b.dict['Brand Mode'], 'Mode Brand'); assert.equal(b.dict['Keyboard shortcuts'], 'Pintasan keyboard');
   /* what the sources give, today: the file is current */
   const again = build.served();
   assert.deepEqual(b.dict, again.dict.dict, 'run node build.js');

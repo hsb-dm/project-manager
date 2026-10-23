@@ -74,16 +74,16 @@ Object.assign(UI_ID,{
   "Deactivate":"Nonaktifkan","Reactivate":"Aktifkan lagi",
   "Member reactivated":"Anggota diaktifkan lagi",
   "Member deactivated — sign-in blocked, work kept":"Anggota dinonaktifkan — tidak bisa masuk, pekerjaannya tetap ada",
-  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Tugas, komentar, dan riwayatnya tetap utuh. Kamu bisa mengaktifkannya lagi kapan saja.",
+  "They are signed out everywhere and cannot sign in. Their tasks, comments and history stay as they are. You can reactivate them at any time.":"Semua sesinya diakhiri dan ia tidak bisa masuk. Task, komentar, dan riwayatnya tetap utuh. Kamu bisa mengaktifkannya lagi kapan saja.",
   "Allow this member to sign in again":"Izinkan anggota ini masuk lagi",
   "Block sign-in but keep their work and history":"Blokir akses masuk tanpa menghapus pekerjaan dan riwayat",
   "The server sets this schedule through COS_BACKUP_INTERVAL_HOURS":"Jadwal ini diatur server lewat COS_BACKUP_INTERVAL_HOURS",
   "Remove the variable to manage it here.":"Hapus variabel itu agar bisa diatur dari sini.",
   "set by server":"diatur server","Every":"Setiap","Manual only":"Manual saja",
   "Off":"Mati","Daily":"Harian","Weekly":"Mingguan",
-  "No projects yet":"Belum ada proyek","No archived projects":"Belum ada proyek terarsip",
-  "Completed projects move here automatically the month after they finish.":"Proyek selesai otomatis pindah ke sini sebulan setelah rampung.",
-  "Projects group related tasks, milestones and final assets. Create the first one to start planning.":"Proyek mengelompokkan tugas, milestone, dan aset final. Buat proyek pertama untuk mulai merencanakan."
+  "No projects yet":"Belum ada project","No archived projects":"Belum ada project terarsip",
+  "Completed projects move here automatically the month after they finish.":"Project selesai otomatis pindah ke sini sebulan setelah rampung.",
+  "Projects group related tasks, milestones and final assets. Create the first one to start planning.":"Project mengelompokkan task, milestone, dan aset final. Buat project pertama untuk mulai merencanakan."
 });
 </script>
 <script>
@@ -304,15 +304,32 @@ Object.assign(UI_ID,{"Can't reach the ZenCrevia server":"Server ZenCrevia tidak 
     if(lastSig.id){ var byId=document.getElementById(lastSig.id); if(byId) return byId; }
     if(lastSig.click){ var c=[].slice.call(document.querySelectorAll('[onclick="'+CSS.escape(lastSig.click)+'"]')).filter(function(x){ return x.offsetParent&&!x.closest("#modalWrap,#drawer"); }); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===lastSig.text; }); if(t.length) return t[0]; }
     return null; }
+  /* A dialog over the task panel (a confirm, say) gives the focus back to the panel's control that opened it when it
+     closes (Esc closes it alone and leaves the panel open: src/core.js), the same way: the panel's control that last
+     had the focus before the dialog opened (for a dialog opened from one of the panel's menus, that menu's button). */
+  var mWas=false, inDr=null, inDrSig=null, drLast=null;
+  function modalOpen(){ var m=document.getElementById("modalWrap"); return !!(m&&m.classList.contains("open")); }
+  function drawerOpen(){ var d=document.getElementById("drawer"); return !!(d&&d.classList.contains("open")); }
+  document.addEventListener("focusin",function(e){ var t=e.target; if(t&&t.closest&&t.closest("#drawer")) drLast=t; },true);
+  function inDrawer(){ if(inDr&&inDr.isConnected&&inDr.closest("#drawer")) return inDr; var s=inDrSig, d=document.getElementById("drawer"); if(!s||!d) return null;
+    if(s.id){ var byId=document.getElementById(s.id); if(byId&&d.contains(byId)) return byId; }
+    if(s.click){ var c=[].slice.call(d.querySelectorAll('[onclick="'+CSS.escape(s.click)+'"]')); if(c.length===1) return c[0]; var t=c.filter(function(x){ return (x.innerText||"").trim().slice(0,40)===s.text; }); if(t.length) return t[0]; }
+    return null; }
   function changed(recs){ mark(); var now=isOpen(), was=wasOpen||(recs||[]).some(function(r){ return /(^|\s)open(\s|$)/.test(r.oldValue||""); });
     if(!was&&now) lastSig=sig(last);
     if(was&&!now){ var a=document.activeElement;
       if(a===document.body||!a||a.closest&&a.closest("#modalWrap,#drawer")){ if(!lastSig) lastSig=sig(last); var o=opener(); if(o){ try{ o.focus({preventScroll:true}); }catch(e){} } } }
-    wasOpen=now; }
+    var mNow=modalOpen();
+    if(mNow&&!mWas){ inDr=drawerOpen()?drLast:null; inDrSig=inDr?sig(inDr):null; }
+    if(!mNow&&mWas&&drawerOpen()){ var b=document.activeElement;
+      if(!b||b===document.body||b.closest&&b.closest("#modalWrap")){ var od=inDrawer(); if(od){ try{ od.focus({preventScroll:true}); }catch(e){} } } }
+    if(!mNow){ inDr=null; inDrSig=null; }
+    if(!drawerOpen()) drLast=null;
+    mWas=mNow; wasOpen=now; }
   var opens=new MutationObserver(changed), parts=new MutationObserver(function(){ mark(); });
   ["modalWrap","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) opens.observe(el,{attributes:true,attributeFilter:["class"],attributeOldValue:true}); });
   /* the dialog's title is drawn again with its content */
   ["modal","drawer"].forEach(function(id){ var el=document.getElementById(id); if(el) parts.observe(el,{childList:true,subtree:true}); });
-  mark(); wasOpen=isOpen();
+  mark(); wasOpen=isOpen(); mWas=modalOpen();
 })();
 </script>

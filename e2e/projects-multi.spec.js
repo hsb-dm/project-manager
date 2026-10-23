@@ -51,7 +51,7 @@ test("a task in two projects, then in none for now", async ({ page }) => {
     /* in Indonesian */
     await page.evaluate(() => setLanguage("id"));
     await page.locator('#drawer [onclick="taskProjectPicker(this)"]').click();
-    await expect(page.locator("#entityPicker .ep-row").first()).toContainText("Pilih proyek nanti");
+    await expect(page.locator("#entityPicker .ep-row").first()).toContainText("Pilih project nanti");
     await page.keyboard.press("Escape");
     await page.evaluate(() => { setLanguage("en"); closeDrawer(); });
   } finally {

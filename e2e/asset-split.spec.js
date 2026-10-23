@@ -99,8 +99,8 @@ test("each person's count, the total as their sum, and a team lead's team figure
     /* in Indonesian */
     await page.evaluate(() => { UI_LANG = "id"; renderScreen(false); });
     await expect(page.locator("section.panel h2", { hasText: "Aset dihasilkan, per orang" })).toBeVisible();
-    await expect(page.locator("label.asset-lead-opt", { hasText: "Team lead ikut terhitung dari aset timnya" })).toBeVisible();
-    await page.locator("label.asset-lead-opt", { hasText: "Team lead ikut terhitung dari aset timnya" }).click();
+    await expect(page.locator("label.asset-lead-opt", { hasText: "Lead tim juga mendapat hitungan aset timnya" })).toBeVisible();
+    await page.locator("label.asset-lead-opt", { hasText: "Lead tim juga mendapat hitungan aset timnya" }).click();
     await expect.poll(() => page.evaluate(() => apiFetch("GET", "/api/bootstrap").then(b => ((b.workspace || b.ws || {}).autoHide || {}).assets))).toEqual({ lead: "team" });
 
     /* the server keeps the counts whole, and the total their sum, whatever is sent */

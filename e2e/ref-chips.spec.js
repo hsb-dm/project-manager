@@ -184,7 +184,7 @@ test("only real references become chips; one whose task is gone stays its label;
   /* Indonesian */
   await openOn(page, "brief");
   await page.evaluate(() => { UI_LANG = "id"; S.briefEdit = true; renderDrawer(); });
-  await expect(page.locator("#drawer .ref-bar .hint")).toHaveText("Ketik @ untuk menyebut seseorang. Task atau proyek masuk sebagai chip:");
+  await expect(page.locator("#drawer .ref-bar .hint")).toHaveText("Ketik @ untuk menyebut seseorang. Task atau project masuk sebagai chip:");
   await expect(page.locator('#drawer .ref-bar .ref-btn[data-ref-kind="task"]')).toHaveAttribute("title", "Sisipkan task");
   await page.evaluate(() => { UI_LANG = "en"; S.briefEdit = false; renderDrawer(); });
 });

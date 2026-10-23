@@ -214,6 +214,8 @@ function kddFind(key,i){ return kddAll(key)[i]||null; }
 function kddPhone(){ return !!(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||window.innerWidth<=640; }
 function kddPop(){ var p=document.getElementById("scrKdd"); if(p) return p;
   p=document.createElement("div"); p.id="scrKdd"; p.className="scr-kdd-pop"; p.hidden=true; document.body.appendChild(p);
+  /* an Esc its own keys do not see (the focus elsewhere) closes only it too (src/core.js), back on the trigger */
+  p._escClose=function(){ kddClose(1); };
   p.addEventListener("mousedown",function(e){ if(e.target.tagName!=="INPUT") e.preventDefault(); });
   p.addEventListener("click",function(e){ var r=e.target.closest("[role=option]"); if(r&&KDD.open) kddChoose(KDD.open.rows[+r.getAttribute("data-i")]); });
   p.addEventListener("mousemove",function(e){ var r=e.target.closest("[role=option]"); if(r&&KDD.open&&+r.getAttribute("data-i")!==KDD.open.act) kddAct(+r.getAttribute("data-i"),1); });
@@ -390,7 +392,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
   "Kind of work removed: read from the title again":"Jenis pekerjaan dihapus: dibaca dari judul lagi",
   "Find a kind":"Cari jenis","A name or a word":"Nama atau kata","New kind of work":"Jenis pekerjaan baru","No words yet":"Belum ada kata","View":"Lihat",
   "Low, high and each next":"Terendah, tertinggi, dan tiap berikutnya","No kind of work has “{q}” in its name or words.":"Tidak ada jenis pekerjaan dengan “{q}” di nama atau katanya.",
-  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"khusus","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
+  "Auto":"Otomatis","from the title: {kind}":"dari judul: {kind}","custom":"kustom","{a}–{b} h":"{a}–{b} j","{h} h":"{h} j","Usual hours for one deliverable":"Jam biasa untuk satu deliverable",
   /* several kinds of work in one task */
   "Kind of work":"Jenis pekerjaan","Several kinds…":"Beberapa jenis…","Mixed":"Campuran","{n} kinds":"{n} jenis","Several kinds of work":"Beberapa jenis pekerjaan",
   "Each kind with how many of it; the hours add up.":"Tiap jenis dengan jumlahnya; jamnya dijumlahkan.","Choose a kind":"Pilih jenis","Kind of work {n}":"Jenis pekerjaan {n}","this kind":"jenis ini",
@@ -411,7 +413,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd.fld{display:flex;width:100%;max-width:none;min-height:42px;padding:9px 12px;border-radius:12px;font-size:var(--fs-base);font-weight:500}
 .scr-kdd-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scr-kdd .mut,.scr-kdd-l .mut{color:var(--color-text-secondary);font-weight:450}
-.scr-kdd-mk{flex:none;padding:0 6px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:10.5px;font-weight:700;line-height:16px;letter-spacing:.02em;text-transform:lowercase}
+.scr-kdd-mk{flex:none;padding:0 6px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary-text);font-size:10.5px;font-weight:700;line-height:16px;letter-spacing:.02em;text-transform:lowercase}
 .scr-kdd-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .scr-kdd-chev{flex:none;width:12px;height:12px;margin-left:auto;background:currentColor;opacity:.55;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat;transition:transform .15s}
 .scr-kdd.open .scr-kdd-chev{transform:rotate(180deg);opacity:.9}
@@ -426,7 +428,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd-list{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .scr-kdd-o{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 7px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .scr-kdd-o.act,.scr-kdd-o.on{background:var(--color-primary-soft)}
-.scr-kdd-o.on{color:var(--color-primary);font-weight:600}
+.scr-kdd-o.on{color:var(--color-primary-text);font-weight:600}
 .scr-kdd-o.auto{position:relative;margin-bottom:7px;white-space:normal}
 .scr-kdd-o.auto::after{content:"";position:absolute;left:7px;right:7px;bottom:-4px;border-bottom:1px solid var(--color-border)}
 .scr-kdd-ck{flex:none;display:inline-flex;width:14px;height:14px}

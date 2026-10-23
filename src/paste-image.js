@@ -471,7 +471,7 @@ Object.assign(UI_ID,{
   "Image removed":"Gambar dihapus",
   "Image attached":"Gambar terlampir",
   "Image":"Gambar",
-  "Drag to resize — tap to step through sizes":"Tarik untuk mengubah ukuran — ketuk untuk berganti ukuran",
+  "Drag to resize — tap to step through sizes":"Seret untuk mengubah ukuran — ketuk untuk berganti ukuran",
   "Hide the task details so the tab has room":"Sembunyikan detail task agar isi tab lebih lega",
   "Show the task details again":"Tampilkan lagi detail task",
   "Auto-expand":"Auto perbesar"

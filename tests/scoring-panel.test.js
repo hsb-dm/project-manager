@@ -434,5 +434,5 @@ test('the explanation of a stored row is the engine\'s, in Indonesian too, with 
   assert.equal(c.scrStep(res.steps[0]), 'Template "post feed": 2 jam untuk satu deliverable.');
   assert.equal(c.scrStep(adj), 'Nilai kompleksitas 4.6 dibaca sebagai 5 (nilai berupa bilangan bulat 1 sampai 5).');
   const miss = Engine.weightedPoints(Settings.DEFAULTS.weighted, { complexity: 3 }).steps[0];
-  assert.equal(c.scrStep(miss), 'Nilai semua faktor dulu; belum dinilai: lingkup, ketidakpastian, dependensi.');
+  assert.equal(c.scrStep(miss), 'Nilai semua faktor dulu; belum dinilai: cakupan, ketidakpastian, dependensi.');
 });

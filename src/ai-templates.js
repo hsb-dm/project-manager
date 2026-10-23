@@ -101,7 +101,7 @@ function aiTemplateSaveFromModal(){
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Save AI Hub canvases as templates for everyone":"Menyimpan kanvas AI Hub sebagai template untuk semua orang",
   "Save as template":"Simpan sebagai template",
-  "Everyone in the workspace can start from it in AI Hub: the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Semua orang di workspace bisa memulai dari template ini di AI Hub: ukuran, layout, layer, gambar, warna, font, dan teksnya persis seperti di kanvas.",
+  "Everyone in the workspace can start from it in AI Hub: the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Semua orang di workspace bisa memulai dari template ini di AI Hub: ukuran, tata letak, layer, gambar, warna, font, dan teksnya persis seperti di kanvas.",
   "Update":"Perbarui",
   "Save as a new template":"Simpan sebagai template baru",
   "Template name":"Nama template",
@@ -117,10 +117,10 @@ function aiTemplateSaveFromModal(){
   "Template deleted":"Template dihapus",
   "Couldn't save the template":"Template tidak bisa disimpan",
   "Couldn't delete the template":"Template tidak bisa dihapus",
-  "Your role cannot save templates for everyone.":"Role kamu tidak bisa menyimpan template untuk semua orang.",
+  "Your role cannot save templates for everyone.":"Peranmu tidak bisa menyimpan template untuk semua orang.",
   "A picture in this design could not be saved. Download it and add it again as an image layer.":"Ada gambar di desain ini yang tidak bisa disimpan. Unduh gambarnya lalu tambahkan lagi sebagai layer gambar.",
   "By":"Oleh",
-  "Saves the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Menyimpan ukuran, layout, layer, gambar, warna, font, dan teks persis seperti di kanvas.",
+  "Saves the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Menyimpan ukuran, tata letak, layer, gambar, warna, font, dan teks persis seperti di kanvas.",
   "Who can use it":"Siapa yang bisa memakainya",
   "Everyone in the workspace":"Semua orang di workspace",
   "Only me":"Hanya saya",
@@ -129,7 +129,7 @@ function aiTemplateSaveFromModal(){
   "A built-in template is for everyone.":"Template bawaan berlaku untuk semua orang.",
   "Template saved for you":"Template tersimpan untuk kamu",
   "Save AI Hub canvases as templates for themselves":"Menyimpan kanvas AI Hub sebagai template untuk diri sendiri",
-  "Your role saves templates for yourself only.":"Role kamu hanya bisa menyimpan template untuk diri sendiri.",
-  "Your role saves templates for everyone only.":"Role kamu hanya bisa menyimpan template untuk semua orang."
+  "Your role saves templates for yourself only.":"Peranmu hanya bisa menyimpan template untuk diri sendiri.",
+  "Your role saves templates for everyone only.":"Peranmu hanya bisa menyimpan template untuk semua orang."
 });
 </script>

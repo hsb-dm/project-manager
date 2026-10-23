@@ -378,10 +378,10 @@ Object.assign(UI_ID,{
   "Editing your comment":"Mengedit komentarmu","sends":"mengirim","new line":"baris baru","Edit comment":"Edit komentar","Comment updated":"Komentar diperbarui","Could not save the comment":"Komentar tidak dapat disimpan","saves":"menyimpan","cancels":"membatalkan","Edited":"Diedit",
   "On this task":"Di task ini","On this project":"Di project ini",
   "Internal comments are only visible to the creative team.":"Komentar internal hanya terlihat oleh tim kreatif.",
-  "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca peminta seperti tim Marketing.",
+  "Stakeholder-visible comments can be seen by requesters like Marketing.":"Komentar stakeholder bisa dibaca requester seperti tim Marketing.",
   "Write a comment… type @ to mention someone":"Tulis komentar… ketik @ untuk menyebut seseorang",
   "Write a reply… type @ to mention someone":"Tulis balasan… ketik @ untuk menyebut seseorang",
-  "Reply":"Balas","Reply (draft)":"Balas (draf)","Reply to":"Balas","Replying to":"Membalas","Cancel":"Batal","Comment posted":"Komentar terkirim",
+  "Reply":"Balas","Reply (draft)":"Balas (draft)","Reply to":"Balas","Replying to":"Membalas","Cancel":"Batal","Comment posted":"Komentar terkirim",
   "The comment you were replying to was removed — this will be posted as a comment of its own.":"Komentar yang kamu balas sudah dihapus — ini akan dikirim sebagai komentar baru."
 });
 </script>

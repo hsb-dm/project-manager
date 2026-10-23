@@ -130,10 +130,10 @@ var AI_CHAT_DEFAULT = [
 var AI_CHAT_DEFAULT_ID = [
   { id:"c_today",   name:"Apa yang perlu saya perhatikan?", prompt:"Apa yang perlu saya perhatikan hari ini? Urutkan berdasarkan urgensi dan jelaskan mengapa masing-masing penting." },
   { id:"c_load",    name:"Beban kerja tim",                  prompt:"Siapa yang sedang kelebihan beban kerja dan siapa yang masih punya kapasitas? Sarankan dua penugasan ulang." },
-  { id:"c_risk",    name:"Cek risiko proyek",                prompt:"Proyek mana yang berisiko melewati tenggat, dan apa satu penyebab terbesar untuk masing-masing?" },
-  { id:"c_standup", name:"Ringkasan standup",                prompt:"Tulis ringkasan standup singkat untuk tim saya: apa yang sudah terkirim, sedang direview, dan terhambat." },
+  { id:"c_risk",    name:"Cek risiko project",               prompt:"Project mana yang berisiko melewati tenggat, dan apa satu penyebab terbesar untuk masing-masing?" },
+  { id:"c_standup", name:"Ringkasan standup",                prompt:"Tulis ringkasan standup singkat untuk tim saya: apa yang sudah terkirim, sedang di-review, dan terblokir." },
   { id:"c_assets",  name:"Laporan hasil aset",               prompt:"Ringkas hasil aset kami: jumlah yang sudah dikirim, oleh tim mana, dan bandingkan dengan yang masih diproduksi." },
-  { id:"c_brief",   name:"Buat brief kreatif",               prompt:"Buat brief kreatif untuk tugas campaign baru. Tanyakan tujuan dan audiens terlebih dahulu bila diperlukan." }
+  { id:"c_brief",   name:"Buat brief kreatif",               prompt:"Buat brief kreatif untuk task campaign baru. Tanyakan tujuan dan audiens terlebih dahulu bila diperlukan." }
 ];
 function aiChatTemplates(){ var t=(WS&&WS.ai&&WS.ai.chatTemplates); return (t&&t.length)?t:(UI_LANG==="id"?AI_CHAT_DEFAULT_ID:AI_CHAT_DEFAULT); }
 
@@ -415,7 +415,7 @@ function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var i
   ed.style.cssText=Object.keys(css).map(function(k){ return k+":"+css[k]; }).join(";");
   ed.addEventListener("input",function(){aiSetTextValue(id,ed.innerText.replace(/\n$/,""));});
   ed.addEventListener("blur",function(){ AI_INLINE_EDIT=null; aiPreview(); });
-  ed.addEventListener("keydown",function(e){if(e.key==="Escape"){ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});
+  ed.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});
   wrap.appendChild(ed);
   /* the canvas leaves this text out while it is being typed */
   AI_INLINE_EDIT=id; aiInlineRepaint(cv);
@@ -843,7 +843,7 @@ function aiChatToggle(on){
   if (AI_CHAT.open){
     if (!AI_CHAT.loaded && !AI_CHAT.msgs.length) aiChatLoad();
     if (!AI_CHAT.msgs.length){
-      AI_CHAT.msgs.push({ role:"assistant", text:UI_LANG==="id"?"Halo "+first(ME)+". Saya dapat melihat workspace ini — tugas, proyek, anggota, dan tenggat. Tanyakan apa yang perlu diperhatikan, siapa yang kelebihan beban kerja, atau apa yang sudah dikirim bulan lalu.":"Hi "+first(ME)+". I can see this workspace — tasks, projects, people, deadlines. Ask me what needs attention, who is overloaded, or what shipped last month." });
+      AI_CHAT.msgs.push({ role:"assistant", text:UI_LANG==="id"?"Halo "+first(ME)+". Saya dapat melihat workspace ini — task, project, anggota, dan tenggat. Tanyakan apa yang perlu diperhatikan, siapa yang kelebihan beban kerja, atau apa yang sudah dikirim bulan lalu.":"Hi "+first(ME)+". I can see this workspace — tasks, projects, people, deadlines. Ask me what needs attention, who is overloaded, or what shipped last month." });
     }
   }
   renderAIChat();
@@ -1067,7 +1067,7 @@ function aiLocalAnswer(q){
       open=TASKS.filter(function(t){ return !isClosed(t)&&!t.hidden; });
 
   function nm(pid){ return person(pid).name; }
-  function line(t){ return "- **"+t.id+"** "+t.title+" \u2014 "+nm(t.assignee)+", "+dueTxt(t.due)+(isTaskBlocked(t)?L(" \u00b7 blocked",", terhambat"):""); }
+  function line(t){ return "- **"+t.id+"** "+t.title+" \u2014 "+nm(t.assignee)+", "+dueTxt(t.due)+(isTaskBlocked(t)?L(" \u00b7 blocked",", terblokir"):""); }
   function list(ts,n){ return ts.slice(0,n||8).map(line).join("\n"); }
   function urgency(t){ return (t.due<0?0:isTaskBlocked(t)?1:stageKind(t.status)==="review"?2:t.due<=7?3:4)*100+(PRANK[t.prio]||9); }
   function foot(){ return "\n\n_"+L("Local mode \u2014 connect a model in Settings \u2192 AI for open-ended answers.","Mode lokal \u2014 hubungkan model di Pengaturan \u2192 AI untuk jawaban terbuka.")+"_"; }
@@ -1093,18 +1093,18 @@ function aiLocalAnswer(q){
   if(/\bhelp\b|what can you|apa saja|bisa apa|kemampuan|contoh|example/.test(s))
     return L("I read this workspace and answer from it. Try:","Saya membaca workspace ini dan menjawabnya. Coba:")+"\n\n"
       + "- "+L("what needs my attention today","apa yang perlu saya perhatikan hari ini")+"\n"
-      + "- "+L("what is overdue / due this week","apa yang terlambat / jatuh tempo minggu ini")+"\n"
-      + "- "+L("what is blocked and why","apa yang terhambat dan kenapa")+"\n"
+      + "- "+L("what is overdue / due this week","apa yang terlambat / tenggat minggu ini")+"\n"
+      + "- "+L("what is blocked and why","apa yang terblokir dan kenapa")+"\n"
       + "- "+L("who is overloaded","siapa yang kelebihan beban")+"\n"
       + "- "+L("what is waiting on review","apa yang menunggu review")+"\n"
-      + "- "+L("which projects are at risk","proyek mana yang berisiko")+"\n"
+      + "- "+L("which projects are at risk","project mana yang berisiko")+"\n"
       + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+foot();
 
   /* blocked / dependencies */
   if(/block|depend|terhambat|hambat|blokir|ketergantungan|dependensi/.test(s)){
     var bl=open.filter(isTaskBlocked).sort(function(a,b){return a.due-b.due;});
-    if(!bl.length) return L("Nothing is blocked \u2014 every open task is ready to move.","Tidak ada yang terhambat \u2014 semua tugas terbuka siap dikerjakan.");
-    return L("**"+bl.length+" blocked** task(s):","**"+bl.length+"** tugas **terhambat**:")+"\n\n"+bl.slice(0,8).map(function(t){
+    if(!bl.length) return L("Nothing is blocked \u2014 every open task is ready to move.","Tidak ada yang terblokir \u2014 semua task yang belum selesai siap dikerjakan.");
+    return L("**"+bl.length+" blocked** task(s):","**"+bl.length+"** task **terblokir**:")+"\n\n"+bl.slice(0,8).map(function(t){
       var by=unresolvedDependencies(t).map(function(d){return "**"+d.id+"** ("+stageName(d.status)+")";}).join(", ");
       return "- **"+t.id+"** "+t.title+" \u2014 "+L("waiting on ","menunggu ")+by;
     }).join("\n");
@@ -1113,7 +1113,7 @@ function aiLocalAnswer(q){
   /* overdue */
   if(/overdue|\blate\b|telat|terlambat|lewat tenggat/.test(s)){
     var o=open.filter(function(t){return t.due<0;}).sort(function(a,b){return a.due-b.due;});
-    return o.length?L("**"+o.length+" overdue** task(s), most overdue first:","**"+o.length+"** tugas **terlambat**, paling lama di atas:")+"\n\n"+list(o):L("Nothing is overdue right now.","Tidak ada tugas yang terlambat saat ini.");
+    return o.length?L("**"+o.length+" overdue** task(s), most overdue first:","**"+o.length+"** task **terlambat**, paling lama di atas:")+"\n\n"+list(o):L("Nothing is overdue right now.","Tidak ada task yang terlambat saat ini.");
   }
 
   /* review / approval */
@@ -1128,7 +1128,7 @@ function aiLocalAnswer(q){
     if(who&&(who!==ME||/\b(my|saya|aku)\b/.test(s))){
       var wm=open.filter(function(t){return isAssignee(t,who);}).sort(function(a,b){return a.due-b.due;}),
           wh=wm.reduce(function(a,t){return a+t.effort;},0),wc=person(who).cap||0,wu=wc?Math.round(wh/wc*100):0;
-      return "**"+nm(who)+"** \u2014 "+wu+"% "+L("utilisation","pemakaian")+" ("+wh+"h / "+wc+"h, "+wm.length+" "+L("open","terbuka")+")"+(wm.length?":\n\n"+list(wm):".");
+      return "**"+nm(who)+"** \u2014 "+wu+"% "+L("utilisation","pemakaian")+" ("+wh+"h / "+wc+"h, "+wm.length+" "+L("open","belum selesai")+")"+(wm.length?":\n\n"+list(wm):".");
     }
     var rows=Object.keys(PEOPLE).filter(function(pid){return PEOPLE[pid].cap&&!PEOPLE[pid].stakeholder;}).map(function(pid){
       var mine=open.filter(function(t){return isAssignee(t,pid);}),h=mine.reduce(function(a,t){return a+t.effort;},0),cap=PEOPLE[pid].cap;
@@ -1136,29 +1136,29 @@ function aiLocalAnswer(q){
     }).sort(function(a,b){return b.u-a.u;});
     var overl=rows.filter(function(r){return r.u>100;}).length,room=rows.filter(function(r){return r.u<70;}).length;
     var head=overl?L("**"+overl+"** over capacity; **"+room+"** have room.","**"+overl+"** kelebihan beban; **"+room+"** masih punya ruang."):L("No one is over capacity.","Tidak ada yang kelebihan beban.");
-    return head+"\n\n"+rows.slice(0,8).map(function(r){return "- **"+r.n+"** "+r.u+"% ("+r.h+"h / "+r.cap+"h, "+r.c+" "+L("open","terbuka")+")";}).join("\n");
+    return head+"\n\n"+rows.slice(0,8).map(function(r){return "- **"+r.n+"** "+r.u+"% ("+r.h+"h / "+r.cap+"h, "+r.c+" "+L("open","belum selesai")+")";}).join("\n");
   }
 
   /* this week / upcoming deadlines */
   if(/\bweek\b|upcoming|\bsoon\b|deadline|\bdue\b|minggu ini|mendatang|jatuh tempo|tenggat|segera/.test(s)){
     var wk=open.filter(function(t){return t.due>=0&&t.due<=7;}).sort(function(a,b){return a.due-b.due;});
-    return wk.length?L("**"+wk.length+"** due within 7 days:","**"+wk.length+"** jatuh tempo dalam 7 hari:")+"\n\n"+list(wk,10):L("Nothing is due in the next 7 days.","Tidak ada tenggat dalam 7 hari ke depan.");
+    return wk.length?L("**"+wk.length+"** due within 7 days:","**"+wk.length+"** tenggat dalam 7 hari:")+"\n\n"+list(wk,10):L("Nothing is due in the next 7 days.","Tidak ada tenggat dalam 7 hari ke depan.");
   }
 
   /* urgent / high priority */
   if(/urgent|priorit|mendesak|penting|genting|high[- ]?prio/.test(s)){
     var hi=open.filter(function(t){return t.prio==="urgent"||t.prio==="high";}).sort(function(a,b){return (PRANK[a.prio]-PRANK[b.prio])||(a.due-b.due);});
-    return hi.length?L("**"+hi.length+"** high-priority / urgent open task(s):","**"+hi.length+"** tugas prioritas tinggi / mendesak yang terbuka:")+"\n\n"+list(hi,10):L("No urgent or high-priority tasks are open.","Tidak ada tugas mendesak atau prioritas tinggi yang terbuka.");
+    return hi.length?L("**"+hi.length+"** high-priority / urgent open task(s):","**"+hi.length+"** task prioritas tinggi / mendesak yang belum selesai:")+"\n\n"+list(hi,10):L("No urgent or high-priority tasks are open.","Tidak ada task mendesak atau prioritas tinggi yang belum selesai.");
   }
 
   /* projects at risk */
   if(/\brisk\b|at risk|risiko|berisiko|meleset|\bslip\b/.test(s)){
     var rk=PROJECTS.filter(function(p){return p.status!=="archived"&&p.status!=="done"&&(p.status==="risk"||p.due<0||(projectProgress(p)<50&&p.due<=7));});
-    if(!rk.length) return L("No projects are flagged at risk right now.","Tidak ada proyek yang ditandai berisiko saat ini.");
-    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** proyek berisiko:")+"\n\n"+rk.map(function(p){
+    if(!rk.length) return L("No projects are flagged at risk right now.","Tidak ada project yang ditandai berisiko saat ini.");
+    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** project berisiko:")+"\n\n"+rk.map(function(p){
       var opn=TASKS.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}),
           od=opn.filter(function(t){return t.due<0;}).length,bk=opn.filter(isTaskBlocked).length;
-      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"%, "+dueTxt(p.due)+L(" \u2014 "+opn.length+" open, "+od+" overdue, "+bk+" blocked"," \u2014 "+opn.length+" terbuka, "+od+" terlambat, "+bk+" terhambat");
+      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"%, "+dueTxt(p.due)+L(" \u2014 "+opn.length+" open, "+od+" overdue, "+bk+" blocked"," \u2014 "+opn.length+" belum selesai, "+od+" terlambat, "+bk+" terblokir");
     }).join("\n");
   }
 
@@ -1170,9 +1170,9 @@ function aiLocalAnswer(q){
         working=open.filter(function(t){return stageKind(t.status)==="work";});
     return "**"+L("Standup","Standup")+"**\n\n"
       + "**"+L("In progress","Dikerjakan")+"** ("+working.length+"): "+(working.slice(0,6).map(function(t){return t.id;}).join(", ")||"\u2014")+"\n"
-      + "**"+L("In review","Direview")+"** ("+inReview.length+"): "+(inReview.slice(0,6).map(function(t){return t.id;}).join(", ")||"\u2014")+"\n"
-      + "**"+L("Blocked","Terhambat")+"** ("+blk.length+"): "+(blk.slice(0,6).map(function(t){return t.id;}).join(", ")||"\u2014")+"\n"
-      + "**"+L("Recently delivered","Baru selesai")+"**: "+assetsProduced(closedRecent)+L(" assets from "," aset dari ")+closedRecent.length+L(" completed tasks."," tugas selesai.");
+      + "**"+L("In review","Dalam review")+"** ("+inReview.length+"): "+(inReview.slice(0,6).map(function(t){return t.id;}).join(", ")||"\u2014")+"\n"
+      + "**"+L("Blocked","Terblokir")+"** ("+blk.length+"): "+(blk.slice(0,6).map(function(t){return t.id;}).join(", ")||"\u2014")+"\n"
+      + "**"+L("Recently delivered","Baru selesai")+"**: "+assetsProduced(closedRecent)+L(" assets from "," aset dari ")+closedRecent.length+L(" completed tasks."," task selesai.");
   }
 
   /* creative brief — guide only; local mode never invents copy */
@@ -1180,7 +1180,7 @@ function aiLocalAnswer(q){
     return L("I can't draft free-form copy in local mode, but here is a brief skeleton to fill in:","Saya tidak bisa menulis naskah bebas di mode lokal, tetapi ini kerangka brief untuk diisi:")+"\n\n"
       + "- **"+L("Objective","Tujuan")+"** \u2014 "+L("what should this achieve?","apa yang ingin dicapai?")+"\n"
       + "- **"+L("Audience","Audiens")+"** \u2014 "+L("who is it for?","untuk siapa?")+"\n"
-      + "- **"+L("Deliverable","Hasil akhir")+"** \u2014 "+L("format, size, channel","format, ukuran, kanal")+"\n"
+      + "- **"+L("Deliverable","Deliverable")+"** \u2014 "+L("format, size, channel","format, ukuran, kanal")+"\n"
       + "- **"+L("Key message","Pesan utama")+"** \u2014 "+L("the one thing to remember","satu hal yang harus diingat")+"\n"
       + "- **"+L("Mandatories","Elemen wajib")+"** \u2014 "+L("logo, disclaimer, brand colours","logo, disclaimer, warna brand")+"\n"
       + "- **"+L("Deadline","Tenggat")+"**\n\n"
@@ -1189,7 +1189,7 @@ function aiLocalAnswer(q){
   /* assets */
   if(/asset|deliver|output|\baset\b|kirim|\bhasil\b|terkirim/.test(s))
     return L("**"+assetsProduced(TASKS)+"** assets in total, **"+assetsProduced(TASKS.filter(isClosed))+"** delivered from completed tasks, **"+assetLinks(TASKS).length+"** asset links attached. "+autoHiddenCount()+" completed tasks are auto-hidden ("+autoHideLabel()+").",
-            "Total **"+assetsProduced(TASKS)+"** aset, **"+assetsProduced(TASKS.filter(isClosed))+"** terkirim dari tugas selesai, **"+assetLinks(TASKS).length+"** tautan aset terlampir. "+autoHiddenCount()+" tugas selesai disembunyikan otomatis ("+autoHideLabel()+").");
+            "Total **"+assetsProduced(TASKS)+"** aset, **"+assetsProduced(TASKS.filter(isClosed))+"** terkirim dari task selesai, **"+assetLinks(TASKS).length+"** tautan aset terlampir. "+autoHiddenCount()+" task selesai disembunyikan otomatis ("+autoHideLabel()+").");
 
   /* a specific project by name */
   var pj=whichProject();
@@ -1197,23 +1197,23 @@ function aiLocalAnswer(q){
     var pts=TASKS.filter(function(t){return inProject(t,pj.id);}),popen=pts.filter(function(t){return !isClosed(t);}),
         pod=popen.filter(function(t){return t.due<0;}),pbk=popen.filter(isTaskBlocked);
     return "**"+pj.name+"** ["+pj.status+"] \u2014 "+projectProgress(pj)+"%, "+L("owner ","pemilik ")+nm(pj.owner)+", "+L("due ","tenggat ")+dueTxt(pj.due)+"\n\n"
-      + "- "+popen.length+" "+L("open of","terbuka dari")+" "+pts.length+"\n"
-      + "- "+pod.length+" "+L("overdue","terlambat")+", "+pbk.length+" "+L("blocked","terhambat")+"\n"
+      + "- "+popen.length+" "+L("open of","belum selesai dari")+" "+pts.length+"\n"
+      + "- "+pod.length+" "+L("overdue","terlambat")+", "+pbk.length+" "+L("blocked","terblokir")+"\n"
       + "- "+assetsProduced(pts)+" "+L("assets produced","aset dihasilkan")+(popen.length?"\n\n"+list(popen):"");
   }
 
   /* projects overview */
   if(/project|proyek|portfolio|portofolio/.test(s))
-    return L("Projects:","Proyek:")+"\n\n"+PROJECTS.map(function(p){
+    return L("Projects:","Project:")+"\n\n"+PROJECTS.map(function(p){
       var ts=TASKS.filter(function(t){return inProject(t,p.id);});
-      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"% \u2014 "+ts.filter(function(t){return !isClosed(t);}).length+" "+L("open of","terbuka dari")+" "+ts.length+", "+assetsProduced(ts)+" "+L("assets, due","aset, tenggat")+" "+dueTxt(p.due);
+      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"% \u2014 "+ts.filter(function(t){return !isClosed(t);}).length+" "+L("open of","belum selesai dari")+" "+ts.length+", "+assetsProduced(ts)+" "+L("assets, due","aset, tenggat")+" "+dueTxt(p.due);
     }).join("\n");
 
   /* a specific person's work */
   var who2=whichPerson();
   if(who2&&who2!==ME&&/work|doing|sedang|\bkerja\b|tugas|assigned|handle|pegang/.test(s)){
     var their=open.filter(function(t){return isAssignee(t,who2);}).sort(function(a,b){return urgency(a)-urgency(b);});
-    return "**"+nm(who2)+"** \u2014 "+their.length+" "+L("open task(s)","tugas terbuka")+(their.length?":\n\n"+list(their,10):".");
+    return "**"+nm(who2)+"** \u2014 "+their.length+" "+L("open task(s)","task belum selesai")+(their.length?":\n\n"+list(their,10):".");
   }
 
   /* default: a real "what needs attention" briefing for the viewer */
@@ -1222,12 +1222,12 @@ function aiLocalAnswer(q){
       soon=mine.filter(function(t){return t.due>=0&&t.due<=7;}).sort(function(a,b){return a.due-b.due;}),
       myReview=open.filter(function(t){return isReviewer(t,ME)&&stageKind(t.status)==="review";}),
       blockedMine=mine.filter(isTaskBlocked);
-  var parts=[L("Here is what needs your attention ("+mine.length+" open assigned to you):","Berikut yang perlu perhatian Anda ("+mine.length+" tugas terbuka untuk Anda):")];
+  var parts=[L("Here is what needs your attention ("+mine.length+" open assigned to you):","Berikut yang perlu perhatianmu ("+mine.length+" task belum selesai untukmu):")];
   if(od.length) parts.push("\n**"+L(od.length+" overdue",od.length+" terlambat")+"**\n"+list(od,5));
-  if(blockedMine.length) parts.push("\n**"+L(blockedMine.length+" blocked",blockedMine.length+" terhambat")+"**\n"+list(blockedMine,5));
-  if(myReview.length) parts.push("\n**"+L(myReview.length+" waiting on your review",myReview.length+" menunggu review Anda")+"**\n"+list(myReview,5));
-  if(soon.length) parts.push("\n**"+L("Due within 7 days","Jatuh tempo dalam 7 hari")+"**\n"+list(soon,5));
-  if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terhambat, atau jatuh tempo minggu ini."):L("Nothing is assigned to you right now.","Belum ada tugas yang ditugaskan kepada Anda."));
+  if(blockedMine.length) parts.push("\n**"+L(blockedMine.length+" blocked",blockedMine.length+" terblokir")+"**\n"+list(blockedMine,5));
+  if(myReview.length) parts.push("\n**"+L(myReview.length+" waiting on your review",myReview.length+" menunggu review-mu")+"**\n"+list(myReview,5));
+  if(soon.length) parts.push("\n**"+L("Due within 7 days","Tenggat dalam 7 hari")+"**\n"+list(soon,5));
+  if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terblokir, atau tenggat minggu ini."):L("Nothing is assigned to you right now.","Belum ada task yang ditugaskan kepadamu."));
   return parts.join("\n")+foot();
 }
 /* the starting templates, sizes and layout added for the workspace's poster look (Oct 2026), and the
@@ -1251,10 +1251,10 @@ function aiLocalAnswer(q){
   "Button shape":"Bentuk tombol",
   "Square":"Kotak",
   "Rounded":"Membulat",
-  "Pill":"Pil",
+  "Pill":"Kapsul",
   "Button outline":"Garis tepi tombol",
   "Text alignment":"Perataan teks",
-  "Follow layout":"Ikuti layout",
+  "Follow layout":"Ikuti tata letak",
   "Choose 1 automatically":"Pilih 1 otomatis",
   "Choose 2 automatically":"Pilih 2 otomatis",
   "Legal line shown at the bottom":"Kalimat legal di bagian bawah",

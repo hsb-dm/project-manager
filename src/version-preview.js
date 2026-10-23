@@ -67,7 +67,7 @@ function versionPreviewHtml(tk,v,o){
 }
 
 Object.assign(UI_ID,{
-  "The folder's files show here when it is shared with you, or with anyone who has the link.":"File di folder ini tampil di sini bila folder dibagikan kepada Anda, atau kepada siapa saja yang memiliki tautannya.",
+  "The folder's files show here when it is shared with you, or with anyone who has the link.":"File di folder ini tampil di sini bila folder dibagikan kepadamu, atau kepada siapa saja yang memiliki tautannya.",
   "open the link to see it":"buka tautannya untuk melihat"
 });
 </script>

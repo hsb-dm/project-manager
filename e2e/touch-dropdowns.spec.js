@@ -11,9 +11,10 @@
    project's status. In English and Indonesian, light and dark. Everything is put back as it was. */
 const { test, expect, devices } = require("@playwright/test");
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
-/* [device, language, appearance]; the widths 561–760 are where the menus were cut off */
+/* [device, language, appearance]; the widths 561–760 are where the menus were cut off (568: the phone's header, up to
+   599 px; 640–750: the tablet's two rows) */
 const DEVICES = {
-  webkit: [["iPhone SE (3rd gen)", "en", "light"], ["iPhone 13", "id", "dark"], ["iPhone 13 landscape", "en", "dark"], ["iPad (gen 11)", "id", "light"]],
+  webkit: [["iPhone SE (3rd gen)", "en", "light"], ["iPhone 13", "id", "dark"], ["iPhone SE landscape", "id", "light"], ["iPhone 13 landscape", "en", "dark"], ["iPad (gen 11)", "id", "light"]],
   chromium: [["Pixel 7", "en", "dark"], ["Galaxy Tab S4", "id", "dark"], ["Galaxy Tab S9", "en", "light"], ["Galaxy S8 landscape", "id", "light"]]
 };
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on, null, { timeout: 30000 });
@@ -144,9 +145,10 @@ for (const browserName of ["webkit", "chromium"]) {
           await expect.poll(() => hits(page, '#scrKdd [role=option][data-v="carousel"]'), { message: "a kind of work" }).toBe("ok");
           await tapOn(page, '#scrKdd [role=option][data-v="carousel"]');
           await expect.poll(() => page.evaluate(id => ((TASKS.find(t => t.id === id) || {}).meta || {}).kind, made.tasks[0]), { message: "the tap chose the kind" }).toBe("carousel");
-          if (!(await page.locator('#drawer button[onclick="taskProjectPicker(this)"]').first().isVisible())) await tapOn(page, "#drawer .m-details-toggle");
-          await expect(page.locator('#drawer button[onclick="taskProjectPicker(this)"]').first()).toBeVisible();
+          /* the kind's save draws the panel again: "All details" (a phone) is tapped once it has, and again if that redraw took the tap */
           await expect(page.locator("#scrKdd:not([hidden])")).toHaveCount(0);
+          const projField = page.locator('#drawer button[onclick="taskProjectPicker(this)"]').first();
+          await expect(async () => { if (!(await projField.isVisible())) await tapOn(page, "#drawer .m-details-toggle"); await expect(projField).toBeVisible({ timeout: 1500 }); }).toPass({ timeout: 15000 });
           await tapOn(page, '#drawer button[onclick="taskProjectPicker(this)"]');
           await expect.poll(() => hits(page, ".menu.ep.open .ep-row"), { message: "a project" }).toBe("ok");
           await page.evaluate(() => epClose());
