@@ -564,6 +564,13 @@ Cakupan **Mine / Team**, ditambah seluruh filter task.
 Tiga mode: **Month** (maksimum 3 chip per hari), **Week** (maksimum 12), dan **Day**
 (daftar vertikal). Navigasi dengan `‹` `›` dan tombol **Today**.
 
+Pilihan **Month / Week / Day** (**Bulan / Minggu / Hari**) selalu berada di satu bar abu-abu panjang, di mana pun
+kalender muncul (layar Calendar, tampilan Calendar di Tasks, tab Calendar sebuah project, halaman tim), dengan
+mode yang dipilih sebagai pil di dalamnya. Cakupan (**Mine / Team**, di Tasks **Mine / All**) adalah kontrol
+tersendiri dengan bar-nya sendiri; di ponsel cakupan berupa satu tombol putih berikon orang ("Tim", "Saya",
+"Semua") di kiri bar, terpisah darinya, yang sekali ketuk berganti. Dengan keyboard, Tab masuk ke mode yang
+dipilih dan tombol panah (atau Home / End) memindahkannya.
+
 - **Seret chip ke hari lain** untuk menjadwal ulang — durasinya dipertahankan.
 - **Klik hari kosong** untuk membuat task pada tanggal itu.
 - **+n more** membuka daftar semua task yang jatuh tempo pada hari itu.

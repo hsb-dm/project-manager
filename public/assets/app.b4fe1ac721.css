@@ -1150,6 +1150,7 @@ label.chipx,label.report-slide-chip{
 body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth #aiChat{display:none!important}
 .ai-brief-seg button{white-space:nowrap;min-width:0}
 .calendar-display-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.seg.cal-mode-seg,.seg.cal-scope-seg{background:color-mix(in srgb,var(--color-text-primary) 8%,transparent);flex-wrap:nowrap}
 .calendar-toolbar{margin-top:8px;margin-bottom:14px}
 .calendar-toolbar+.cal{margin-top:2px;margin-bottom:22px}
 .calendar-toolbar+.cal+.panel{margin-top:22px}
@@ -1224,7 +1225,7 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
  .calendar-mobile-controls::-webkit-scrollbar{display:none}.cal-mobile-date,.cal-mobile-actions{display:flex;align-items:center;}
  .cal-mobile-date .iconbtn,.cal-mobile-actions>.iconbtn{border:1px solid var(--color-border);background:var(--color-surface)}
  .cal-mobile-date strong{font-weight:750}
- .cal-mobile-actions .seg{gap:0}.cal-mobile-scope-toggle{background:var(--color-ink)!important;color:var(--color-ink-text)!important}
+ .cal-mobile-actions .seg{gap:0}
  .cal-mobile-actions>.iconbtn.active{background:var(--color-primary);color:var(--color-primary-ink);border-color:var(--color-primary)}.cal-mobile-actions>.iconbtn{position:relative}.cal-mobile-count{position:absolute;right:-3px;top:-4px;display:grid;place-items:center;padding:0 2px;border-radius:8px;background:var(--color-secondary);color:#111;font-weight:800}
  .calendar-mobile-controls+.calendar-toolbar+.cal{margin:0 0 14px!important;border-radius:12px;overflow:hidden}.calendar-mobile-controls+.calendar-toolbar+.cal+.panel{margin-top:14px!important}
  .cal-head>div{padding:7px 2px;font-size:9px}
@@ -2513,9 +2514,14 @@ body.auth .nav-messages{display:none!important}
   .cal-mobile-scope-toggle {
     height: 34px !important;
     min-height: 34px !important;
-    padding: 0 12px !important;
+    padding: 0 10px !important;
     font-size: 11.5px !important;
+    gap: 5px;
     order: -2;
+  }
+  .cal-mobile-scope-toggle svg {
+    width: 13px;
+    height: 13px;
   }
   .cal-mobile-actions .seg {
     order: 1;
@@ -4322,7 +4328,7 @@ img.emj.custom{object-fit:contain}
 @media (max-width:760px){
   .cal-mobile-actions{justify-content:flex-start}
   .cal-mobile-actions>*{margin-left:0!important}
-  .cal-mobile-actions>.cal-mobile-scope-toggle{order:-2}
+  .cal-mobile-actions>.cal-mobile-scope-toggle{order:-2;margin-right:6px}
   .cal-mobile-actions>.seg{order:-1}
   .cal-mobile-actions>.iconbtn:first-child{margin-left:auto!important}
   .toolbar:has(>.proj-scope){flex-wrap:nowrap;gap:6px;overflow:visible}
@@ -4358,6 +4364,10 @@ img.emj.custom{object-fit:contain}
   .project-pagehead .actions .enh-proj svg{width:14px;height:14px}
   .project-pagehead .actions .pillsel{height:30px!important}
   .project-pagehead .project-new-task{width:40px!important;min-width:40px!important;height:40px!important;flex:0 0 40px!important}
+}
+@media (max-width:350px){
+  .cal-mobile-scope-toggle svg{display:none}
+  .cal-mobile-actions>.cal-mobile-scope-toggle{margin-right:0}
 }
 .msg-nav-scrim{display:none}
 @media (max-width:980px){

@@ -705,7 +705,8 @@ img.emj.custom{object-fit:contain}
 @media (max-width:760px){
   .cal-mobile-actions{justify-content:flex-start}
   .cal-mobile-actions>*{margin-left:0!important}
-  .cal-mobile-actions>.cal-mobile-scope-toggle{order:-2}
+  /* whose tasks is a filter, not a fourth period: a plain button with a person icon, set apart from the period's track */
+  .cal-mobile-actions>.cal-mobile-scope-toggle{order:-2;margin-right:6px}
   .cal-mobile-actions>.seg{order:-1}
   /* whose tasks and the period at the left, filters and saved views at the right: one row, both ends */
   .cal-mobile-actions>.iconbtn:first-child{margin-left:auto!important}
@@ -746,6 +747,11 @@ img.emj.custom{object-fit:contain}
   .project-pagehead .actions .enh-proj svg{width:14px;height:14px}
   .project-pagehead .actions .pillsel{height:30px!important}
   .project-pagehead .project-new-task{width:40px!important;min-width:40px!important;height:40px!important;flex:0 0 40px!important}
+}
+/* the narrowest phones (320 px): whose tasks without its icon and the extra space, so the row still holds the period */
+@media (max-width:350px){
+  .cal-mobile-scope-toggle svg{display:none}
+  .cal-mobile-actions>.cal-mobile-scope-toggle{margin-right:0}
 }
 /* ===== Chat on a narrow screen =====
    The conversations are a side panel over the chat (as in Slack): the button at the top left slides them in, a tap

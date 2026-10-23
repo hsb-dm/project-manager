@@ -633,9 +633,14 @@
   .cal-mobile-scope-toggle {
     height: 34px !important;
     min-height: 34px !important;
-    padding: 0 12px !important;
+    padding: 0 10px !important;
     font-size: 11.5px !important;
+    gap: 5px;
     order: -2;
+  }
+  .cal-mobile-scope-toggle svg {
+    width: 13px;
+    height: 13px;
   }
   .cal-mobile-actions .seg {
     order: 1;
