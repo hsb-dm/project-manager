@@ -2365,13 +2365,7 @@ body.auth .nav-messages{display:none!important}
     padding: 1px 0;
   }
   .toolbar[data-tour="task-filters"] {
-    overflow-x: auto;
-  }
-  .toolbar[data-tour="task-filters"] {
-    overflow-y: visible;
-  }
-  .toolbar[data-tour="task-filters"]::-webkit-scrollbar {
-    display: none;
+    overflow: visible;
   }
   .toolbar[data-tour="task-filters"]>* {
     grid-column: auto !important;
@@ -2563,7 +2557,6 @@ body.auth .nav-messages{display:none!important}
   }
   .toolbar[data-tour="task-filters"] {
     align-items: center;
-    scrollbar-width: none;
     margin: 0 !important;
     row-gap: 0;
     column-gap: 6px;

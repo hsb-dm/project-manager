@@ -21,9 +21,9 @@ jobs:
           node build.js
           cmp public/index.html dist/creative-os-standalone.html
           git diff --exit-code -- public/index.html dist/creative-os-standalone.html || (echo "::error::Run npm run build and commit public/ and dist/"; exit 1)
-      - name: Browser flows (Playwright, Chromium)
+      - name: Browser flows (Playwright, Chromium; the touch dropdowns also in WebKit)
         run: |
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
           npm run e2e
       - uses: actions/upload-artifact@v4
         if: failure()

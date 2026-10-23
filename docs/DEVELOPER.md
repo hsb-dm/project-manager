@@ -1027,6 +1027,11 @@ npm test    # node --no-warnings --test tests/*.test.js
 
 `node:test` + `node:assert/strict`, tanpa dependency.
 
+Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih port server sementaranya). Proyek
+`chromium` menjalankan semua spec kecuali `e2e/touch-dropdowns.spec.js`, yang jalan sendiri di proyek `webkit-touch`
+(iPhone, iPad) dan `chromium-touch` (Android): dropdown disentuh jari di HP dan tablet. Pasang WebKit sekali dengan
+`npx playwright install webkit`.
+
 | File | Cakupan |
 |---|---|
 | `admin-ops.test.js` | konfigurasi SMTP dan alur `safeRestore`, terhadap `server/backup.js` asli di temp dir |
@@ -1238,6 +1243,7 @@ All phone, tablet and wide-desktop layout rules live in **one file**, `src/respo
 - **Utilities:** `.mobile-only` (shown ≤ 760 px), `.desktop-only` (hidden ≤ 760 px), `.m-head` + `.m-primary` + `.m-icon` for the shared phone page header (title left, round primary action top-right).
 - **Rule of thumb:** edit the existing rule for a selector instead of appending a new override block at the end — that stacking is what this file replaced (v29–v36). If an override is genuinely needed, add it next to the rule it overrides.
 - **Verifying a CSS refactor:** capture computed styles for every element on every screen before and after (Playwright, 390/820/1440 px + dark) and diff them; the v37 consolidation was accepted only with zero differences outside live timestamps.
+- **A menu that hangs below its control** (Sort and Group, `pillSel` in `tasks.js`; a project's status) is drawn inside the toolbar, so no box between it and `#content` may scroll or clip (`overflow` other than `visible`): from 561 to 760 px the task toolbar used to scroll sideways and cut both menus off at its 44 px height, so on an iPhone on its side, a small tablet or a foldable a tap opened nothing visible (fixed Oct 2026). `pillSelPlace` opens the menu down, or up when there is more room above, never under the tab bar (`#tabbar`) or past the screen, as tall as the room (it scrolls inside); a redraw of the same screen (a colleague's change arriving live) keeps an open menu open (the `renderScreen` wrapper after the pill code). `e2e/touch-dropdowns.spec.js` taps every choice on eight phones and tablets in WebKit and Chromium (projects `webkit-touch` and `chromium-touch` in `playwright.config.js`, only that spec; `npx playwright install webkit` once).
 
 ## Indonesian terminology & colour accessibility (v39)
 

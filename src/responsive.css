@@ -482,14 +482,11 @@
   .toolbar[data-tour="task-filters"] {
     padding: 1px 0;
   }
+  /* Never a box that scrolls: Sort's and Group's menus hang below the row, and a row that scrolled sideways cut them
+     off at its own height, so between 561 and 760 px (a small tablet, a foldable, a phone on its side) a tap opened
+     nothing anyone could see. The row wraps instead (.toolbar wraps; at 560 px and under, v38.css lays it out). */
   .toolbar[data-tour="task-filters"] {
-    overflow-x: auto;
-  }
-  .toolbar[data-tour="task-filters"] {
-    overflow-y: visible;
-  }
-  .toolbar[data-tour="task-filters"]::-webkit-scrollbar {
-    display: none;
+    overflow: visible;
   }
   .toolbar[data-tour="task-filters"]>* {
     grid-column: auto !important;
@@ -681,11 +678,9 @@
   .project-pagehead .actions {
     margin-top: 10px;
   }
-  /* Wrapping and overflow are decided by the grouped-toolbar layer, which keeps the controls
-     on one row and lets it scroll if a narrow phone cannot fit them. */
+  /* Wrapping is decided by the grouped-toolbar layer (v38.css); the row never scrolls (see above). */
   .toolbar[data-tour="task-filters"] {
     align-items: center;
-    scrollbar-width: none;
     margin: 0 !important;
     row-gap: 0;
     column-gap: 6px;
