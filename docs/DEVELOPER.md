@@ -539,6 +539,31 @@ Hanya untuk **non-admin** (`wqEligible()`).
   kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
   lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
 
+### Esc: yang paling dalam saja (Oktober 2026)
+
+Satu tekan Esc menutup satu hal, yang paling dalam: picker, popover, menu, dropdown, daftar @mention atau panel
+emoji, dan fokus kembali ke kolom yang membukanya. Tekan berikutnya menutup modal (atau AI chat), lalu panel task.
+Dulu handler global di `src/core.js` tetap jalan apa pun yang sudah dilakukan picker, jadi Esc di picker ikut
+menutup panel.
+
+- Komponen yang punya Esc sendiri menandai tekannya terpakai: `e.preventDefault()` (atau `stopPropagation()`).
+  Handler global tidak melakukan apa-apa untuk tekan yang `defaultPrevented`.
+- `escLayerOpen()` mengembalikan layer terbuka yang terakhir dari `ESC_LAYERS` dan kelihatan: `.pop.open`,
+  `.menu.open` (kecuali picker inline di dalam modal, yang ikut modalnya), `.pillsel-custom.open`,
+  `#tagPickPop.open`, `#scrKdd`, `#palette`, `.link-card.open`. Ini dicek di capture `window` sebelum handler mana
+  pun (`e._escLayer`), karena picker yang menutup dirinya sudah hilang saat tekannya sampai ke `document`. Tekan
+  yang menemukan layer terbuka hanya menutup layer itu.
+- `escCloseLayer(el)` memanggil `el._escClose()` kalau ada (entity picker, tag picker, kind dropdown, pill-select
+  toolbar, command palette, kartu link). Selain itu ia memanggil `closePops()` dan memfokus `el._anchor`.
+- `escFocusBack(el, layer)` memfokus `el` hanya kalau fokus ada di dalam layer itu atau sudah jatuh ke `body`.
+- Menambah layer baru: beri elemennya `_escClose`, tambahkan selektornya ke `ESC_LAYERS`, dan di Esc-nya sendiri
+  cukup `preventDefault()`.
+- Modal di atas panel (`src/v29.js`): saat ditutup, fokus kembali ke kontrol panel yang terakhir difokus sebelum
+  modal terbuka. Untuk modal dari menu panel, itu tombol menunya.
+- `openMenu("ctxMenu")` mengosongkan `onkeydown` menu. Menu gear memasangnya, dan dulu ikut terbawa ke setiap menu
+  sesudahnya: Esc di panel emoji memfokus tombol gear di panel yang sudah tertutup.
+- Test: `e2e/escape-layers.spec.js`.
+
 ### Gear menu
 
 Satu tombol header (`data-tour="task-settings"`) menggabungkan panel position dan task actions.

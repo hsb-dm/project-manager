@@ -528,7 +528,7 @@ function place(el,anchor){ var r=anchor.getBoundingClientRect(); var w=el.offset
   var left=(align==="left"||align==="anchor")?r.left:r.right-w; if(align!=="left"&&align!=="anchor"&&left<8) left=r.left; var scope=anchor.closest&&anchor.closest("#drawer,.modal"); if(scope&&align==="anchor"){var sr=scope.getBoundingClientRect();left=Math.max(sr.left+10,Math.min(left,sr.right-w-10));} left=Math.max(8,Math.min(left,vw-w-12));
   el.style.top=top+"px"; el.style.left=left+"px"; if(h>vh-16){ el.style.maxHeight=(vh-16)+"px"; el.style.overflowY="auto"; } }
 function openPop(id,anchor){ var pop=document.getElementById(id); var was=pop.classList.contains("open"); closePops(); if (was) return; pop.classList.add("open"); place(pop,anchor); if (id==="themePop") renderQuickTheme(); if (id==="notifPop") renderNotifs(); localizeVisibleText(pop); }
-function openMenu(id,anchor,html,align){ var m=document.getElementById(id); var same=m.classList.contains("open")&&m._anchor===anchor; closePops(); if (same){m._anchor=null;return;} if (align) m.setAttribute("data-align",align); else m.removeAttribute("data-align"); if (html!==undefined) m.innerHTML=html; localizeVisibleText(m); if(id==="ctxMenu") m.className="menu"; /* v19.6 variant classes (status-menu, emoji-menu, profile-pop…) never leak into the next menu */ m.classList.add("open");m._anchor=anchor;place(m,anchor); if(id==="userMenu")setTimeout(wqRepositionForProfileMenu,0); }
+function openMenu(id,anchor,html,align){ var m=document.getElementById(id); var same=m.classList.contains("open")&&m._anchor===anchor; closePops(); if (same){m._anchor=null;return;} if (align) m.setAttribute("data-align",align); else m.removeAttribute("data-align"); if (html!==undefined) m.innerHTML=html; localizeVisibleText(m); if(id==="ctxMenu"){ m.className="menu"; m.onkeydown=null; } /* v19.6 variant classes (status-menu, emoji-menu, profile-pop…) never leak into the next menu; nor do the keys of one that set its own (the task settings menu's Esc gave its button the focus from any menu opened after it, the panel closed or not) */ m.classList.add("open");m._anchor=anchor;place(m,anchor); if(id==="userMenu")setTimeout(wqRepositionForProfileMenu,0); }
 function ctxMenu(anchor,html,align){ openMenu("ctxMenu",anchor,html,align); }
 function closePops(){ var ps=document.querySelectorAll(".pop.open,.menu.open"); for (var i=0;i<ps.length;i++){ps[i].classList.remove("open");if(!ps[i].contains(document.activeElement))ps[i]._anchor=null;} }
 /* A control that repaints its own menu (the panel-position row) has already been
@@ -536,7 +536,23 @@ function closePops(){ var ps=document.querySelectorAll(".pop.open,.menu.open"); 
    detached node finds nothing — which used to read as "clicked outside" and shut
    the menu the instant a layout was chosen. Ignore clicks whose target is gone. */
 document.addEventListener("click",function(e){ if (e.target&&e.target.isConnected===false) return; if (!e.target.closest(".pop") && !e.target.closest(".menu") && !e.target.closest(".iconbtn") && !e.target.closest("[data-menu]") && !e.target.closest("#meBtn")) closePops(); });
-document.addEventListener("keydown",function(e){ if (e.key==="Escape"){ if (document.getElementById("modalWrap").classList.contains("open")){ closePops(); closeModal(); } else if (typeof AI_CHAT!=="undefined"&&AI_CHAT.open){ closePops(); aiChatToggle(false); } else { closePops(); closeDrawer(); } } if ((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); if(window.innerWidth<=980)toggleSearchBar(true); else document.getElementById("searchInput").focus(); } });
+/* Escape closes only the innermost open thing (the owner's rule, Oct 2026). One press closes an open picker, popover,
+   menu or dropdown (the @mention list and the emoji panel too) and nothing else, the focus back on what opened it; the
+   next press closes a dialog if one is open (or the AI chat), the one after that the task panel. Inside the panel a
+   press used to close the picker and the whole panel with it: this handler ran whatever the picker had done.
+   A layer with an Escape of its own marks the press as used (preventDefault, or stops it); a used press is left alone
+   here. The open layers are looked at before any handler runs (the capture below), because a picker that closes
+   itself is gone by the time the press gets here: a press that found one open closes only that one. A layer element
+   can carry its own close (_escClose: the picker, the tag picker, the kind dropdown, a toolbar dropdown, the command
+   palette); the menus and popovers are closePops()'s, the focus back on their _anchor. An inline picker (in a
+   dialog) is part of the dialog and goes with it. */
+var ESC_LAYERS=".pop.open,.menu.open:not(.ep-inline),.pillsel-custom.open,#tagPickPop.open,#scrKdd:not([hidden]),#palette,.link-card.open";
+function escLayerOpen(){ var l=document.querySelectorAll(ESC_LAYERS); for (var i=l.length-1;i>=0;i--) if (l[i].getClientRects().length) return l[i]; return null; }
+/* the focus back on el (what opened a layer just closed) when it was in that layer or has fallen to the page */
+function escFocusBack(el,layer){ var a=document.activeElement; if (!el||typeof el.focus!=="function"||!el.isConnected) return; if (a&&a!==document.body&&a.isConnected&&!(layer&&layer.contains(a))) return; try{ el.focus({preventScroll:true}); }catch(e){} }
+function escCloseLayer(l){ if (!l) return; if (typeof l._escClose==="function") return l._escClose(); var back=l._anchor; closePops(); if (back&&back.getAttribute&&back.getAttribute("aria-expanded")==="true") back.setAttribute("aria-expanded","false"); escFocusBack(back,l); }
+window.addEventListener("keydown",function(e){ if (e.key==="Escape") e._escLayer=escLayerOpen(); },true);
+document.addEventListener("keydown",function(e){ if (e.key==="Escape"&&!e.defaultPrevented){ var l=escLayerOpen(); if (l||e._escLayer){ e.preventDefault(); escCloseLayer(l); } else if (document.getElementById("modalWrap").classList.contains("open")){ closePops(); closeModal(); } else if (typeof AI_CHAT!=="undefined"&&AI_CHAT.open){ closePops(); aiChatToggle(false); } else { closePops(); closeDrawer(); } } if ((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); if(window.innerWidth<=980)toggleSearchBar(true); else document.getElementById("searchInput").focus(); } });
 /* Put the cursor in a field once a dialog or panel has drawn — unless the person already went to
    another field in the meantime. A delayed focus used to pull the cursor back, and what was typed
    or pasted landed in the wrong field (a version's note ended up inside its link). el: an element

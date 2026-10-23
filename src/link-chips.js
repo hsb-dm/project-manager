@@ -69,6 +69,8 @@ function linkCardOpen(chip){
   var el=LINK_CARD.el;
   if(!el){
     el=LINK_CARD.el=document.createElement("div"); el.className="link-card"; el.setAttribute("role","dialog");
+    /* Esc while it shows closes only it (src/core.js): the pointer can stay where it is */
+    el._escClose=linkCardClose;
     el.addEventListener("mouseenter",function(){ clearTimeout(LINK_CARD.hide); });
     el.addEventListener("mouseleave",function(){ LINK_CARD.hide=setTimeout(linkCardClose,220); });
     document.body.appendChild(el);

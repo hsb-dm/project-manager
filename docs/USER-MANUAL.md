@@ -1030,7 +1030,7 @@ Task yang sudah selesai dan dikembalikan selalu keluar dari stage selesai, walau
 | Pintasan | Fungsi |
 |---|---|
 | **Ctrl K** / **⌘ K** | fokus ke pencarian (membuka search bar di layar sempit) |
-| **Escape** | tutup — berurutan: modal, panel AI, popover/panel task |
+| **Escape** | tutup yang paling dalam saja, satu per tekan: dulu picker, menu, dropdown, popover, daftar @mention atau panel emoji (fokus kembali ke kolomnya), lalu modal atau panel AI, lalu panel task |
 | **⌘/Ctrl + Enter** | kirim komentar |
 | **Enter** | kirim pesan AI Intelligence (Shift+Enter = baris baru) |
 | **← → ↑ ↓** di menu gear | berpindah antar posisi panel |

@@ -214,6 +214,8 @@ function kddFind(key,i){ return kddAll(key)[i]||null; }
 function kddPhone(){ return !!(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||window.innerWidth<=640; }
 function kddPop(){ var p=document.getElementById("scrKdd"); if(p) return p;
   p=document.createElement("div"); p.id="scrKdd"; p.className="scr-kdd-pop"; p.hidden=true; document.body.appendChild(p);
+  /* an Esc its own keys do not see (the focus elsewhere) closes only it too (src/core.js), back on the trigger */
+  p._escClose=function(){ kddClose(1); };
   p.addEventListener("mousedown",function(e){ if(e.target.tagName!=="INPUT") e.preventDefault(); });
   p.addEventListener("click",function(e){ var r=e.target.closest("[role=option]"); if(r&&KDD.open) kddChoose(KDD.open.rows[+r.getAttribute("data-i")]); });
   p.addEventListener("mousemove",function(e){ var r=e.target.closest("[role=option]"); if(r&&KDD.open&&+r.getAttribute("data-i")!==KDD.open.act) kddAct(+r.getAttribute("data-i"),1); });

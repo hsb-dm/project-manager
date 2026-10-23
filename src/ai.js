@@ -415,7 +415,7 @@ function aiOpenInlineEditor(cv,hit){ if(aiLayerMeta(hit.id).locked)return; var i
   ed.style.cssText=Object.keys(css).map(function(k){ return k+":"+css[k]; }).join(";");
   ed.addEventListener("input",function(){aiSetTextValue(id,ed.innerText.replace(/\n$/,""));});
   ed.addEventListener("blur",function(){ AI_INLINE_EDIT=null; aiPreview(); });
-  ed.addEventListener("keydown",function(e){if(e.key==="Escape"){ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});
+  ed.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();ed.blur();} if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ed.blur();}});
   wrap.appendChild(ed);
   /* the canvas leaves this text out while it is being typed */
   AI_INLINE_EDIT=id; aiInlineRepaint(cv);
