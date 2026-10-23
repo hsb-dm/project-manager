@@ -549,6 +549,24 @@ Hanya untuk **non-admin** (`wqEligible()`).
   kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
   lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
 
+### Menu klik kanan task (Oktober 2026)
+
+- Klik kanan baris task membuka menu task-nya (`taskContextMenu` di `src/enhance.js`): Open, Open in new tab, Edit,
+  Assign…, Change status…, Copy link, Watch, Save, Remind me…, Archive. Edit, Assign…, Change status… dan Archive
+  hanya untuk yang boleh mengedit task itu. Pojok menu ada di pointer; Assign…, Change status… dan Remind me…
+  terbuka di tempat yang sama (`taskCtxAt()`).
+- `taskCtxId(el)` naik dari elemen yang diklik ke elemen terdekat yang `data-id`-nya task (`task(id)` ada), atau
+  yang `onclick`-nya menyebut `openTask('<id>')` / `openTask("<id>")`. Sejak perbaikan XSS baris task membuka
+  task-nya dengan `openTask(taskIdFrom(this))` dan menyimpan id di `data-id`; menu dulu hanya membaca onclick, jadi
+  tidak terbuka di List, Kanban, hasil pencarian dan baris lain. Baris task baru cukup diberi `data-id`.
+- Menu browser tetap muncul di input, textarea, select, tautan, teks yang bisa diedit dan teks terpilih di bawah
+  pointer. Klik kanan yang sudah di-`preventDefault()` (judul kolom List, menunya sendiri) dibiarkan.
+- Shift+F10 atau tombol menu pada kontrol yang terfokus di baris (kotak centang, tombol Open di Grid) membuka menu di
+  bawah kontrol itu dengan fokus di item pertama. Esc menutup menu saja, dan fokus kembali.
+- Baris di dialog (sheet "+ more" Kalender): Open dan Edit menutup dialognya dulu.
+- Lebar ≤ 980 px: tidak ada menu ini. Tidak ada long-press khusus.
+- Test: `e2e/task-context-menu.spec.js`.
+
 ### Esc: yang paling dalam saja (Oktober 2026)
 
 Satu tekan Esc menutup satu hal, yang paling dalam: picker, popover, menu, dropdown, daftar @mention atau panel
