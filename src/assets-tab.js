@@ -52,6 +52,8 @@ function assetsTabSimple(tk){
   /* a task being created has no versions or comments yet, only reference files */
   if(tk._draft) return '<div class="av-sec">'+filesView(tk,true)+'</div>';
   setTimeout(function(){ avHealDriveNames(tk); },0);
+  /* the tip under a link to a whole Figma file shows once in the tab (src/version-preview.js) */
+  if(typeof figmaTipReset==="function") figmaTipReset();
   return avVersionSection(tk,ed)+avFinalFiles(tk,ed)+avCommentFiles(tk,ed)+avCountRow(tk,ed);
 }
 
@@ -539,7 +541,7 @@ function avFinalFiles(tk,ed){
   if(!rows.length) return h+'<p class="av-empty">'+tr("No final files yet. Upload the delivered file, link it from Google Drive, or attach any HTTPS link.")+'</p></section>';
   return h+rows.map(function(r){
     var f=r[0], wasComment=promoted.indexOf(f.id)>=0;
-    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)});
+    return fileRowHtml(tk,f,r[1],ed,wasComment?{tag:' <span class="badge">'+tr("from a comment")+'</span>',btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)+(ed?'<button class="btn xs ghost" onclick="markFileFinal('+jsq(f.id)+',false)">'+tr("Not final")+'</button>':'')}:{btns:useAsFinalHtml(tk,f)+avEditLinkBtn(tk,f,ed)})+avFigmaTip(f);
   }).join("")+'</section>';
 }
 
@@ -599,9 +601,11 @@ function avCommentFiles(tk,ed){
       /* two lines (fileRowHtml): what the file becomes for the task, then looking at it — the comment it came from first */
       var btns=useAsVersionHtml(tk,f)+(ed?'<button class="btn xs" onclick="markFileFinal('+jsq(f.id)+',true)">'+I.check+tr("Mark as final")+'</button>':'');
       var view=c?'<button class="btn xs ghost" onclick="avShowComment('+jsq(c.id)+')">'+tr("View comment")+'</button>':'';
-      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view});
+      return fileRowHtml(tk,f,r[1],ed,{cls:"from-comment",meta:meta,btns:btns,view:view})+avFigmaTip(f);
     }).join("")+'</section>';
 }
+/* a link to a whole Figma file: the tip to link the frame instead, under its row (once in the tab) */
+function avFigmaTip(f){ return f&&f.url&&typeof figmaTipHtml==="function"?figmaTipHtml(f.url):""; }
 function markFileFinal(fid,on){
   var tk=task(S.drawerTask); if(!tk) return;
   editTaskWith(tk,function(t){

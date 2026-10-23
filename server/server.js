@@ -640,6 +640,10 @@ function pushNotification(notifId) {
   } catch (e) { console.error("[push] " + e.message); }
 }
 const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: (d, w, userId) => readNotifsFor(userId), writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id) });
+/* a Figma file's picture, shown before Figma's viewer (server/link-preview.js): GET /api/link-preview, fetched through
+   the same guarded fetch as link names; the browser tests answer for Figma from a module under e2e/ (e2e/serve.js) */
+const linkPreviewLib = require("./link-preview");
+linkPreviewLib.register(db, { route, fetch: linkPreviewLib.stubFrom(process.env.COS_LINK_FETCH_STUB, path.join(__dirname, "..")) || chat.guardedFetch });
 /* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
 require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security });
 /* a project's discussion: its own comments, routes and notifications (server/project-discussion.js) */

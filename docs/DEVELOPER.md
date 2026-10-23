@@ -549,6 +549,24 @@ Hanya untuk **non-admin** (`wqEligible()`).
   kotak paling bawah tidak membalas apa pun. Orang yang boleh berkomentar tapi tidak mengedit task mengirim
   lewat `POST /api/tasks/:id/comments`, yang menjaga `parent` (`replyParent` di `server/server.js`).
 
+### Menu klik kanan task (Oktober 2026)
+
+- Klik kanan baris task membuka menu task-nya (`taskContextMenu` di `src/enhance.js`): Open, Open in new tab, Edit,
+  Assign…, Change status…, Copy link, Watch, Save, Remind me…, Archive. Edit, Assign…, Change status… dan Archive
+  hanya untuk yang boleh mengedit task itu. Pojok menu ada di pointer; Assign…, Change status… dan Remind me…
+  terbuka di tempat yang sama (`taskCtxAt()`).
+- `taskCtxId(el)` naik dari elemen yang diklik ke elemen terdekat yang `data-id`-nya task (`task(id)` ada), atau
+  yang `onclick`-nya menyebut `openTask('<id>')` / `openTask("<id>")`. Sejak perbaikan XSS baris task membuka
+  task-nya dengan `openTask(taskIdFrom(this))` dan menyimpan id di `data-id`; menu dulu hanya membaca onclick, jadi
+  tidak terbuka di List, Kanban, hasil pencarian dan baris lain. Baris task baru cukup diberi `data-id`.
+- Menu browser tetap muncul di input, textarea, select, tautan, teks yang bisa diedit dan teks terpilih di bawah
+  pointer. Klik kanan yang sudah di-`preventDefault()` (judul kolom List, menunya sendiri) dibiarkan.
+- Shift+F10 atau tombol menu pada kontrol yang terfokus di baris (kotak centang, tombol Open di Grid) membuka menu di
+  bawah kontrol itu dengan fokus di item pertama. Esc menutup menu saja, dan fokus kembali.
+- Baris di dialog (sheet "+ more" Kalender): Open dan Edit menutup dialognya dulu.
+- Lebar ≤ 980 px: tidak ada menu ini. Tidak ada long-press khusus.
+- Test: `e2e/task-context-menu.spec.js`.
+
 ### Esc: yang paling dalam saja (Oktober 2026)
 
 Satu tekan Esc menutup satu hal, yang paling dalam: picker, popover, menu, dropdown, daftar @mention atau panel
@@ -1037,6 +1055,20 @@ dengan yang dipakai preview versi (`embedFor` di `src/version-preview.js`). Jang
 `https:` atau situs sembarang: halaman dari mana pun yang dibingkai di dalam aplikasi bisa meniru
 halaman login. Iframe embed memakai `sandbox` tanpa `allow-top-navigation`.
 
+**Pratinjau Figma** (Oktober 2026, `server/link-preview.js`) — file Figma tampil sebagai thumbnail dulu, dan embed
+Figma (alamat, `sandbox` dan `frame-src` yang sama) baru dimuat setelah **Open interactive / Buka interaktif**
+(`figmaBoxHtml` di `src/version-preview.js`; di dalam task tetap interaktif untuk tautan itu sampai task ditutup).
+`GET /api/link-preview?url=…[&refresh=1]` hanya untuk anggota yang login: 60 permintaan per menit per orang; Figma
+ditanya paling banyak 30 kali per menit untuk workspace dan 12 per orang, satu fetch per file sekaligus. Yang di-fetch
+hanya oEmbed Figma yang dibangun dari jenis dan key tautan figma.com yang sudah dicek (bukan tautan apa adanya), lalu
+`thumbnail_url` dari jawabannya bila https di figma.com atau subdomainnya: tanpa nama user dan port, redirect diikuti
+manual paling banyak 3 kali ke host yang sama aturannya, 5 MB (oEmbed 256 KB) dihitung saat diterima, 10 detik, dan
+harus PNG/JPEG/WebP/GIF menurut byte-nya. Jaringannya `guardedFetch` dari `server/messages.js` (alamat dicek saat
+connect). Gambar disimpan lewat `uploads.putGenerated` → `/files/<sha256>.webp` di belakang session, jadi `img-src`
+tidak berubah. Cache per file key (tabel `link_previews`): 6 jam; file privat 1 jam; gagal 10 menit dengan gambar lama
+tetap dipakai. Lewat 6 jam gambar lama langsung dikirim dan yang baru di-fetch di belakang; **Muat ulang pratinjau**
+memaksa fetch, paling sering sekali per menit per file.
+
 **Security log** — JSON-lines, mode `0o600`, di `COS_SECURITY_LOG` atau `<DATA_DIR>/security.log`.
 `clean()` memotong string ke 500 karakter, membuang CR/LF, membatasi array 20 elemen dan
 object 30 key, kedalaman 3, dan **mengganti key yang cocok
@@ -1065,7 +1097,8 @@ npm test    # node --no-warnings --test tests/*.test.js
 Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih port server sementaranya). Proyek
 `chromium` menjalankan semua spec kecuali `e2e/touch-dropdowns.spec.js`, yang jalan sendiri di proyek `webkit-touch`
 (iPhone, iPad) dan `chromium-touch` (Android): dropdown disentuh jari di HP dan tablet. Pasang WebKit sekali dengan
-`npx playwright install webkit`.
+`npx playwright install webkit`. Server sementara itu tidak punya jaringan: oEmbed dan thumbnail Figma dijawab oleh
+`e2e/fixtures/figma-stub.js` (`COS_LINK_FETCH_STUB` di `e2e/serve.js`; path di luar `e2e/` diabaikan).
 
 | File | Cakupan |
 |---|---|
@@ -1074,6 +1107,7 @@ Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih por
 | `gallery.test.js` | `server/gallery` + `shared/gallery-model` di SQLite `:memory:`; ownership, permission, pagination, penolakan gambar tak aman, prototype key |
 | `i18n.test.js` | round-trip EN→ID→EN dan protected content |
 | `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
+| `figma-preview.test.js` | pratinjau Figma tanpa jaringan (fetch di-stub): hanya oEmbed dan thumbnail Figma (host, https, redirect, 5 MB, 10 detik, gambar menurut byte), cache 6 jam / 1 jam / 10 menit, Muat ulang, rate limit, stub e2e hanya dari `e2e/` |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
 | `security.test.js` | postur production (`NODE_ENV=production`, secret di-set) |
 | `server-security-integration.test.js` | **spawn server sungguhan** dan cek startup aman, auth, backup |

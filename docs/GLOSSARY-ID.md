@@ -4,6 +4,9 @@ The standard Indonesian words for ZenCrevia's interface (October 2026). Every In
 `UI_ID` blocks in `src/`, the Indonesian halves written in code (the Workspace Quest, AI Intelligence's local answers,
 the notification texts in `src/core.js` and `server/server.js`), and `docs/USER-MANUAL.md`.
 
+**Confirmed by the owner (23 Oct 2026):** *reviewer* (never *peninjau*) and the reader as *kamu / -mu* (never *Anda*).
+"Anda" was tried for an hour the same day and taken back; do not switch it again without asking.
+
 **The owner's decision:** *task* and *project* are the standard terms and stay English in Indonesian text, as the main
 menu shows them ("Task saya", "Project"). The rest were picked from what the app used most, and where it was split,
 from the main navigation and the Settings headings.

@@ -255,5 +255,8 @@ module.exports = function (db, ws, route, deps) {
   const canPin = (u, c) => cap(u, 'pin_message') || cap(u, 'manage_teams') || c.type === 'DM' || c.type === 'GROUP';
   route('POST', '/api/messages/:id/pin', (u, p) => { const { m, c } = getMsg(u, p.id); if (!canPin(u, c)) error(403, 'Your role cannot pin messages here.'); db.prepare('INSERT OR IGNORE INTO conversation_pins(id,conversation_id,message_id,pinned_by,created_at) VALUES(?,?,?,?,?)').run(uid('pin'), c.id, m.id, u.id, now()); const out = convOut(c, u.id); publishToUsers(memberIds(c), { type: 'conversation_updated', conversation: out }); return { pins: out.pins }; });
   route('DELETE', '/api/messages/:id/pin', (u, p) => { const { m, c } = getMsg(u, p.id); if (!canPin(u, c)) error(403, 'Your role cannot pin messages here.'); db.prepare('DELETE FROM conversation_pins WHERE conversation_id=? AND message_id=?').run(c.id, m.id); const out = convOut(c, u.id); publishToUsers(memberIds(c), { type: 'conversation_updated', conversation: out }); return { pins: out.pins }; });
-  return { ensureTeamDefaults, publishToUsers, memberIds, clientsCount: () => clients.size, isOnline: userId => Array.from(clients.values()).some(c => c.userId === userId) };
+  /* the same guarded fetch for server/link-preview.js (a Figma file's picture): one GET, no redirect followed, the
+     name resolved and checked at connect time (guardedLookup), nothing sent but the headers given */
+  const guardedFetch = (url, init) => pinnedFetch(new URL(url), init && init.signal, (init && init.headers) || {});
+  return { ensureTeamDefaults, publishToUsers, memberIds, guardedFetch, clientsCount: () => clients.size, isOnline: userId => Array.from(clients.values()).some(c => c.userId === userId) };
 };
