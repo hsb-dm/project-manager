@@ -2,7 +2,9 @@
    in place of the network). It answers the two addresses the server asks Figma for, as Figma answers them (checked
    against a real public file, Oct 2026), and nothing else:
    - https://www.figma.com/api/oembed?url=… — a file whose key starts "FgPub" or "FgSlow" (1.2 s late) is public, with
-     a thumbnail; any other key is private: 404 {"error":true,"status":404,"message":"Not found."};
+     a thumbnail; any other key is private: 404 {"error":true,"status":404,"message":"Not found."}. As Figma does, a
+     link without www (or in capitals) is 400 "expected the url host to be a figma host", http is 400 "expected the
+     url scheme to be 'https'" and a community link 400 "Not a Figma URL" (server/oembed-links.js);
    - https://api-cdn.figma.com/resize/thumbnails/e2e-<key>… — the thumbnail, a PNG drawn here (800 × 448, a layout of
      coloured blocks, so the screenshots show something like a design).
    Any other address fails, as the test server has no network. */
@@ -32,7 +34,10 @@ const later = ms => new Promise(r => setTimeout(r, ms));
 async function fetch(url) {
   const u = new URL(url);
   if (u.hostname === "www.figma.com" && u.pathname === "/api/oembed") {
-    const link = new URL(u.searchParams.get("url")), key = (link.pathname.match(/^\/\w+\/([A-Za-z0-9]+)/) || [])[1] || "";
+    const asked = String(u.searchParams.get("url") || ""), link = new URL(asked), key = (link.pathname.match(/^\/\w+\/([A-Za-z0-9]+)/) || [])[1] || "";
+    if (!/^https:/i.test(asked)) return json(400, { error: true, message: "Error: expected the url scheme to be 'https'", status: 400 });
+    if (!/^https:\/\/www\.figma\.com\//.test(asked)) return json(400, { error: true, message: "Error: expected the url host to be a figma host", status: 400 });
+    if (/^\/community\//.test(link.pathname)) return json(400, { error: true, message: "Not a Figma URL", status: 400 });
     if (/^FgSlow/.test(key)) await later(1200);
     if (!/^Fg(Pub|Slow)/.test(key)) return json(404, { error: true, status: 404, message: "Not found." });
     return json(200, { version: "1.0", type: "rich", title: nameOf(key), key, url: link.href + "?", provider_name: "Figma", provider_url: "https://www.figma.com", cache_age: 3600, width: 800, height: 450,

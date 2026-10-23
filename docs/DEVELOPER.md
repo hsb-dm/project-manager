@@ -1069,6 +1069,18 @@ tidak berubah. Cache per file key (tabel `link_previews`): 6 jam; file privat 1 
 tetap dipakai. Lewat 6 jam gambar lama langsung dikirim dan yang baru di-fetch di belakang; **Muat ulang pratinjau**
 memaksa fetch, paling sering sekali per menit per file.
 
+**Nama tautan lewat oEmbed** (`GET /api/links/title`, `server/messages.js`) — nama file Figma, video YouTube/Vimeo,
+rekaman Loom dan board Miro dibaca dari oEmbed layanannya. Tautan tidak dikirim apa adanya bila layanannya menolak
+bentuk itu: `server/oembed-links.js` (dipakai juga oleh `server/link-preview.js`, jadi keduanya tidak bisa berbeda)
+membangunnya ulang dan mengecek key/id-nya. Dicek dengan curl ke tautan publik asli (23 Okt 2026): Figma menolak
+`figma.com` tanpa www (400 "expected the url host to be a figma host") dan http, jadi selalu
+`https://www.figma.com/<jenis>/<key><path setelah key>` plus `node-id` bila valid (query lain dan fragment dibuang;
+judulnya tetap judul file); tautan komunitas (`/community/file/<id>`) ditolak Figma dalam bentuk apa pun ("Not a Figma
+URL"), jadi tidak ditanyakan dan tetap memakai kata-kata dari tautannya. Loom menolak fragment atau garis miring tepat
+setelah id → `https://www.loom.com/share/<id 32 hex>`. Miro menolak `www.miro.com` → `https://miro.com/app/board/<id>/`.
+YouTube dan Vimeo menerima semua bentuk yang biasa ditempel (m., youtu.be `?si=`, `#t=`, dst.), jadi dikirim apa
+adanya. Key/id yang bentuknya salah ditolak 400 sebelum ada fetch. Guard SSRF, cache dan rate limit tidak berubah.
+
 **Security log** — JSON-lines, mode `0o600`, di `COS_SECURITY_LOG` atau `<DATA_DIR>/security.log`.
 `clean()` memotong string ke 500 karakter, membuang CR/LF, membatasi array 20 elemen dan
 object 30 key, kedalaman 3, dan **mengganti key yang cocok
@@ -1097,8 +1109,9 @@ npm test    # node --no-warnings --test tests/*.test.js
 Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih port server sementaranya). Proyek
 `chromium` menjalankan semua spec kecuali `e2e/touch-dropdowns.spec.js`, yang jalan sendiri di proyek `webkit-touch`
 (iPhone, iPad) dan `chromium-touch` (Android): dropdown disentuh jari di HP dan tablet. Pasang WebKit sekali dengan
-`npx playwright install webkit`. Server sementara itu tidak punya jaringan: oEmbed dan thumbnail Figma dijawab oleh
-`e2e/fixtures/figma-stub.js` (`COS_LINK_FETCH_STUB` di `e2e/serve.js`; path di luar `e2e/` diabaikan).
+`npx playwright install webkit`. Server sementara itu tidak punya jaringan: oEmbed dan thumbnail Figma (untuk
+pratinjau dan untuk nama tautan) dijawab oleh `e2e/fixtures/figma-stub.js` (`COS_LINK_FETCH_STUB` di `e2e/serve.js`;
+path di luar `e2e/` diabaikan), yang seperti Figma menolak tautan tanpa www.
 
 | File | Cakupan |
 |---|---|
@@ -1108,6 +1121,7 @@ Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih por
 | `i18n.test.js` | round-trip EN→ID→EN dan protected content |
 | `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
 | `figma-preview.test.js` | pratinjau Figma tanpa jaringan (fetch di-stub): hanya oEmbed dan thumbnail Figma (host, https, redirect, 5 MB, 10 detik, gambar menurut byte), cache 6 jam / 1 jam / 10 menit, Muat ulang, rate limit, stub e2e hanya dari `e2e/` |
+| `link-title.test.js` | nama tautan Google (dari cache) dan oEmbed (fetch di-stub): alamat oEmbed yang benar-benar dikirim untuk Figma tanpa www / http / node-id, Loom, Miro, YouTube, Vimeo; key/id yang salah dan tautan komunitas ditolak sebelum fetch |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
 | `security.test.js` | postur production (`NODE_ENV=production`, secret di-set) |
 | `server-security-integration.test.js` | **spawn server sungguhan** dan cek startup aman, auth, backup |

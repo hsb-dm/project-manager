@@ -42,8 +42,8 @@ const link = (key, rest) => 'https://www.figma.com/design/' + key + (rest === un
 
 /* ---------- which links are Figma file links ---------- */
 test('a Figma file link is read for its kind, key, node-id and name; anything else is not one', () => {
-  assert.deepEqual(P.parseFigmaLink('https://www.figma.com/design/' + KEY + '/Hero-Banner_Q4?node-id=12-345&t=abc'), { kind: 'design', key: KEY, nodeId: '12-345', name: 'Hero Banner Q4' });
-  assert.deepEqual(P.parseFigmaLink('https://figma.com/file/ABC123'), { kind: 'file', key: 'ABC123', nodeId: null, name: '' });
+  assert.deepEqual(P.parseFigmaLink('https://www.figma.com/design/' + KEY + '/Hero-Banner_Q4?node-id=12-345&t=abc'), { kind: 'design', key: KEY, nodeId: '12-345', name: 'Hero Banner Q4', rest: '/Hero-Banner_Q4' });
+  assert.deepEqual(P.parseFigmaLink('https://figma.com/file/ABC123'), { kind: 'file', key: 'ABC123', nodeId: null, name: '', rest: '' });
   for (const k of ['file', 'design', 'proto', 'board', 'slides', 'make', 'deck']) assert.equal(P.parseFigmaLink('https://www.figma.com/' + k + '/ABC123/x').kind, k);
   assert.equal(P.parseFigmaLink('https://www.figma.com/design/ABC123/x?node-id=1:2').nodeId, '1:2');
   assert.equal(P.parseFigmaLink('https://www.figma.com/design/ABC123/x?node-id=%3Cscript%3E').nodeId, null, 'a node-id is letters, digits, - : ; _');
@@ -246,7 +246,9 @@ test('the browser tests\' stand-in is taken only from e2e/, and answers like Fig
 });
 test('the server registers GET /api/link-preview behind the session, through the guarded fetch', async () => {
   const src = fs.readFileSync(path.join(ROOT, 'server', 'server.js'), 'utf8');
-  assert.match(src, /linkPreviewLib\.register\(db, \{ route, fetch: linkPreviewLib\.stubFrom\(process\.env\.COS_LINK_FETCH_STUB, path\.join\(__dirname, "\.\."\)\) \|\| chat\.guardedFetch \}\)/);
+  assert.match(src, /const linkFetchStub = linkPreviewLib\.stubFrom\(process\.env\.COS_LINK_FETCH_STUB, path\.join\(__dirname, "\.\."\)\);/);
+  assert.match(src, /linkPreviewLib\.register\(db, \{ route, fetch: linkFetchStub \|\| chat\.guardedFetch \}\)/);
+  assert.match(src, /require\('\.\/messages'\)\([^\n]*linkFetch: linkFetchStub \}\);/, 'link names take the same stand-in, and only it');
   const open = src.match(/const OPEN = new Set\(\[([^\]]*)\]\)/)[1];
   assert.ok(!/link-preview/.test(open), 'not an open route');
   const routes = []; LP.register(new DatabaseSync(':memory:'), { route: (m, p, h) => routes.push({ m, p, h }), fetch: figma({}) });

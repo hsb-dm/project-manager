@@ -10,6 +10,7 @@ const http = require('node:http');
 const https = require('node:https');
 const { Readable } = require('node:stream');
 const net = require('node:net');
+const oembedLinks = require('./oembed-links');
 module.exports = function (db, ws, route, deps) {
   const { readNotifs, writeNotif, onNotification, onPush } = deps || {};
   db.exec(`
@@ -142,24 +143,24 @@ module.exports = function (db, ws, route, deps) {
   /* Figma, YouTube, Vimeo, Loom and Miro name what is shared through oEmbed — an address of their own that answers
      with the title of anything shared publicly. Their pages are behind bot protection and carry no name in the HTML,
      so it is oEmbed or nothing: a private Figma file is "Not found" there and keeps the words in its link. Only these
-     hosts' own oEmbed addresses are fetched, with the same guards, cache and rate limit as everything else here. */
-  const OEMBED = [
-    [/^(www\.)?figma\.com$/, u => /^\/(file|design|proto|board|slides|make|deck)\/[^/]+/.test(u.pathname), 'https://www.figma.com/api/oembed?url='],
-    [/^(www\.|m\.)?youtube\.com$|^youtu\.be$/, u => u.hostname === 'youtu.be' || /^\/(watch|shorts|live)\b/.test(u.pathname), 'https://www.youtube.com/oembed?format=json&url='],
-    [/^(www\.)?vimeo\.com$/, u => /^\/\d+/.test(u.pathname), 'https://vimeo.com/api/oembed.json?url='],
-    [/^(www\.)?loom\.com$/, u => /^\/share\//.test(u.pathname), 'https://www.loom.com/v1/oembed?url='],
-    [/^(www\.)?miro\.com$/, u => /^\/app\/board\//.test(u.pathname), 'https://miro.com/api/v1/oembed?url=']
-  ];
-  const oembedFor = url => { const u = new URL(url), h = u.hostname.toLowerCase(), m = OEMBED.find(o => o[0].test(h) && o[1](u)); return m ? m[2] + encodeURIComponent(url) : null; };
+     hosts' own oEmbed addresses are fetched, with the same guards, cache and rate limit as everything else here.
+     The link is not sent as written where the service refuses that form (Figma without www, a Loom id with a fragment,
+     www.miro.com): server/oembed-links.js rebuilds it, and checks its key or id, as server/link-preview.js does. */
+  const oembedFor = url => oembedLinks.oembedFor(url);
   /* the service's own name alone, or a sign-in page's, is no file's name */
   const oembedName = raw => { const t = htmlText(String(raw || '')).trim(); if (!t || /^(figma|miro|loom|youtube|vimeo|untitled|log ?in|sign ?in|masuk)$/i.test(t)) return ''; return t.slice(0, 160); };
+  /* The browser and unit tests answer for the services here (deps.linkFetch: on the server only the module
+     COS_LINK_FETCH_STUB names under e2e/, server/link-preview.js stubFrom); without it, always the guarded fetch. */
+  const linkFetch = deps && typeof deps.linkFetch === 'function' ? deps.linkFetch : null;
+  const oembedHop = linkFetch ? async v => { try { return new URL(v); } catch (e) { return null; } } : safeTarget;
+  const oembedGet = linkFetch ? (t, signal, headers) => linkFetch(t.href, { method: 'GET', redirect: 'manual', headers, signal }) : pinnedFetch;
   const fetchOembedTitle = async endpoint => {
-    let target = await safeTarget(endpoint); if (!target) return '';
+    let target = await oembedHop(endpoint); if (!target) return '';
     let res;
     for (let redirects = 0; redirects <= 3; redirects++) {
       const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 3500);
-      try { res = await pinnedFetch(target, ac.signal, { Accept: 'application/json', 'User-Agent': 'ZenCrevia-LinkPreview/1.0' }); } finally { clearTimeout(timer); }
-      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { target = await safeTarget(new URL(res.headers.get('location'), target).toString()); if (!target) return ''; continue; }
+      try { res = await oembedGet(target, ac.signal, { Accept: 'application/json', 'User-Agent': 'ZenCrevia-LinkPreview/1.0' }); } finally { clearTimeout(timer); }
+      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) { target = await oembedHop(new URL(res.headers.get('location'), target).toString()); if (!target) return ''; continue; }
       break;
     }
     if (!res || !res.ok || !res.body) return '';

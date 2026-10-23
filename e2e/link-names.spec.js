@@ -54,3 +54,37 @@ test("a Figma link reads as its file's name: in a comment, in Attach link, paste
     await page.evaluate(async id => { closeModal(); closeDrawer(); await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); }, id);
   }
 });
+
+/* A Figma link pasted without www: Figma's oEmbed refuses figma.com ("expected the url host to be a figma host"), so
+   the server asks it at www.figma.com (server/oembed-links.js). Here the server itself answers /api/links/title, and
+   Figma is the stand-in e2e/fixtures/figma-stub.js (COS_LINK_FETCH_STUB), which refuses figma.com as Figma does. */
+test("a Figma link without www reads as its file's name, from the server", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  const NOWWW = "https://figma.com/design/FgPubHeroNoWww1023/KV-draft-3?node-id=12-345&t=AbC123-0";
+  const PRIV = "https://figma.com/design/PrivNoWww1023/Moodboard-Draft";
+  const asked = [];
+  page.on("request", r => { if (/\/api\/links\/title\?/.test(r.url())) asked.push(new URL(r.url()).searchParams.get("url")); });
+  await page.goto("/");
+  await page.locator("#au_email").fill(ADMIN.email);
+  await page.locator("#au_pw").fill(ADMIN.pw);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.waitForFunction(() => window.ZC_READY === true && API.on);
+  const id = await page.evaluate(async o => {
+    const d = await apiFetch("POST", "/api/tasks", { title: "Figma without www", status: WS.workflow[1].id, prio: "medium", assignee: ME, assignees: [ME] });
+    const w = await apiFetch("POST", "/api/tasks/" + d.id + "/comments", { id: "cm_nowww", text: "Cek " + o.NOWWW + " dan " + o.PRIV });
+    TASKS.push(hTask(w)); openTask(d.id); S.drawerTab = "comments"; window._cmtDraft = ""; window._cmtAtt = []; renderDrawer(); return d.id;
+  }, { NOWWW, PRIV });
+  try {
+    const chips = page.locator('#drawer .cmt[data-cid="cm_nowww"] .body a.drive-chip');
+    /* the stand-in's name for the file, not the words in its link ("KV draft 3") */
+    await expect(chips.nth(0).locator(".lc-name")).toHaveText("Hero Banner Q4");
+    await expect(chips.nth(0)).toHaveAttribute("href", NOWWW);
+    /* a private file has no name there, and keeps the words in its link */
+    await expect(chips.nth(1).locator(".lc-name")).toHaveText(/Moodboard Draft/);
+    expect(asked, "the page asks the server about the link as written").toContain(NOWWW);
+    /* the server answers with the name (the browser did not stand in for it) */
+    expect(await page.evaluate(u => apiFetch("GET", "/api/links/title?url=" + encodeURIComponent(u)), NOWWW)).toEqual({ title: "Hero Banner Q4" });
+  } finally {
+    await page.evaluate(async id => { closeModal(); closeDrawer(); await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {}); }, id);
+  }
+});

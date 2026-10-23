@@ -49,30 +49,14 @@ const LIMITS = Object.freeze({
   callsPerMinute: 60, fetchesPerMinute: 30, userFetchesPerMinute: 12
 });
 const UA = "ZenCrevia-LinkPreview/1.0";
-const KIND = /^\/(file|design|proto|board|slides|make|deck)\/([A-Za-z0-9]{2,128})(?=\/|$)(?:\/([^/]*))?/;
-const NODE = /^[A-Za-z0-9:;_-]{1,64}$/;
-
-/* the words of a link's name part: figma.com/design/KEY/Hero-Banner-Q4 -> "Hero Banner Q4" */
-function nameFromLink(seg) {
-  let s = String(seg || ""); try { s = decodeURIComponent(s); } catch (e) { /* as written */ }
-  s = s.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
-  return s.length > 120 ? s.slice(0, 119) + "…" : s;
-}
-/* A Figma file link, checked: {kind, key, nodeId, name} or null. Only https on figma.com / www.figma.com, no user
-   name, no port, a file, design, prototype, board, slides, make or deck address with a key of letters and digits. */
-function parseFigmaLink(raw) {
-  const text = String(raw || "").trim(); if (!text || text.length > 2000) return null;
-  let u; try { u = new URL(text); } catch (e) { return null; }
-  if (u.protocol !== "https:" || u.username || u.password || u.port) return null;
-  const h = u.hostname.toLowerCase(); if (h !== "figma.com" && h !== "www.figma.com") return null;
-  const m = KIND.exec(u.pathname); if (!m) return null;
-  const node = u.searchParams.get("node-id");
-  return { kind: m[1], key: m[2], nodeId: node && NODE.test(node) ? node : null, name: nameFromLink(m[3]) };
-}
+/* a Figma file link, checked: kind, key, node-id and the words of its name (server/oembed-links.js, which
+   /api/links/title asks Figma's oEmbed through too, so the two cannot drift apart) */
+const links = require("./oembed-links");
+const { parseFigmaLink, nameFromLink } = links;
 /* Figma's oEmbed for a file, built from its kind and key alone: the thumbnail is the file's, whatever frame the link
    opens on, and nothing else the link carried (its query, its fragment, its name) goes to Figma. www.figma.com it
    must be: Figma answers a figma.com address with "expected the url host to be a figma host". */
-function oembedUrl(p) { return "https://www.figma.com/api/oembed?url=" + encodeURIComponent("https://www.figma.com/" + p.kind + "/" + p.key); }
+function oembedUrl(p) { return links.figmaOembedUrl(p, false); }
 /* Where a request (or a redirect) may go: https, no user name, no port; the oEmbed on www.figma.com, the picture on
    figma.com or a subdomain of it. An address as a number never ends in figma.com. */
 function allowedHop(href, which) {
