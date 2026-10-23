@@ -1233,6 +1233,7 @@ function aiLocalAnswer(q){
 /* the starting templates, sizes and layout added for the workspace's poster look (Oct 2026), and the
    template editor's type fields; only what is not translated already elsewhere */
 (function(d){ if(typeof UI_ID==="undefined") return; Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
+  "Create visual":"Buat visual","Generating…":"Membuat…","Edit text":"Edit teks","Save to Google Drive":"Simpan ke Google Drive",
   "Video thumbnail — 3D object":"Thumbnail video — objek 3D",
   "Video thumbnail — people":"Thumbnail video — orang",
   "Educational feed":"Feed edukasi",

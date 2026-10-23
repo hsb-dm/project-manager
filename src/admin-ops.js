@@ -196,7 +196,7 @@ function bkNotReady(){
   if(!BK.data) return sp("Backup & data",'<div class="hint">'+tr("Loading backup status…")+'</div>',null,I.lock);
   if(BK.data.error) return sp("Backup & data",'<div class="banner warn">'+esc(BK.data.error)+'</div>',null,I.lock);
   if(!BK.data.configured) return sp("Backup & data",
-    '<div class="banner warn"><b>'+tr("Setup required")+'</b> — '+tr("Set")+' <span class="mono">COS_BACKUP_KEY</span> '+tr("on the server (at least 32 characters) to enable encrypted backups.")+'</div>',null,I.lock);
+    '<div class="banner warn"><b>'+tr("Setup required")+'</b> — '+fmt(tr("Set {key} on the server (at least 32 characters) to enable encrypted backups."),{key:'<span class="mono">COS_BACKUP_KEY</span>'})+'</div>',null,I.lock);
   return null;
 }
 function bkOverview(){
@@ -392,6 +392,34 @@ function createServerBackup(){
     .catch(function(e){ toast(e.message,"bad"); });
 }
 function backupSize(n){ return bytesLabel(n); }
+/* the e-mail (SMTP) and backup screens' own words */
+Object.assign(UI_ID,{"This runs on the server.":"Ini berjalan di server.","Checksum (SHA-256)":"Checksum (SHA-256)","encryption":"enkripsi","credentials accepted":"kredensial diterima","no credentials sent":"tanpa kredensial",
+  "Check the inbox, including spam.":"Periksa kotak masuk, termasuk folder spam.","Enter the SMTP host":"Isi host SMTP","Enter the sender email address":"Isi alamat email pengirim",
+  "In standalone demo mode there is no mail transport, so notification emails are not sent.":"Dalam mode demo standalone tidak ada transport email, jadi email notifikasi tidak dikirim.","Loading email settings…":"Memuat pengaturan email…",
+  "Set COS_SECRET_KEY on the server to encrypt it at rest":"Set COS_SECRET_KEY di server agar tersimpan terenkripsi","Last saved":"Terakhir disimpan",
+  "Your role cannot view backups.":"Peranmu tidak bisa melihat cadangan.","Loading backup status…":"Memuat status cadangan…",
+  "Set {key} on the server (at least 32 characters) to enable encrypted backups.":"Isi {key} di server (minimal 32 karakter) untuk mengaktifkan cadangan terenkripsi.","tables":"tabel",
+  "Every stored backup, what created it, and whether its checksum still matches. Safety copies taken before a restore or import are kept even when retention prunes the rest.":"Setiap cadangan yang tersimpan, apa yang membuatnya, dan apakah checksum-nya masih cocok. Salinan pengaman yang dibuat sebelum pemulihan atau impor tetap disimpan meski aturan penyimpanan menghapus yang lain.",
+  "Restore this backup":"Pulihkan cadangan ini","What a JSON snapshot leaves out":"Yang tidak ikut dalam snapshot JSON",
+  "Provider API keys, SMTP credentials and member passwords are never written to a portable export.":"API key penyedia, kredensial SMTP, dan password anggota tidak pernah ditulis ke ekspor portabel.",
+  "Reports are generated from the Export dialog on Analytics.":"Laporan dibuat dari dialog Ekspor di Analitik.","Creating safety backup…":"Membuat cadangan pengaman…","Safety backup created":"Cadangan pengaman dibuat",
+  "A scheduled backup runs on the server. It uses the same encryption and retention as a manual one.":"Cadangan terjadwal berjalan di server, dengan enkripsi dan aturan penyimpanan yang sama seperti cadangan manual.",
+  "Last automatic backup":"Cadangan otomatis terakhir",
+  "The schedule is enforced by the server process. If it is not running, no automatic backup is taken — treat this as a convenience, not a guarantee.":"Jadwal ini dijalankan oleh proses server. Bila server tidak berjalan, tidak ada cadangan otomatis — anggap ini kemudahan, bukan jaminan.",
+  "How many backups to keep. The oldest are removed once the limit is passed — except safety copies taken before a restore or import, which are always kept.":"Berapa cadangan yang disimpan. Yang terlama dihapus begitu batasnya terlewati — kecuali salinan pengaman yang dibuat sebelum pemulihan atau impor, yang selalu disimpan.",
+  "Backup directory":"Folder cadangan","Stored":"Tersimpan","backups":"cadangan","AI Gallery images":"Gambar AI Gallery",
+  "Backups on the same disk as the database do not survive losing that disk. Record where a second copy goes so the next person knows.":"Cadangan di disk yang sama dengan database ikut hilang bila disk itu rusak. Catat ke mana salinan kedua disimpan agar orang berikutnya tahu.",
+  "When this is off, ZenCrevia falls back to the transport configured on the server (or writes .eml files in demo mode).":"Bila ini mati, ZenCrevia memakai transport yang diatur di server (atau menulis file .eml dalam mode demo).",
+  "Leave this off for port 587 — STARTTLS is negotiated automatically.":"Biarkan mati untuk porta 587 — STARTTLS dinegosiasikan otomatis.",
+  "The password is encrypted on the server and is never sent back to the browser. To remove it, type:":"Password dienkripsi di server dan tidak pernah dikirim kembali ke browser. Untuk menghapusnya, ketik:",
+  "The from address usually has to belong to a domain your provider has verified, or messages will be rejected.":"Alamat pengirim biasanya harus dari domain yang sudah diverifikasi penyedia email-mu; kalau tidak, pesan akan ditolak.",
+  "Reaches the server, negotiates TLS and signs in. Nothing is sent.":"Menghubungi server, menegosiasikan TLS, lalu masuk. Tidak ada yang dikirim.",
+  "The most recent notification emails and what happened to them.":"Email notifikasi terbaru dan apa yang terjadi padanya.","No delivery errors recorded.":"Tidak ada error pengiriman yang tercatat.","Last error":"Error terakhir",
+  "Nothing has been sent yet.":"Belum ada yang dikirim.","Enter the SMTP password":"Isi password SMTP",
+  "Backup overview":"Ringkasan cadangan","Whether this workspace could actually be recovered right now.":"Apakah workspace ini benar-benar bisa dipulihkan saat ini.",
+  "Latest backup":"Cadangan terbaru","none yet":"belum ada","No backup has been created":"Belum ada cadangan yang dibuat","Backups kept":"Cadangan disimpan","Automatic backups":"Cadangan otomatis",
+  "Integrity":"Integritas","need attention":"perlu perhatian","all verified":"semua terverifikasi","Check Backup History":"Periksa Riwayat Cadangan","Checksums match":"Checksum cocok",
+  "configured":"sudah diatur","not configured":"belum diatur","A copy on the same disk does not survive losing the disk":"Salinan di disk yang sama ikut hilang bila disk itu rusak"});
 Object.assign(UI_ID,{"The password field was empty, so the password stored earlier was tried — and refused. Type the App Password in the password field and test again.":"Kolom password kosong, jadi yang dicoba adalah password yang tersimpan sebelumnya — dan ditolak. Ketik App Password di kolom password lalu uji lagi."});
 Object.assign(UI_ID,{"Gmail refused the sign-in. Use a 16-letter App Password (Google Account → Security → 2-Step Verification → App passwords), not the Google password, and the full Gmail address as the username. Type the App Password again: a blank password field keeps the one already stored.":"Gmail menolak login. Pakai App Password 16 huruf (Akun Google → Keamanan → Verifikasi 2 Langkah → Sandi aplikasi), bukan password Google, dan alamat Gmail lengkap sebagai username. Ketik ulang App Password-nya: kolom password yang dikosongkan tetap memakai password yang sudah tersimpan.",
   "The mail server refused the username or password. Check both; a blank password field keeps the one already stored.":"Server email menolak username atau password. Periksa keduanya; kolom password yang dikosongkan tetap memakai password yang sudah tersimpan."});

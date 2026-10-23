@@ -665,7 +665,7 @@ function uiCount(n,one,many){return n+" "+(UI_LANG==="id"?({task:"task",member:"
 function roleDescription(r){var preset=(CREATIVE_OS_DEMO.roles||[]).find(function(x){return x[0]===r.id;});return preset&&r.description===preset[2]?tr(r.description):(r.description||"");}
 /* v39 Task terminology hook; safe when this file is loaded on its own (tests) */
 function _idt(s){ return typeof idTerms==="function"?idTerms(s):s; }
-function uiDynamicText(text){
+function uiDynamicText(text,names){
  if(UI_LANG!=="id")return text;
  var nouns={task:"task",tasks:"task",member:"anggota",members:"anggota",person:"orang",people:"orang",field:"kolom",fields:"kolom",project:"project",projects:"project",team:"tim",teams:"tim",asset:"aset",assets:"aset",page:"halaman",pages:"halaman",folder:"folder",folders:"folder",card:"kartu",cards:"kartu",sheet:"lembar",sheets:"lembar",slide:"slide",slides:"slide",permission:"izin",permissions:"izin",capabilities:"izin",creatives:"anggota kreatif",required:"wajib",open:"belum selesai",shown:"ditampilkan",unread:"belum dibaca",wks:"minggu"};
  var out=text.replace(/\b(\d+) (tasks?|members?|people|person|fields?|projects?|teams?|assets?|pages?|folders?|cards?|sheets?|slides?|permissions?|capabilities|creatives|required|open|shown|unread|wks)\b/g,function(_,n,k){return n+" "+nouns[k];});
@@ -673,7 +673,17 @@ function uiDynamicText(text){
  out=out.replace(/\b(\d+) of (\d+) ditampilkan\b/g,"$1 dari $2 ditampilkan").replace(/\b(\d+) at risk\b/g,"$1 berisiko").replace(/\b(\d+) brand assets\b/g,"$1 aset brand").replace(/\b(\d+) linked from Google Drive\b/g,"$1 tertaut dari Google Drive").replace(/\b([\d.]+)h assigned of ([\d.]+)h capacity\b/g,"$1 jam teralokasi dari $2 jam kapasitas");
  out=out.replace(/^tasks? auto-hidden \((.+)\) ·$/,function(_,period){return "task disembunyikan otomatis ("+tr(period)+") ·";}).replace(/^archived projects?\.$/,"project diarsipkan.");
  if(/^Filter by .+/.test(out))return "Filter berdasarkan "+out.slice(10);
- return out.split(" · ").map(function(part){return UI_ID[part]||part;}).join(" · ");
+ return out.split(" · ").map(function(part){return names&&names.has(part)?part:UI_ID[part]||part;}).join(" · ");
+}
+/* The names people typed for their teams and projects. A team called "Design" is its name, never the dictionary's word
+   for a built-in "Design" label: the List draws a team as a .tbadge, which the walk below leaves alone, but the task
+   panel, a team's page, the calendar's chips, Analytics and Settings drew it as plain text, and it came out "Desain".
+   A text (or a " · " part of one) that is exactly such a name is left as it is, wherever it is drawn; the <option>
+   guard below does the same for options by their value. */
+function uiUserNames(){
+ var s=new Set();
+ [typeof TEAMS!=="undefined"?TEAMS:[],typeof PROJECTS!=="undefined"?PROJECTS:[]].forEach(function(list){(list||[]).forEach(function(x){if(x&&x.name)s.add(String(x.name).trim());});});
+ return s;
 }
 var UI_TEXT_SOURCE=new WeakMap(),UI_ATTR_SOURCE=new WeakMap();
 var UI_CONTENT_SEL='textarea,script,style,pre,code,[contenteditable],[data-no-translate],.md,.t,.kt,.at,.tn,.td,.lbl,.me-name,#wsName,#wsLogo,.tbadge,.av,.kb-tree button span';
@@ -689,6 +699,7 @@ function localizeVisibleText(root){
  var w=document.createTreeWalker(root,1|4/* SHOW_ELEMENT|SHOW_TEXT */,function(n){return n.nodeType===1?(n.matches(UI_CONTENT_SEL)?2/* REJECT */:3/* SKIP */):1/* ACCEPT */;}),nodes=[],n;
  if(!skipText)while(n=w.nextNode())if(n.nodeType!==1)nodes.push(n);
  var ids=null;/* the ids of projects, teams, pages and labels, once per call: an <option> naming one is user content */
+ var names=null;/* the names of teams and projects, once per call (uiUserNames) */
  nodes.forEach(function(node){
   var el=node.parentElement;if(!el)return;
   if(el.tagName==="OPTION"&&!el.closest('[data-ui-translate]')&&!(el.parentElement.getAttribute('onchange')||'').includes('.kind=')){
@@ -698,7 +709,8 @@ function localizeVisibleText(root){
   }
   var previous=UI_TEXT_SOURCE.get(node),raw=previous&&node.nodeValue===previous.rendered?previous.source:node.nodeValue,trim=raw.trim();
   if(!trim)return;
-  var translated=UI_LANG==="id"?_idt(UI_ID[trim]||uiDynamicText(trim)):trim,rendered=raw.replace(trim,translated);
+  if(UI_LANG==="id"&&!names)names=uiUserNames();
+  var translated=UI_LANG!=="id"||names.has(trim)?trim:_idt(UI_ID[trim]||uiDynamicText(trim,names)),rendered=raw.replace(trim,translated);
   UI_TEXT_SOURCE.set(node,{source:raw,rendered:rendered});if(node.nodeValue!==rendered)node.nodeValue=rendered;
  });
  var els=Array.from(root.querySelectorAll('[placeholder],[title],[aria-label],[label]'));
@@ -709,7 +721,8 @@ function localizeVisibleText(root){
   ['placeholder','title','aria-label','label'].forEach(function(k){
    var current=el.getAttribute(k);if(current==null)return;
    var old=previous[k],raw=old&&old.rendered===current?old.source:current;
-   var translated=UI_LANG==="id"?_idt(UI_ID[raw]||uiDynamicText(raw)):raw;
+   if(UI_LANG==="id"&&!names)names=uiUserNames();
+   var translated=UI_LANG!=="id"||names.has(raw.trim())?raw:_idt(UI_ID[raw]||uiDynamicText(raw,names));
    previous[k]={source:raw,rendered:translated};if(current!==translated)el.setAttribute(k,translated);
   });UI_ATTR_SOURCE.set(el,previous);
  });
@@ -1117,4 +1130,31 @@ function zcI18nLate(){ ZC_I18N.late=false; if(UI_LANG!=="id"||typeof document===
 /* an Indonesian choice pointed at or focused: the words are asked for already */
 if(typeof document!=="undefined"&&document.addEventListener) ["pointerover","focusin","touchstart"].forEach(function(type){ document.addEventListener(type,function(e){ if(typeof ZC_I18N==="undefined"||ZC_I18N.ready||ZC_I18N.loading||!ZC_I18N.src) return; var t=e.target; if(t&&t.closest&&t.closest('[data-lang="id"]')) zcI18nLoad(); },{capture:true,passive:true}); });
 Object.assign(UI_ID,{"Couldn't load Indonesian. Check your connection and try again.":"Bahasa Indonesia tidak bisa dimuat. Periksa koneksi lalu coba lagi."});
+/* Words the code already asked tr() for but no block gave (the Indonesian sweep, October 2026), for the files that
+   have no UI_ID block of their own: ai-properties.js, ai-policy.js (which tests load on its own), knowledge.js,
+   tag-picker.js, gdrive.js and v38.js */
+Object.assign(UI_ID,{
+  "Generated images":"Gambar hasil generate","Top / Right":"Atas / Kanan","Bottom / Left":"Bawah / Kiri","Show overlay":"Tampilkan di kanvas","Snap to guides":"Tempelkan ke garis bantu",
+  "All sides linked":"Semua sisi tertaut","Link all sides":"Tautkan semua sisi","Custom layers used in this design":"Layer kustom yang dipakai di desain ini","locked":"terkunci",
+  "Learn more":"Pelajari lebih lanjut","Optional label":"Label opsional","White":"Putih","Layer opacity":"Opasitas layer","Shared properties only":"Hanya properti bersama",
+  "No layer selected":"Belum ada layer yang dipilih","Select a layer on the canvas or in the Layers panel to edit its properties.":"Pilih layer di kanvas atau di panel Layer untuk mengedit propertinya.",
+  "Layer limit reached. Delete a layer or ask a workspace admin to increase the limit.":"Batas layer tercapai. Hapus satu layer atau minta admin workspace menaikkan batasnya.",
+  "This design has":"Desain ini punya","layers, above the current workspace limit of":"layer, melebihi batas workspace saat ini, yaitu",
+  "You can keep editing and deleting layers; new ones are paused until it is back under the limit.":"Kamu tetap bisa mengedit dan menghapus layer; layer baru ditahan sampai jumlahnya kembali di bawah batas.",
+  "Choose folder":"Pilih folder","Search folders":"Cari folder","Search folders…":"Cari folder…","No folders yet":"Belum ada folder","Add new folder":"Tambah folder baru","Add folder":"Tambah folder",
+  "Folder name is required":"Nama folder wajib diisi","Folder added":"Folder ditambahkan","{n} pages will move to General.":"{n} halaman akan pindah ke Umum.","The empty folder will be removed.":"Folder kosong ini akan dihapus.",
+  "Delete folder":"Hapus folder","Bilingual content":"Konten dua bahasa","Optional — English is used as fallback":"Opsional — bahasa Inggris dipakai bila kosong","Title is required":"Judul wajib diisi","Page created":"Halaman dibuat",
+  "tags":"tag","No tag matches":"Tidak ada tag yang cocok","No tags yet":"Belum ada tag","Create one below, or manage them in Settings → Tags.":"Buat di bawah, atau kelola di Pengaturan → Tag.","Ask an admin to add tags in Settings → Tags.":"Minta admin menambahkan tag di Pengaturan → Tag.",
+  "Google Drive is ready — choose your file again.":"Google Drive siap — pilih file-mu lagi.",
+  "Google never answered the sign-in request. Check that this exact address is an Authorized JavaScript origin on your Google OAuth client, that the popup is not blocked, and that Settings → Integrations reports popups as allowed.":"Google tidak pernah menjawab permintaan masuk. Pastikan alamat ini persis terdaftar sebagai Authorized JavaScript origin di OAuth client Google-mu, popup tidak diblokir, dan Pengaturan → Integrasi melaporkan popup diizinkan.",
+  "Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.":"Browser-mu memblokir jendela masuk Google. Izinkan pop-up untuk situs ini, lalu coba lagi.",
+  "Attached before v38 without the file itself":"Dilampirkan sebelum v38 tanpa file-nya","Add the Client ID first":"Isi Client ID dulu","Team folder":"Folder tim",
+  "This account can open the team folder but cannot upload to it.":"Akun ini bisa membuka folder tim tetapi tidak bisa mengunggah ke sana.",
+  "Google sign-in environment":"Lingkungan masuk Google","This dashboard address":"Alamat dashboard ini",
+  "Paste this exact value into Authorized JavaScript origins on your Google OAuth client. A different protocol, port or trailing path will block sign-in.":"Tempel nilai ini persis ke Authorized JavaScript origins di OAuth client Google-mu. Protokol, porta, atau path di belakang yang berbeda akan memblokir proses masuk.",
+  "Checking the sign-in popup policy…":"Memeriksa kebijakan popup masuk…","Popups allowed":"Popup diizinkan","(none)":"(tidak ada)","Safe area":"Area aman","Safe area unit":"Satuan area aman","Protect text":"Lindungi teks","Cross-Origin-Opener-Policy reaches the browser as":"Cross-Origin-Opener-Policy sampai ke browser sebagai",
+  "Google sign-in will not finish here.":"Masuk dengan Google tidak akan selesai di sini.","The browser receives Cross-Origin-Opener-Policy":"Browser menerima Cross-Origin-Opener-Policy",
+  "instead of same-origin-allow-popups. Something in front of the app — usually a CDN or reverse proxy — is rewriting it. Restore that header to same-origin-allow-popups.":"alih-alih same-origin-allow-popups. Ada yang berada di depan aplikasi — biasanya CDN atau reverse proxy — yang mengubahnya. Kembalikan header itu ke same-origin-allow-popups.",
+  "Could not read the sign-in popup policy from this browser.":"Tidak bisa membaca kebijakan popup masuk dari browser ini."
+});
 </script>
