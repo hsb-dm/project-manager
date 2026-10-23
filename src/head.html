@@ -366,8 +366,12 @@ select:focus{border-color:var(--color-primary);box-shadow:0 0 0 2px color-mix(in
 
 .dr-foot .views button{padding:4px 9px;font-size:11.5px}
 @media (max-width:1440px){.nav-item{padding:7px 8px;gap:5px;font-size:12px}.nav{gap:1px}.search{width:118px}.search:focus-within{width:220px}.search kbd{display:none}.ws-mode{display:none}.me{max-width:128px}}
-@media (max-width:1280px){.me .me-name{display:none}.me{max-width:none;padding:3px}.search{width:104px}}
-@media (max-width:1150px){.nav-item span:not(.cnt){display:none}.nav-item{padding:8px 9px}}
+/* the account's name and the wide search (responsive.css) need 1,322 px in English: from 1,281 px they made the page
+   scroll sideways, so they come from 1,340 px */
+@media (max-width:1339px){.me .me-name{display:none}.me{max-width:none;padding:3px}.search{width:104px}}
+/* the nav's words need 1,188 px of topbar in English with My Tasks' count (1,198 with three digits): below 1,200 px
+   they made the whole page scroll sideways (1,180 px is an iPad on its side), so the nav shows its icons there */
+@media (max-width:1199px){.nav-item span:not(.cnt){display:none}.nav-item{padding:8px 9px}}
 @media (max-width:1100px){.brand .ws-name{display:none}.brand{max-width:none}}
 @media (max-width:980px){.nav{position:fixed;top:var(--topbar-h);left:0;right:0;border-radius:0;flex-direction:column;align-items:stretch;padding:8px;display:none;background:var(--color-surface);border-bottom:1px solid var(--color-border);z-index:39;box-shadow:var(--shadow-md)}.nav.open{display:flex}.rail-track{overflow-x:auto;padding-bottom:4px}.stage{min-width:82px;flex:none}.me .me-name{display:none}.cal-grid{grid-auto-rows:minmax(120px,auto)}.chip{font-size:9.5px}}
 .menu-btn{display:none}

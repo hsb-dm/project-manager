@@ -193,7 +193,7 @@ body.lcol-sizing,body.lcol-sizing *{cursor:col-resize!important;user-select:none
 /* a tablet's or phone's toolbar has no room for the word: a round icon, the count on its corner */
 @media (max-width:980px){ .toolbar .btn.lcol-cols{position:relative;flex:none;width:36px;min-width:36px;height:36px;min-height:0;padding:0;justify-content:center;border-radius:50%} .lcol-cols .lcol-cbl{display:none}
   .lcol-cols .lcol-cnt{position:absolute;right:-4px;top:-4px;min-width:15px;height:15px;padding:0 3px;font-size:9px;line-height:15px} }
-@media (max-width:760px){ .toolbar .btn.lcol-cols{width:30px;min-width:30px;height:30px} }
+@media (max-width:599px){ .toolbar .btn.lcol-cols{width:30px;min-width:30px;height:30px} }
 @media (max-width:560px){ .toolbar .btn.lcol-cols{width:28px;min-width:28px;height:28px} }
 .menu .lcol-pop{width:272px;max-width:calc(100vw - 34px)}
 .lcol-ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:6px 8px 8px;border-bottom:1px solid var(--color-border);font-size:var(--fs-sm)}

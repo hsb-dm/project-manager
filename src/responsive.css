@@ -261,29 +261,24 @@
     padding: 2px 6px;
   }
 }
+/* A project's and the Calendar's header on a phone (up to 760 px). The Tasks page's header and the task toolbars
+   keep this phone layout up to 599 px only (the next block); from 600 px they are two rows ("Tasks page header"). */
 @media (max-width:760px) {
-  .task-pagehead,
   .project-pagehead,
   .calendar-pagehead {
     display: block !important;
     position: relative;
   }
-  .task-pagehead>div:first-child,
   .project-pagehead>div:first-child,
   .calendar-pagehead>div:first-child {
     width: auto !important;
     padding-right: 48px;
     min-width: 0;
   }
-  .task-pagehead h1,
   .project-pagehead h1,
   .calendar-pagehead h1 {
     font-size: 21px;
     line-height: 1.15;
-  }
-  .task-pagehead .muted {
-    font-size: 11.5px;
-    margin-top: 3px !important;
   }
   .project-pagehead>div:first-child>div:last-child {
     gap: 5px !important;
@@ -294,17 +289,14 @@
     font-size: 10.5px;
     padding: 2px 8px;
   }
-  .task-pagehead .actions>.primary,
   .project-pagehead .actions>.primary,
   .calendar-pagehead .actions>.primary {
     top: 0;
   }
-  .task-pagehead .actions>.primary,
   .project-pagehead .actions>.primary,
   .calendar-pagehead .actions>.primary {
     grid-column: auto;
   }
-  .task-pagehead .actions>.primary,
   .project-pagehead .actions>.primary,
   .calendar-pagehead .actions>.primary {
     position: absolute;
@@ -328,39 +320,33 @@
   .pagehead .actions>.primary span {
     display: none;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     display: flex !important;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     flex-wrap: nowrap;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     align-items: center;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     gap: 6px;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     width: 100% !important;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     overflow: visible !important;
   }
   .calendar-pagehead .actions {
     display: contents !important;
   }
-  .pagehead .actions .bulk-btn,
+  .project-pagehead .actions .bulk-btn,
   .pagehead .actions>.iconbtn,
   .pagehead .actions .enh-proj {
     min-width: 34px !important;
   }
-  .pagehead .actions .bulk-btn,
+  .project-pagehead .actions .bulk-btn,
   .pagehead .actions>.iconbtn,
   .pagehead .actions .enh-proj {
     width: 34px !important;
@@ -373,17 +359,14 @@
     grid-column: auto !important;
     grid-row: auto !important;
   }
-  .pagehead .actions .bulk-btn svg,
+  .project-pagehead .actions .bulk-btn svg,
   .pagehead .actions>.iconbtn svg {
     width: 14px;
     height: 14px;
     margin: 0;
   }
-  .pagehead .actions .bulk-label {
+  .project-pagehead .actions .bulk-label {
     display: none;
-  }
-  .task-pagehead .actions .bulk-btn {
-    order: 2;
   }
   .project-pagehead .actions .pillsel {
     order: 3;
@@ -398,7 +381,6 @@
   .project-pagehead .actions .pillsel select {
     font-size: 11.5px;
   }
-  .task-pagehead .actions .seg,
   .ptabs {
     flex: 1 1 auto;
   }
@@ -423,38 +405,15 @@
   .ptabs {
     grid-column: auto !important;
   }
-  .task-pagehead .actions .seg {
-    order: 1;
-    min-width: 0;
-    width: auto !important;
-    max-width: 100%;
-    display: flex !important;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
-    gap: 2px;
-    padding: 3px !important;
-    border-radius: var(--pill);
-    background: var(--color-surface-sunken);
-    scrollbar-width: none;
-    grid-column: auto !important;
-    grid-row: auto !important;
-  }
-  .task-pagehead .actions .seg::-webkit-scrollbar,
   .ptabs::-webkit-scrollbar {
     display: none;
   }
-  .task-pagehead .actions .seg button,
   .ptabs .tab {
     flex: 0 0 auto;
     min-height: 28px;
     padding: 5px 11px !important;
     font-size: 11.5px !important;
     border-radius: var(--pill);
-  }
-  .task-pagehead .actions .seg button svg {
-    width: 12px;
-    height: 12px;
   }
   .ptabs {
     max-width: 100%;
@@ -475,6 +434,106 @@
   .ptabs [data-tab="grid"]:not(.on),
   .ptabs [data-tab="timeline"]:not(.on) {
     display: none !important;
+  }
+}
+/* The Tasks page's header and the task toolbars on a phone (up to 599 px): the title with a round New task beside
+   it, the views and a round Select under it, then one row of sort, filters and saved views. */
+@media (max-width:599px) {
+  .task-pagehead {
+    display: block !important;
+    position: relative;
+  }
+  .task-pagehead>div:first-child {
+    width: auto !important;
+    padding-right: 48px;
+    min-width: 0;
+  }
+  .task-pagehead h1 {
+    font-size: 21px;
+    line-height: 1.15;
+  }
+  .task-pagehead .muted {
+    font-size: 11.5px;
+    margin-top: 3px !important;
+  }
+  .task-pagehead .actions>.primary {
+    top: 0;
+    grid-column: auto;
+    position: absolute;
+    right: 0;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center;
+    font-size: 0;
+    grid-row: auto !important;
+    margin: 0;
+    gap: 0;
+  }
+  .task-pagehead .actions {
+    display: flex !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    width: 100% !important;
+    overflow: visible !important;
+    margin-top: 10px;
+  }
+  .task-pagehead .actions .bulk-btn {
+    min-width: 34px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px;
+    padding: 0 !important;
+    flex: 0 0 34px !important;
+    border-radius: 50%;
+    justify-content: center;
+    grid-column: auto !important;
+    grid-row: auto !important;
+    order: 2;
+  }
+  .task-pagehead .actions .bulk-btn svg {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+  }
+  .task-pagehead .actions .bulk-label {
+    display: none;
+  }
+  .task-pagehead .actions .seg {
+    flex: 1 1 auto;
+    order: 1;
+    min-width: 0;
+    width: auto !important;
+    max-width: 100%;
+    display: flex !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 3px !important;
+    border-radius: var(--pill);
+    background: var(--color-surface-sunken);
+    scrollbar-width: none;
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+  .task-pagehead .actions .seg::-webkit-scrollbar {
+    display: none;
+  }
+  .task-pagehead .actions .seg button {
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 5px 11px !important;
+    font-size: 11.5px !important;
+    border-radius: var(--pill);
+  }
+  .task-pagehead .actions .seg button svg {
+    width: 12px;
+    height: 12px;
   }
   .toolbar[data-tour="task-filters"] {
     display: flex !important;
@@ -578,6 +637,61 @@
     font-size: 9px !important;
     line-height: 1;
   }
+}
+/* ---- Tasks page header from 600 px to 980 px (a phone on its side, tablets): two rows at every width ----
+   Row 1 holds the views and the actions: Select, the view switcher, Excel and New task. Row 2 is the toolbar: sort,
+   group, columns, Mine / All, filters and saved views (v38.css, "one row"). Neither wraps. Where row 1 is short of
+   room the views give up their words for their icons (each keeps its name as a tooltip and for screen readers), the
+   chosen view keeping its word while that fits; New task gives up its words last; and should anything still not fit
+   (a wider brand font) the switcher scrolls sideways inside its own track, never the page. Controls are 36 px or more.
+   A desktop (from 981 px) has room for the whole row beside or under the title and is unchanged. */
+@media (min-width:600px) and (max-width:980px) {
+  .task-pagehead .actions {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  .task-pagehead .actions>.btn {
+    flex: none;
+    min-height: 38px;
+    justify-content: center;
+  }
+  .task-pagehead .actions>.primary svg {
+    width: 14px;
+    height: 14px;
+  }
+  .task-pagehead .actions .seg {
+    flex: 0 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .task-pagehead .actions .seg::-webkit-scrollbar {
+    display: none;
+  }
+  .task-pagehead .actions .seg button {
+    flex: none;
+    min-height: 36px;
+    padding-left: 12px;
+    padding-right: 12px;
+    justify-content: center;
+  }
+}
+/* Below 828 px the five views with their words do not fit beside Select, Excel and New task in Indonesian (745 px,
+   778 px while selecting, and 828 px leaves 780): the other views show their icon, the chosen one keeps its word. */
+@media (min-width:600px) and (max-width:827px) {
+  .task-pagehead .actions .seg button:not(.on) .view-label {
+    display: none;
+  }
+}
+/* A tablet on its side (981 px and wider, a touch screen) keeps the desktop's rows with 36 px controls. */
+@media (min-width:981px) and (pointer:coarse) {
+  .task-pagehead .actions>.btn,
+  .task-pagehead .actions .seg button {
+    min-height: 36px;
+  }
+}
+@media (max-width:760px) {
   .calendar-pagehead+.toolbar[data-tour="task-filters"] {
     display: none !important;
   }
@@ -676,16 +790,18 @@
   }
 }
 @media (max-width:760px) {
-  .pagehead .actions>.primary {
+  /* the Tasks page's New task keeps its words from 600 px (its phone rule is in the 599 px block above) */
+  .pagehead:not(.task-pagehead) .actions>.primary {
     gap: 0 !important;
   }
   .content.wide {
     row-gap: 12px;
   }
-  .task-pagehead .actions,
   .project-pagehead .actions {
     margin-top: 10px;
   }
+}
+@media (max-width:599px) {
   /* Wrapping and overflow are decided by the grouped-toolbar layer, which keeps the controls
      on one row and lets it scroll if a narrow phone cannot fit them. */
   .toolbar[data-tour="task-filters"] {
@@ -695,6 +811,8 @@
     row-gap: 0;
     column-gap: 6px;
   }
+}
+@media (max-width:760px) {
   .row.task-row.task-row-cells {
     display: flex;
     flex-wrap: wrap;
@@ -1632,7 +1750,7 @@
     display: none;
   }
 }
-@media (min-width:1281px) {
+@media (min-width:1340px) {
   .search {
     width: 184px;
   }
