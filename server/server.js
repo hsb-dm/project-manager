@@ -639,13 +639,14 @@ function pushNotification(notifId) {
     push.sendToUser(n.recipient_id, payload).catch(e => console.error("[push] " + e.message));
   } catch (e) { console.error("[push] " + e.message); }
 }
-/* the browser tests answer for Figma (its oEmbed, for link names and pictures, and its thumbnails) from a module under
-   e2e/ (e2e/serve.js, COS_LINK_FETCH_STUB; any other path is ignored); a real server has none */
+/* the browser tests answer for Figma, YouTube, Vimeo and Loom (their oEmbed, for link names and pictures, and their
+   thumbnails) from a module under e2e/ (e2e/serve.js, COS_LINK_FETCH_STUB; any other path is ignored); a real server
+   has none */
 const linkPreviewLib = require("./link-preview");
 const linkFetchStub = linkPreviewLib.stubFrom(process.env.COS_LINK_FETCH_STUB, path.join(__dirname, ".."));
 const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => route(method, pattern, (u, p, q, b, ctx) => handler(u, p, q, b, ctx && ctx.req, ctx && ctx.res)), { readNotifs: (d, w, userId) => readNotifsFor(userId), writeNotif: sz.writeNotif, onNotification: id => emailNotification(id), onPush: id => pushNotification(id), linkFetch: linkFetchStub });
-/* a Figma file's picture, shown before Figma's viewer (server/link-preview.js): GET /api/link-preview, fetched through
-   the same guarded fetch as link names */
+/* a Figma file's or a YouTube, Vimeo or Loom video's picture, shown before its viewer (server/link-preview.js):
+   GET /api/link-preview, fetched through the same guarded fetch as link names */
 linkPreviewLib.register(db, { route, fetch: linkFetchStub || chat.guardedFetch });
 /* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
 require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security });

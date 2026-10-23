@@ -49,4 +49,5 @@ async function fetch(url) {
   }
   throw new Error("e2e: no network for " + u.hostname);
 }
-module.exports = { fetch, THUMB };
+/* png: the drawing, for e2e/fixtures/video-stub.js's thumbnails too */
+module.exports = { fetch, THUMB, png };

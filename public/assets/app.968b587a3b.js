@@ -1393,6 +1393,87 @@ const api = { FORMATS, TOKEN_PARAMS, EFFORTS, PURPOSES, LIMITS, PROTECTED, PRESE
 if (typeof module !== "undefined" && module.exports) module.exports = api; else root.AiChatModels = api;
 })(typeof window !== "undefined" ? window : this);
 
+;/* shared/link-providers.js */
+/* Which links are a Figma file or a YouTube, Vimeo or Loom video, and their key or id (Oct 2026): the one check the
+   page (src/version-preview.js: which link shows its picture first) and the server (server/oembed-links.js, through it
+   server/link-preview.js and the link names of server/messages.js) both use, so they cannot drift apart. */
+(function (root) {
+  "use strict";
+  /* a link as it may be read: https (http too when opts.http), no user name, no port */
+  function link(raw, opts) {
+    var t = String(raw == null ? "" : raw).trim(); if (!t || t.length > 2000) return null;
+    var u; try { u = new URL(t); } catch (e) { return null; }
+    var ok = u.protocol === "https:" || (u.protocol === "http:" && !!(opts && opts.http));
+    return ok && !u.username && !u.password && !u.port ? u : null;
+  }
+  /* the words of a link's name part: figma.com/design/KEY/Hero-Banner-Q4 -> "Hero Banner Q4" */
+  function nameFromLink(seg) {
+    var s = String(seg || ""); try { s = decodeURIComponent(s); } catch (e) { /* as written */ }
+    s = s.replace(/[\x00-\x1f\x7f<>]/g, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+    return s.length > 120 ? s.slice(0, 119) + String.fromCharCode(0x2026) : s;
+  }
+  var FIGMA = /^\/(file|design|proto|board|slides|make|deck)\/([A-Za-z0-9]{2,128})(?=\/|$)(?:\/([^/]*))?/;
+  var NODE = /^[A-Za-z0-9:;_-]{1,64}$/;
+  var YT_ID = /^[A-Za-z0-9_-]{11}$/;
+  var P = {
+    /* a file, design, prototype, board, slides, make or deck address with a key of letters and digits; rest is the
+       path after the key (the name, a branch) as the URL writes it */
+    figma: {
+      label: "Figma", hosts: ["figma.com", "www.figma.com"],
+      parse: function (u) {
+        var m = FIGMA.exec(u.pathname); if (!m) return null;
+        var node = u.searchParams.get("node-id");
+        return { key: m[2], kind: m[1], nodeId: node && NODE.test(node) ? node : null, name: nameFromLink(m[3]), rest: u.pathname.slice(m[1].length + m[2].length + 2) };
+      }
+    },
+    /* watch?v=, youtu.be/, /shorts/, /embed/, /live/: the 11-character id (form says which; a Short is its own key, as
+       YouTube gives it an upright shape when asked as a Short) */
+    youtube: {
+      label: "YouTube", hosts: ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"],
+      parse: function (u) {
+        var h = u.hostname.toLowerCase(), path = u.pathname, id = null, form = "", m;
+        if (h === "youtu.be") { id = (/^\/([^/]+)\/?$/.exec(path) || [])[1]; form = "youtu.be"; }
+        else if (/^\/watch\/?$/.test(path)) { id = u.searchParams.get("v"); form = "watch"; }
+        else if ((m = /^\/(shorts|embed|live)\/([^/]+)\/?$/.exec(path))) { id = m[2]; form = m[1]; }
+        return id && YT_ID.test(id) ? { key: (form === "shorts" ? "shorts/" : "") + id, id: id, shorts: form === "shorts", form: form, name: "" } : null;
+      }
+    },
+    /* vimeo.com/<id>, with an unlisted video's hash after it (/<id>/<hash> or ?h=<hash>) */
+    vimeo: {
+      label: "Vimeo", hosts: ["vimeo.com", "www.vimeo.com", "m.vimeo.com"],
+      parse: function (u) {
+        var m = /^\/([0-9]{1,12})(?:\/([0-9a-f]{6,40}))?\/?$/.exec(u.pathname); if (!m) return null;
+        var hash = m[2] || u.searchParams.get("h") || "";
+        if (hash && !/^[0-9a-f]{6,40}$/.test(hash)) return null;
+        return { key: m[1] + (hash ? "/" + hash : ""), id: m[1], hash: hash || null, name: "" };
+      }
+    },
+    /* loom.com/share/<id> or /embed/<id>, 32 hex digits, a title before it allowed (Brand-review-<id>); nothing after it
+       but ?sid= and the like (Loom refuses a slash or more path after the id) */
+    loom: {
+      label: "Loom", hosts: ["loom.com", "www.loom.com"],
+      parse: function (u) {
+        var m = /^\/(share|embed)\/(?:[^/]*-)?([0-9A-Fa-f]{32})\/?$/.exec(u.pathname);
+        return m ? { key: m[2].toLowerCase(), id: m[2], form: m[1], name: "" } : null;
+      }
+    }
+  };
+  /* {provider, key, ...} for a link one of them describes, or null. opts.http: an http link too (a name may be read
+     for one; a picture is asked only for https) */
+  function parse(raw, opts) {
+    var u = link(raw, opts); if (!u) return null;
+    var h = u.hostname.toLowerCase();
+    for (var id in P) {
+      if (P[id].hosts.indexOf(h) < 0) continue;
+      var r = P[id].parse(u); if (!r) return null;
+      r.provider = id; return r;
+    }
+    return null;
+  }
+  var api = { PROVIDERS: P, parse: parse, link: link, nameFromLink: nameFromLink };
+  if (typeof module !== "undefined" && module.exports) module.exports = api; else root.LinkProviders = api;
+})(typeof window !== "undefined" ? window : this);
+
 ;/* src/core.js */
 
 (function(){ function usable(n){ try{ var s=window[n],k="__zc_t"; s.setItem(k,"1"); s.removeItem(k); return true; }catch(e){ return false; } }
@@ -12607,20 +12688,29 @@ function embedFor(url){
     return {src:"https://www.canva.com/design/"+m[1]+"/"+m[2]+"/view?embed",kind:"design",label:"Canva"};
   if(h==="youtube.com"||h==="youtu.be"){
     id=h==="youtu.be"?p.slice(1).split("/")[0]:(u.searchParams.get("v")||(p.match(/^\/(?:shorts|embed|live)\/([-\w]+)/)||[])[1]);
-    return ok(id)?{src:"https://www.youtube-nocookie.com/embed/"+id,kind:"video",label:"YouTube"}:null;
+    return ok(id)?{src:"https://www.youtube-nocookie.com/embed/"+id,kind:"video",label:"YouTube",url:u.href}:null;
   }
-  if(h==="vimeo.com"&&(m=p.match(/^\/(\d+)(?:\/([0-9a-f]+))?\/?$/)))
-    return {src:"https://player.vimeo.com/video/"+m[1]+(m[2]?"?h="+m[2]:""),kind:"video",label:"Vimeo"};
-  if(h==="loom.com"&&(m=p.match(/^\/share\/([0-9a-f]+)/))) return {src:"https://www.loom.com/embed/"+m[1],kind:"video",label:"Loom"};
+  if(h==="vimeo.com"&&(m=p.match(/^\/(\d+)(?:\/([0-9a-f]+))?\/?$/))){
+    var vh=m[2]||(/^[0-9a-f]+$/.test(u.searchParams.get("h")||"")?u.searchParams.get("h"):"");
+    return {src:"https://player.vimeo.com/video/"+m[1]+(vh?"?h="+vh:""),kind:"video",label:"Vimeo",url:u.href};
+  }
+  if(h==="loom.com"&&(m=p.match(/^\/share\/(?:[^/]*-)?([0-9A-Fa-f]{32})\/?$/)||p.match(/^\/share\/([0-9a-f]+)/))) return {src:"https://www.loom.com/embed/"+m[1].toLowerCase(),kind:"video",label:"Loom",url:u.href};
   if(h==="miro.com"&&(m=p.match(/^\/app\/board\/([-\w=]+)/))) return {src:"https://miro.com/app/live-embed/"+m[1]+"/",kind:"board",label:"Miro"};
   if(/\.(png|jpe?g|gif|webp|avif)$/i.test(p)) return {src:u.href,kind:"image",label:h};
   if(/\.(pdf|docx?|pptx?|xlsx?)$/i.test(p)) return {src:"https://docs.google.com/viewer?url="+encodeURIComponent(u.href)+"&embedded=true",kind:"doc",label:h};
   return null;
 }
-function embedIframeHtml(e,full){
-  return '<div class="vp-frame vp-'+attr(e.kind)+(full?' full':'')+'"><iframe src="'+attr(e.src)+'" title="'+attr(e.label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation allow-downloads"></iframe></div>';
+function embedIframeHtml(e,full,o){
+  o=o||{}; var src=e.src+(o.autoplay?(e.src.indexOf("?")<0?"?":"&")+"autoplay=1":"");
+  return '<div class="vp-frame vp-'+attr(e.kind)+(full?' full':'')+(o.shape?' vd-sized" style="'+attr(vdShapeCss(o.shape)):'')+'"><iframe src="'+attr(src)+'" title="'+attr(e.label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation allow-downloads"></iframe></div>';
 }
-function embedFrameHtml(e,full){ return e&&e.label==="Figma"&&!figmaIsLive(e.url)?figmaBoxHtml(e,full):embedIframeHtml(e,full); }
+function embedFrameHtml(e,full){
+  if(e&&!figmaIsLive(e.url)){
+    if(e.label==="Figma") return figmaBoxHtml(e,full);
+    if(e.kind==="video"&&vdParts(e.url)) return videoBoxHtml(e,full);
+  }
+  return embedIframeHtml(e,full,e&&e.kind==="video"?{shape:vdShapeOf(e.url)}:null);
+}
 function versionPreviewHtml(tk,v,o){
   o=o||{};
   var e=!v.img&&v.driveUrl?embedFor(v.driveUrl):null;
@@ -12638,85 +12728,104 @@ function versionPreviewHtml(tk,v,o){
     + (host?'<span class="vp-nopreview">'+esc(host)+' · '+tr("open the link to see it")+'</span>':'')+'</div>'+(o.foot||"")+'</div>';
 }
 
-var FG={data:{},asked:{},pending:{},loaded:{},live:{task:null,urls:{}},tip:false,warm:false,disk:null};
-var FG_STORE="cos.figmaPreviews";
+var LPV={data:{},asked:{},pending:{},loaded:{},live:{task:null,urls:{}},disk:null};
+var FG={tip:false,warm:false};
+var LP_STORE="cos.linkPreviews";
 var FG_POINTER='<svg viewBox="0 0 24 24"><path d="M5 3l13 6.5-5.5 1.8L10.7 17z"/><path d="M13 12l5 5"/></svg>';
 var FG_BULB='<svg class="fg-tip-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>';
-function figmaParts(url){ var u; try{ u=new URL(String(url||"")); }catch(e){ return null; }
-  if(u.protocol!=="https:"||!/^(www\.)?figma\.com$/i.test(u.hostname)) return null;
-  var m=u.pathname.match(/^\/(file|design|proto|board|slides|make|deck)\/([A-Za-z0-9]{2,128})(?:\/|$)/); if(!m) return null;
-  return {kind:m[1],key:m[2],node:u.searchParams.get("node-id")||""}; }
-function fgDisk(){ if(FG.disk) return FG.disk; var d=null; try{ d=JSON.parse(localStorage.getItem(FG_STORE)||"null"); }catch(e){ d=null; } return FG.disk=(d&&typeof d==="object")?d:{}; }
-function fgKeep(key,v){ var d=fgDisk(); d[key]=v; var ks=Object.keys(d);
-  if(ks.length>60) ks.sort(function(a,b){ return (d[a].at||0)-(d[b].at||0); }).slice(0,ks.length-60).forEach(function(k){ delete d[k]; });
-  try{ localStorage.setItem(FG_STORE,JSON.stringify(d)); }catch(e){} }
-function fgData(key){ return key?(FG.data[key]||fgDisk()[key]||null):null; }
-function fgAsk(url,key,refresh){
-  if(!key||!API.on) return Promise.resolve(null);
-  if(FG.pending[key]&&!refresh) return FG.pending[key];
+var VD_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.2-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z"/></svg>';
+function lpParse(url){ return typeof LinkProviders!=="undefined"?LinkProviders.parse(url):null; }
+function lpSlot(p){ return !p?"":p.provider==="figma"?p.key:p.provider+":"+p.key; }
+function figmaParts(url){ var p=lpParse(url); return p&&p.provider==="figma"?{kind:p.kind,key:p.key,node:p.nodeId||""}:null; }
+function lpDisk(){ if(LPV.disk) return LPV.disk; var d=null;
+  try{ var mine=localStorage.getItem(LP_STORE), old=localStorage.getItem("cos.figmaPreviews"); d=JSON.parse(mine||old||"null");
+    if(old!==null){ if(!mine) localStorage.setItem(LP_STORE,old); localStorage.removeItem("cos.figmaPreviews"); } }catch(e){ d=null; }
+  return LPV.disk=(d&&typeof d==="object")?d:{}; }
+function lpKeep(slot,v){ var d=lpDisk(); d[slot]=v; var ks=Object.keys(d);
+  if(ks.length>80) ks.sort(function(a,b){ return (d[a].at||0)-(d[b].at||0); }).slice(0,ks.length-80).forEach(function(k){ delete d[k]; });
+  try{ localStorage.setItem(LP_STORE,JSON.stringify(d)); }catch(e){} }
+function lpData(slot){ return slot?(LPV.data[slot]||lpDisk()[slot]||null):null; }
+function lpAsk(url,slot,refresh){
+  if(!slot||!API.on) return Promise.resolve(null);
+  if(LPV.pending[slot]&&!refresh) return LPV.pending[slot];
   var q=apiFetch("GET","/api/link-preview?url="+encodeURIComponent(url)+(refresh?"&refresh=1":"")).then(function(r){
-    var v={t:r.title||"",th:r.thumb||"",w:+r.width||0,h:+r.height||0,p:!!r.private,off:!!r.unavailable,at:Date.now()}, old=fgData(key);
+    var v={t:r.title||"",th:r.thumb||"",w:+r.width||0,h:+r.height||0,p:!!r.private,off:!!r.unavailable,at:Date.now(),d:+r.duration||0}, old=lpData(slot);
     if(v.off&&old&&old.th) return old;
-    FG.data[key]=v; if(!v.off) fgKeep(key,v); return v;
-  },function(){ if(!fgData(key)) FG.data[key]={t:"",th:"",w:0,h:0,p:false,off:true,at:Date.now()}; return null; })
-  .then(function(v){ if(FG.pending[key]===q) delete FG.pending[key]; fgPaint(key); return v; });
-  FG.pending[key]=q; return q;
+    LPV.data[slot]=v; if(!v.off) lpKeep(slot,v); return v;
+  },function(){ if(!lpData(slot)) LPV.data[slot]={t:"",th:"",w:0,h:0,p:false,off:true,at:Date.now(),d:0}; return null; })
+  .then(function(v){ if(LPV.pending[slot]===q) delete LPV.pending[slot]; lpPaint(slot); return v; });
+  LPV.pending[slot]=q; return q;
 }
+function lpWaiting(slot,d){ return !d&&!!slot&&API.on; }
+function lpIsCard(slot,d){ return !(d&&d.th)&&!lpWaiting(slot,d); }
+var LP_RETRY_MS=10*60e3;
+function lpAskOnce(url,slot){
+  if(!slot||!API.on) return; var at=LPV.asked[slot], d=LPV.data[slot];
+  if(at&&!(d&&d.off&&Date.now()-at>=LP_RETRY_MS)) return;
+  LPV.asked[slot]=Date.now(); setTimeout(function(){ lpAsk(url,slot); },0);
+}
+function lpPaint(slot){
+  if(!slot) return; var d=lpData(slot);
+  function swap(st,html){ var sig=(html.match(/data-sig="([^"]*)"/)||[])[1]; if(st&&st.getAttribute("data-sig")!==sig){ var t=document.createElement("div"); t.innerHTML=html; st.parentNode.replaceChild(t.firstChild,st); } }
+  Array.prototype.forEach.call(document.querySelectorAll('.fg-box[data-fg="'+slot+'"]'),function(box){
+    var url=box.getAttribute("data-url");
+    swap(box.querySelector(".fg-stage"),fgStageHtml(url,slot,d));
+    box.classList.toggle("fg-card-on",lpIsCard(slot,d));
+    var nm=box.querySelector(".fg-tname"); if(nm&&nm.textContent!==fgName(url,d)) nm.textContent=fgName(url,d);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.vd-box[data-vd="'+slot+'"]'),function(box){
+    var url=box.getAttribute("data-url"), p=vdParts(url), s=vdShape(p,d);
+    swap(box.querySelector(".vd-stage"),vdStageHtml(url,p,slot,d));
+    box.classList.toggle("vd-card-on",lpIsCard(slot,d));
+    if(box.getAttribute("data-shape")!==s.join(":")){ box.setAttribute("data-shape",s.join(":")); box.setAttribute("style",vdShapeCss(s)); }
+    var nm=box.querySelector(".vd-tname"); if(nm&&nm.textContent!==vdName(p,d)) nm.textContent=vdName(p,d);
+  });
+}
+function lpMark(url,px){ return typeof brandIconHtml==="function"?brandIconHtml(url,px):""; }
+function lpLiveSync(){ var t=S.drawerTask||null; if(LPV.live.task!==t) LPV.live={task:t,urls:{}}; }
+function figmaIsLive(url){ if(!S.drawerTask||!url) return false; lpLiveSync(); return !!LPV.live.urls[url]; }
+function lpGoLive(box,o){
+  var url=box.getAttribute("data-url"), e=embedFor(url); if(!e) return;
+  if(S.drawerTask){ lpLiveSync(); LPV.live.urls[e.url]=1; }
+  var t=document.createElement("div"); t.innerHTML=embedIframeHtml(e,box.classList.contains("full"),o);
+  var fr=t.firstChild; box.parentNode.replaceChild(fr,box);
+  var ifr=fr.querySelector("iframe"); if(ifr){ try{ ifr.focus(); }catch(x){} }
+}
+
 function fgName(url,d){ return (d&&d.t)||(typeof cmtLinkLabel==="function"?cmtLinkLabel(url):"")||"Figma"; }
-function fgMark(url,px){ return typeof brandIconHtml==="function"?brandIconHtml(url,px):""; }
 function fgSkel(w,h){ return '<svg class="fg-skel skel" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true"></svg>'; }
-function fgWaiting(key,d){ return !d&&!!key&&API.on; }
-function fgIsCard(key,d){ return !(d&&d.th)&&!fgWaiting(key,d); }
 function fgStageHtml(url,key,d){
   if(d&&d.th){
-    var w=d.w||800, h=d.h||448, ready=!!FG.loaded[d.th];
+    var w=d.w||800, h=d.h||448, ready=!!LPV.loaded[d.th];
     return '<div class="fg-stage'+(ready?' fg-ready':'')+'" data-sig="'+attr(d.th)+'">'+(ready?'':fgSkel(w,h))
       + '<img class="fg-img" src="'+attr(d.th)+'" alt="'+attr(fgName(url,d))+'" width="'+w+'" height="'+h+'" onload="figmaImgReady(this)" onerror="figmaImgFailed(this)" onclick="figmaLive(this)"></div>';
   }
-  if(fgWaiting(key,d)) return '<div class="fg-stage" data-sig="wait" role="img" aria-busy="true" aria-label="'+attr(tr("Loading preview…"))+'">'+fgSkel(800,448)+'</div>';
+  if(lpWaiting(key,d)) return '<div class="fg-stage" data-sig="wait" role="img" aria-busy="true" aria-label="'+attr(tr("Loading preview…"))+'">'+fgSkel(800,448)+'</div>';
   var priv=!!(d&&d.p);
-  return '<div class="fg-stage fg-card" data-sig="'+(priv?"private":"off")+'"><span class="fg-logo">'+fgMark(url,30)+'</span><b class="fg-card-name">'+esc(fgName(url,d))+'</b>'
+  return '<div class="fg-stage fg-card" data-sig="'+(priv?"private":"off")+'"><span class="fg-logo">'+lpMark(url,30)+'</span><b class="fg-card-name">'+esc(fgName(url,d))+'</b>'
     + '<span class="fg-card-note">'+tr(priv?"Private file: no static preview":"No static preview right now")+'</span></div>';
 }
 function fgBarHtml(url,key){
-  return '<div class="fg-bar"><span class="fg-title">'+fgMark(url,14)+'<span class="fg-tname"></span></span>'
+  return '<div class="fg-bar"><span class="fg-title">'+lpMark(url,14)+'<span class="fg-tname"></span></span>'
     + (key&&API.on?'<button type="button" class="iconbtn flat sm fg-refresh" aria-label="'+attr(tr("Refresh preview"))+'" title="'+attr(tr("Refresh preview"))+'" onclick="figmaRefresh(this)">'+I.sync+'</button>':'')
     + '<button type="button" class="btn sm fg-open" onclick="openExternal('+jsq(url)+')">'+I.ext+tr("Open in Figma")+'</button>'
     + '<button type="button" class="btn sm primary fg-live" onclick="figmaLive(this)">'+FG_POINTER+tr("Open interactive")+'</button></div>';
 }
 function figmaBoxHtml(e,full){
-  var url=e.url||"", p=figmaParts(url), key=p?p.key:"", d=fgData(key);
-  if(key&&API.on&&!FG.asked[key]){ FG.asked[key]=1; setTimeout(function(){ fgAsk(url,key); },0); }
+  var url=e.url||"", p=figmaParts(url), key=p?p.key:"", d=lpData(key);
+  lpAskOnce(url,key);
   figmaWarm();
-  return '<div class="fg-box'+(full?' full':'')+(fgIsCard(key,d)?' fg-card-on':'')+'" data-fg="'+attr(key)+'" data-url="'+attr(url)+'">'+fgStageHtml(url,key,d)
+  return '<div class="fg-box'+(full?' full':'')+(lpIsCard(key,d)?' fg-card-on':'')+'" data-fg="'+attr(key)+'" data-url="'+attr(url)+'">'+fgStageHtml(url,key,d)
     + fgBarHtml(url,key).replace('<span class="fg-tname"></span>','<span class="fg-tname">'+esc(fgName(url,d))+'</span>')+'</div>';
 }
-function fgPaint(key){
-  if(!key) return; var d=fgData(key);
-  Array.prototype.forEach.call(document.querySelectorAll('.fg-box[data-fg="'+key+'"]'),function(box){
-    var url=box.getAttribute("data-url"), st=box.querySelector(".fg-stage"), html=fgStageHtml(url,key,d), sig=(html.match(/data-sig="([^"]*)"/)||[])[1];
-    if(st&&st.getAttribute("data-sig")!==sig){ var t=document.createElement("div"); t.innerHTML=html; st.parentNode.replaceChild(t.firstChild,st); }
-    box.classList.toggle("fg-card-on",fgIsCard(key,d));
-    var nm=box.querySelector(".fg-tname"); if(nm&&nm.textContent!==fgName(url,d)) nm.textContent=fgName(url,d);
-  });
-}
-function figmaImgReady(img){ FG.loaded[img.getAttribute("src")]=1; if(img.parentNode) img.parentNode.classList.add("fg-ready"); }
-function figmaImgFailed(img){ var box=img.closest(".fg-box"), st=img.parentNode; if(!box||!st) return; var url=box.getAttribute("data-url"), d=fgData(box.getAttribute("data-fg"));
+function figmaImgReady(img){ LPV.loaded[img.getAttribute("src")]=1; if(img.parentNode) img.parentNode.classList.add("fg-ready"); }
+function figmaImgFailed(img){ var box=img.closest(".fg-box"), st=img.parentNode; if(!box||!st) return; var url=box.getAttribute("data-url"), d=lpData(box.getAttribute("data-fg"));
   var t=document.createElement("div"); t.innerHTML=fgStageHtml(url,"",{t:d&&d.t||"",off:true}); st.parentNode.replaceChild(t.firstChild,st); box.classList.add("fg-card-on"); }
-function fgLiveSync(){ var t=S.drawerTask||null; if(FG.live.task!==t) FG.live={task:t,urls:{}}; }
-function figmaIsLive(url){ if(!S.drawerTask||!url) return false; fgLiveSync(); return !!FG.live.urls[url]; }
-function figmaLive(el){
-  var box=el&&el.closest?el.closest(".fg-box"):null; if(!box) return;
-  var url=box.getAttribute("data-url"), e=embedFor(url); if(!e) return;
-  if(S.drawerTask){ fgLiveSync(); FG.live.urls[e.url]=1; }
-  var t=document.createElement("div"); t.innerHTML=embedIframeHtml(e,box.classList.contains("full"));
-  var fr=t.firstChild; box.parentNode.replaceChild(fr,box);
-  var ifr=fr.querySelector("iframe"); if(ifr){ try{ ifr.focus(); }catch(x){} }
-}
+function figmaLive(el){ var box=el&&el.closest?el.closest(".fg-box"):null; if(box) lpGoLive(box); }
 function figmaRefresh(btn){
   var box=btn.closest(".fg-box"); if(!box) return; var url=box.getAttribute("data-url"), key=box.getAttribute("data-fg");
   btn.disabled=true; btn.setAttribute("aria-busy","true");
-  fgAsk(url,key,true).then(function(v){ btn.disabled=false; btn.removeAttribute("aria-busy"); toast(tr(v?"Preview refreshed":"The preview could not be refreshed"),v?undefined:"bad"); });
+  lpAsk(url,key,true).then(function(v){ btn.disabled=false; btn.removeAttribute("aria-busy"); toast(tr(v?"Preview refreshed":"The preview could not be refreshed"),v?undefined:"bad"); });
 }
 function figmaTipOff(){ try{ return localStorage.getItem("cos.figmaTip.off."+ME)==="1"; }catch(e){ return false; } }
 function figmaTipReset(){ FG.tip=false; }
@@ -12738,7 +12847,48 @@ function figmaWarm(){
     var l=document.createElement("link"); l.rel="preconnect"; l.href=x[0]; if(x[1]) l.crossOrigin="anonymous"; document.head.appendChild(l); });
 }
 function figmaInTask(tk){ return !!tk&&((tk.versions||[]).some(function(v){ return !!figmaParts(v.driveUrl); })||(tk.files||[]).some(function(f){ return !!figmaParts(f.url); })); }
-function figmaTaskOpened(tk,fresh){ if(fresh) FG.live={task:null,urls:{}}; if(figmaInTask(tk)) figmaWarm(); }
+function figmaTaskOpened(tk,fresh){ if(fresh) LPV.live={task:null,urls:{}}; if(figmaInTask(tk)) figmaWarm(); }
+
+function vdParts(url){ var p=lpParse(url); return p&&p.provider!=="figma"?p:null; }
+var VD_SHAPES=[[16,9],[9,16],[4,3],[3,4],[1,1],[21,9]];
+function vdShape(p,d){
+  var w=d&&d.w, h=d&&d.h;
+  if(!(w>0&&h>0)) return p&&p.shorts?[9,16]:[16,9];
+  var r=w/h; for(var i=0;i<VD_SHAPES.length;i++){ var s=VD_SHAPES[i]; if(Math.abs(r/(s[0]/s[1])-1)<0.03) return s; }
+  return [Math.round(Math.max(0.4,Math.min(2.5,r))*1000)/1000,1];
+}
+function vdShapeOf(url){ var p=vdParts(url); return p?vdShape(p,lpData(lpSlot(p))):null; }
+function vdShapeCss(s){ return "aspect-ratio:"+s[0]+" / "+s[1]+";--vr:"+(Math.round(s[0]/s[1]*10000)/10000); }
+function vdDur(s){ s=Math.round(+s||0); if(!(s>0)) return ""; var h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+":"+(m<10?"0":""):"")+m+":"+(x<10?"0":"")+x; }
+function vdName(p,d){
+  if(d&&d.t) return d.t; if(!p) return "";
+  return p.provider==="youtube"?(p.shorts?"youtube.com/shorts/":"youtu.be/")+p.id:p.provider==="vimeo"?"vimeo.com/"+p.id:"loom.com/share/"+p.id.slice(0,8)+"…";
+}
+function vdOpenLabel(p){ return p.provider==="youtube"?tr("Open in YouTube"):p.provider==="vimeo"?tr("Open in Vimeo"):tr("Open in Loom"); }
+function vdStageHtml(url,p,slot,d){
+  var name=vdName(p,d);
+  if(d&&d.th){
+    var ready=!!LPV.loaded[d.th], dur=vdDur(d.d);
+    return '<div class="vd-stage vd-pic'+(ready?' vd-ready':'')+'" data-sig="'+attr(d.th)+'">'+(ready?'':'<span class="vd-skel skel" aria-hidden="true"></span>')
+      + '<img class="vd-img" src="'+attr(d.th)+'" alt="'+attr(name)+'" onload="videoImgReady(this)" onerror="videoImgFailed(this)" onclick="videoPlay(this)">'
+      + '<span class="vd-cap" aria-hidden="true">'+lpMark(url,16)+'<span class="vd-tname">'+esc(name)+'</span></span>'+(dur?'<span class="vd-dur">'+dur+'</span>':'')+'</div>';
+  }
+  if(lpWaiting(slot,d)) return '<div class="vd-stage" data-sig="wait" role="img" aria-busy="true" aria-label="'+attr(tr("Loading preview…"))+'"><span class="vd-skel skel" aria-hidden="true"></span></div>';
+  var priv=!!(d&&d.p);
+  return '<div class="vd-stage vd-card" data-sig="'+(priv?"private":"off")+'"><span class="vd-logo">'+lpMark(url,28)+'</span><b class="vd-card-name vd-tname">'+esc(name)+'</b>'
+    + '<span class="vd-card-note">'+tr(priv?"Private video: no preview":"No preview right now")+'</span></div>';
+}
+function videoBoxHtml(e,full){
+  var url=e.url||"", p=vdParts(url), slot=lpSlot(p), d=lpData(slot), s=vdShape(p,d);
+  lpAskOnce(url,slot);
+  return '<div class="vd-box'+(full?' full':'')+(lpIsCard(slot,d)?' vd-card-on':'')+'" data-vd="'+attr(slot)+'" data-url="'+attr(url)+'" data-shape="'+s.join(":")+'" style="'+attr(vdShapeCss(s))+'">'+vdStageHtml(url,p,slot,d)
+    + '<div class="vd-acts"><button type="button" class="vd-play" onclick="videoPlay(this)">'+VD_PLAY+'<span>'+tr("Play")+'</span></button>'
+    + '<button type="button" class="vd-open" onclick="openExternal('+jsq(url)+')">'+I.ext+'<span>'+vdOpenLabel(p)+'</span></button></div></div>';
+}
+function videoImgReady(img){ LPV.loaded[img.getAttribute("src")]=1; if(img.parentNode) img.parentNode.classList.add("vd-ready"); }
+function videoImgFailed(img){ var box=img.closest(".vd-box"), st=img.parentNode; if(!box||!st) return; var url=box.getAttribute("data-url"), p=vdParts(url), d=lpData(box.getAttribute("data-vd"));
+  var t=document.createElement("div"); t.innerHTML=vdStageHtml(url,p,"",{t:d&&d.t||"",off:true}); st.parentNode.replaceChild(t.firstChild,st); box.classList.add("vd-card-on"); }
+function videoPlay(el){ var box=el&&el.closest?el.closest(".vd-box"):null; if(box) lpGoLive(box,{shape:(box.getAttribute("data-shape")||"16:9").split(":").map(Number),autoplay:true}); }
 
 void 0;
 

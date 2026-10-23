@@ -333,6 +333,51 @@ body.paste-resizing .desc-img{pointer-events:none}
 @media (prefers-reduced-motion:reduce){.fg-bar .fg-refresh[aria-busy] svg{animation:none}}
 /* a phone: the embed's phone height (its buttons are the task panel's compact ones there, "The task panel on a phone") */
 @media (max-width:600px){.fg-box{height:280px}.fg-stage{padding:8px}.fg-bar{justify-content:flex-end}.fg-title{flex-basis:100%}.fg-box.fg-card-on .fg-title{display:none}}
+/* a video (YouTube, Vimeo, Loom): its picture first, the player when asked (src/version-preview.js). The box is the
+   player's own shape and size (.vp-frame.vp-video: at most 340 px high, 400 expanded, 72vh in Full view, centred), so
+   nothing moves when one becomes the other; the picture, its skeleton or the card share one cell with the buttons */
+.vd-box{position:relative;display:grid;grid-template:minmax(0,1fr)/minmax(0,1fr);aspect-ratio:16/9;max-height:340px;overflow:hidden;background:var(--color-surface-sunken);container-type:inline-size}
+.vd-box.full{max-height:72vh}
+.drawer.expanded .vd-box:not(.full){max-height:400px}
+/* as wide as its place allows, up to the width its height limit gives its shape (--vr, width over height), so it is
+   the same in a block and in a flex column (a modal's body); the player that takes its place (.vd-sized) too */
+.vd-box,.vp-frame.vd-sized{width:100%;max-width:calc(340px*var(--vr,1.7778));margin:0 auto}
+.vd-box.full,.vp-frame.vd-sized.full{max-width:calc(72vh*var(--vr,1.7778))}
+.drawer.expanded :is(.vd-box,.vp-frame.vd-sized):not(.full){max-width:calc(400px*var(--vr,1.7778))}
+.vd-box>*{grid-area:1/1;min-width:0;min-height:0}
+.vd-stage{position:relative;overflow:hidden}
+.vd-pic{background:#000}
+.vd-pic::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 62%,rgba(0,0,0,.42));pointer-events:none}
+.vd-img{display:block;width:100%;height:100%;object-fit:cover;cursor:pointer}
+.vd-skel{position:absolute;inset:0;height:auto;border-radius:0}
+.vd-stage.vd-ready .vd-skel{display:none}
+.vd-cap{position:absolute;z-index:1;left:12px;right:12px;top:10px;display:flex;align-items:center;gap:7px;color:#fff;font-size:13px;font-weight:650;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55);pointer-events:none}
+.vd-cap .brand-ico{flex:none}
+.vd-tname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vd-dur{position:absolute;z-index:1;right:10px;bottom:10px;padding:2px 7px;border-radius:6px;background:rgba(0,0,0,.75);color:#fff;font-size:12px;font-weight:650;font-variant-numeric:tabular-nums;pointer-events:none}
+.vd-acts{z-index:2;align-self:center;justify-self:center;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:12px;pointer-events:none}
+.vd-acts>button{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;border-radius:999px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap;color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .15s,transform .15s}
+.vd-play{height:52px;padding:0 24px 0 18px;border:0;background:rgba(15,17,23,.78);font-size:16px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.vd-play svg{width:22px;height:22px;fill:currentColor}
+.vd-play:hover{background:rgba(15,17,23,.92);transform:scale(1.04)}
+.vd-open{height:40px;padding:0 14px;border:1px solid rgba(255,255,255,.4);background:rgba(15,17,23,.64);font-size:13px}
+.vd-open:hover{background:rgba(15,17,23,.8)}
+.vd-open svg{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.vd-acts>button:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px var(--color-primary)}
+/* no picture: the card, and the buttons under it */
+.vd-box.vd-card-on{grid-template:minmax(0,1fr) auto/minmax(0,1fr)}
+.vd-box.vd-card-on>.vd-acts{grid-area:2/1;align-self:end;padding:4px 12px 14px}
+.vd-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 16px 6px;text-align:center}
+.vd-card .vd-logo{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--color-surface);border:1px solid var(--color-border)}
+.vd-card-name{max-width:100%;font-size:14px;color:var(--color-text-primary)}
+.vd-card-note{font-size:12px;color:var(--color-text-secondary)}
+.vd-box.vd-card-on .vd-acts>button{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+.vd-box.vd-card-on .vd-play{height:44px;background:var(--color-primary);color:var(--color-primary-ink)}
+.vd-box.vd-card-on .vd-play:hover{background:var(--color-primary-hover);transform:none}
+.vd-box.vd-card-on .vd-open{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
+/* a small box (a phone, an upright Short): smaller buttons, a smaller tile on the card */
+@container (max-width:420px){.vd-play{height:44px;padding:0 18px 0 14px;font-size:15px}.vd-play svg{width:19px;height:19px}.vd-open{height:36px;padding:0 12px;font-size:12.5px}.vd-acts{gap:8px;padding:8px}.vd-card{gap:4px;padding:10px 12px 4px}.vd-card .vd-logo{width:38px;height:38px;border-radius:11px}.vd-card .vd-logo svg{width:22px!important;height:22px!important}.vd-box.vd-card-on .vd-play{height:38px}.vd-box.vd-card-on>.vd-acts{padding:2px 8px 10px}}
+@media (prefers-reduced-motion:reduce){.vd-acts>button{transition:none}.vd-play:hover{transform:none}}
 /* the notes on a version: what to change, ticked off as it is done */
 .vn{margin-top:12px;border:1px solid var(--color-border);border-radius:12px;padding:10px 12px;background:var(--color-surface)}
 .vn-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13px}

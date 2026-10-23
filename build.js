@@ -62,12 +62,13 @@ const FONTS = {
   served: '<link rel="preload" href="/fonts/poppins-v24-latin-400.woff2" as="font" type="font/woff2" crossorigin>\n<style>' + stripCss(lf(read(SRC, "fonts.css"))) + "</style>"
 };
 
-/* the code the server and the page share (UMD: window.GalleryModel, window.ScoringSettings, window.ScoringEngine, window.AiChatModels), before
+/* the code the server and the page share (UMD: window.GalleryModel, window.ScoringSettings, window.ScoringEngine, window.AiChatModels,
+   window.LinkProviders), before
    any src/ file. Smart Scoring's engine is taken as soon as shared/scoring-engine.js is there (docs/SMART-SCORING.md),
    before its settings, which read the engine's built-in kinds of work. shared/* goes in exactly as it is: the
    server runs the same files (tests/scoring-engine.test.js compares them byte for byte). */
 function sharedScripts() {
-  return ["gallery-model.js", "scoring-engine.js", "scoring-settings.js", "ai-chat-models.js"].filter(f => f !== "scoring-engine.js" || fs.existsSync(path.join(SHARED, f)))
+  return ["gallery-model.js", "scoring-engine.js", "scoring-settings.js", "ai-chat-models.js", "link-providers.js"].filter(f => f !== "scoring-engine.js" || fs.existsSync(path.join(SHARED, f)))
     .map(f => ({ file: "shared/" + f, code: lf(read(SHARED, f)) }));
 }
 

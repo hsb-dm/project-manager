@@ -66,10 +66,10 @@ test('the page\'s script: every script of the page, in the page\'s order, and ea
   const b = builtPage(), src = build.pageSources();
   const order = [...b.code.matchAll(/(?:^|\n);\/\* ([^*]+) \*\/\n/g)].map(m => m[1]);
   assert.deepEqual(order, src.scripts.map(s => s.file), 'the same scripts in the same order');
-  assert.deepEqual(order.slice(0, 5), ['demo settings', 'shared/gallery-model.js', 'shared/scoring-engine.js', 'shared/scoring-settings.js', 'shared/ai-chat-models.js']);
+  assert.deepEqual(order.slice(0, 6), ['demo settings', 'shared/gallery-model.js', 'shared/scoring-engine.js', 'shared/scoring-settings.js', 'shared/ai-chat-models.js', 'shared/link-providers.js']);
   assert.equal(order[order.length - 1], 'src/boot.js');
   const parts = build.parts.filter(p => p.endsWith('.js')).map(p => 'src/' + p);
-  assert.deepEqual([...new Set(order.slice(5))], parts, 'src/*.js as build.js lists them');
+  assert.deepEqual([...new Set(order.slice(6))], parts, 'src/*.js as build.js lists them');
   new vm.Script(b.code);
   /* shared/* exactly as written; a src/ script as build-strip.js left it, but for its dictionary */
   assert.equal(scriptOf(b.code, 'shared/scoring-settings.js'), fs.readFileSync(path.join(root, 'shared', 'scoring-settings.js'), 'utf8').replace(/\r\n/g, '\n'));

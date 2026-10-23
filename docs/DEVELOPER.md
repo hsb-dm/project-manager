@@ -1081,6 +1081,32 @@ setelah id → `https://www.loom.com/share/<id 32 hex>`. Miro menolak `www.miro.
 YouTube dan Vimeo menerima semua bentuk yang biasa ditempel (m., youtu.be `?si=`, `#t=`, dst.), jadi dikirim apa
 adanya. Key/id yang bentuknya salah ditolak 400 sebelum ada fetch. Guard SSRF, cache dan rate limit tidak berubah.
 
+**Pratinjau video** (Oktober 2026, route yang sama) — video YouTube, Vimeo dan Loom juga tampil sebagai thumbnail dulu,
+dalam bentuk dan ukuran player-nya (`width`/`height` oEmbed: 16:9, Shorts 9:16, rekaman Loom sering 4:3), dengan
+**Play / Putar** di tengah dan **Open in YouTube / Buka di YouTube** (Vimeo, Loom) di sebelahnya (`videoBoxHtml` di
+`src/version-preview.js`). Play memuat iframe yang sama (`embedFor`, `sandbox` dan `frame-src` tidak berubah) ditambah
+`autoplay=1`, di tempat dan ukuran yang sama; di dalam task tetap jadi player sampai task ditutup. Video privat,
+unlisted tanpa hash, atau yang tidak ada tampil sebagai kartu dengan logo provider, nama dari tautannya, dan "Private
+video: no preview / Video privat: pratinjau tidak tersedia", plus Play yang memuat iframe seperti biasa. Cek tautan
+dan key/id-nya ada di satu tempat, `shared/link-providers.js`: dipakai halaman (tautan mana yang tampil sebagai gambar)
+dan oleh `server/oembed-links.js`, yang dipakai nama tautan dan pratinjau gambar. YouTube 11 karakter dari `watch?v=`,
+`youtu.be/`, `/shorts/`, `/embed/`, `/live/`; Vimeo angka plus hash unlisted, `/<id>/<hash>` atau `?h=`; Loom 32 hex
+dari `/share/` atau `/embed/`, boleh dengan judul di depannya; Figma seperti sebelumnya. `oembed-links.js` membangun
+alamat oEmbed gambar dari id saja (`pictureOembedUrl`: Shorts sebagai `/shorts/<id>`, Vimeo dengan `width=1280`); untuk
+nama, YouTube dan Vimeo tetap dikirim apa adanya, tapi hanya bila id-nya lolos cek yang sama (tautan `/embed/` YouTube
+tidak ditanyakan namanya). Tabel `PROVIDERS` di `server/link-preview.js` memegang yang khusus route gambar: host yang
+boleh (`i.ytimg.com`/`i1`–`i9.ytimg.com`, `i.vimeocdn.com`, `cdn.loom.com`), lama cache (video 7 hari, privat 1 jam,
+gagal 10 menit), status "privat", dan bentuk gambar. Provider yang tidak terjangkau (mis. `vimeo.com` tidak resolve di
+DNS mesin pengembangan, 23 Okt 2026) jadi `unavailable`: kartu "No preview right now / Pratinjau belum tersedia" dengan
+Play; server bertanya lagi setelah 10 menit, halaman bertanya lagi bila kotaknya digambar 10 menit kemudian, dan panel
+tidak pernah menunggu jawabannya. Jawaban asli yang dicek 23 Okt 2026 ada di komentar `server/link-preview.js`:
+YouTube privat 403, embed dimatikan 401, id tidak ada 400; Vimeo privat atau unlisted tanpa hash 404, unlisted yang dibatasi domain 200 tanpa
+judul dan thumbnail (`domain_status_code` 403); Loom tidak ada atau privat 404; CDN Loom mengirim JPEG sebagai
+`application/octet-stream`, jadi untuk Loom byte-nya yang menentukan. Balasan route: `{provider, key, title, thumb,
+width, height, private, unavailable, fetchedAt}` plus `duration` (detik, Vimeo dan Loom) bila ada; untuk Figma juga
+`nodeId`. Batas fetch 30 per menit dan 12 per orang berlaku per provider. Tabel `link_previews` mendapat kolom
+`duration` (ditambahkan otomatis pada database lama).
+
 **Security log** — JSON-lines, mode `0o600`, di `COS_SECURITY_LOG` atau `<DATA_DIR>/security.log`.
 `clean()` memotong string ke 500 karakter, membuang CR/LF, membatasi array 20 elemen dan
 object 30 key, kedalaman 3, dan **mengganti key yang cocok
@@ -1109,9 +1135,10 @@ npm test    # node --no-warnings --test tests/*.test.js
 Browser test: `npm run e2e` (Playwright, `e2e/*.spec.js`; `E2E_PORT` memilih port server sementaranya). Proyek
 `chromium` menjalankan semua spec kecuali `e2e/touch-dropdowns.spec.js`, yang jalan sendiri di proyek `webkit-touch`
 (iPhone, iPad) dan `chromium-touch` (Android): dropdown disentuh jari di HP dan tablet. Pasang WebKit sekali dengan
-`npx playwright install webkit`. Server sementara itu tidak punya jaringan: oEmbed dan thumbnail Figma (untuk
-pratinjau dan untuk nama tautan) dijawab oleh `e2e/fixtures/figma-stub.js` (`COS_LINK_FETCH_STUB` di `e2e/serve.js`;
-path di luar `e2e/` diabaikan), yang seperti Figma menolak tautan tanpa www.
+`npx playwright install webkit`. Server sementara itu tidak punya jaringan: oEmbed dan thumbnail Figma, YouTube, Vimeo
+dan Loom (untuk pratinjau dan untuk nama tautan) dijawab oleh `e2e/fixtures/link-stub.js`: Figma dari `figma-stub.js`,
+yang seperti Figma menolak tautan tanpa www, video dari `video-stub.js` (`COS_LINK_FETCH_STUB` di `e2e/serve.js`; path
+di luar `e2e/` diabaikan).
 
 | File | Cakupan |
 |---|---|
@@ -1122,6 +1149,7 @@ path di luar `e2e/` diabaikan), yang seperti Figma menolak tautan tanpa www.
 | `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
 | `figma-preview.test.js` | pratinjau Figma tanpa jaringan (fetch di-stub): hanya oEmbed dan thumbnail Figma (host, https, redirect, 5 MB, 10 detik, gambar menurut byte), cache 6 jam / 1 jam / 10 menit, Muat ulang, rate limit, stub e2e hanya dari `e2e/` |
 | `link-title.test.js` | nama tautan Google (dari cache) dan oEmbed (fetch di-stub): alamat oEmbed yang benar-benar dikirim untuk Figma tanpa www / http / node-id, Loom, Miro, YouTube, Vimeo; key/id yang salah dan tautan komunitas ditolak sebelum fetch |
+| `video-preview.test.js` | pratinjau YouTube, Vimeo, Loom tanpa jaringan: id dari setiap bentuk tautan dan yang ditolak, oEmbed dari id saja, host thumbnail per provider, redirect, octet-stream hanya Loom, privat (403/401/400, 404, Vimeo tanpa thumbnail), cache 7 hari / 1 jam / 10 menit, batas per provider, kolom `duration` untuk tabel lama |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
 | `security.test.js` | postur production (`NODE_ENV=production`, secret di-set) |
 | `server-security-integration.test.js` | **spawn server sungguhan** dan cek startup aman, auth, backup |

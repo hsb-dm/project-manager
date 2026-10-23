@@ -8,8 +8,9 @@ const env = Object.assign({}, process.env, {
   COS_ADMIN_EMAIL: "admin@e2e.test", COS_ADMIN_NAME: "Admin E2E", COS_ADMIN_PASSWORD: "E2E!Admin-2026",
   COS_SECRET_KEY: "e2e-secret-key-0123456789-abcdefghij", COS_BACKUP_KEY: "e2e-backup-key-9876543210-zyxwvutsr",
   COS_MSG_RATE_MAX: "500",
-  /* Figma's oEmbed and thumbnails, answered here (server/link-preview.js): the test server has no network */
-  COS_LINK_FETCH_STUB: path.join(__dirname, "fixtures", "figma-stub.js")
+  /* Figma's, YouTube's, Vimeo's and Loom's oEmbed and thumbnails, answered here (server/link-preview.js): the test
+     server has no network */
+  COS_LINK_FETCH_STUB: path.join(__dirname, "fixtures", "link-stub.js")
 });
 const child = spawn(process.execPath, ["--no-warnings", "server/server.js"], { cwd: path.join(__dirname, ".."), env, stdio: "inherit" });
 const stop = () => { child.kill("SIGTERM"); }; process.on("SIGTERM", stop); process.on("SIGINT", stop); child.on("exit", c => process.exit(c || 0));
