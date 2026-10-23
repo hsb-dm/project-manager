@@ -413,7 +413,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd.fld{display:flex;width:100%;max-width:none;min-height:42px;padding:9px 12px;border-radius:12px;font-size:var(--fs-base);font-weight:500}
 .scr-kdd-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scr-kdd .mut,.scr-kdd-l .mut{color:var(--color-text-secondary);font-weight:450}
-.scr-kdd-mk{flex:none;padding:0 6px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary);font-size:10.5px;font-weight:700;line-height:16px;letter-spacing:.02em;text-transform:lowercase}
+.scr-kdd-mk{flex:none;padding:0 6px;border-radius:var(--pill);background:var(--color-primary-soft);color:var(--color-primary-text);font-size:10.5px;font-weight:700;line-height:16px;letter-spacing:.02em;text-transform:lowercase}
 .scr-kdd-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .scr-kdd-chev{flex:none;width:12px;height:12px;margin-left:auto;background:currentColor;opacity:.55;-webkit-mask:var(--zc-chev-mask) center/contain no-repeat;mask:var(--zc-chev-mask) center/contain no-repeat;transition:transform .15s}
 .scr-kdd.open .scr-kdd-chev{transform:rotate(180deg);opacity:.9}
@@ -428,7 +428,7 @@ SCR_ACTIONS.kind_fallback="Kind of work removed: read from the title again";
 .scr-kdd-list{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .scr-kdd-o{display:flex;align-items:center;gap:7px;padding:7px 10px 7px 7px;border-radius:8px;cursor:pointer;white-space:nowrap}
 .scr-kdd-o.act,.scr-kdd-o.on{background:var(--color-primary-soft)}
-.scr-kdd-o.on{color:var(--color-primary);font-weight:600}
+.scr-kdd-o.on{color:var(--color-primary-text);font-weight:600}
 .scr-kdd-o.auto{position:relative;margin-bottom:7px;white-space:normal}
 .scr-kdd-o.auto::after{content:"";position:absolute;left:7px;right:7px;bottom:-4px;border-bottom:1px solid var(--color-border)}
 .scr-kdd-ck{flex:none;display:inline-flex;width:14px;height:14px}
