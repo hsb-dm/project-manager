@@ -15,7 +15,7 @@ Object.assign(UI_ID,{
   "Team folder access granted":"Akses folder tim diberikan",
   "Select the team folder to give ZenCrevia access":"Pilih folder tim untuk memberikan akses ke ZenCrevia",
   "That is a different folder. Choose the team folder set by your admin.":"Itu folder yang berbeda. Pilih folder tim yang ditentukan admin.",
-  "Choose the team folder once to allow uploads from your account":"Pilih folder tim sekali agar akunmu dapat mengunggah.",
+  "Choose the team folder once to allow uploads from your account":"Pilih folder tim sekali agar akun Anda dapat mengunggah.",
   "Folder access was not granted":"Akses folder belum diberikan.",
   "Could not load Google Picker":"Google Picker gagal dimuat",
   "Could not load Google Picker (blocked or offline?)":"Google Picker gagal dimuat (diblokir atau offline?)",

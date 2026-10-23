@@ -160,7 +160,7 @@ function aiCharPhotoRemove(id,i){
 /* only what is not translated already elsewhere */
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Brand characters":"Karakter brand",
-  "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang kamu pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
+  "The people you choose are the main reference whenever the visual shows a person. Choose up to two.":"Orang yang Anda pilih menjadi acuan utama setiap kali visual menampilkan orang. Pilih maksimal dua.",
   "This model cannot use reference photos. Choose a model that accepts reference images to use brand characters.":"Model ini tidak bisa memakai foto acuan. Pilih model yang menerima gambar referensi untuk memakai karakter brand.",
   "Choose up to two people":"Pilih maksimal dua orang",
   "This workspace makes pictures with Magnific Mystic, which cannot keep a person's face from photos. Brand characters need OpenAI (GPT Image) or Gemini (Nano Banana) as the image provider, in Settings → AI → Providers.":"Workspace ini membuat gambar dengan Magnific Mystic, yang tidak bisa mempertahankan wajah dari foto. Karakter brand butuh OpenAI (GPT Image) atau Gemini (Nano Banana) sebagai penyedia gambar, di Pengaturan → AI → Providers.",

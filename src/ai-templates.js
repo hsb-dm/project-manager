@@ -117,19 +117,19 @@ function aiTemplateSaveFromModal(){
   "Template deleted":"Template dihapus",
   "Couldn't save the template":"Template tidak bisa disimpan",
   "Couldn't delete the template":"Template tidak bisa dihapus",
-  "Your role cannot save templates for everyone.":"Peranmu tidak bisa menyimpan template untuk semua orang.",
+  "Your role cannot save templates for everyone.":"Peran Anda tidak bisa menyimpan template untuk semua orang.",
   "A picture in this design could not be saved. Download it and add it again as an image layer.":"Ada gambar di desain ini yang tidak bisa disimpan. Unduh gambarnya lalu tambahkan lagi sebagai layer gambar.",
   "By":"Oleh",
   "Saves the size, layout, layers, pictures, colours, fonts and copy, exactly as on the canvas.":"Menyimpan ukuran, tata letak, layer, gambar, warna, font, dan teks persis seperti di kanvas.",
   "Who can use it":"Siapa yang bisa memakainya",
   "Everyone in the workspace":"Semua orang di workspace",
   "Only me":"Hanya saya",
-  "Only you":"Hanya kamu",
+  "Only you":"Hanya Anda",
   "Only its maker decides who can use it.":"Hanya pembuatnya yang menentukan siapa yang bisa memakainya.",
   "A built-in template is for everyone.":"Template bawaan berlaku untuk semua orang.",
-  "Template saved for you":"Template tersimpan untuk kamu",
+  "Template saved for you":"Template tersimpan untuk Anda",
   "Save AI Hub canvases as templates for themselves":"Menyimpan kanvas AI Hub sebagai template untuk diri sendiri",
-  "Your role saves templates for yourself only.":"Peranmu hanya bisa menyimpan template untuk diri sendiri.",
-  "Your role saves templates for everyone only.":"Peranmu hanya bisa menyimpan template untuk semua orang."
+  "Your role saves templates for yourself only.":"Peran Anda hanya bisa menyimpan template untuk diri sendiri.",
+  "Your role saves templates for everyone only.":"Peran Anda hanya bisa menyimpan template untuk semua orang."
 });
 </script>

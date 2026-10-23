@@ -51,7 +51,7 @@ test("installable: manifest from the workspace, the favicon as the icon, a servi
     await page.reload(); await ready(page);
     await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
     const offline = await page.evaluate(() => caches.open("zc-offline-v1").then(c => c.match("/offline.html")).then(r => r ? r.text() : ""));
-    expect(offline).toContain("You're offline"); expect(offline).toContain("Kamu sedang offline");
+    expect(offline).toContain("You're offline"); expect(offline).toContain("Anda sedang offline");
 
     /* Settings → Notifications: this device */
     await page.evaluate(() => { go("settings"); S.settingsTab = "notifications"; renderScreen(); });

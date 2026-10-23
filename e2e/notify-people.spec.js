@@ -62,7 +62,7 @@ test("a new task: the assignee is assigned it, the reviewer is asked to review i
   await expect.poll(() => kinds(checker)).toEqual(["reviewer"]);
   /* in words, both languages */
   expect(await checker.evaluate(() => [ntext("reviewer"), (UI_LANG = "id", ntext("reviewer")), (UI_LANG = "en")][0])).toBe("{who} asked you to review “{t}”");
-  expect(await checker.evaluate(() => { UI_LANG = "id"; const r = ntext("reviewer"); UI_LANG = "en"; return r; })).toBe("{who} memintamu me-review “{t}”");
+  expect(await checker.evaluate(() => { UI_LANG = "id"; const r = ntext("reviewer"); UI_LANG = "en"; return r; })).toBe("{who} meminta Anda me-review “{t}”");
   await expect.poll(() => mails(CHECKER.email, "Notify people " + tag).map(m => m.subject).join("|")).toContain("asked you to review");
 });
 
@@ -86,7 +86,7 @@ test("the assignee submits a version for review: the reviewer is asked to review
   expect(await kinds(doer)).toEqual(["assigned"]);
   await expect.poll(() => mails(CHECKER.email, "Notify people " + tag).map(m => m.subject).join("|")).toContain("for your review");
   await expect.poll(() => mails(ADMIN.email, "Notify people " + tag).map(m => m.subject).join("|")).toContain("uploaded a new version");
-  expect(await checker.evaluate(() => { UI_LANG = "id"; const r = ntext("review"); UI_LANG = "en"; return r; })).toBe("{who} mengirim “{t}” untuk kamu review");
+  expect(await checker.evaluate(() => { UI_LANG = "id"; const r = ntext("review"); UI_LANG = "en"; return r; })).toBe("{who} mengirim “{t}” untuk Anda review");
 });
 
 test("the reviewer approves it: the assignee and the owner hear of it", async () => {

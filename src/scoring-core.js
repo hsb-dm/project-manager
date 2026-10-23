@@ -90,6 +90,6 @@ function scoringLeadsMissing(){ return SCORING_LEAD_ROLES.some(function(id){ var
   "Set up KPIs and OKRs and correct their progress":"Mengatur KPI dan OKR serta mengoreksi progresnya",
   "See the whole team's scoring analytics":"Melihat analitik skor seluruh tim",
   "Smart Scoring is not available":"Smart Scoring tidak tersedia",
-  "Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again.":"Orang lain sudah mengubah pengaturan Smart Scoring. Muat ulang lalu ulangi perubahanmu."
+  "Someone else changed the Smart Scoring settings in the meantime. Reload them and make your change again.":"Orang lain sudah mengubah pengaturan Smart Scoring. Muat ulang lalu ulangi perubahan Anda."
 });
 </script>

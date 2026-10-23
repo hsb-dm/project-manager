@@ -319,5 +319,5 @@ function aiExpandGenerate(){
   });
 }
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({"Check the expanded picture":"Cek gambar hasil expand","Use this":"Pakai ini","Adjust or crop":"Atur atau crop","Generate again":"Generate lagi","Discard":"Buang","The expanded picture":"Gambar hasil expand","Could not load the expanded picture.":"Gambar hasil expand tidak bisa dimuat.",
-  "Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.":"Belum ada yang masuk ke kanvas sampai kamu pilih Pakai ini. Atur atau crop membuka bingkai pada gambar ini."});
+  "Nothing is on the canvas until you choose Use this. Adjust or crop opens the frame on this picture.":"Belum ada yang masuk ke kanvas sampai Anda memilih Pakai ini. Atur atau crop membuka bingkai pada gambar ini."});
 </script>

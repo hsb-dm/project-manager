@@ -1222,12 +1222,12 @@ function aiLocalAnswer(q){
       soon=mine.filter(function(t){return t.due>=0&&t.due<=7;}).sort(function(a,b){return a.due-b.due;}),
       myReview=open.filter(function(t){return isReviewer(t,ME)&&stageKind(t.status)==="review";}),
       blockedMine=mine.filter(isTaskBlocked);
-  var parts=[L("Here is what needs your attention ("+mine.length+" open assigned to you):","Berikut yang perlu perhatianmu ("+mine.length+" task belum selesai untukmu):")];
+  var parts=[L("Here is what needs your attention ("+mine.length+" open assigned to you):","Berikut yang perlu perhatian Anda ("+mine.length+" task belum selesai untuk Anda):")];
   if(od.length) parts.push("\n**"+L(od.length+" overdue",od.length+" terlambat")+"**\n"+list(od,5));
   if(blockedMine.length) parts.push("\n**"+L(blockedMine.length+" blocked",blockedMine.length+" terblokir")+"**\n"+list(blockedMine,5));
-  if(myReview.length) parts.push("\n**"+L(myReview.length+" waiting on your review",myReview.length+" menunggu review-mu")+"**\n"+list(myReview,5));
+  if(myReview.length) parts.push("\n**"+L(myReview.length+" waiting on your review",myReview.length+" menunggu review Anda")+"**\n"+list(myReview,5));
   if(soon.length) parts.push("\n**"+L("Due within 7 days","Tenggat dalam 7 hari")+"**\n"+list(soon,5));
-  if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terblokir, atau tenggat minggu ini."):L("Nothing is assigned to you right now.","Belum ada task yang ditugaskan kepadamu."));
+  if(parts.length===1) parts.push(mine.length?L("Nothing urgent \u2014 nothing overdue, blocked or due this week.","Tidak ada yang mendesak \u2014 tidak ada yang terlambat, terblokir, atau tenggat minggu ini."):L("Nothing is assigned to you right now.","Belum ada task yang ditugaskan kepada Anda."));
   return parts.join("\n")+foot();
 }
 /* the starting templates, sizes and layout added for the workspace's poster look (Oct 2026), and the

@@ -20,7 +20,7 @@
       try{ if(m&&m.senderId!==ME&&S.screen==="messages"&&S.messageConversationId===m.conversationId) announce(tr("New message from")+" "+(person(m.senderId)||{}).name+": "+String(m.body||"").slice(0,200)); }catch(e){}
       return r; }; }
   Object.assign(UI_ID,{"New message from":"Pesan baru dari","Message":"Pesan",
-    "You are sending messages too fast. Wait a few seconds.":"Kamu mengirim pesan terlalu cepat. Tunggu beberapa detik.",
+    "You are sending messages too fast. Wait a few seconds.":"Anda mengirim pesan terlalu cepat. Tunggu beberapa detik.",
     "Messages can be up to 4,000 characters.":"Pesan maksimal 4.000 karakter.","Not sent":"Belum terkirim","Retry":"Coba lagi","Discard":"Buang"});
 })();
 </script>

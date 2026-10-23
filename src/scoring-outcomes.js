@@ -298,7 +298,7 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
   "Draft":"Draft","Active":"Aktif","Closed":"Selesai","Archived":"Diarsipkan",
   "Approved assets":"Aset yang disetujui","Completed tasks":"Task yang selesai","Entered by hand":"Diisi manual","linked tasks only":"hanya task yang ditautkan","every task":"setiap task",
   "Any time":"Kapan saja","From":"Dari","Until":"Sampai","Entered by":"Diisi oleh",
-  "1 task link waits for you to confirm it":"1 tautan task menunggu konfirmasimu","{n} task links wait for you to confirm them":"{n} tautan task menunggu konfirmasimu",
+  "1 task link waits for you to confirm it":"1 tautan task menunggu konfirmasi Anda","{n} task links wait for you to confirm them":"{n} tautan task menunggu konfirmasi Anda",
   "1 key result":"1 key result","{n} key results":"{n} key result","How this is worked out":"Cara menghitungnya","No progress yet":"Belum ada progres",
   "Nobody in particular":"Tidak ada orang tertentu","Name":"Nama","e.g. Approved assets this month":"mis. Aset yang disetujui bulan ini","e.g. 40 approved launch assets":"mis. 40 aset peluncuran yang disetujui",
   "Weight in the objective":"Bobot dalam objective","A key result weighing 0 does not count towards its objective.":"Key result berbobot 0 tidak dihitung dalam objective-nya.",
@@ -322,7 +322,7 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
   "It is deleted with what it counted and the values entered. The history keeps a record. To keep it visible instead, set the status to Archived.":"Dihapus beserta yang sudah dihitung dan nilai yang diisi. Riwayat tetap menyimpan catatannya. Agar tetap terlihat, ubah statusnya menjadi Diarsipkan.",
   "Delete this objective?":"Hapus objective ini?","Delete this KPI?":"Hapus KPI ini?","Delete this key result?":"Hapus key result ini?","Deleted":"Dihapus",
   "Last value":"Nilai terakhir","Value now":"Nilai sekarang","Why — where the number comes from":"Alasan — dari mana angka ini","e.g. October client survey, 48 answers":"mis. Survei klien Oktober, 48 jawaban","A reason is required":"Alasan wajib diisi",
-  "The value is the metric's current reading. It is kept with your name and the reason, and every earlier value stays in its history.":"Nilai ini adalah angka metrik saat ini. Disimpan beserta namamu dan alasannya, dan setiap nilai sebelumnya tetap ada di riwayatnya.",
+  "The value is the metric's current reading. It is kept with your name and the reason, and every earlier value stays in its history.":"Nilai ini adalah angka metrik saat ini. Disimpan beserta nama Anda dan alasannya, dan setiap nilai sebelumnya tetap ada di riwayatnya.",
   "Value saved":"Nilai tersimpan",
   "Created":"Dibuat","Changed":"Diubah","Value entered":"Nilai diisi","Task linked":"Task ditautkan","Link confirmed":"Tautan dikonfirmasi","Link removed":"Tautan dihapus",
   "Counted":"Dihitung","Count changed":"Hitungan berubah","Taken back":"Ditarik kembali","Counted again":"Dihitung ulang",
@@ -366,9 +366,9 @@ function scoPickRow(m){ var obj=m.kind==="kr"&&SCO.data?scoObjective(m.objective
   "Only an active KPI can be linked":"Hanya KPI yang aktif yang bisa ditautkan","Only an active key result can be linked":"Hanya key result yang aktif yang bisa ditautkan",
   "That KPI or key result does not exist":"KPI atau key result itu tidak ada","Enter the value":"Isi nilainya","A title is required":"Judul wajib diisi",
   "Choose where the progress comes from: approved assets, completed tasks or a value entered by hand":"Pilih asal progres: aset yang disetujui, task yang selesai, atau nilai yang diisi manual",
-  "Someone else changed this KPI in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah KPI ini. Muat ulang lalu ulangi perubahanmu.",
-  "Someone else changed this key result in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah key result ini. Muat ulang lalu ulangi perubahanmu.",
-  "Someone else changed this objective in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah objective ini. Muat ulang lalu ulangi perubahanmu."
+  "Someone else changed this KPI in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah KPI ini. Muat ulang lalu ulangi perubahan Anda.",
+  "Someone else changed this key result in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah key result ini. Muat ulang lalu ulangi perubahan Anda.",
+  "Someone else changed this objective in the meantime. Reload it and make your change again.":"Orang lain sudah mengubah objective ini. Muat ulang lalu ulangi perubahan Anda."
 });
 </script>
 <style>

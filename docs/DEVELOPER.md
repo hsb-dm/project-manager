@@ -402,7 +402,7 @@ Konvensi: fungsi persistence mengembalikan `false` (bukan throw) sebagai sentine
 "gagal tapi sudah ditangani" — itu sebabnya ada `if (saved===false) return false;` di mana-mana.
 
 `saveMyPrefs()` selalu menulis `localStorage["cos.prefs."+ME]` **dan** — kalau `API.on` —
-`PUT /api/members/:id` (dengan id dirimu sendiri) dengan `.catch(function(){})`. Itu sebabnya preferensi personal
+`PUT /api/members/:id` (dengan id Anda sendiri) dengan `.catch(function(){})`. Itu sebabnya preferensi personal
 (bahasa, `navHidden`, `taskPanelPosition`, progres quest) bekerja identik di standalone.
 
 ### Perbedaan mode demo vs server
@@ -449,7 +449,7 @@ Yang penting untuk diketahui:
 1. Bungkus literal English dengan `tr("…")` di titik pakai (`esc(tr(...))` untuk teks,
    `attr(tr(...))` untuk atribut).
 2. Tambahkan `"English": "Indonesia"` ke salah satu blok `Object.assign(UI_ID, {…})` di `src/i18n.js`, dengan istilah
-   dari **`docs/GLOSSARY-ID.md`** (task, project, workspace, brand, template, file, password, review, tenggat, kamu, …).
+   dari **`docs/GLOSSARY-ID.md`** (task, project, workspace, brand, template, file, password, review, tenggat, Anda, …).
    Kalau English yang sama sudah ada di blok lain, pakai kata yang persis sama.
 3. Kalau string itu konten user yang **tidak boleh** diterjemahkan, beri `data-no-translate`.
 4. `node build.js`.
@@ -470,7 +470,16 @@ objek, dulu diselesaikan diam-diam (halaman memakai salah satunya); 224 kunci se
 yang menyebut kuncinya, tiap file dengan katanya, dan cara memperbaikinya (`build.js checkI18n`,
 `build-i18n.js conflicts`/`conflictMessage`). `node build.js --i18n-conflicts` mendaftar semuanya.
 `tests/i18n-conflicts.test.js` menjaga ini, dan juga gagal bila kata yang diganti glosarium (*proyek*, *tugas*,
-*ruang kerja*, *merek*, *templat*, *berkas*, *kata sandi*, *tinjau*, *jatuh tempo*, *Anda*, …) muncul lagi di kamus.
+*ruang kerja*, *merek*, *templat*, *berkas*, *kata sandi*, *tinjau*, *jatuh tempo*, *kamu*, …) muncul lagi di kamus.
+**Sapaan: Anda (keputusan owner, 23 Oktober 2026).** UI menyapa pembaca dengan *Anda* (A kapital), tidak pernah *kamu*
+atau *-mu*: *task-mu* → *task Anda*, *akunmu* → *akun Anda*, *kepadamu* → *kepada Anda* (aturannya di
+`docs/GLOSSARY-ID.md`, "Addressing the reader"). `tests/i18n-address.test.js` gagal bila *kamu*, *dirimu*, kata apa
+pun yang berakhiran *-mu* (*akunmu*, *task-mu*; kata biasa seperti *temu*, *ilmu*, *tamu* dikecualikan) atau *anda*
+huruf kecil muncul lagi di kamus (hasil build dari sumber maupun file di `public/assets/`), atau bila *kamu* / *-mu*
+muncul di teks Indonesia yang ditulis di kode (`src/`, `shared/`, `server/`, `public/offline.html`) atau di
+`docs/USER-MANUAL.md` / `docs/ADMIN-OPS.md`.
+Yang dikecualikan hanya kata pengenal bahasa untuk AI (`|kamu|anda|` di `src/ai.js` dan `server/server.js`) dan copy
+poster contoh di `src/ai.js`.
 Blok boleh mengulang kunci file lain (dengan kata yang sama) bila modulnya dimuat sendiri oleh test; dalam satu file
 cukup sekali.
 

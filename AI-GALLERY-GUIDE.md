@@ -13,11 +13,11 @@ Nama dan tag tidak diterjemahkan otomatis. Label dan tombol tersedia dalam bahas
 
 ## Memakai desain anggota lain
 
-Klik **Salin & edit**, beri nama file milikmu, lalu lanjutkan di AI Hub. Salinan disimpan atas nama akun yang membuatnya. File asli tidak berubah. Detail salinan menampilkan nama desain asal selama desain tersebut masih dapat diakses.
+Klik **Salin & edit**, beri nama file milik Anda, lalu lanjutkan di AI Hub. Salinan disimpan atas nama akun yang membuatnya. File asli tidak berubah. Detail salinan menampilkan nama desain asal selama desain tersebut masih dapat diakses.
 
-Untuk meneruskan pekerjaan sendiri, klik **Edit** pada kartu milikmu. AI Hub menampilkan nama desain galeri yang sedang diedit. Saat menyimpan, pilih **Simpan perubahan**, atau centang **Simpan sebagai desain baru**. Memilih templat baru atau membersihkan kanvas melepaskan hubungan dengan file galeri sebelumnya. Penyimpanan dilakukan saat menekan Simpan, bukan otomatis pada setiap perubahan.
+Untuk meneruskan pekerjaan sendiri, klik **Edit** pada kartu milik Anda. AI Hub menampilkan nama desain galeri yang sedang diedit. Saat menyimpan, pilih **Simpan perubahan**, atau centang **Simpan sebagai desain baru**. Memilih templat baru atau membersihkan kanvas melepaskan hubungan dengan file galeri sebelumnya. Penyimpanan dilakukan saat menekan Simpan, bukan otomatis pada setiap perubahan.
 
-Jika seseorang sudah memperbarui file yang sedang kamu edit, aplikasi menolak penimpaan versi lama. Muat ulang galeri sebelum mencoba lagi; kamu juga dapat menyimpan perubahanmu sebagai desain baru.
+Jika seseorang sudah memperbarui file yang sedang Anda edit, aplikasi menolak penimpaan versi lama. Muat ulang galeri sebelum mencoba lagi; Anda juga dapat menyimpan perubahan Anda sebagai desain baru.
 
 ## Hak akses
 

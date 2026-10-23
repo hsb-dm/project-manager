@@ -70,7 +70,7 @@ test('node build.js stops on a new conflict, says how to fix it, and writes noth
 });
 
 /* the glossary's main decisions (docs/GLOSSARY-ID.md), over every Indonesian wording the page has */
-test('the Indonesian follows the glossary: task, project, workspace, brand, template, file, password, review, tenggat, kamu', () => {
+test('the Indonesian follows the glossary: task, project, workspace, brand, template, file, password, review, tenggat, Anda', () => {
   const dict = build.served().dict.dict;
   const banned = [
     [/\b[Pp]royek/, 'project, never proyek'],
@@ -82,7 +82,7 @@ test('the Indonesian follows the glossary: task, project, workspace, brand, temp
     [/\b[Kk]ata sandi\b/, 'password, never kata sandi'],
     [/\b([Pp]eninjau|[Dd]itinjau|[Tt]injau)/, 'review / reviewer, never tinjau'],
     [/\b[Jj]atuh tempo\b/, 'tenggat, never jatuh tempo'],
-    [/\bAnda\b/, 'kamu, never Anda'],
+    [/\b[Kk]amu\b/, 'Anda, never kamu (the -mu forms: tests/i18n-address.test.js)'],
     [/\b[Ss]etelan\b/, 'pengaturan, never setelan'],
     [/\b[Tt]arget tahapan\b/, 'milestone, never target tahapan']
   ];

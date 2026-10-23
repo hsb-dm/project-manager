@@ -44,7 +44,7 @@ Contoh yang dapat disesuaikan:
 
 > Gunakan arah visual minimal dan modern, dengan biru kobalt sebagai warna utama dan hijau limau sebagai aksen. Pertahankan ruang kosong yang cukup untuk headline. Hindari dekorasi berlebihan, warna neon tambahan, dan visual yang terlalu ramai. Jangan mengubah bentuk atau proporsi logo. Buat latar visual tanpa teks, karena teks dan logo akan dipasang sebagai layer di editor.
 
-Prompt ini mengarahkan pembuatan gambar. Tulisan yang kamu masukkan sendiri pada layer tidak diubah otomatis. Aturan logo yang benar tetap perlu diterapkan pada file logo dan desain final. Kolom instruksi Asisten AI tetap terpisah dari prompt gambar.
+Prompt ini mengarahkan pembuatan gambar. Tulisan yang Anda masukkan sendiri pada layer tidak diubah otomatis. Aturan logo yang benar tetap perlu diterapkan pada file logo dan desain final. Kolom instruksi Asisten AI tetap terpisah dari prompt gambar.
 
 ## Menyusun desain
 

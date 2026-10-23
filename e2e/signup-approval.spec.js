@@ -50,7 +50,7 @@ test("approval: the switch, who may approve, the bell, turning away, straight in
     const sari = await register(browser, "Sari Signup", "sari.signup@e2e.test");
     await expect(sari.p.locator(".auth-pending")).toBeVisible();
     await sari.p.evaluate(() => { UI_LANG = "id"; authPendingShow("Sari Signup"); });
-    await expect(sari.p.locator(".auth-pending h3")).toHaveText("Akunmu menunggu persetujuan");
+    await expect(sari.p.locator(".auth-pending h3")).toHaveText("Akun Anda menunggu persetujuan");
     await sari.ctx.close();
     await page.goto("/"); await ready(page);
     const line = await page.evaluate(() => { const n = NOTIFS.find(x => x.k === "signup" && x.message === "Sari Signup"); const d = document.createElement("div"); d.id = "notifProbe"; d.innerHTML = notifRowHtml(n); document.body.appendChild(d); return d.textContent; });
@@ -75,7 +75,7 @@ test("approval: the switch, who may approve, the bell, turning away, straight in
     /* Indonesian: on Home */
     await page.goto("/"); await ready(page);
     await page.evaluate(() => { UI_LANG = "id"; renderScreen(false); });
-    await expect(page.locator("#zcPendingHome")).toContainText("1 pendaftar menunggu persetujuanmu");
+    await expect(page.locator("#zcPendingHome")).toContainText("1 pendaftar menunggu persetujuan Anda");
     await expect(page.locator("#zcPendingHome .pending-field").first()).toContainText("Peran");
     await page.evaluate(() => { UI_LANG = "en"; renderScreen(false); });
     /* turned away again, through the API this time, so nothing is left */

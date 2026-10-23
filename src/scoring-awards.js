@@ -204,7 +204,7 @@ function scoringBonusSettingsHtml(ro,ed){
 
 /* ---------- the approvers' notification ---------- */
 if(typeof NTEXT!=="undefined"&&!NTEXT.efficiency_review) NTEXT.efficiency_review="“{t}” is finished: its efficiency bonus waits for your review";
-if(typeof NTEXT_ID!=="undefined"&&!NTEXT_ID.efficiency_review) NTEXT_ID.efficiency_review="“{t}” selesai: bonus efisiensinya menunggu review-mu";
+if(typeof NTEXT_ID!=="undefined"&&!NTEXT_ID.efficiency_review) NTEXT_ID.efficiency_review="“{t}” selesai: bonus efisiensinya menunggu review Anda";
 if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY.efficiency_review="approval";
 
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
@@ -224,9 +224,9 @@ if(typeof NC_CATEGORY!=="undefined"&&!NC_CATEGORY.efficiency_review) NC_CATEGORY
   "The latest version was approved by someone who worked on the task.":"Versi terbaru disetujui oleh orang yang mengerjakan task ini.",
   "pts":"poin","Estimated":"Estimasi","Actual":"Aktual","Base":"Dasar","Efficiency Bonus":"Bonus Efisiensi","Earned":"Diperoleh",
   "Efficiency bonus":"Bonus efisiensi","turned off: nothing changes until it is on again":"dimatikan: tidak ada yang berubah sampai dinyalakan lagi",
-  "You worked on this task, so someone else reviews its bonus.":"Kamu mengerjakan task ini, jadi orang lain yang me-review bonusnya.",
+  "You worked on this task, so someone else reviews its bonus.":"Anda mengerjakan task ini, jadi orang lain yang me-review bonusnya.",
   "Bonuses are never approved or rejected while acting as someone else.":"Bonus tidak pernah disetujui atau ditolak saat bertindak sebagai orang lain.",
-  "Your share":"Bagianmu",
+  "Your share":"Bagian Anda",
   "{h} h from before the time log are not counted.":"{h} jam dari sebelum catatan waktu tidak dihitung.",
   "Before it counts":"Sebelum dihitung","For the reviewer to look at — never an accusation":"Untuk diperhatikan reviewer — bukan tuduhan",
   "Approved by {name}":"Disetujui oleh {name}","Rejected by {name}":"Ditolak oleh {name}","quality":"kualitas",
