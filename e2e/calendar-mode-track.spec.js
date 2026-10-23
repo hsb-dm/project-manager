@@ -7,7 +7,12 @@
    control (a button with an icon named "Show: …" / "Tampilkan: …" on a phone, a radio group named "Show" /
    "Tampilkan" with its own track on a laptop) with space between the two; nothing scrolls sideways; and the arrow keys
    move the period with the focus kept on it. One project is made through the API and removed after; the language,
-   the look and the remembered calendar choices are put back. */
+   the look and the remembered calendar choices are put back.
+   A team's calendar on a phone (Oct 2026) had no controls at all (it is drawn without filters, which also left out the
+   phone's bar, and the desktop's row is hidden up to 760 px), so it could not leave the month: it now has the month
+   with previous and next, Today and Month / Week / Day (no whose tasks, filters or saved views: it is one team's
+   tasks), which work, inside the panel, without a sideways scroll, at 320, 390 and 430 px. A team and two of its tasks
+   are made through the API and removed (the team archived) after. */
 const { test, expect } = require("@playwright/test");
 test.describe.configure({ mode: "serial" });
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
@@ -24,10 +29,12 @@ let M = null;
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage(); await signIn(page);
   M = await page.evaluate(async tag => {
-    const pid = "p" + tag;
+    const pid = "p" + tag, team = "team" + tag, st = WS.workflow.filter(s => s.kind !== "closed").map(s => s.id), tids = [];
     await apiFetch("POST", "/api/projects", { id: pid, name: "Calendar track " + tag, status: "active", owner: ME, startDate: iso(-3), dueDate: iso(20) });
+    await apiFetch("POST", "/api/teams", { id: team, name: "Calendar team " + tag, color: "blue" });
+    for (const d of [0, 9]) tids.push((await apiFetch("POST", "/api/tasks", { title: "Team calendar task " + d + " " + tag, status: st[0], prio: "medium", assignee: ME, assignees: [ME], team, proj: pid, startDate: iso(d), dueDate: iso(d) })).id);
     await reloadAll();
-    return { pid, was: { calMode: S.calMode, calScope: S.calScope, taskScope: S.taskScope, taskView: S.taskView, projectTab: S.projectTab } };
+    return { pid, team, tids, was: { calMode: S.calMode, calScope: S.calScope, taskScope: S.taskScope, taskView: S.taskView, projectTab: S.projectTab, teamView: S.teamView } };
   }, TAG);
   await page.close();
 });
@@ -37,6 +44,8 @@ test.afterAll(async ({ browser }) => {
   await page.evaluate(async m => {
     setLanguage("en"); document.documentElement.removeAttribute("data-theme");
     Object.assign(S, m.was); go("home");
+    for (const id of m.tids) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {});
+    await apiFetch("DELETE", "/api/teams/" + m.team).catch(() => {});
     await apiFetch("DELETE", "/api/projects/" + m.pid).catch(() => {});
   }, M);
   await page.close();
@@ -45,7 +54,8 @@ test.afterAll(async ({ browser }) => {
 const SCENES = {
   calendar: () => { S.calMode = "month"; S.calScope = "all"; go("calendar"); },
   tasks: () => { S.calMode = "month"; S.taskScope = "all"; S.taskView = "calendar"; go("tasks"); },
-  project: pid => { S.calMode = "month"; S.projectTab = "calendar"; go("projects", pid); }
+  project: m => { S.calMode = "month"; S.projectTab = "calendar"; go("projects", m.pid); },
+  team: m => { S.calMode = "month"; S.teamView = "calendar"; go("teams", m.team); }
 };
 const WORDS = { en: { label: "Calendar view", modes: ["Month", "Week", "Day"], show: "Show" }, id: { label: "Tampilan kalender", modes: ["Bulan", "Minggu", "Hari"], show: "Tampilkan" } };
 
@@ -96,7 +106,7 @@ async function check(page, lang, where) {
     expect(m.alpha, at + ": the track has a colour").toBeGreaterThan(0);
     expect(m.ratio, at + ": the track shows against what is behind it").toBeGreaterThan(1.1);
     expect(m.sideways, at + ": nothing scrolls sideways").toBeLessThanOrEqual(0);
-    if (where.startsWith("project")) { expect(m.scope, at + ": a project has no whose tasks").toBeNull(); continue; }
+    if (where.startsWith("project") || where.startsWith("team")) { expect(m.scope, at + ": a project or a team has no whose tasks").toBeNull(); continue; }
     expect(m.scope, at + ": whose tasks is there").not.toBeNull();
     expect(m.scope.inside, at + ": whose tasks is not part of the period").toBe(false);
     if (m.scope.kind === "button") {
@@ -122,7 +132,7 @@ for (const [device, use] of [["phone", { viewport: { width: 390, height: 844 }, 
         for (const lang of ["en", "id"]) {
           if (lang === "id") { await page.evaluate(() => setLanguage("id")); await page.waitForFunction(() => UI_LANG === "id"); }
           for (const where of Object.keys(SCENES)) {
-            await page.evaluate(SCENES[where], M.pid);
+            await page.evaluate(SCENES[where], M);
             await check(page, lang, where + " (" + device + ")");
           }
         }
@@ -144,6 +154,104 @@ test.describe("phone", () => {
     await expect(page.locator(".calendar-mobile-controls .cal-mobile-scope-toggle")).toHaveAttribute("aria-label", "Show: Mine");
     await page.evaluate(() => { S.calMode = "month"; S.calScope = "all"; renderScreen(false); });
   });
+});
+
+/* a team's calendar on a phone: the bar is there, inside the panel, and does what it says */
+const teamBar = () => {
+  const vis = e => !!(e && e.offsetParent && e.getBoundingClientRect().width > 0);
+  const panel = document.querySelector("#content .team-tasks-panel"), bar = panel && panel.querySelector(".calendar-mobile-controls");
+  if (!vis(bar)) return null;
+  const pb = panel.getBoundingClientRect(), body = panel.querySelector(".panel-body"), strong = bar.querySelector(".cal-mobile-date strong");
+  const ctl = [...bar.querySelectorAll("button, strong, .seg")].filter(vis).map(e => { const b = e.getBoundingClientRect(); return { name: (e.getAttribute("aria-label") || e.textContent).trim().slice(0, 20), l: b.left, r: b.right, t: b.top, b: b.bottom, h: b.height }; });
+  const date = [...bar.querySelectorAll(".cal-mobile-date>*")].filter(vis).map(e => e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2);
+  return {
+    prev: !!bar.querySelector('.cal-mobile-date [onclick="calNav(-1)"]'), next: !!bar.querySelector('.cal-mobile-date [onclick="calNav(1)"]'),
+    prevName: bar.querySelector('[onclick="calNav(-1)"]').getAttribute("aria-label"), nextName: bar.querySelector('[onclick="calNav(1)"]').getAttribute("aria-label"),
+    today: (bar.querySelector(".cal-mobile-today") || {}).textContent, title: strong.innerText, titleCut: strong.scrollWidth > strong.clientWidth + 1,
+    period: [...bar.querySelectorAll('.cal-mode-seg[role="radiogroup"] [role="radio"]')].map(b => b.textContent.trim()), periodName: (bar.querySelector(".cal-mode-seg") || { getAttribute: () => null }).getAttribute("aria-label"),
+    extras: bar.querySelectorAll(".cal-mobile-scope-toggle, .cal-scope-seg, [data-menu], [onclick^=\"filterModal\"], [data-tour]").length,
+    desktopRow: vis(panel.querySelector(".calendar-toolbar")),
+    inside: ctl.every(c => c.l >= pb.left - 0.5 && c.r <= pb.right + 0.5), ctl, dateOneLine: Math.max(...date) - Math.min(...date) < 4,
+    sideways: document.scrollingElement.scrollWidth - innerWidth, bodySideways: body.scrollWidth - body.clientWidth
+  };
+};
+const TEAM_WORDS = { en: { prev: "Previous", next: "Next", today: "Today" }, id: { prev: "Sebelumnya", next: "Berikutnya", today: "Hari ini" } };
+test.describe("a team's calendar on a phone", () => {
+  for (const w of [320, 390, 430]) {
+    test.describe(w + " px", () => {
+      test.use({ viewport: { width: w, height: 800 }, isMobile: true, hasTouch: true });
+      test(`a team's calendar has the month with previous and next, Today and the period, inside the panel, and they work (${w} px)`, async ({ page }) => {
+        await signIn(page);
+        try {
+          /* there, named, inside the panel, no sideways scroll: English and Indonesian, light and dark */
+          for (const lang of ["en", "id"]) {
+            if (lang === "id") { await page.evaluate(() => setLanguage("id")); await page.waitForFunction(() => UI_LANG === "id"); }
+            for (const theme of ["light", "dark"]) {
+              await page.evaluate(t => document.documentElement.setAttribute("data-theme", t), theme);
+              await page.evaluate(m => { S.calMode = "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; S.teamView = "calendar"; go("teams", m.team); }, M);
+              const r = await page.evaluate(teamBar), at = `team ${w}px ${lang} ${theme}`;
+              expect(r, at + ": the phone's bar is on the team's calendar").not.toBeNull();
+              expect(r.desktopRow, at + ": the desktop's row stays hidden").toBe(false);
+              expect([r.prev, r.next], at + ": previous and next").toEqual([true, true]);
+              expect([r.prevName, r.nextName], at + ": named").toEqual([TEAM_WORDS[lang].prev, TEAM_WORDS[lang].next]);
+              expect(r.today, at + ": Today").toBe(TEAM_WORDS[lang].today);
+              expect(r.title, at + ": the month").toBe(await page.evaluate(() => uiMol(TODAY.getMonth()) + " " + TODAY.getFullYear()));
+              expect(r.titleCut, at + ": the month's name is whole").toBe(false);
+              expect(r.periodName, at).toBe(WORDS[lang].label);
+              expect(r.period, at + ": Month / Week / Day").toEqual(WORDS[lang].modes);
+              expect(r.extras, at + ": no whose tasks, filters or saved views on one team's calendar").toBe(0);
+              expect(r.dateOneLine, at + ": previous, the month, next and Today on one line").toBe(true);
+              expect(r.inside, at + ": every control inside the panel — " + JSON.stringify(r.ctl)).toBe(true);
+              expect(r.sideways, at + ": the page does not scroll sideways").toBeLessThanOrEqual(0);
+              expect(r.bodySideways, at + ": nor does the panel").toBeLessThanOrEqual(1);
+            }
+          }
+          await page.evaluate(() => { setLanguage("en"); document.documentElement.removeAttribute("data-theme"); });
+          await page.waitForFunction(() => UI_LANG === "en");
+          await page.evaluate(m => { S.calMode = "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; S.teamView = "calendar"; go("teams", m.team); }, M);
+          const bar = page.locator("#content .team-tasks-panel .calendar-mobile-controls");
+          const title = () => bar.locator(".cal-mobile-date strong").innerText();
+          /* in the middle of the screen, away from the sticky top bar and the floating buttons */
+          const tap = async loc => { await loc.evaluate(e => e.scrollIntoView({ block: "center" })); await loc.tap(); };
+          const month = d => page.evaluate(d => { const x = new Date(TODAY.getFullYear(), TODAY.getMonth() + d, 1); return uiMol(x.getMonth()) + " " + x.getFullYear(); }, d);
+          /* the team's own task due today is on the month */
+          await expect(page.locator("#content .team-tasks-panel .cal-grid .chip", { hasText: "Team calendar task 0 " + TAG })).toHaveCount(1);
+          /* next, previous (twice), Today */
+          await tap(bar.locator('[onclick="calNav(1)"]'));
+          expect(await title()).toBe(await month(1));
+          await tap(bar.locator('[onclick="calNav(-1)"]'));
+          await tap(bar.locator('[onclick="calNav(-1)"]'));
+          expect(await title()).toBe(await month(-1));
+          await tap(bar.locator(".cal-mobile-today"));
+          expect(await title()).toBe(await month(0));
+          /* Week: the week's days, the team's task among them; next goes a week on, Today back */
+          await tap(bar.locator('.cal-mode-seg [data-v="week"]'));
+          expect(await page.evaluate(() => S.calMode)).toBe("week");
+          await expect(bar.locator('.cal-mode-seg [data-v="week"]')).toHaveAttribute("aria-checked", "true");
+          await expect(page.locator("#content .team-tasks-panel .cal-week")).toBeVisible();
+          await expect(page.locator("#content .team-tasks-panel .cal-week .chip", { hasText: "Team calendar task 0 " + TAG })).toHaveCount(1);
+          expect(await title(), "the week's title (short in a team's bar up to 400 px)").toBe(await page.evaluate(() => innerWidth <= 400 ? calTitleShort() : calTitle()));
+          const week0 = await title();
+          await tap(bar.locator('[onclick="calNav(1)"]'));
+          expect(await page.evaluate(() => S.calDay)).toBe(7);
+          expect(await title()).not.toBe(week0);
+          await tap(bar.locator(".cal-mobile-today"));
+          expect(await title()).toBe(week0);
+          /* and the week's bar still fits */
+          const r = await page.evaluate(teamBar);
+          expect(r.inside, "the week: every control inside the panel").toBe(true); expect(r.titleCut, "the week's title is whole: " + r.title).toBe(false); expect(r.sideways).toBeLessThanOrEqual(0); expect(r.bodySideways).toBeLessThanOrEqual(1);
+          /* Day, then Month again */
+          await tap(bar.locator('.cal-mode-seg [data-v="day"]'));
+          expect(await page.evaluate(() => S.calMode)).toBe("day");
+          await expect(page.locator("#content .team-tasks-panel .cal-dayv")).toBeVisible();
+          await tap(bar.locator('.cal-mode-seg [data-v="month"]'));
+          expect(await page.evaluate(() => S.calMode)).toBe("month");
+        } finally {
+          await page.evaluate(() => { setLanguage("en"); document.documentElement.removeAttribute("data-theme"); S.calMode = "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; });
+        }
+      });
+    });
+  }
 });
 
 test.describe("laptop", () => {

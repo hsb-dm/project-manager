@@ -531,6 +531,14 @@ img.emj.custom{object-fit:contain}
 .team-view-timeline .panel-body,.team-view-calendar .panel-body{overflow-x:auto}
 .team-tasks-panel .team-scope-hint{margin:0;padding:10px 16px 6px}
 .team-view-calendar .calendar-toolbar{padding:6px 12px;flex-wrap:wrap;gap:8px}
+/* on a phone (up to 760 px, where the toolbar above is hidden) a team's calendar has the phone's bar too: the month with
+   previous and next, Today, and Month / Week / Day across the row (calendarMobileControls({noFilter}): no filters,
+   saved views or whose tasks), inside the panel's edges */
+@media (max-width:760px){
+  .team-view-calendar .calendar-mobile-controls{padding:0 12px;box-sizing:border-box}
+  .cal-team-controls .cal-mobile-actions>.seg{flex:1 1 auto;display:flex}
+  .cal-team-controls .cal-mobile-actions>.seg button{flex:1 1 0;justify-content:center}
+}
 
 /* a hex colour beside the swatches, to type or paste */
 .swatches .sw-hex{width:92px;height:30px;padding:0 8px;border:1px solid var(--color-border);border-radius:8px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;background:var(--color-surface);color:var(--color-text-primary);text-transform:lowercase}

@@ -689,6 +689,273 @@
     min-height: 36px;
   }
 }
+/* ---- Calendar controls: the month's row is one line (Oct 2026) ----
+   The month's row (.cal-row, calendar() in tasks.js: the Tasks page's Calendar view, the Calendar page, a project's
+   calendar) holds whose tasks, the filters, previous, the month, next, Today, Show labels, saved views, Month / Week /
+   Day and the legend, and never wraps: on the Tasks page it is the second of the page's two rows from 600 px (it used
+   to be two more lines under the views and actions from 761 to 1365 px, and the phone's two-line bar from 600 to
+   760 px); on the Calendar page and a project from 761 px (a phone's bar up to 760 px). The previous / next / Today
+   group takes the room it needs (flex 1 1 0: it never pushes the period onto a new line), the month's name giving up
+   width last (its ellipsis). Short of room, one thing at a time gives way, each keeping its name as aria-label and
+   tooltip (or, for the "N checked" chip's word, for screen readers):
+     below 1366 px  Show labels shows its icon and the "N checked" chip its number (its word would not fit beside the
+                    legend in Indonesian);
+     below 1281 px  the legend moves under the calendar (.cal-legend-foot), as it does beside the "N checked" chip;
+     below 1100 px  on the Tasks page (whose tasks is in its row) the month's short name ("Okt 2026", "Okt 19–25",
+                    "Jum, Okt 23": .cal-t-short); on the Calendar page and a project below 828 px;
+     below 981 px   every control is 36 px, as on the task toolbar (and from 981 px on a touch screen);
+     below 828 px   whose tasks shows its icons (a person, a team), as the views and pills do there;
+     below 761 px   (the Tasks page only) Show labels is left out, as on a phone: no labels are drawn there;
+     below 700 px   Month / Week / Day show their first letter.
+   The row is never a scroll box; nothing in it opens a menu inside it (saved views open on the page). Active filters'
+   chips have a line of their own under it. Checked by e2e/task-toolbar-rows.spec.js. */
+.cal-t-short,
+.cal-legend-foot,
+.cal-scope-seg .seg-ico {
+  display: none;
+}
+.cal-scope-seg .seg-ico svg {
+  width: 15px;
+  height: 15px;
+}
+.calendar-toolbar.cal-row {
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 8px;
+}
+.cal-row .cal-nav {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  flex-wrap: nowrap;
+}
+.cal-row .cal-nav>* {
+  flex: none;
+}
+.cal-row .cal-nav h2 {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-row.cal-m-month .cal-nav h2 {
+  width: 170px;
+}
+.cal-row .calendar-display-controls {
+  flex: none;
+  flex-wrap: nowrap;
+  width: auto;
+  justify-content: flex-end;
+}
+.cal-row .calendar-display-controls>.seg {
+  width: auto;
+}
+.cal-row .legend {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.cal-row .cal-fchips {
+  flex: 0 0 100%;
+}
+.cal-row+.cal>.cal-legend-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+}
+.cal-row:has(.tcheck-chip.on) .calendar-display-controls .legend {
+  display: none;
+}
+.cal-row:has(.tcheck-chip.on)+.cal>.cal-legend-foot {
+  display: flex;
+}
+@media (max-width:1365px) {
+  .cal-row .cal-lbl-word {
+    display: none;
+  }
+  .cal-row .tcheck-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .cal-row #calLabelBtn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+}
+@media (max-width:1280px) {
+  .cal-row .calendar-display-controls .legend {
+    display: none;
+  }
+  .cal-row+.cal>.cal-legend-foot {
+    display: flex;
+  }
+}
+@media (max-width:1099px) {
+  .cal-row .cal-nav h2 {
+    font-size: 16px;
+  }
+  .cal-row.cal-tasks .cal-t-long {
+    display: none;
+  }
+  .cal-row.cal-tasks .cal-t-short {
+    display: inline;
+  }
+  .cal-row.cal-tasks.cal-m-month .cal-nav h2 {
+    width: 96px;
+  }
+}
+@media (max-width:980px) {
+  .cal-row .cal-today,
+  .cal-row .seg button {
+    min-height: 36px;
+  }
+  .cal-row .tcheck-chip.on {
+    height: 36px;
+  }
+  .cal-row .tcheck-chip.on button {
+    position: relative;
+    width: 28px;
+    height: 28px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+}
+@media (min-width:981px) and (pointer:coarse) {
+  .cal-row .cal-today,
+  .cal-row .seg button {
+    min-height: 36px;
+  }
+  .cal-row .tcheck-chip.on {
+    height: 36px;
+  }
+  .cal-row .tcheck-chip.on button {
+    position: relative;
+    width: 28px;
+    height: 28px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+}
+@media (max-width:827px) {
+  .cal-row .cal-t-long {
+    display: none;
+  }
+  .cal-row .cal-t-short {
+    display: inline;
+  }
+  .cal-row.cal-m-month .cal-nav h2 {
+    width: 96px;
+  }
+  .cal-row .cal-scope-seg .seg-word {
+    display: none;
+  }
+  .cal-row .cal-scope-seg .seg-ico {
+    display: inline-flex;
+  }
+  .cal-row .cal-scope-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+@media (min-width:600px) and (max-width:760px) {
+  .calendar-mobile-controls.cal-tasks {
+    display: none !important;
+  }
+  .calendar-toolbar.cal-tasks {
+    display: flex !important;
+  }
+  .calendar-toolbar.cal-row {
+    column-gap: 8px;
+  }
+  .cal-row .cal-nav,
+  .cal-row .calendar-display-controls {
+    gap: 6px;
+  }
+  .cal-row #calLabelBtn {
+    display: none;
+  }
+}
+/* a phone's calendar (and the Tasks page's up to 760 px) has no legend, as before */
+@media (max-width:760px) {
+  .cal-row+.cal>.cal-legend-foot {
+    display: none !important;
+  }
+}
+@media (max-width:699px) {
+  .cal-row .cal-mode-seg .seg-word {
+    display: none;
+  }
+  .cal-row .cal-mode-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .cal-row .cal-mode-seg button::before {
+    content: attr(data-short);
+  }
+  .cal-row .cal-nav h2 {
+    font-size: 15px;
+  }
+  .cal-row .tcheck-chip.on>svg {
+    display: none;
+  }
+  .cal-row .tcheck-chip.on {
+    gap: 3px;
+    padding-left: 8px;
+  }
+  .cal-row .tcheck-chip.on button {
+    width: 22px;
+    height: 22px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    inset: -7px;
+  }
+  .calendar-toolbar.cal-row:has(.tcheck-chip.on) {
+    column-gap: 6px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-nav,
+  .cal-row:has(.tcheck-chip.on) .calendar-display-controls {
+    gap: 4px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-today {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-t-dow {
+    display: none;
+  }
+}
+/* the "N checked" chip takes a place in the row: up to 980 px the period then shows its letters, and below 700 px (in
+   the 699 px block above) the chip loses its tick, the row's gaps are smaller and a day's title its weekday ("Okt 23"),
+   so the title is never cut */
+@media (max-width:980px) {
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg .seg-word {
+    display: none;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg button::before {
+    content: attr(data-short);
+  }
+}
 @media (max-width:760px) {
   .calendar-pagehead+.toolbar[data-tour="task-filters"] {
     display: none !important;
@@ -701,6 +968,7 @@
   }
   .cal-mobile-date {
     flex: 1 1 100%;
+    min-width: 0;
     gap: 6px !important;
   }
   .cal-mobile-date strong {
@@ -777,6 +1045,24 @@
   }
   .content .panel {
     border-radius: 14px;
+  }
+}
+/* a week's or a day's title in short ("Oct 19–25", "Fri, Oct 23") where the whole one would be cut: a phone's bar at
+   360 px or less, a team's (inside its panel) at 400 px or less */
+@media (max-width:400px) {
+  .cal-team-controls:not(.cal-m-month) .cal-t-long {
+    display: none;
+  }
+  .cal-team-controls:not(.cal-m-month) .cal-t-short {
+    display: inline;
+  }
+}
+@media (max-width:360px) {
+  .calendar-mobile-controls:not(.cal-m-month) .cal-t-long {
+    display: none;
+  }
+  .calendar-mobile-controls:not(.cal-m-month) .cal-t-short {
+    display: inline;
   }
 }
 @media (max-width:380px) {

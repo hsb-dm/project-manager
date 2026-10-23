@@ -1129,6 +1129,7 @@ label.chipx,label.report-slide-chip{
   border-radius:50%;background:transparent;color:inherit;cursor:pointer}
 .tcheck-chip.on button:hover{background:color-mix(in srgb,var(--color-success) 18%,transparent)}
 .tcheck-chip.on button svg,.tcheck-chip.on>svg{width:12px;height:12px}
+.tcheck-chip.on button svg{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 @media print{.tcheck,.tcheck-chip,.tcheck-col{display:none!important}}
 .theme-font-dialog{margin:auto;padding:0;width:min(540px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;color:var(--color-text-primary);background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);font-family:var(--font-ui)}
 .theme-font-dialog::backdrop{background:rgba(10,12,16,.48);backdrop-filter:blur(5px)}
@@ -2555,6 +2556,249 @@ body.auth .nav-messages{display:none!important}
     min-height: 36px;
   }
 }
+.cal-t-short,
+.cal-legend-foot,
+.cal-scope-seg .seg-ico {
+  display: none;
+}
+.cal-scope-seg .seg-ico svg {
+  width: 15px;
+  height: 15px;
+}
+.calendar-toolbar.cal-row {
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 8px;
+}
+.cal-row .cal-nav {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  flex-wrap: nowrap;
+}
+.cal-row .cal-nav>* {
+  flex: none;
+}
+.cal-row .cal-nav h2 {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-row.cal-m-month .cal-nav h2 {
+  width: 170px;
+}
+.cal-row .calendar-display-controls {
+  flex: none;
+  flex-wrap: nowrap;
+  width: auto;
+  justify-content: flex-end;
+}
+.cal-row .calendar-display-controls>.seg {
+  width: auto;
+}
+.cal-row .legend {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.cal-row .cal-fchips {
+  flex: 0 0 100%;
+}
+.cal-row+.cal>.cal-legend-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+}
+.cal-row:has(.tcheck-chip.on) .calendar-display-controls .legend {
+  display: none;
+}
+.cal-row:has(.tcheck-chip.on)+.cal>.cal-legend-foot {
+  display: flex;
+}
+@media (max-width:1365px) {
+  .cal-row .cal-lbl-word {
+    display: none;
+  }
+  .cal-row .tcheck-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .cal-row #calLabelBtn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+}
+@media (max-width:1280px) {
+  .cal-row .calendar-display-controls .legend {
+    display: none;
+  }
+  .cal-row+.cal>.cal-legend-foot {
+    display: flex;
+  }
+}
+@media (max-width:1099px) {
+  .cal-row .cal-nav h2 {
+    font-size: 16px;
+  }
+  .cal-row.cal-tasks .cal-t-long {
+    display: none;
+  }
+  .cal-row.cal-tasks .cal-t-short {
+    display: inline;
+  }
+  .cal-row.cal-tasks.cal-m-month .cal-nav h2 {
+    width: 96px;
+  }
+}
+@media (max-width:980px) {
+  .cal-row .cal-today,
+  .cal-row .seg button {
+    min-height: 36px;
+  }
+  .cal-row .tcheck-chip.on {
+    height: 36px;
+  }
+  .cal-row .tcheck-chip.on button {
+    position: relative;
+    width: 28px;
+    height: 28px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+}
+@media (min-width:981px) and (pointer:coarse) {
+  .cal-row .cal-today,
+  .cal-row .seg button {
+    min-height: 36px;
+  }
+  .cal-row .tcheck-chip.on {
+    height: 36px;
+  }
+  .cal-row .tcheck-chip.on button {
+    position: relative;
+    width: 28px;
+    height: 28px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+}
+@media (max-width:827px) {
+  .cal-row .cal-t-long {
+    display: none;
+  }
+  .cal-row .cal-t-short {
+    display: inline;
+  }
+  .cal-row.cal-m-month .cal-nav h2 {
+    width: 96px;
+  }
+  .cal-row .cal-scope-seg .seg-word {
+    display: none;
+  }
+  .cal-row .cal-scope-seg .seg-ico {
+    display: inline-flex;
+  }
+  .cal-row .cal-scope-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+@media (min-width:600px) and (max-width:760px) {
+  .calendar-mobile-controls.cal-tasks {
+    display: none !important;
+  }
+  .calendar-toolbar.cal-tasks {
+    display: flex !important;
+  }
+  .calendar-toolbar.cal-row {
+    column-gap: 8px;
+  }
+  .cal-row .cal-nav,
+  .cal-row .calendar-display-controls {
+    gap: 6px;
+  }
+  .cal-row #calLabelBtn {
+    display: none;
+  }
+}
+@media (max-width:760px) {
+  .cal-row+.cal>.cal-legend-foot {
+    display: none !important;
+  }
+}
+@media (max-width:699px) {
+  .cal-row .cal-mode-seg .seg-word {
+    display: none;
+  }
+  .cal-row .cal-mode-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .cal-row .cal-mode-seg button::before {
+    content: attr(data-short);
+  }
+  .cal-row .cal-nav h2 {
+    font-size: 15px;
+  }
+  .cal-row .tcheck-chip.on>svg {
+    display: none;
+  }
+  .cal-row .tcheck-chip.on {
+    gap: 3px;
+    padding-left: 8px;
+  }
+  .cal-row .tcheck-chip.on button {
+    width: 22px;
+    height: 22px;
+  }
+  .cal-row .tcheck-chip.on button::before {
+    inset: -7px;
+  }
+  .calendar-toolbar.cal-row:has(.tcheck-chip.on) {
+    column-gap: 6px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-nav,
+  .cal-row:has(.tcheck-chip.on) .calendar-display-controls {
+    gap: 4px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-today {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-t-dow {
+    display: none;
+  }
+}
+@media (max-width:980px) {
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg .seg-word {
+    display: none;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg button {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .cal-row:has(.tcheck-chip.on) .cal-mode-seg button::before {
+    content: attr(data-short);
+  }
+}
 @media (max-width:760px) {
   .calendar-pagehead+.toolbar[data-tour="task-filters"] {
     display: none !important;
@@ -2567,6 +2811,7 @@ body.auth .nav-messages{display:none!important}
   }
   .cal-mobile-date {
     flex: 1 1 100%;
+    min-width: 0;
     gap: 6px !important;
   }
   .cal-mobile-date strong {
@@ -2643,6 +2888,22 @@ body.auth .nav-messages{display:none!important}
   }
   .content .panel {
     border-radius: 14px;
+  }
+}
+@media (max-width:400px) {
+  .cal-team-controls:not(.cal-m-month) .cal-t-long {
+    display: none;
+  }
+  .cal-team-controls:not(.cal-m-month) .cal-t-short {
+    display: inline;
+  }
+}
+@media (max-width:360px) {
+  .calendar-mobile-controls:not(.cal-m-month) .cal-t-long {
+    display: none;
+  }
+  .calendar-mobile-controls:not(.cal-m-month) .cal-t-short {
+    display: inline;
   }
 }
 @media (max-width:380px) {
@@ -4285,6 +4546,11 @@ img.emj.custom{object-fit:contain}
 .team-view-timeline .panel-body,.team-view-calendar .panel-body{overflow-x:auto}
 .team-tasks-panel .team-scope-hint{margin:0;padding:10px 16px 6px}
 .team-view-calendar .calendar-toolbar{padding:6px 12px;flex-wrap:wrap;gap:8px}
+@media (max-width:760px){
+  .team-view-calendar .calendar-mobile-controls{padding:0 12px;box-sizing:border-box}
+  .cal-team-controls .cal-mobile-actions>.seg{flex:1 1 auto;display:flex}
+  .cal-team-controls .cal-mobile-actions>.seg button{flex:1 1 0;justify-content:center}
+}
 
 .swatches .sw-hex{width:92px;height:30px;padding:0 8px;border:1px solid var(--color-border);border-radius:8px;font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px;background:var(--color-surface);color:var(--color-text-primary);text-transform:lowercase}
 .swatches .sw-hex:focus{outline:none;border-color:var(--color-primary)}

@@ -7,12 +7,19 @@
    the toolbar's pills show an icon for their name, and a pill short of room truncates its value. Controls are 36 px on
    a tablet. The topbar no longer pushes the page sideways (1,180 px in English with My Tasks' count). A phone (up to
    599 px) keeps its own header. A project and some tasks assigned to the admin are made through the API and removed
-   after; the language, theme and select mode are put back. */
+   after; the language, theme and select mode are put back.
+   The Calendar view too (Oct 2026): its row 2 is the month's row (whose tasks, filters, previous, the month, next,
+   Today, Show labels, saved views, Month / Week / Day, the legend), one line at every width, where it used to be two
+   more lines under row 1 from 761 px and the phone's two-line bar from 600 to 760 px: the month's name short below
+   1100 px and never cut, Show labels an icon below 1366 px (left out up to 760 px, as on a phone), the legend under the
+   calendar below 1281 px, whose tasks its icons below 828 px and the period its letters below 700 px, each still named;
+   with the "N checked" chip and filter chips, in every period; and the Calendar page and a project's calendar from
+   761 px. The personal checks are put back. */
 const { test, expect } = require("@playwright/test");
 test.describe.configure({ mode: "serial" });
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
 const WIDTHS = [600, 640, 700, 768, 800, 834, 900, 960, 1024, 1100, 1180, 1280, 1366];
-const VIEWS = ["kanban", "list", "grid", "timeline"];
+const VIEWS = ["kanban", "list", "grid", "timeline", "calendar"];
 const ready = p => p.waitForFunction(() => window.ZC_READY === true && API.on);
 async function signIn(page) {
   await page.goto("/");
@@ -42,24 +49,35 @@ test.afterAll(async ({ browser }) => {
 
 /* the Tasks page in a view, everything a person taps in its header measured */
 async function show(page, view, cols, savedView, o) {
-  await page.evaluate(([v, cols, sv, o]) => { S.taskScope = "all"; S.sort = o.sort || "due"; S.sortDir = 1; S.group = o.group || ""; S.activeView = sv; S.filters = Object.assign(emptyTaskFilters(), o.filters || {}); if (cols) myPrefs().listCols = cols; go("tasks", v); }, [view, cols || null, savedView || null, o || {}]);
+  await page.evaluate(([v, cols, sv, o]) => { S.taskScope = "all"; S.sort = o.sort || "due"; S.sortDir = 1; S.group = o.group || ""; S.activeView = sv; S.filters = Object.assign(emptyTaskFilters(), o.filters || {}); S.calMode = o.calMode || "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; if (cols) myPrefs().listCols = cols; go("tasks", v); }, [view, cols || null, savedView || null, o || {}]);
   await page.waitForFunction(() => document.querySelector("#content .task-pagehead .actions .bulk-btn"));
   await page.evaluate(() => document.fonts.ready);
 }
 const measure = page => page.evaluate(() => {
   const vis = e => { if (!e || !e.offsetParent) return false; const b = e.getBoundingClientRect(), cs = getComputedStyle(e); return b.width > 0 && b.height > 0 && cs.visibility !== "hidden"; };
-  const box = (e, row) => { const b = e.getBoundingClientRect(); return { row, cls: String(e.className), name: (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30), l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+  const box = (e, row) => { const b = e.getBoundingClientRect(); return { row, cls: String(e.className), name: (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30), l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height, ctl: e.tagName !== "H2" && !e.classList.contains("legend") }; };
   const act = document.querySelector("#content .task-pagehead .actions");
   const seg = act.querySelector(".seg");
   const row1 = [...act.children].filter(vis).map(e => box(e, 1));
-  const tb = document.querySelector("#content .task-filter-toolbar");
-  const row2 = tb ? [...tb.querySelectorAll(".task-toolbar-sort>*, .task-toolbar-primary>*, .task-toolbar-tail>*")].filter(vis).map(e => box(e, 2)) : [];
+  /* row 2: the task toolbar, or in the Calendar view the month's row (its title and legend are in the row but are not
+     controls, so they need not be 36 px) */
+  const cal = [...document.querySelectorAll("#content .calendar-toolbar.cal-row")].find(vis) || null;
+  const tb = document.querySelector("#content .task-filter-toolbar") || cal;
+  const row2 = tb ? [...tb.querySelectorAll(".task-toolbar-sort>*, .task-toolbar-primary>*, .task-toolbar-tail>*, .cal-nav>*, .calendar-display-controls>*")].filter(vis).map(e => box(e, 2)) : [];
   const segs2 = tb ? [...tb.querySelectorAll(".seg button")].filter(vis).map(e => box(e, 2)) : [];   /* Mine / All: what is tapped */
   const views = [...seg.querySelectorAll("button")].filter(vis).map(b => { const lab = b.querySelector(".view-label"), x = box(b, 1); return Object.assign(x, { on: b.classList.contains("on"), aria: b.getAttribute("aria-label"), title: b.getAttribute("title"), label: lab ? lab.textContent.trim() : "", labelShown: vis(lab) }); });
   const pills = tb ? [...tb.querySelectorAll(".pillsel-custom")].filter(vis).map(p => ({ name: p.querySelector("span").textContent.trim(), nameShown: p.querySelector("span").getBoundingClientRect().width > 2, icon: getComputedStyle(p, "::before").content !== "none", value: p.querySelector(".pillsel-value").textContent.trim(), cut: (() => { const v = p.querySelector(".pillsel-value"); return vis(v) && v.scrollWidth > v.clientWidth + 1; })() })) : [];
   const c = document.getElementById("content"), cb = c.getBoundingClientRect(), cs = getComputedStyle(c);
   const nt = act.querySelector(".task-new"), chips = tb && tb.querySelector(".fchips");
-  return { row1, row2, segs2, views, pills, seg: { sw: seg.scrollWidth, cw: seg.clientWidth }, left: cb.left + parseFloat(cs.paddingLeft), right: cb.right - parseFloat(cs.paddingRight),
+  /* the month's row: what gave way, and that each control is still named */
+  const calInfo = cal && (() => {
+    const h2 = cal.querySelector("h2"), lb = cal.querySelector("#calLabelBtn"), word = lb.querySelector(".cal-lbl-word"), foot = document.querySelector("#content .cal-legend-foot");
+    const radios = sel => [...cal.querySelectorAll(sel + ' [role="radio"]')].map(b => ({ aria: b.getAttribute("aria-label"), word: vis(b.querySelector(".seg-word")) || !b.querySelector(".seg-word"), icon: vis(b.querySelector(".seg-ico")), letter: getComputedStyle(b, "::before").content.replace(/"/g, "") }));
+    return { title: h2.textContent, cut: h2.scrollWidth > h2.clientWidth + 1, short: vis(h2.querySelector(".cal-t-short")), long: vis(h2.querySelector(".cal-t-long")),
+      scope: radios(".cal-scope-seg"), mode: radios(".cal-mode-seg"), labels: { shown: vis(lb), words: vis(word), aria: lb.getAttribute("aria-label") },
+      legendRow: vis(cal.querySelector(".calendar-display-controls .legend")), legendFoot: vis(foot), chip: vis(cal.querySelector(".tcheck-chip.on")) };
+  })();
+  return { row1, row2, segs2, views, pills, cal: calInfo, seg: { sw: seg.scrollWidth, cw: seg.clientWidth }, left: cb.left + parseFloat(cs.paddingLeft), right: cb.right - parseFloat(cs.paddingRight),
     page: { sw: document.scrollingElement.scrollWidth, vw: innerWidth }, badge: !!document.querySelector("#nav .nav-item .cnt"), lang: UI_LANG,
     newTask: nt && { gap: parseFloat(getComputedStyle(nt).columnGap) || 0, font: parseFloat(getComputedStyle(nt).fontSize) },
     toolbar: tb && { t: tb.getBoundingClientRect().top, b: tb.getBoundingClientRect().bottom, chips: !!(chips && chips.children.length), chipsTop: chips && chips.children.length ? chips.getBoundingClientRect().top : null } };
@@ -106,10 +124,41 @@ function checkRows(m, where, opts) {
   /* New task keeps its words and the space between its + and them */
   expect(nt.w, where + ": New task shows its words").toBeGreaterThan(70);
   expect(m.newTask.gap, where + ": a space between New task's + and its words").toBeGreaterThanOrEqual(6);
-  if (opts.tablet) for (const b of all.concat(m.views, m.segs2)) {
+  if (opts.tablet) for (const b of all.concat(m.views, m.segs2).filter(b => b.ctl !== false)) {
     expect(b.h, where + ": " + b.name + " is at least 36 px tall").toBeGreaterThanOrEqual(35.5);
     expect(b.w, where + ": " + b.name + " is at least 36 px wide").toBeGreaterThanOrEqual(35.5);
   }
+}
+
+/* the Calendar view's row: what gives way at which width (responsive.css, "Calendar controls"), each control still
+   named; the month's name is never cut. scoped: whose tasks is in the row (the Tasks page) */
+const CAL_NAMES = { en: { scope: ["Mine", "Team"], mode: ["Month", "Week", "Day"], labels: "Show labels" }, id: { scope: ["Milik saya", "Tim"], mode: ["Bulan", "Minggu", "Hari"], labels: "Tampilkan label" } };
+function checkCal(c, where, w, lang, o) {
+  o = Object.assign({ scoped: true, chip: false }, o || {});
+  const n = CAL_NAMES[lang];
+  expect(c, where + ": the month's row is on screen").toBeTruthy();
+  expect(c.cut, where + ": the month's name is whole (" + c.title + ")").toBe(false);
+  expect(c.short, where + ": the month's short name below " + (o.scoped ? 1100 : 828) + " px").toBe(w < (o.scoped ? 1100 : 828));
+  expect(c.long, where + ": its full name from " + (o.scoped ? 1100 : 828) + " px").toBe(w >= (o.scoped ? 1100 : 828));
+  if (o.scoped) {
+    expect(c.scope.map(r => r.aria), where + ": whose tasks' options are named").toEqual(n.scope);
+    for (const r of c.scope) {
+      expect(r.icon, where + ": whose tasks shows its icon below 828 px").toBe(w < 828);
+      expect(r.word, where + ": whose tasks shows its word from 828 px").toBe(w >= 828);
+    }
+  } else expect(c.scope.length, where + ": no whose tasks in this row").toBe(0);
+  expect(c.mode.map(r => r.aria), where + ": the period's options are named").toEqual(n.mode);
+  const letters = w < 700 || (o.chip && w <= 980);
+  c.mode.forEach((r, i) => {
+    expect(r.word, where + ": " + n.mode[i] + " shows its word" + (letters ? " (no: its letter)" : "")).toBe(!letters);
+    if (letters) expect(r.letter, where + ": " + n.mode[i] + "'s letter").toBe(n.mode[i].charAt(0));
+  });
+  expect(c.labels.aria, where + ": Show labels is named").toBe(n.labels);
+  expect(c.labels.shown, where + ": Show labels is there from 761 px").toBe(w > 760);
+  if (w > 760) expect(c.labels.words, where + ": Show labels shows its words from 1366 px").toBe(w >= 1366);
+  expect(c.legendRow, where + ": the legend is in the row from 1281 px" + (o.chip ? " (not beside the chip)" : "")).toBe(w >= 1281 && !o.chip);
+  expect(c.legendFoot, where + ": else under the calendar (not on a phone's width)").toBe(w > 760 && (w < 1281 || o.chip));
+  expect(c.chip, where + ": the N checked chip").toBe(o.chip);
 }
 
 for (const lang of ["en", "id"]) {
@@ -147,6 +196,7 @@ for (const lang of ["en", "id"]) {
               expect(p.icon, where + ": the pill " + p.name + " shows its icon").toBe(w < 828);
               expect(p.cut, where + ": the pill " + p.name + " shows all of " + p.value).toBe(false);
             }
+            if (v === "calendar") checkCal(m.cal, where, w, lang);
           }
         }
       }
@@ -234,23 +284,84 @@ test("a wider brand font: the views scroll sideways in their own track and the p
   }
 });
 
-test("the Calendar view: row 1 stays one row and nothing sticks out (the month's own controls are below it)", async ({ page }) => {
+/* the widths where something in the month's row gives way, either side of each */
+const CAL_EDGES = [600, 601, 699, 700, 760, 761, 827, 828, 980, 981, 1099, 1100, 1280, 1281, 1366];
+const setChecks = (page, on) => page.evaluate(on => { const set = taskCheckSet(); set.length = 0; if (on) TASKS.filter(t => /^Row task /.test(t.title)).slice(0, 3).forEach(t => set.push(t.id)); taskCheckSave(); }, on);
+
+test("the Calendar view in every period, with the N checked chip and filter chips: still two rows, the month's name whole, the chips on a line of their own", async ({ page }) => {
+  test.setTimeout(480000);
   await signIn(page);
-  for (const lang of ["en", "id"]) {
-    await page.evaluate(l => setLanguage(l), lang);
-    await page.waitForFunction(l => UI_LANG === l, lang);
-    for (const w of WIDTHS) {
+  await page.evaluate(() => setLanguage("id"));
+  await page.waitForFunction(() => UI_LANG === "id");
+  const checks0 = await page.evaluate(() => JSON.stringify(taskCheckSet()));
+  try {
+    for (const w of CAL_EDGES) {
       await page.setViewportSize({ width: w, height: 900 });
-      await show(page, "calendar");
-      const m = await measure(page), where = lang + " calendar " + w + "px";
-      expect(rowsOf(m.row1).length, where + ": row 1 is one row").toBe(1);
-      expect(m.row1.some(b => /\btask-new\b/.test(b.cls)), where + ": New task is in it").toBe(true);
-      for (const b of m.row1) expect(b.r, where + ": " + b.name + " ends inside the page").toBeLessThanOrEqual(m.right + 0.5);
-      expect(m.seg.sw).toBeLessThanOrEqual(m.seg.cw + 1);
-      expect(m.page.sw, where + ": no sideways scroll").toBeLessThanOrEqual(m.page.vw);
+      for (const calMode of ["month", "week", "day"]) for (const chip of [false, true]) {
+        await setChecks(page, chip);
+        await show(page, "calendar", null, null, { calMode });
+        const m = await measure(page), where = ["id", w + "px", calMode, chip ? "with N checked" : ""].join(" ");
+        checkRows(m, where, { tablet: w <= 980 });
+        checkCal(m.cal, where, w, "id", { chip });
+      }
+      /* filters on: their chips under the controls, the row unchanged */
+      await setChecks(page, true);
+      await show(page, "calendar", null, null, { calMode: "week", filters: { prio: "medium", due: "overdue" } });
+      const f = await measure(page);
+      expect(f.toolbar.chips, w + "px: filter chips are shown").toBe(true);
+      checkRows(f, "filters " + w + "px", { tablet: w <= 980 });
+      checkCal(f.cal, "filters " + w + "px", w, "id", { chip: true });
     }
+    /* the chip's clear button shows its x (it had no stroke: an empty green space), and clears */
+    await page.setViewportSize({ width: 834, height: 900 });
+    await setChecks(page, true);
+    await show(page, "calendar");
+    const x = await page.evaluate(() => { const s = document.querySelector("#content .cal-row .tcheck-chip.on button svg"); return s && getComputedStyle(s).stroke; });
+    expect(x, "the x is drawn").not.toBe("none");
+    await page.locator("#content .cal-row .tcheck-chip.on button").click();
+    expect(await page.evaluate(() => taskCheckCount())).toBe(0);
+    await expect(page.locator("#content .cal-row .tcheck-chip.on")).toHaveCount(0);
+  } finally {
+    await page.evaluate(c => { const set = taskCheckSet(); set.length = 0; JSON.parse(c).forEach(id => set.push(id)); taskCheckSave(); S.calMode = "month"; S.filters = emptyTaskFilters(); setLanguage("en"); }, checks0);
   }
-  await page.evaluate(() => setLanguage("en"));
+});
+
+test("the Calendar page and a project's calendar: the month's controls are one line from 761 px, the month's name whole", async ({ page }) => {
+  test.setTimeout(240000);
+  await signIn(page);
+  const checks0 = await page.evaluate(() => JSON.stringify(taskCheckSet()));
+  try {
+    for (const lang of ["en", "id"]) {
+      await page.evaluate(l => setLanguage(l), lang);
+      await page.waitForFunction(l => UI_LANG === l, lang);
+      for (const w of [761, 768, 800, 827, 828, 834, 900, 980, 981, 1024, 1100, 1179, 1180, 1280, 1281, 1366]) {
+        await page.setViewportSize({ width: w, height: 900 });
+        for (const where of ["calendar", "project"]) for (const calMode of ["month", "week", "day"]) for (const chip of [false, true]) {
+          if (lang === "en" && (calMode !== "month" || chip)) continue;
+          await setChecks(page, chip);
+          await page.evaluate(([where, pid, calMode]) => { S.calMode = calMode; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; S.calScope = "all"; S.filters = emptyTaskFilters(); if (where === "calendar") go("calendar"); else { S.projectTab = "calendar"; go("projects", pid); } }, [where, M.pid, calMode]);
+          const r = await page.evaluate(() => {
+            const vis = e => !!(e && e.offsetParent && e.getBoundingClientRect().width > 0);
+            const row = [...document.querySelectorAll("#content .calendar-toolbar.cal-row")].find(vis);
+            if (!row) return null;
+            const c = document.getElementById("content"), cs = getComputedStyle(c), cb = c.getBoundingClientRect();
+            const els = [...row.querySelectorAll(".cal-nav>*, .calendar-display-controls>*")].filter(vis).map(e => { const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right, name: (e.getAttribute("aria-label") || e.textContent).trim().slice(0, 24) }; });
+            const h2 = row.querySelector("h2");
+            return { els, cut: h2.scrollWidth > h2.clientWidth + 1, title: h2.textContent, right: cb.right - parseFloat(cs.paddingRight), sw: document.scrollingElement.scrollWidth, vw: innerWidth, mobile: vis(document.querySelector("#content .calendar-mobile-controls")) };
+          });
+          const at = [lang, where, w + "px", calMode, chip ? "with N checked" : ""].join(" ");
+          expect(r, at + ": the month's row is shown").not.toBeNull();
+          expect(rowsOf(r.els).length, at + ": one line — " + r.els.map(e => e.name).join(" · ")).toBe(1);
+          expect(r.cut, at + ": the month's name is whole (" + r.title + ")").toBe(false);
+          for (const e of r.els) expect(e.r, at + ": " + e.name + " ends inside the page").toBeLessThanOrEqual(r.right + 0.5);
+          expect(r.sw, at + ": no sideways scroll").toBeLessThanOrEqual(r.vw);
+          expect(r.mobile, at + ": not the phone's bar").toBe(false);
+        }
+      }
+    }
+  } finally {
+    await page.evaluate(c => { const set = taskCheckSet(); set.length = 0; JSON.parse(c).forEach(id => set.push(id)); taskCheckSave(); S.calMode = "month"; setLanguage("en"); }, checks0);
+  }
 });
 
 test("a project's toolbar from 600 px is one row of 36 px controls, and its menus open on the screen", async ({ page }) => {

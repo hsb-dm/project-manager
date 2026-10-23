@@ -1030,7 +1030,7 @@ function taskCheckChip(){
   return '<span id="taskCheckChip" class="tcheck-chip on">'
     + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.4"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.6l4.9 4.9L19.5 7"/></svg>'
-    + '<span>'+n+' '+tr("checked")+'</span>'
+    + '<span>'+n+'<span class="tcheck-word"> '+tr("checked")+'</span></span>'
     + '<button type="button" title="'+attr(tr("Clear checks"))+'" aria-label="'+attr(tr("Clear checks"))+'" onclick="clearTaskChecks()">'+I.x+'</button></span>';
 }
 function syncTaskCheckBar(){ var el=document.getElementById("taskCheckChip"); if(el) el.outerHTML=taskCheckChip(); }
