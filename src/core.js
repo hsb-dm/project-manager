@@ -31,7 +31,7 @@ var ATEXT_ID={ brief_removed:"<b>{who}</b> menghapus creative brief", progress:"
    recordTaskChanges), so a file called <img onerror=…> must arrive as text, not as markup. */
 function activityLine(k,args){
   var tpl=(UI_LANG==="id"&&ATEXT_ID[k])||ATEXT[k]||("<b>{who}</b> "+esc(k));
-  var safe={}; Object.keys(args||{}).forEach(function(key){ var v=args[key]; if(v==null) return; if(key==="what") v=tr(String(v)); safe[key]=esc(String(v)); });
+  var safe={}; Object.keys(args||{}).forEach(function(key){ var v=args[key]; if(v==null) return; if(key==="what"){ var auto=/^(.*) \(auto-archived\)$/.exec(String(v)); v=auto?auto[1]+" ("+tr("auto-archived")+")":tr(String(v)); } safe[key]=esc(String(v)); });
   return fmt(tpl,safe);
 };
 var I={
@@ -188,7 +188,7 @@ function isTaskBlocked(tk){ return !isClosed(tk)&&unresolvedDependencies(tk).len
 function dependencyState(tk){ return isClosed(tk)?"completed":(isTaskBlocked(tk)?"blocked":"ready"); }
 function dependencyCount(tk){ return unresolvedDependencies(tk).length; }
 function wouldCreateDependency(tk, depId){ var start=task(depId), seen={}; function reaches(cur){ if(!cur||seen[cur.id]) return false; if(cur.id===tk.id) return true; seen[cur.id]=true; return dependenciesOf(cur).some(reaches); } return !!start&&reaches(start); }
-function dependencyBadge(tk,compact){ var n=dependencyCount(tk), all=(tk.dependencies||[]).length; if(isClosed(tk)) return compact?'':'<span class="badge approved" title="Completed">'+I.check+'Completed</span>'; if(n){ var names=unresolvedDependencies(tk).map(function(x){return x.title+" — "+stageName(x.status);}).join("\n"); return '<span class="badge revision" title="Blocked by '+attr(names)+'">⛓ '+(compact?n:"Blocked · "+n)+'</span>'; } if(all) return '<span class="badge approved" title="All dependencies are complete">'+I.check+(compact?"":"Ready")+'</span>'; return ""; }
+function dependencyBadge(tk,compact){ var n=dependencyCount(tk), all=(tk.dependencies||[]).length; if(isClosed(tk)) return compact?'':'<span class="badge approved" title="Completed">'+I.check+'Completed</span>'; if(n){ var names=unresolvedDependencies(tk).map(function(x){return x.title+" — "+stageName(x.status);}).join("\n"); return '<span class="badge revision" title="'+attr(tr("Blocked by")+" "+names)+'">⛓ '+(compact?n:tr("Blocked")+" · "+n)+'</span>'; } if(all) return '<span class="badge approved" title="'+attr(tr("All dependencies are complete"))+'">'+I.check+(compact?"":tr("Ready"))+'</span>'; return ""; }
 function dependencyRisk(tk){ return unresolvedDependencies(tk).filter(function(dep){ return tk.due!=null&&dep.due!=null&&dep.due>tk.due; }); }
 function sortTasks(a){ return a.slice().sort(function(x,y){ return (x.due-y.due)||(PRANK[x.prio]-PRANK[y.prio]); }); }
 function projName(tk){ var p=project(tk.proj); return p?p.name:"—"; }
@@ -927,7 +927,7 @@ function panel(title,count,body,link,extra,icon,cls){ return '<section class="pa
 function emptyBox(h,p,ico,cta){ return '<div class="empty"><div class="ico">'+(ico||I.check)+'</div><div class="h">'+h+'</div>'+(p?'<p>'+p+'</p>':'')+(cta||'')+'</div>'; }
 
 /* ---------- notifications ---------- */
-function notifRows(){ var l=NOTIFS.slice().sort(function(a,b){ return a.ago-b.ago; }); if (!l.length) return emptyBox("No notifications","Assignments, mentions, approvals, requests and deadlines land here.");
+function notifRows(){ var l=NOTIFS.slice().sort(function(a,b){ return a.ago-b.ago; }); if (!l.length) return emptyBox(tr("No notifications"),tr("Assignments, mentions, approvals, requests and deadlines land here."));
   return l.map(function(n){ var tk=task(n.t); var rq=null; var title=tk?tk.title:n.t; var click=tk?'markRead(\''+n.t+'\');openTask(\''+tk.id+'\')':''; if (n.entityType==="message"){ var cv=typeof conv==="function"?conv(n.t):null; title=cv?convTitle(cv):n.t; click='closePops();markRead('+jsq(n.t)+');openConversation('+jsq(n.t)+','+(n.msg?''+jsq(n.msg)+'':'null')+')'; } else if (n.entityType==="gallery"){ click='closePops();markRead('+jsq(n.t)+');go(\'aigallery\')'; } return '<div class="notif'+(n.read?"":" unread")+'" onclick="'+click+'">'+(n.who?av(n.who):'<span class="av" style="background:var(--color-primary)">!</span>')+'<div><div>'+fmt(ntext(n.k),{who:n.who?esc(first(n.who)):"",t:esc(title)})+(n.entityType==="message"&&n.text?'<div class="notif-preview" data-no-translate>'+esc(String(n.text).slice(0,90))+'</div>':'')+'</div><div class="when">'+ago(n.ago,n.createdAt)+'</div></div></div>'; }).join(""); }
 function renderNotifs(){ document.getElementById("notifList").innerHTML=notifRows(); }
 function markRead(t){ var any=false; NOTIFS.forEach(function(n){ if (n.t===t&&!n.read){ n.read=true; any=true; } }); syncNotifDot(); if (!any) return; /* every task opened comes here: the menu is drawn again only when something was unread */ renderNav(); if (API.on) apiFetch("POST","/api/notifications/read",{entityId:t}).catch(function(){}); }
@@ -1040,6 +1040,15 @@ function clearTaskChecks(){
   ids.forEach(paintTaskCheck);
   syncTaskCheckBar();
 }
+/* the personal tick in Indonesian: centang / dicentang (docs/GLOSSARY-ID.md) */
+Object.assign(UI_ID,{"checked":"dicentang","Clear checks":"Hapus centang","Mark as checked":"Tandai dicentang","Checked — click to clear":"Dicentang — klik untuk menghapus centang",
+  "Blocked by":"Terblokir oleh","All dependencies are complete":"Semua dependensi sudah selesai",
+  "No notifications":"Belum ada notifikasi","Assignments, mentions, approvals, requests and deadlines land here.":"Penugasan, mention, persetujuan, permintaan, dan tenggat akan muncul di sini.",
+  "Search everything":"Cari di seluruh workspace","Welcome back, {name}":"Selamat datang kembali, {name}",
+  "Choose your task panel":"Pilih panel task-mu","Choose the layout that feels most comfortable. You can change this anytime in Settings → Layout.":"Pilih tata letak yang paling nyaman. Kamu bisa mengubahnya kapan saja di Pengaturan → Tata letak.",
+  "Skip":"Lewati","Task panel position updated":"Posisi panel task diperbarui","Choose where task details and new task forms open on your screen.":"Pilih di mana detail task dan form task baru terbuka di layarmu.",
+  "Narrow screens always use the full-width panel.":"Layar sempit selalu memakai panel selebar layar.",
+  "Account menu":"Menu akun","auto-archived":"diarsipkan otomatis"});
 function taskRow(tk,opts){
   opts=opts||{};
   var openAction=opts.openAction||"openTask(taskIdFrom(this))";

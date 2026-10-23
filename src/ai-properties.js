@@ -561,7 +561,7 @@ function aipCanvas(){
   var sMax=su==="px"?Math.round(Math.min(sz.w,sz.h)*0.45):25;
   var safeField=function(side,label){
     var key="safe"+side.charAt(0).toUpperCase()+side.slice(1);
-    return aipNum({value:+AIF[key]||0,prefix:label,unit:su,min:0,max:sMax,label:label+" safe area",
+    return aipNum({value:+AIF[key]||0,prefix:label,unit:su,min:0,max:sMax,label:tr("Safe area")+" "+label,
       oninput:(linked?"aiSetSafeAll(this.value)":"AIF."+key+"=this.value;aiPreviewSoon()")});
   };
   var safe=aipRow("Unit",aipSelect(AIF.safeUnit||"percent",[["percent","%"],["px","px"]],

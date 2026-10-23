@@ -26,8 +26,9 @@ async function sweep(page, lang) {
       const se = document.scrollingElement; if (innerWidth < 700 && se.scrollWidth > innerWidth + 1) out.push("sideways scroll: " + se.scrollWidth + " > " + innerWidth);
       if (UI_LANG === "id" && typeof UI_ID === "object") {
         const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n; const seen = new Set();
+        const names = typeof uiUserNames === "function" ? uiUserNames() : new Set();  /* a team's or project's own name is never translated */
         while ((n = w.nextNode())) {
-          const t = n.nodeValue.trim(); if (!t || t.length < 3 || seen.has(t)) continue;
+          const t = n.nodeValue.trim(); if (!t || t.length < 3 || seen.has(t) || names.has(t)) continue;
           const el = n.parentElement; if (!el || el.closest("[data-no-translate],script,style,code,pre,textarea,.toast,.lbl")  /* a label is the workspace own word */ || !el.offsetParent) continue;
           if (Object.prototype.hasOwnProperty.call(UI_ID, t) && UI_ID[t] && UI_ID[t] !== t) { seen.add(t); out.push("english: \"" + t + "\" in " + el.tagName.toLowerCase() + (el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).join(".") : "") + " within #" + ((el.closest("[id]") || {}).id || "?")); }
         }

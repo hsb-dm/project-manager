@@ -47,6 +47,8 @@ end), and `tests/i18n-conflicts.test.js` fails when a word this glossary replace
 | upload, download | unggah, unduh | |
 | preview | pratinjau | |
 | comment | komentar | |
+| stakeholder-visible (a comment) | stakeholder | The switch *Internal / Stakeholder* and each comment's chip, *internal / stakeholder*, say the same. |
+| check (the personal tick on a task) | **centang, dicentang** | "3 dicentang", "Tandai dicentang", "Hapus centang". A mark only you see, not the task's state; never *cek* / *periksa*. |
 | mention (noun), to mention | mention, sebut / menyebut | "Mention belum dibaca", "Ketik @ untuk menyebut seseorang". |
 | message, chat | pesan, chat | The top-bar button keeps its name, *Messages*. |
 | estimate | estimasi | Never *perkiraan*. |
@@ -102,6 +104,9 @@ blocks said both "Mode Brand" and "Mode merek".
 - **Capitals** only where a sentence or a title begins ("Task belum selesai", "Project aktif") and for names
   ("Mode Brand", "Smart Scoring", "Team Lead").
 - **Never change the English.** It is the key `tr()` looks up.
+- **What people typed is never translated**, even when it is a dictionary word: a team called *Design* stays
+  *Design* in Indonesian, in the List, the task panel and everywhere else (`uiUserNames` in `src/i18n.js` keeps the
+  names of teams and projects as they are). Only the interface's own labels are translated.
 
 ## Adding a string
 

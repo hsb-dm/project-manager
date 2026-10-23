@@ -443,6 +443,10 @@ Yang penting untuk diketahui:
   nama workspace) tetap dalam bahasa aslinya.
 - `uiDynamicText()` menangani string tersusun yang tidak bisa jadi key kamus
   (`"3 of 12 shown"`, `"12.5h assigned of 40h capacity"`).
+- `uiUserNames()` (Oktober 2026): teks, atribut, atau bagian `" · "` yang persis sama dengan nama sebuah tim atau
+  project dibiarkan seperti yang diketik, di mana pun digambar. Tim bernama "Design" dulu tetap "Design" di Daftar
+  (`.tbadge`) tetapi menjadi "Desain" di panel task, halaman tim, chip kalender, Analitik, dan Pengaturan, karena
+  teksnya sama dengan kunci kamus `"Design"` milik label bawaan. Label bawaan yang memakai `tr()` tetap diterjemahkan.
 
 ### Cara menambah string
 
@@ -453,6 +457,11 @@ Yang penting untuk diketahui:
    Kalau English yang sama sudah ada di blok lain, pakai kata yang persis sama.
 3. Kalau string itu konten user yang **tidak boleh** diterjemahkan, beri `data-no-translate`.
 4. `node build.js`.
+
+`tests/i18n-sweep.test.js` gagal bila ada `tr("…")` di `src/` yang tidak punya kata Indonesia di blok mana pun (sweep
+Oktober 2026 menemukan sekitar 200). Teks yang sama dalam bahasa Indonesia tetap diberi, ke dirinya sendiri
+(`"internal":"internal"`). `e2e/indonesian-strings.spec.js` memeriksa layar yang diperbaiki sweep itu dalam bahasa
+Indonesia, pada elemen tertentu saja.
 
 ### Kamus yang dimuat saat dibutuhkan (Oktober 2026, performance stage 3)
 
@@ -1120,6 +1129,7 @@ path di luar `e2e/` diabaikan), yang seperti Figma menolak tautan tanpa www.
 | `gallery.test.js` | `server/gallery` + `shared/gallery-model` di SQLite `:memory:`; ownership, permission, pagination, penolakan gambar tak aman, prototype key |
 | `i18n.test.js` | round-trip EN→ID→EN dan protected content |
 | `i18n-conflicts.test.js` | satu English satu Indonesia: build berhenti pada konflik baru; istilah `docs/GLOSSARY-ID.md` |
+| `i18n-sweep.test.js` | setiap `tr("…")` di `src/` punya kata Indonesia; kata centang task pribadi dan chip audiens komentar |
 | `figma-preview.test.js` | pratinjau Figma tanpa jaringan (fetch di-stub): hanya oEmbed dan thumbnail Figma (host, https, redirect, 5 MB, 10 detik, gambar menurut byte), cache 6 jam / 1 jam / 10 menit, Muat ulang, rate limit, stub e2e hanya dari `e2e/` |
 | `link-title.test.js` | nama tautan Google (dari cache) dan oEmbed (fetch di-stub): alamat oEmbed yang benar-benar dikirim untuk Figma tanpa www / http / node-id, Loom, Miro, YouTube, Vimeo; key/id yang salah dan tautan komunitas ditolak sebelum fetch |
 | `report-export.test.js` | PPT card overflow + paginasi; **membuka ZIP hasil dengan local-header reader tulisan tangan** |
