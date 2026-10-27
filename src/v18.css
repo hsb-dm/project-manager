@@ -88,9 +88,9 @@
 /* v35: follow-up messages use the same plain style as the first message of a group (no bubble) */
 
 .msg-text a{color:var(--color-primary);text-decoration:underline}
-.msg-text mark{background:var(--color-secondary);color:#111;border-radius:3px;padding:0 2px}
+.msg-text mark{background:var(--color-secondary);color:var(--color-secondary-ink);border-radius:3px;padding:0 2px}
 .msg-mention{font-weight:700;color:var(--color-primary);background:var(--color-primary-soft);padding:0 4px;border-radius:5px}
-.msg-mention.self{background:var(--color-secondary);color:#111}
+.msg-mention.self{background:var(--color-secondary);color:var(--color-secondary-ink)}
 .msg.mentions-me{box-shadow:inset 3px 0 0 var(--color-secondary)}
 .msg.pinned{background:color-mix(in srgb,var(--color-warning-soft) 45%,transparent)}
 .msg.flash{animation:msgFlash 2s ease-out}
@@ -338,7 +338,7 @@ body.auth .msgfab,body.aichat-open .msgfab{display:none!important}
 .focus{margin:-4px 0 12px;padding:10px 14px;border-radius:var(--radius);background:var(--color-surface);border:1px solid var(--color-border);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .focus.calm{background:var(--color-success-soft);border-color:transparent}
 .focus-head{display:flex;align-items:center;gap:10px;min-width:0}.focus-head>div{display:flex;flex-direction:column}.focus-head .mh{padding:0;line-height:1}.focus-head b{font-size:13.5px}
-.focus-ico{width:34px;height:34px;border-radius:10px;background:var(--color-secondary);color:#111;display:grid;place-items:center;flex:none}.focus.calm .focus-ico{background:var(--color-success);color:#fff}.focus-ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.focus-ico{width:34px;height:34px;border-radius:10px;background:var(--color-secondary);color:var(--color-secondary-ink);display:grid;place-items:center;flex:none}.focus.calm .focus-ico{background:var(--color-success);color:#fff}.focus-ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
 .focus-items{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
 .focus-items button{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:var(--pill);background:var(--color-surface-sunken);font-size:12px;font-weight:600;color:var(--color-text-secondary);transition:background .15s,color .15s,transform .12s,box-shadow .15s}
 .focus-items button b{font-size:13px;color:var(--color-text-primary)}
@@ -454,7 +454,7 @@ body.auth .msgfab,body.aichat-open .msgfab{display:none!important}
 .workbench{margin:-4px 0 16px;border-radius:var(--radius);background:var(--color-surface);border:1px solid var(--color-border);overflow:hidden}
 .wb-head{display:flex;align-items:center;gap:10px;padding:10px 12px}
 .wb-toggle{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--color-text-tertiary);transition:transform .2s,background .15s}.wb-toggle svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s}.wb-toggle.open svg{transform:rotate(180deg)}.wb-toggle:hover{background:var(--color-surface-sunken)}
-.wb-ico{width:32px;height:32px;border-radius:9px;background:var(--color-secondary);color:#111;display:grid;place-items:center;flex:none}.wb-ico.calm{background:var(--color-success-soft);color:var(--color-success)}.wb-ico svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
+.wb-ico{width:32px;height:32px;border-radius:9px;background:var(--color-secondary);color:var(--color-secondary-ink);display:grid;place-items:center;flex:none}.wb-ico.calm{background:var(--color-success-soft);color:var(--color-success)}.wb-ico svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
 .wb-title{display:flex;flex-direction:column;min-width:0}.wb-title b{font-size:13.5px}.wb-title span{font-size:12px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wb-head .seg{display:inline-flex;gap:2px;background:var(--color-surface-sunken);border-radius:var(--pill);padding:2px}
 .wb-head .seg button{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:var(--pill);font-size:12px;font-weight:650;color:var(--color-text-secondary);transition:background .15s,color .15s,box-shadow .15s}
@@ -530,7 +530,7 @@ body.auth .nav-messages{display:none!important}
 .msg-input .msg-ta-wrap textarea::selection{background:color-mix(in srgb,var(--color-primary) 25%,transparent)}
 .msg-input .msg-ta-mirror{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;color:var(--color-text-primary);box-sizing:border-box;font:inherit;font-size:13.5px;line-height:1.5;padding:7px 4px}
 .msg-input .msg-ta-mirror .msg-mention{color:var(--color-primary);background:var(--color-primary-soft);border-radius:5px;padding:0 4px;margin:0 -4px;font-weight:inherit} /* same width as the textarea text under it, or the caret drifts behind every mention */
-.msg-input .msg-ta-mirror .msg-mention.self{background:var(--color-secondary);color:#111}
+.msg-input .msg-ta-mirror .msg-mention.self{background:var(--color-secondary);color:var(--color-secondary-ink)}
 /* Scheduled messages strip above the composer */
 .msg-scheduled{display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-bottom:1px solid var(--color-border);background:var(--color-surface-sunken)}
 .msg-scheduled .tiny{display:flex;align-items:center;gap:6px}

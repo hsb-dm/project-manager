@@ -597,7 +597,7 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
 .pref .pl span.badge.prog{color:var(--color-primary-ink)}
 .pref .pl span.badge.client{color:var(--color-primary)}
 .pref .pl span.badge.done{color:var(--color-ink-text)}
-.pref .pl span.badge.req{color:#111}
+.pref .pl span.badge.req{color:var(--color-secondary-ink)}
 /* the title and its status pills need breathing room, not a run-on line */
 .pref .pl b{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:650}
 
@@ -963,7 +963,7 @@ body.auth #tabbar,body.auth #sheet,body.auth #aiFab,body.auth #msgFab,body.auth 
  .cal-mobile-date .iconbtn,.cal-mobile-actions>.iconbtn{border:1px solid var(--color-border);background:var(--color-surface)}
  .cal-mobile-date strong{font-weight:750}
  .cal-mobile-actions .seg{gap:0}
- .cal-mobile-actions>.iconbtn.active{background:var(--color-primary);color:var(--color-primary-ink);border-color:var(--color-primary)}.cal-mobile-actions>.iconbtn{position:relative}.cal-mobile-count{position:absolute;right:-3px;top:-4px;display:grid;place-items:center;padding:0 2px;border-radius:8px;background:var(--color-secondary);color:#111;font-weight:800}
+ .cal-mobile-actions>.iconbtn.active{background:var(--color-primary);color:var(--color-primary-ink);border-color:var(--color-primary)}.cal-mobile-actions>.iconbtn{position:relative}.cal-mobile-count{position:absolute;right:-3px;top:-4px;display:grid;place-items:center;padding:0 2px;border-radius:8px;background:var(--color-secondary);color:var(--color-secondary-ink);font-weight:800}
  .calendar-mobile-controls+.calendar-toolbar+.cal{margin:0 0 14px!important;border-radius:12px;overflow:hidden}.calendar-mobile-controls+.calendar-toolbar+.cal+.panel{margin-top:14px!important}
  .cal-head>div{padding:7px 2px;font-size:9px}
  .cal-grid{grid-auto-rows:minmax(76px,76px)}.cal-week{min-height:260px}
