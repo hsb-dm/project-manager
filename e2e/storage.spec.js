@@ -66,6 +66,9 @@ test("a member attaches a PDF, a deck and a spreadsheet; each is stored and save
     file("Budget.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 20_000)
   ]);
   await expect.poll(() => page.evaluate(id => task(id).files.map(f => f.url).filter(u => /^\/files\/d\//.test(u)).length, taskId), { timeout: 15000 }).toBe(3);
+  /* the toast says where they went: this server, not Google Drive as it once did whatever the storage */
+  await expect(page.locator("#toasts .toast", { hasText: "3 files attached to this server" })).toHaveCount(1);
+  await expect(page.locator("#toasts .toast", { hasText: "Google Drive" })).toHaveCount(0);
   const urls = await page.evaluate(id => task(id).files.map(f => f.url), taskId);
   expect(urls.some(u => u.endsWith(".pdf"))).toBe(true);
   expect(urls.some(u => u.endsWith(".pptx"))).toBe(true);
