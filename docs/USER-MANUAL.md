@@ -245,6 +245,13 @@ Archived projects · Hidden tasks (Hidden / Show all / Hidden only) · Label.
 
 Filter digabung dengan **AND**.
 
+**Archived** (*Diarsipkan*) di header Tasks, sebelum **Excel**, menampilkan task yang diarsipkan — yang
+diarsipkan manual (menu klik kanan **Archive**, atau **Hide task** di menu gear) dan task selesai yang
+diarsipkan otomatis oleh aturan **Settings → Automation** — dengan jumlahnya untuk Mine/All dan filter yang
+aktif; klik lagi atau **Back to tasks** (*Kembali ke task*) untuk kembali. Di bawah 1240 px tombolnya
+bulat (ikon dan angka; dari 600 sampai 1099 px **Excel** juga tinggal ikonnya). Mengembalikan task: **Unarchive** di menu klik kanan atau **Unhide** di panelnya;
+yang diarsipkan otomatis kembali bila aturannya diubah.
+
 ### Saved Views
 
 Tombol **Views** menyimpan seluruh konfigurasi tampilan sekarang: jenis view, filter,

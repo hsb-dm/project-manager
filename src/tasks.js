@@ -5,8 +5,15 @@
 var DUE_PRESETS=[["","Any due date"],["today","Today"],["tomorrow","Tomorrow"],["week","This week"],["nextweek","Next week"],["overdue","Overdue"],["custom","Custom range…"]];
 function weekRange(offsetWeeks){ var dow=(TODAY.getDay()+6)%7; var s=-dow+7*offsetWeeks; return [s,s+6]; }
 function dueMatch(t,preset,f){ if (!preset) return true; if (preset==="today") return t.due===0; if (preset==="tomorrow") return t.due===1; if (preset==="overdue") return t.due<0&&!isClosed(t); if (preset==="week"){ var w=weekRange(0); return t.due>=w[0]&&t.due<=w[1]; } if (preset==="nextweek"){ var n=weekRange(1); return t.due>=n[0]&&t.due<=n[1]; } if (preset==="custom"){ var a=f.dueFrom?offsetFromIso(f.dueFrom):-9999, b=f.dueTo?offsetFromIso(f.dueTo):9999; return t.due>=a&&t.due<=b; } return true; }
-function filteredTasks(){ var f=S.filters; return TASKS.filter(function(x){ if (!f.archived&&projArchived(x.proj)&&!(S.screen==="projects"&&S.projectId===x.proj)) return false; if (f.hidden==="only"&&!(x.hidden||autoHidden(x))) return false; if (!f.hidden&&(x.hidden||autoHidden(x))) return false;
-    if (f.label&&(x.labels||[]).indexOf(f.label)<0) return false; if (S.taskScope==="mine"&&!isAssignee(x,ME)&&!isReviewer(x,ME)) return false; if (S.projectId&&S.screen==="projects"&&!inProject(x,S.projectId)) return false; if (f.status&&x.status!==f.status) return false; if (f.kind&&stageKind(x.status)!==f.kind) return false; if (f.assignee&&!isAssignee(x,f.assignee)) return false; if (f.reviewer&&!isReviewer(x,f.reviewer)) return false; if (f.proj&&!inProject(x,f.proj)) return false; if (f.prio&&x.prio!==f.prio) return false; if (f.team&&!taskInvolvesTeam(x,f.team)) return false; if (f.tag&&x.tags.indexOf(f.tag)<0) return false; if (f.dependency==="blocked"&&!isTaskBlocked(x)) return false; if (f.dependency==="ready"&&dependencyState(x)!=="ready") return false; if (f.dependency==="blocking"&&!blockingTasksOf(x).length) return false; if (f.dependency==="has"&&!(x.dependencies||[]).length) return false; if (f.dependency==="none"&&(x.dependencies||[]).length) return false; if (!dueMatch(x,f.due,f)) return false; return true; }); }
+/* Every filter but Hidden tasks (f.hidden: "" hides archived tasks, "show" shows all, "only" shows only them), which
+   taskFilterPass applies after it. One pass over TASKS gives what the view shows and how many archived tasks the same
+   filters and scope hold: the count on the Tasks page's Archived button (taskArchivedBtn) is what a click shows. */
+function filteredTasks(){ return taskFilterPass().list; }
+function taskFilterPass(){ var f=S.filters, list=[], archived=0;
+  TASKS.forEach(function(x){ if (!taskBaseMatch(x,f)) return; var a=!!(x.hidden||autoHidden(x)); if (a) archived++; if (f.hidden==="only"?a:(!a||!!f.hidden)) list.push(x); });
+  return {list:list,archived:archived}; }
+function taskBaseMatch(x,f){ if (!f.archived&&projArchived(x.proj)&&!(S.screen==="projects"&&S.projectId===x.proj)) return false;
+    if (f.label&&(x.labels||[]).indexOf(f.label)<0) return false; if (S.taskScope==="mine"&&!isAssignee(x,ME)&&!isReviewer(x,ME)) return false; if (S.projectId&&S.screen==="projects"&&!inProject(x,S.projectId)) return false; if (f.status&&x.status!==f.status) return false; if (f.kind&&stageKind(x.status)!==f.kind) return false; if (f.assignee&&!isAssignee(x,f.assignee)) return false; if (f.reviewer&&!isReviewer(x,f.reviewer)) return false; if (f.proj&&!inProject(x,f.proj)) return false; if (f.prio&&x.prio!==f.prio) return false; if (f.team&&!taskInvolvesTeam(x,f.team)) return false; if (f.tag&&x.tags.indexOf(f.tag)<0) return false; if (f.dependency==="blocked"&&!isTaskBlocked(x)) return false; if (f.dependency==="ready"&&dependencyState(x)!=="ready") return false; if (f.dependency==="blocking"&&!blockingTasksOf(x).length) return false; if (f.dependency==="has"&&!(x.dependencies||[]).length) return false; if (f.dependency==="none"&&(x.dependencies||[]).length) return false; if (!dueMatch(x,f.due,f)) return false; return true; }
 function anyFilter(){ var f=S.filters; return Object.keys(f).some(function(k){ return f[k]; }); }
 function useManualTaskFilters(){ if(!S._temporaryTaskFilter)return; S._temporaryTaskFilter=false; S._manualTaskFilters=null; S._manualTaskScope=null; S._manualActiveView=null; }
 function clearFilters(){ useManualTaskFilters(); S.filters=emptyTaskFilters(); S.activeView=null; renderScreen(false); }
@@ -68,12 +75,16 @@ var FILTER_DEFS=function(opts){ var tags=WS.tags.slice(); TASKS.forEach(function
   if (TASKS.some(function(x){ return x.hidden||autoHidden(x); })) defs.push(["hidden","Hidden tasks",[["","Hidden"],["show","Show all"],["only","Hidden only"]]]);
   if (allLabels().length) defs.push(["label","Label",[["","All labels"]].concat(allLabels().map(function(l){ return [l.id,l.name]; }))]); return defs; };
 function filterLabel(k,v){ if (k==="status") return stageName(v); if (k==="team") return teamName(v); if (k==="assignee"||k==="reviewer") return person(v).name; if (k==="proj") return (project(v)||{name:v}).name; if (k==="prio") return prioL(v); if (k==="dependency") return {blocked:"Blocked",ready:"Ready",blocking:"Blocking other tasks",has:"Has dependencies",none:"No dependencies"}[v]||v; if (k==="due"){ var p=DUE_PRESETS.filter(function(x){ return x[0]===v; })[0]; return p?p[1]:v; } if (k==="archived") return "shown"; if (k==="hidden") return v==="only"?"hidden only":"shown"; if (k==="kind") return "In review"; return v; }
+/* a filter shown as a chip and counted on the Filters button. On the Tasks page Hidden tasks: Hidden only is the
+   Archived button pressed, which the page's title, the line under it and the button say in their own words; a chip
+   "Hidden tasks: hidden only" beside them read as something else (ARCHIVED TASKS, below renderTasks). */
+function filterChipOn(d){ var f=S.filters; return !!f[d[0]]&&!(d[0]==="hidden"&&f.hidden==="only"&&S.screen==="tasks"); }
 function calFilterOpts(){ return S.screen==="calendar"?{noScope:true}:S.screen==="projects"?{noScope:true,noProject:true}:{}; }
 /* The filter control and its chips, without the toolbar around them. */
 /* filterInline("chips"): only the active filters' chips, which the calendar's row puts on a line of their own under its
    controls (as the task toolbar does), so a filter never pushes the month's controls onto a second line */
 function filterInline(part){
-  var o=calFilterOpts(), f=S.filters, defs=FILTER_DEFS(o), active=defs.filter(function(d){ return f[d[0]]; });
+  var o=calFilterOpts(), f=S.filters, defs=FILTER_DEFS(o), active=defs.filter(filterChipOn);
   if(f.kind) active.push(["kind","Stage kind"]);
   if(part!=="chips") return (o.noScope?"":segRadio("taskscope","Show",[["mine","Mine",I.user],["all","Team",I.team]],S.taskScope,"setTaskScope","cal-scope-seg"))
     + '<button data-tour="task-filters" class="iconbtn task-round-action'+(active.length?" active":"")+'" onclick="filterModal()" aria-label="'+attr(tr("Filters"))+'" title="'+attr(tr("Filters"))+'">'+I.filter+(active.length?'<span class="task-round-count">'+active.length+'</span>':"")+'</button>';
@@ -83,10 +94,10 @@ function filterBar(opts){ opts=opts||{};
   /* In calendar views these controls live on the month row instead (see calendar()), so this
      toolbar would be an almost empty band above it. */
   if(S.taskView==="calendar") return "";
- var f=S.filters; var defs=FILTER_DEFS(opts); var active=defs.filter(function(d){ return f[d[0]]; }); if (f.kind) active.push(["kind","Stage kind"]);
+ var f=S.filters; var defs=FILTER_DEFS(opts); var active=defs.filter(filterChipOn); if (f.kind) active.push(["kind","Stage kind"]);
   var h='<div class="toolbar task-filter-toolbar" data-tour="task-filters"><div class="task-toolbar-primary">'+(opts.noScope?'':'<div class="seg"><button class="'+(S.taskScope==="mine"?"on":"")+'" onclick="S.taskScope=\'mine\';renderScreen(false)">Mine</button><button class="'+(S.taskScope==="all"?"on":"")+'" onclick="S.taskScope=\'all\';renderScreen(false)">All</button></div><button type="button" class="btn sm task-scope-toggle" aria-label="'+attr(tr("Scope"))+'" onclick="S.taskScope=S.taskScope===\'mine\'?\'all\':\'mine\';renderScreen(false)">'+(S.taskScope==="mine"?(UI_LANG==="id"?"Saya":"Mine"):tr("All"))+'</button>')+
     '<button data-tour="task-dependency-filter" class="iconbtn task-round-action'+(active.length?" active":"")+'" onclick="filterModal()" aria-label="Filters" title="Filters">'+I.filter+(active.length?'<span class="task-round-count">'+active.length+'</span>':'')+'</button></div>'+
-    '<div class="fchips">'+active.map(function(d){ var k=d[0]; return '<span class="fchip"'+(k==="team"?' title="'+attr(tr("Includes other teams' tasks assigned to its people"))+'"':'')+'>'+esc(d[1])+': <b>'+esc(filterLabel(k,f[k]))+'</b>'+(k==="due"&&f.due==="custom"?' <span class="mono">'+esc(f.dueFrom||"…")+'→'+esc(f.dueTo||"…")+'</span>':'')+'<button title="Remove" onclick="setFilter(\''+k+'\',\'\')">'+I.x+'</button></span>'; }).join("")+(active.length>1?'<button class="btn xs ghost" onclick="clearFilters()">Clear all</button>':'')+'</div><span class="spacer"></span>';
+    '<div class="fchips">'+active.map(function(d){ var k=d[0]; return '<span class="fchip"'+(k==="team"?' title="'+attr(tr("Includes other teams' tasks assigned to its people"))+'"':'')+'>'+esc(tr(d[1]))+': <b>'+esc(filterLabel(k,f[k]))+'</b>'+(k==="due"&&f.due==="custom"?' <span class="mono">'+esc(f.dueFrom||"…")+'→'+esc(f.dueTo||"…")+'</span>':'')+'<button title="Remove" onclick="setFilter(\''+k+'\',\'\')">'+I.x+'</button></span>'; }).join("")+(active.length>1?'<button class="btn xs ghost" onclick="clearFilters()">Clear all</button>':'')+'</div><span class="spacer"></span>';
   h=h.replace('<span class="spacer"></span>','<span class="spacer task-toolbar-spacer"></span><div class="task-toolbar-sort">');
   if (S.taskView!=="calendar"&&S.taskView!=="timeline") h+=pillSel("Sort",S.sort,[["manual","Manual"],["due","Due date"],["prio","Priority"],["created","Created"],["title","A → Z"],["status","Status"],["team","Team"],["assignee","Assignee"]],"S.sort=this.value;S.sortDir=1;renderScreen(false)")+'<button class="iconbtn task-sort-direction" title="Reverse sort" aria-label="Reverse sort" onclick="S.sortDir=-S.sortDir;renderScreen(false)">'+(S.sortDir>0?I.arrowdn:I.arrowup)+'</button>';
   if (S.taskView==="list"||S.taskView==="grid") h+=pillSel("Group",S.group,[["","None"],["status","Status"],["team","Team"],["assignee","Assignee"],["proj","Project"],["prio","Priority"],["due","Due date"]],"S.group=this.value;renderScreen(false)");
@@ -107,9 +118,56 @@ function updateView(){ var v=byId(VIEWS,S.activeView); if (!v) return; Object.as
 function viewMenu(anchor,id){ ctxMenu(anchor,'<button onclick="closePops();renameView(\''+id+'\')">'+I.edit+'Rename</button><button onclick="closePops();deleteViewById(\''+id+'\');toast(\'View deleted\',\'bad\')">'+I.trash+'Delete view</button>'); }
 function renameView(id){ var v=byId(VIEWS,id); openModal("Rename view",fieldHtml("sv_name","Name",'<input id="sv_name" value="'+attr(v.name)+'">'),'<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="if(require([\'sv_name\'])){var v=byId(VIEWS,\''+id+'\');v.name=val(\'sv_name\');closeModal();renderScreen(false);persistView(v,false)}">Save</button>'); }
 
-function renderTasks(){ var list=filteredTasks(); var h='<div class="pagehead task-pagehead"><div><h1>'+tr(S.taskScope==="mine"?"My tasks":"All tasks")+'</h1><div class="muted" style="margin-top:4px">'+list.length+' '+tr("tasks")+' · '+list.filter(function(x){return !isClosed(x);}).length+' '+tr("open")+(S.activeView?' · '+tr("view")+' “'+esc((byId(VIEWS,S.activeView)||{}).name)+'”':'')+'</div></div><div class="actions">'+viewSwitch()+'<button class="btn task-export" onclick="exportModal(\'xlsx\')">'+I.download+'Excel</button>'+(canI.createTask()?'<button class="btn primary task-new" aria-label="'+attr(tr("New task"))+'" title="'+attr(tr("New task"))+'" onclick="newTaskModal()">'+I.plus+'New task</button>':'')+'</div></div>'+filterBar();
-  h+=taskViewBody(list); document.getElementById("content").innerHTML=h; }
-function taskViewBody(list){ var out=S.taskView==="kanban"?kanban(list):S.taskView==="list"?taskTable(list):S.taskView==="grid"?taskGrid(list):S.taskView==="calendar"?calendar(list):timeline(list); return '<div data-tour="task-list">'+out+'</div>'; }
+function renderTasks(){ var pass=taskFilterPass(), list=pass.list, arch=S.filters.hidden==="only", view=S.activeView?' · '+tr("view")+' “'+esc((byId(VIEWS,S.activeView)||{}).name)+'”':'';
+  var sub=arch?list.length+' '+tr(list.length===1?"task":"tasks")+' · '+esc(taskArchivedWhy())+view:list.length+' '+tr("tasks")+' · '+list.filter(function(x){return !isClosed(x);}).length+' '+tr("open")+view;
+  var h=(arch?'<div class="task-archived-back"><button type="button" class="btn ghost sm" onclick="toggleArchivedTasks()">'+I.back+tr("Back to tasks")+'</button></div>':'')+'<div class="pagehead task-pagehead'+(arch?' task-archived-on':'')+'"><div><h1>'+tr(arch?"Archived tasks":S.taskScope==="mine"?"My tasks":"All tasks")+'</h1><div class="muted" style="margin-top:4px">'+sub+'</div></div><div class="actions">'+viewSwitch()+taskArchivedBtn(pass.archived,arch)+'<button class="btn task-export" aria-label="Excel" title="Excel" onclick="exportModal(\'xlsx\')">'+I.download+'<span class="task-export-label">Excel</span></button>'+(canI.createTask()?'<button class="btn primary task-new" aria-label="'+attr(tr("New task"))+'" title="'+attr(tr("New task"))+'" onclick="newTaskModal()">'+I.plus+'New task</button>':'')+'</div></div>'+filterBar();
+  /* no archived task to show: what archives one, in place of an empty board, list, grid or timeline; the calendar
+     keeps its month, whose row holds whose tasks and the filters, under the note */
+  if (arch&&!list.length) h+=S.taskView==="calendar"?taskArchivedEmpty()+taskViewBody(list,arch):'<div data-tour="task-list" class="task-archived-list">'+taskArchivedEmpty()+'</div>';
+  else h+=taskViewBody(list,arch);
+  document.getElementById("content").innerHTML=h; }
+function taskViewBody(list,arch){ var out=S.taskView==="kanban"?kanban(list):S.taskView==="list"?taskTable(list):S.taskView==="grid"?taskGrid(list):S.taskView==="calendar"?calendar(list):timeline(list); return '<div data-tour="task-list"'+(arch?' class="task-archived-list"':'')+'>'+out+'</div>'; }
+
+/* ---------- ARCHIVED TASKS (Oct 2026) ----------
+   "Satu tombol di Tasks untuk lihat task mana yang sudah diarsipkan": an archived task is one hidden from the board,
+   by hand (t.hidden: the row menu's Archive, the task panel's Hide task) or automatically (autoHidden: done work older
+   than Settings → Automation's rule). The List could already show them (Filters → Hidden tasks: Hidden only), a
+   choice only there when such a task existed, so nobody found it. The page head now has the Archived button, before
+   Excel, with how many archived tasks the scope and the other filters hold (taskFilterPass, the same pass as the
+   list): it sets that filter to Hidden only (setFilter, as any filter: a saved view applied is let go of, a Home
+   card's lens is kept as the person's own) and back to hidden, the view, the scope and the other filters as they
+   are, in every view (the Calendar's too, which has no filter bar). While it is on the title is "Archived tasks",
+   the line under it says how they got there, "Back to tasks" above the head turns it off, the Hidden tasks chip is
+   not drawn beside them (filterChipOn), no card is greyed out, and nothing archived says so with what archives a
+   task (or, with other filters on, what to change). A task's menu offers the way back: Unarchive for one archived by
+   hand (the screen is drawn again at once, the task gone from it and the count one less), the rule for one archived
+   automatically (src/enhance.js taskCtxArchive). Where the head is short of room the button shows its icon
+   and count only, its name staying in aria-label and title (CSS below; the head keeps its rows at every width). */
+/* the archive box Messages draws for an archived conversation, in the icons' style */
+I.archive=I.archive||'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>';
+function taskArchivedBtn(n,on){ var name=tr("Archived");
+  return '<button type="button" class="btn task-archived'+(on?' on':'')+'" aria-pressed="'+(on?'true':'false')+'" aria-label="'+attr(name+' '+n)+'" title="'+attr(tr(on?"Back to tasks":"Show archived tasks"))+'" onclick="toggleArchivedTasks()">'+I.archive+'<span class="task-archived-label">'+esc(name)+'</span><span class="task-archived-count">'+n+'</span></button>'; }
+function toggleArchivedTasks(){ var a=document.activeElement, kept=!!(a&&a.closest&&a.closest(".task-archived,.task-archived-back,.task-archived-empty"));
+  setFilter("hidden",S.filters.hidden==="only"?"":"only");
+  /* the focus, on one of them, goes to the button drawn again (the screen is drawn anew) */
+  if (kept){ var b=document.querySelector("#content .task-archived"); if (b) b.focus({preventScroll:true}); } }
+/* the Automation rule for tasks, in the reader's words ("previous months", "older than 30 days") */
+function taskArchiveRule(){ var c=autoHideCfg(); return c.tasks==="month"?tr("previous months"):c.tasks==="quarter"?tr("previous quarters"):fmt(tr("older than {n} days"),{n:c.taskDays}); }
+function taskArchivedWhy(){ return autoHideCfg().tasks==="off"?tr("archived by hand"):fmt(tr("archived by hand, or automatically when done ({rule})"),{rule:taskArchiveRule()}); }
+/* none archived at all, or none the other filters let through (then, as an empty List says, what to change) */
+function taskArchivedEmpty(){ var f=S.filters, off=autoHideCfg().tasks==="off", narrowed=Object.keys(f).some(function(k){ return f[k]&&k!=="hidden"&&k!=="dueFrom"&&k!=="dueTo"; });
+  return '<div class="panel task-archived-empty">'+emptyBox(tr(narrowed?"No archived tasks match these filters":"No archived tasks"),esc(narrowed?tr("Clear a filter or switch to All tasks."):off?tr("Archive a task from its menu and it shows here."):fmt(tr("Archive a task from its menu, or done tasks are archived automatically ({rule})."),{rule:taskArchiveRule()})),I.archive,'<button type="button" class="btn sm" onclick="toggleArchivedTasks()">'+I.back+tr("Back to tasks")+'</button>')+'</div>'; }
+(function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({ "Archived tasks":"Task diarsipkan", "Back to tasks":"Kembali ke task",
+  "Show archived tasks":"Tampilkan task diarsipkan", "No archived tasks":"Belum ada task yang diarsipkan",
+  "No archived tasks match these filters":"Tidak ada task diarsipkan yang cocok dengan filter ini",
+  "archived by hand":"diarsipkan manual", "archived by hand, or automatically when done ({rule})":"diarsipkan manual, atau otomatis setelah selesai ({rule})",
+  "previous quarters":"kuartal-kuartal sebelumnya", "older than {n} days":"lebih dari {n} hari",
+  "Archive a task from its menu and it shows here.":"Arsipkan task dari menunya, nanti task itu tampil di sini.",
+  "Archive a task from its menu, or done tasks are archived automatically ({rule}).":"Arsipkan task dari menunya, atau task selesai diarsipkan otomatis ({rule}).",
+  /* a task's menu (src/enhance.js taskCtxArchive) */
+  "Archived automatically":"Diarsipkan otomatis",
+  /* the Hidden tasks chip's value (filterLabel), where it is drawn: the Calendar page, a project */
+  "hidden only":"hanya tersembunyi" });
 
 /* ---------- DRAWING ONLY WHAT CAN BE SEEN (Oct 2026) ----------
    With 1,500 tasks the List drew 62,000 elements, the Kanban 28,500, the Timeline 79,000 and the Grid 135,000, and
@@ -379,7 +437,7 @@ function calScopeToggle(k,allLabel){ var mine=S[k]==="mine", label=mine?(UI_LANG
 /* opts.noFilter (a team's calendar, on its page): the month, Today and the period only. It shows one team's tasks, not
    the filtered list, so it has no filters, no saved views and no whose tasks; before Oct 2026 it had no row at all, so a
    phone could not leave the month. */
-function calendarMobileControls(opts){ opts=opts||{}; var defs=FILTER_DEFS({noProject:false}), active=defs.filter(function(d){return S.filters[d[0]];}).length+(S.filters.kind?1:0), cur=S.activeView?byId(VIEWS,S.activeView):null;
+function calendarMobileControls(opts){ opts=opts||{}; var defs=FILTER_DEFS({noProject:false}), active=defs.filter(filterChipOn).length+(S.filters.kind?1:0), cur=S.activeView?byId(VIEWS,S.activeView):null;
   if(opts.noFilter) return '<div class="calendar-mobile-controls cal-team-controls cal-m-'+S.calMode+'"><div class="cal-mobile-date"><button class="iconbtn" aria-label="'+attr(tr("Previous"))+'" onclick="calNav(-1)">'+I.chevl+'</button><strong>'+calTitleBoth()+'</strong><button class="iconbtn" aria-label="'+attr(tr("Next"))+'" onclick="calNav(1)">'+I.chev+'</button><button class="btn sm cal-mobile-today" onclick="calToday()">'+tr("Today")+'</button></div><div class="cal-mobile-actions">'+calModeSeg()+'</div></div>';
   return '<div class="calendar-mobile-controls cal-m-'+S.calMode+(S.screen==="tasks"?' cal-tasks':'')+'"><div class="cal-mobile-date"><button class="iconbtn" aria-label="'+attr(tr("Previous"))+'" onclick="calNav(-1)">'+I.chevl+'</button><strong>'+calTitleBoth()+'</strong><button class="iconbtn" aria-label="'+attr(tr("Next"))+'" onclick="calNav(1)">'+I.chev+'</button><button class="btn sm cal-mobile-today" onclick="calToday()">'+tr("Today")+'</button></div><div class="cal-mobile-actions"><button class="iconbtn'+(active?' active':'')+'" aria-label="'+attr(tr("Filters"))+'" title="'+attr(tr("Filters"))+'" onclick="filterModal()">'+I.filter+(active?'<span class="cal-mobile-count">'+active+'</span>':'')+'</button>'+(S.screen==="projects"?'':'<button class="iconbtn'+(cur?' active':'')+'" data-menu aria-label="'+attr(tr("Views"))+'" title="'+attr(tr("Views"))+'" onclick="viewsMenu(this)">'+I.pin+'</button>')+(S.screen==="calendar"?calScopeToggle("calScope","Team"):'')+(S.screen==="tasks"?calScopeToggle("taskScope","All"):'')+calModeSeg()+'<button class="iconbtn'+(S.calLabelsOpen?' active':'')+'" aria-pressed="'+(S.calLabelsOpen?'true':'false')+'" aria-label="'+attr(tr(S.calLabelsOpen?'Hide labels':'Show labels'))+'" title="'+attr(tr(S.calLabelsOpen?'Hide labels':'Show labels'))+'" onclick="toggleChipLabels()">'+(S.calLabelsOpen?I.eyeoff:I.eye)+'</button></div></div>'; }
 function calItems(list,opts){ var byDay={}; list.forEach(function(t){ var k=iso(t.due); (byDay[k]=byDay[k]||[]).push({type:"task",o:t}); }); (S.filters.archived?PROJECTS:liveProjects()).filter(function(p){ /* compact (a team's page): the milestones and deadlines of its own projects only */ return !(opts&&opts.compact)||list.some(function(t){ return inProject(t,p.id); }); }).forEach(function(p){ p.milestones.forEach(function(ms){ var k=iso(ms.due); (byDay[k]=byDay[k]||[]).push({type:"ms",o:ms,p:p}); }); if (p.status!=="done"){ var k2=iso(p.due); (byDay[k2]=byDay[k2]||[]).push({type:"pdue",o:p}); } }); return byDay; }
@@ -525,4 +583,50 @@ function deleteTask(id){ var linked=TASKS.filter(function(t){return (t.dependenc
   .vpager-num{min-width:32px;height:34px;line-height:34px;padding:0 5px}
 }
 @media print{ .vpage-btn,.vpager-row{display:none!important} }
+/* ARCHIVED TASKS (above): the Archived button, its count in a small pill; pressed, it is drawn as the chosen view is
+   (ink), its count on the primary colour in that colour's ink */
+.task-archived .task-archived-count{display:inline-block;min-width:19px;padding:1px 6px;border-radius:10px;background:var(--color-surface-sunken);color:var(--color-text-secondary);font-size:11px;font-weight:700;line-height:1.45;text-align:center;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.task-archived.on{background:var(--color-ink);border-color:var(--color-ink);color:var(--color-ink-text)}
+.task-archived.on:hover{background:var(--color-ink);opacity:.9}
+.task-archived.on .task-archived-count{background:var(--color-primary);color:var(--color-primary-ink)}
+.task-archived-back{margin:-4px 0 8px}
+/* while on: the line under the title (how many, and how they got there) never widens the title's block, so the
+   actions keep the place they have; it wraps within the room the block takes */
+.task-pagehead.task-archived-on>div:first-child{flex:1 1 auto;min-width:0}
+.task-pagehead.task-archived-on>div:first-child>.muted{contain:inline-size}
+/* every card is archived here: none is greyed out */
+.task-archived-list .kcard.dim,.task-archived-list .kcard.dim .kthumb,.task-archived-list .chip.dim,.task-archived-list .row.dim{opacity:1;filter:none}
+.task-archived-list .kcard.dim{background:var(--color-surface)}
+.task-archived-empty .empty .ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.task-archived-empty+div[data-tour="task-list"]{margin-top:14px}
+/* The head keeps its rows at every width (e2e/task-toolbar-rows.spec.js, e2e/archived-tasks.spec.js). Its name and
+   count take 137 px in English and 149 in Indonesian, which the row of actions has from 1240 px; below that the
+   button is round, its icon with its count on its corner as on the Filters button, its name in aria-label and title.
+   Even round it had no room in places from 600 to 1099 px: under 640 px while selecting with Timeline chosen (its
+   word the longest), where the views show all five words beside Select (828 to 899 px, 2 px left in Indonesian
+   while selecting) and where the actions share the title's row (981 to 1099 px, 10 px left at 981 while selecting,
+   12 px at 1024 in Indonesian). Excel gives up its word there, one rule for that whole range rather than three:
+   its icon, round, its name kept the same way. On a phone (up to 599 px) the button sits in the title's row beside
+   the round New task, the row of views under it unchanged. */
+@media (max-width:1239px){
+  .task-pagehead .actions>.task-archived{position:relative;width:36px;min-width:36px;height:36px;padding:0;gap:0;justify-content:center;border-radius:50%;flex:none}
+  .task-pagehead .task-archived .task-archived-label{display:none}
+  .task-pagehead .task-archived .task-archived-count{position:absolute;right:-6px;top:-6px;min-width:18px;height:18px;padding:0 4px;border:1px solid var(--color-border-strong);border-radius:9px;background:var(--color-surface);color:var(--color-text-primary);font-size:9.5px;line-height:16px}
+  .task-pagehead .task-archived.on .task-archived-count{border-color:var(--color-surface);background:var(--color-primary);color:var(--color-primary-ink)}
+}
+@media (min-width:600px) and (max-width:980px){
+  .task-pagehead .actions>.task-archived{width:38px;min-width:38px;height:38px}
+}
+@media (min-width:600px) and (max-width:1099px){
+  .task-pagehead .actions>.task-export{width:36px;min-width:36px;height:36px;padding:0;gap:0;justify-content:center;border-radius:50%}
+  .task-pagehead .task-export .task-export-label{display:none}
+}
+@media (min-width:600px) and (max-width:980px){
+  .task-pagehead .actions>.task-export{width:38px;min-width:38px;height:38px}
+}
+@media (max-width:599px){
+  .task-pagehead:has(.task-new)>div:first-child{padding-right:92px}
+  .task-pagehead .actions>.task-archived{position:absolute;top:0;right:44px;width:38px;min-width:38px;height:38px;margin:0}
+  .task-pagehead .actions:not(:has(.task-new))>.task-archived{right:0}
+}
 </style>
