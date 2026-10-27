@@ -410,6 +410,16 @@ atau **n required fields missing**.
    ditandai **Tandai final**. Tombol **Jadikan versi baru** menjadikan tautan atau screenshot itu
    versi berikutnya apa adanya, tanpa mengunggah ulang; barisnya lalu bertanda **Versi N**.
 
+**Saat file diunggah** — file yang sedang diunggah menunjukkan bilah progres di tempat file itu
+menunggu: di bawah nama file pada **Upload version** dan **Upload asset**, di baris file pada
+Assets & versions, di chip lampiran komentar dan chat, dan di bawah gambar yang di-paste ke deskripsi
+atau brief. Tulisannya menyebut persentase dan ukurannya (mis. *45% · 3.2 MB dari 7.1 MB*), lalu
+*Menyimpan ke Google Drive…* saat semua byte sudah terkirim. Menekan **Add version**, **Upload**,
+**Post**, atau **Send** sebelum selesai tidak menyimpan apa pun: muncul *Masih mengunggah — 45%* dan
+bilahnya disorot. Tombol **×** di baris atau chip membatalkan unggahan itu. Menutup **Upload version**
+atau **Upload asset** sebelum selesai juga membatalkannya, karena file itu baru dipakai setelah
+disimpan; **New version** di sebuah aset tetap berjalan dan tersimpan walau dialognya ditutup.
+
 **Comments** — pilih audiens: **Internal** (hanya tim kreatif) atau **Stakeholder-visible**
 (bisa dilihat requester seperti Marketing). Ketik `@nama` untuk mention.
 Tautan Google (Drive, Docs, Sheets, Slides) yang di-**paste** langsung berubah menjadi nama file atau

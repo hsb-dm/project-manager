@@ -197,9 +197,9 @@ function withMyAppearance(fn,self,args){ var th=WS.theme=WS.theme||{}, keep=th.a
     return editTaskWith(tk,function(t){ ups.forEach(function(up,i){ var n=start+i; var v=V(n,ME,0,"pending",cols[n%cols.length],note||up.name||""); if(up.preview) v.img=up.preview; if(up.driveId){ v.driveUrl=up.url; v.driveId=up.driveId; } t.versions.push(v); t.files.push(F(up.name,up.type,up.source,up.size,0,up.url||"",{preview:up.preview,driveId:up.driveId})); log(t,"upload",{v:n}); }); }).then(function(saved){ if(saved===false) return false; notifyTask("upload",tk); toast(ups.length+" "+tr("versions")+" · V"+start+"–V"+(start+ups.length-1)); }); };
 })();
 function versionFilesChosen(files){ if(!document.getElementById("uv_file")) return; var session=window._verSession; window._verPending=true; window._verUp=null; window._verUps=[]; var el=document.getElementById("uv_file"), pv=document.getElementById("uv_preview"); el.textContent=tr("Uploading")+" "+files.length+" "+tr("files")+"…"; pv.innerHTML="";
-  Promise.all(files.map(function(f){ return uploadAny(f).then(function(u){ u.name=f.name; return u; }); })).then(function(ups){ if(session!==window._verSession) return; window._verUps=ups; window._verUp=ups[0]; el.textContent=tr("Adding")+" "+ups.length+" "+tr("versions");
+  Promise.all(verUpTrack(files.map(function(f){ return uploadAny(f); })).map(function(p,i){ var f=files[i]; return p.then(function(u){ u.name=f.name; return u; }); })).then(function(ups){ if(session!==window._verSession) return; window._verUps=ups; window._verUp=ups[0]; el.textContent=tr("Adding")+" "+ups.length+" "+tr("versions");
     pv.innerHTML='<div class="uv-multi">'+ups.map(function(u){ return '<figure>'+(u.preview?'<img src="'+attr(u.preview)+'" alt="">':'<span>'+I.link+'</span>')+'<figcaption>'+esc(u.name)+'</figcaption></figure>'; }).join("")+'</div>'; })
-  .catch(function(e){ if(session===window._verSession){ window._verUps=null; el.textContent=tr("Upload failed"); toast(e.message,"bad"); } }).finally(function(){ if(session===window._verSession) window._verPending=false; }); }
+  .catch(function(e){ if(session===window._verSession){ window._verUps=null; el.textContent=tr("Upload failed"); if(!(e&&e.cancelled)) toast(e.message,"bad"); } }).finally(function(){ if(session===window._verSession) window._verPending=false; }); }
 (function(){ var base=uploadVersion; uploadVersion=function(silent){ window._verUps=null; var r=base.apply(this,arguments); if(!silent){ var b=document.querySelector('#modal button[onclick="pickVersionFile()"]'); if(b) b.innerHTML=I.up+tr("Choose files"); } return r; }; })();
 
 /* ---------- #17 description: formatting toolbar, Markdown source, preview ---------- */
@@ -551,16 +551,17 @@ function descAttachFile(file){
   var tk=S.drawerTask?task(S.drawerTask):null; if(!tk||!file) return;
   var name=String(file.name||"file").replace(/[\[\]\n]/g," ").trim()||"file", upId=uid("up"), e=DESC_FILE_EXT[descFileExt(name)]||["FILE","#546E7A"];
   var mine=function(){ var el=document.getElementById("descSrc"); return el&&el.getAttribute("data-for")===drawerKey(tk)?el:null; };
-  if(mine()) descInsertInline('<span class="drive-chip file-chip uploading" data-up="'+upId+'" contenteditable="false"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span></span>');
-  toast(tr("Uploading")+" "+name+"…");
-  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+  var job=uploadAny(file,{forceDrive:true,name:name}), rec=job.upload;
+  if(mine()) descInsertInline('<span class="drive-chip file-chip uploading" data-up="'+upId+'" contenteditable="false"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span>'+esc(name)+'</span>'+(rec?uploadBarHtml(rec):'')+'</span>');
+  if(!rec) toast(tr("Uploading")+" "+name+"…");
+  job.then(function(up){
     var url=up&&up.url||""; if(!/^https:\/\//i.test(url)&&!/^\/files\/d\//.test(url)) throw new Error(tr("The upload did not return a link"));
     var md="["+name+"]("+url+")", el=mine(), slot=el&&el.querySelector('[data-up="'+upId+'"]');
     if(slot){ var box=document.createElement("span"); box.innerHTML=descMdInline(esc(md)); if(box.firstChild) slot.replaceWith(box.firstChild); descWysiwygSave(); }
     else if(tk._draft) tk.description=(tk.description?tk.description+"\n":"")+md;
     else editTaskWith(tk,function(t){ t.description=(t.description?t.description+"\n":"")+md; log(t,"edited",{what:"the description"}); });
     toast(tr("File attached"));
-  },function(err){ var el=mine(), slot=el&&el.querySelector('[data-up="'+upId+'"]'); if(slot) slot.remove(); toast(tr("Could not attach that file")+": "+(err&&err.message||""),"bad"); });
+  },function(err){ var el=mine(), slot=el&&el.querySelector('[data-up="'+upId+'"]'); if(slot) slot.remove(); if(!(err&&err.cancelled)) toast(tr("Could not attach that file")+": "+(err&&err.message||""),"bad"); });
 }
 /* dropped on the description: files are attached, pictures placed in the writing */
 document.addEventListener("dragover",function(e){ var t=e.target; if(t&&t.closest&&t.closest("#descSrc")&&e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0) e.preventDefault(); });

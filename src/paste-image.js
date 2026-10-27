@@ -68,8 +68,22 @@ function descImgHtml(ref,alt,srcHint,width){
   } else src=src||ref;
   if(!src) return '<span class="desc-img missing">'+I.image+esc(label)+'</span>';
   return '<img class="desc-img'+(busy?" uploading":"")+'" data-zc-att="'+attr(id)+'"'+(w?' data-zc-w="'+w+'" style="width:'+w+'%"':'')
-    + ' src="'+attr(src)+'" alt="'+attr(label)+'" loading="lazy">';
+    + ' src="'+attr(src)+'" alt="'+attr(label)+'" loading="lazy">'+(busy?pasteUpBarHtml(id,w):'');
 }
+/* A picture on its way has its bar under it, as wide as it is. data-up keeps the bar out of the saved text
+   (descHtmlToMd skips it) and contenteditable=false keeps the caret out of it; it goes when the upload ends. */
+function pasteUpBarHtml(attId,w){ var f=PASTE_INFLIGHT[attId], r=f&&f.upId?uploadById(f.upId):null; if(!r||uploadOver(r)) return "";
+  return '<span class="desc-img-up" data-up="img:'+attr(attId)+'" contenteditable="false"'+(w?' style="width:'+w+'%"':'')+'>'+uploadBarHtml(r)+'</span>'; }
+function pasteUpBarsGone(attId){ document.querySelectorAll('[data-up="img:'+attId+'"]').forEach(function(n){ n.remove(); }); }
+/* A brief field cannot hold a picture, so one on its way waits in the field's strip: the picture, its bar, × to cancel */
+var PASTE_FIELD_UPS=[];
+function pasteUpThumbHtml(up){ var r=uploadById(up.upId);
+  return '<span class="paste-thumb-wrap paste-up" data-paste-up="'+attr(up.id)+'" title="'+attr(up.name+(r?" · "+uploadStatusText(r):""))+'"><span class="paste-thumb"><img src="'+attr(up.src)+'" alt="'+attr(up.name)+'"></span>'
+    + (r?'<span class="paste-up-bar">'+uploadBarHtml(r)+'</span><button type="button" class="paste-thumb-x" data-up-x="'+attr(r.id)+'" title="'+attr(tr("Cancel this upload"))+'" aria-label="'+attr(tr("Cancel this upload")+" "+up.name)+'" onclick="uploadCancel('+jsq(r.id)+')"'+(uploadCanCancel(r)?'':' hidden')+'>'+I.x+'</button>':'')+'</span>'; }
+function pasteFieldUpShow(up){ var list=document.querySelectorAll(".v[data-k] > .paste-strip");
+  for(var i=0;i<list.length;i++) if(list[i].parentNode.getAttribute("data-k")===up.key){ var add=list[i].querySelector(".paste-add"), h=pasteUpThumbHtml(up); if(add) add.insertAdjacentHTML("beforebegin",h); else list[i].insertAdjacentHTML("beforeend",h); return true; }
+  return false; }
+function pasteFieldUpGone(up){ var i=PASTE_FIELD_UPS.indexOf(up); if(i>=0) PASTE_FIELD_UPS.splice(i,1); document.querySelectorAll('[data-paste-up="'+up.id+'"]').forEach(function(n){ n.remove(); }); if(up.src) try{ URL.revokeObjectURL(up.src); }catch(x){} }
 /* The caret, kept across the file dialog and the upload — both of which take the focus away. */
 var PASTE_RANGE=null;
 function descKeepCaret(){
@@ -151,21 +165,29 @@ function briefPasteImage(file,opts){
      from the saved text, and drop whatever had been typed since. Until the upload answers it is a
      local preview carrying no id, and descHtmlToMd writes nothing for an image without one — so a
      save during the upload cannot put a blob: URL into the task. */
+  /* It is on its way at once, so its bar is drawn where the picture waits: under it in the writing, or as a
+     thumbnail in the field's strip. Only a picture with nowhere to wait says so in a toast. */
+  var job=uploadAny(file,{forceDrive:true,name:name}), rec=job.upload, shown=false, tmp="", fieldUp=null;
   if(inline){
     if(!PASTE_RANGE) descKeepCaret();
-    var tmp=""; try{ tmp=URL.createObjectURL(file); }catch(x){}
-    PASTE_INFLIGHT[attId]={src:tmp,name:name};
-    descInsertImage(descImgHtml("zc-att:"+attId,name,tmp,PASTE_DEFAULT_WIDTH).replace('class="desc-img"','class="desc-img uploading"'));
+    try{ tmp=URL.createObjectURL(file); }catch(x){}
+    PASTE_INFLIGHT[attId]={src:tmp,name:name,upId:rec?rec.id:""};
+    descInsertImage(descImgHtml("zc-att:"+attId,name,tmp,PASTE_DEFAULT_WIDTH).replace('class="desc-img"','class="desc-img uploading"')+pasteUpBarHtml(attId,PASTE_DEFAULT_WIDTH));
+    shown=!!rec;
+  } else if(rec){
+    try{ tmp=URL.createObjectURL(file); }catch(x){}
+    fieldUp={id:attId,key:key,task:tk.id,src:tmp,name:name,upId:rec.id}; PASTE_FIELD_UPS.push(fieldUp); shown=pasteFieldUpShow(fieldUp);
   }
   var brief=pasteBriefDraft();
-  toast(tr("Uploading the pasted image…"));
+  if(!shown) toast(tr("Uploading the pasted image…"));
 
-  uploadAny(file,{forceDrive:true,name:name}).then(function(up){
+  job.then(function(up){
     var att={id:attId,name:name,type:"image",size:up.size,preview:up.preview||null,url:up.url||"",driveId:up.driveId||null,briefField:key,pasteAuto:true};
     var md=null;
+    if(fieldUp){ var i=PASTE_FIELD_UPS.indexOf(fieldUp); if(i>=0) PASTE_FIELD_UPS.splice(i,1); }
     if(inline){
       att.inlineIn="description";
-      delete PASTE_INFLIGHT[attId];
+      delete PASTE_INFLIGHT[attId]; pasteUpBarsGone(attId);
       var el=pasteDescEl(tk);
       var slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
       if(slot){ slot.classList.remove("uploading"); slot.src=pasteImgSrc(att); }
@@ -183,9 +205,12 @@ function briefPasteImage(file,opts){
       t.comments.push(c);
       log(t,"comment");
     });
+    /* the strip has been drawn again with the picture itself; a thumbnail still waiting goes with its object URL */
+    if(fieldUp) (typeof requestAnimationFrame==="function"?requestAnimationFrame:setTimeout)(function(){ pasteFieldUpGone(fieldUp); });
     toast(tr("Image attached"));
   },function(err){
-    delete PASTE_INFLIGHT[attId];
+    delete PASTE_INFLIGHT[attId]; pasteUpBarsGone(attId);
+    if(fieldUp) pasteFieldUpGone(fieldUp);
     if(inline){
       var el=pasteDescEl(tk), slot=el&&el.querySelector('img[data-zc-att="'+attId+'"]');
       if(slot) slot.remove();
@@ -193,6 +218,8 @@ function briefPasteImage(file,opts){
       if((tk.description||"").indexOf("zc-att:"+attId)>=0) editTaskWith(tk,function(t){ t.description=pasteStripMarker(t.description,attId); });
       if(tmp) try{ URL.revokeObjectURL(tmp); }catch(x){}
     }
+    /* cancelled (its ×, or the upload tray's): it is simply gone */
+    if(err&&err.cancelled) return;
     toast(tr("Could not attach that image")+": "+err.message,"bad");
   });
   return true;
@@ -215,6 +242,8 @@ function pasteDropAttachment(t,attId){
 }
 function pasteRemoveImage(attId){
   var tk=pasteCurrentTask(); if(!tk) return;
+  /* a picture still on its way is not attached anywhere yet: stopping its upload takes it out (its failure path) */
+  var fl=PASTE_INFLIGHT[attId]; if(fl&&fl.upId&&uploadCancel(fl.upId)) return;
   var a=pasteFindImage(tk,attId);
   confirmModal(tr("Remove this image?"),tr("It is taken out of the brief and out of Comments. Files in Assets & versions are not touched."),function(){
     /* Out of the writing first, so the editor and the saved text agree. */
@@ -432,8 +461,9 @@ function pasteThumbHtml(a){
 }
 function pasteFieldImagesHtml(tk,key){
   var list=pasteFieldImages(tk,key), edit=!!S.briefEdit&&key!==PASTE_DESC_KEY&&(tk._draft||canI.editTask(tk));
-  if(!list.length&&!edit) return "";
-  return '<div class="paste-strip">'+list.map(pasteThumbHtml).join("")
+  var going=PASTE_FIELD_UPS.filter(function(x){ return !!tk&&x.task===tk.id&&x.key===key; });
+  if(!list.length&&!going.length&&!edit) return "";
+  return '<div class="paste-strip">'+list.map(pasteThumbHtml).join("")+going.map(pasteUpThumbHtml).join("")
     + (edit?'<button type="button" class="paste-add" onclick="pastePickImage('+jsq(key)+')">'+I.image+'<span>'+esc(tr("Add image"))+'</span></button>':"")
     + '</div>';
 }

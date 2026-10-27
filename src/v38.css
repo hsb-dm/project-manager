@@ -1718,3 +1718,45 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-expand-review-pic{display:grid;place-items:center;padding:12px;border-radius:12px;background:var(--color-surface-sunken);max-height:62vh;overflow:auto}
 .ai-expand-review-pic img{display:block;max-width:100%;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
 .ai-expand-review .ai-expand-dims{margin-top:10px}
+/* ---- Upload progress where the file waits: the bar and how far it is, in place (src/drawer.js upRowHtml,
+   the Files tab's pending rows, the comment and chat chips, src/paste-image.js). The bar is .upbar (src/upload-progress.js). ---- */
+#uv_up:empty,#ua_up:empty,.as-newver:empty{display:none}
+/* a track that shows on every ground these sit on (a sunken row, a chip, a dialog), light and dark */
+:is(.upwait,.file.up-row,.up-chip,.desc-img-up,.file-chip.uploading)>.upbar,.file.up-row .upbar{background:color-mix(in srgb,var(--color-text-tertiary) 24%,transparent)}
+.upwait{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);align-items:center;gap:4px 10px;margin:8px 0 2px;font-size:11.5px;color:var(--color-text-secondary);border-radius:6px}
+.upwait>.upbar{grid-column:1/-1}
+.upwait:not(.named)>.uptext{grid-column:1/-1;overflow-wrap:anywhere}
+.upwait.named>.upwait-name{grid-row:1;grid-column:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-text-primary);font-weight:600}
+.upwait.named>.uptext{grid-row:1;grid-column:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.upwait.named>.upbar{grid-row:2}
+.upwait+.upwait.named{margin-top:10px}
+.as-newver .upwait{margin:0}
+.uptext,.up-pct{font-variant-numeric:tabular-nums}
+/* Save, Post or Send pressed too early: the bar it waits for is lit for a moment */
+.up-flash{animation:upFlash 1.3s ease}
+@keyframes upFlash{0%,40%{background-color:var(--color-primary-soft);box-shadow:0 0 0 6px var(--color-primary-soft)}100%{background-color:transparent;box-shadow:0 0 0 6px transparent}}
+@media (prefers-reduced-motion:reduce){.up-flash{animation:none;outline:2px solid var(--color-primary);outline-offset:3px}}
+/* the Files tab: a row per file on its way */
+.file.pending.up-row{opacity:1;grid-template-columns:auto minmax(0,1fr) auto}
+.file.pending.up-row .m{flex-wrap:wrap}
+.file.pending.up-row .upbar{margin-top:6px;max-width:360px}
+.up-x{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--color-text-secondary);cursor:pointer}
+.up-x:hover,.up-x:focus-visible{background:var(--color-surface-hover);color:var(--color-text-primary)}
+.up-x svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2}
+.up-x[hidden],.paste-thumb-x[hidden]{display:none}
+/* a comment's chip on its way, and a chat chip: one line, the name giving way first */
+:is(#drawer,.pd-box) .composer .att.att-up .up-chip{min-width:0;max-width:300px;gap:6px;white-space:nowrap}
+.up-chip .lc-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.up-chip .upbar,.msg-staged-chip.up>.upbar{width:44px;min-width:44px;flex:none}
+.up-pct{flex:none;font-size:10.5px;font-weight:700;color:var(--color-text-secondary)}
+.msg-staged-chip.up{min-width:0}
+.msg-staged-chip.up>small b{font-weight:800}
+.msg-staged-chip.up>.upbar{background:color-mix(in srgb,var(--color-primary) 16%,var(--color-surface))}
+/* the description: a picture's bar under it, a file chip's inside it */
+.desc-img-up{display:block;max-width:100%;margin:-6px 0 10px;user-select:none;pointer-events:none}
+.file-chip.uploading .upbar{width:40px;min-width:40px;flex:none;margin-left:2px}
+/* a brief field: the picture waits in its strip, its bar along the bottom */
+.paste-up .paste-thumb{cursor:default}
+.paste-up .paste-thumb img{opacity:.6}
+.paste-up-bar{position:absolute;left:6px;right:6px;bottom:6px;line-height:normal}
+.paste-up-bar .upbar{min-width:0;background:color-mix(in srgb,var(--color-surface) 80%,transparent)}

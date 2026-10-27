@@ -134,7 +134,8 @@ function cmtUpload(imagesOnly){
     files.forEach(function(f){
       var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type);
       if(isImg) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
-      else uploadAny(f,{forceDrive:true}).then(function(u){ cmtStage({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type,source:u.source||(u.driveId?"gdrive":"local")}); }).catch(function(e){ toast(f.name+": "+e.message,"bad"); });
+      /* not a picture: its chip is in the box at once, with its bar and × (cmtUpStart, src/drawer.js) */
+      else cmtUpStart(f,cmtStage,function(u){ return {source:u.source||(u.driveId?"gdrive":"local")}; });
     });
   };
   inp.click();
