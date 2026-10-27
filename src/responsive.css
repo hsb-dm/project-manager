@@ -706,10 +706,13 @@
      below 981 px   every control is 36 px, as on the task toolbar (and from 981 px on a touch screen);
      below 828 px   whose tasks shows its icons (a person, a team), as the views and pills do there;
      below 761 px   (the Tasks page only) Show labels is left out, as on a phone: no labels are drawn there;
-     below 700 px   Month / Week / Day show their first letter.
+     below 700 px   Month / Week / Day show their first letter, and a week's title is two lines, its first day over
+                    its last ("Okt 26 –" / "Nov 1": .cal-t-two), since on one line a week across two months needs
+                    112 px and beside the "N checked" chip the title has 74 (it was cut in a month's last week).
    The row is never a scroll box; nothing in it opens a menu inside it (saved views open on the page). Active filters'
    chips have a line of their own under it. Checked by e2e/task-toolbar-rows.spec.js. */
 .cal-t-short,
+.cal-t-two,
 .cal-legend-foot,
 .cal-scope-seg .seg-ico {
   display: none;
@@ -910,6 +913,16 @@
   }
   .cal-row .cal-nav h2 {
     font-size: 15px;
+  }
+  .cal-row.cal-m-week .cal-t-one {
+    display: none;
+  }
+  .cal-row.cal-m-week .cal-t-two {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    font-size: 13px;
+    line-height: 15px;
   }
   .cal-row .tcheck-chip.on>svg {
     display: none;

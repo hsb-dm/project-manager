@@ -14,7 +14,9 @@
    1100 px and never cut, Show labels an icon below 1366 px (left out up to 760 px, as on a phone), the legend under the
    calendar below 1281 px, whose tasks its icons below 828 px and the period its letters below 700 px, each still named;
    with the "N checked" chip and filter chips, in every period; and the Calendar page and a project's calendar from
-   761 px. The personal checks are put back. */
+   761 px. A week's title is whole at every width in both languages whatever today is: the widest weeks inside one
+   month, across two months and across two years are shown, and below 700 px it is two lines, its first day over its
+   last (on 27 Oct 2026 "Okt 26 – Nov 1" was cut at 600 px beside the chip). The personal checks are put back. */
 const { test, expect } = require("@playwright/test");
 test.describe.configure({ mode: "serial" });
 const ADMIN = { email: "admin@e2e.test", pw: "E2E!Admin-2026" };
@@ -49,7 +51,7 @@ test.afterAll(async ({ browser }) => {
 
 /* the Tasks page in a view, everything a person taps in its header measured */
 async function show(page, view, cols, savedView, o) {
-  await page.evaluate(([v, cols, sv, o]) => { S.taskScope = "all"; S.sort = o.sort || "due"; S.sortDir = 1; S.group = o.group || ""; S.activeView = sv; S.filters = Object.assign(emptyTaskFilters(), o.filters || {}); S.calMode = o.calMode || "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; if (cols) myPrefs().listCols = cols; go("tasks", v); }, [view, cols || null, savedView || null, o || {}]);
+  await page.evaluate(([v, cols, sv, o]) => { S.taskScope = "all"; S.sort = o.sort || "due"; S.sortDir = 1; S.group = o.group || ""; S.activeView = sv; S.filters = Object.assign(emptyTaskFilters(), o.filters || {}); S.calMode = o.calMode || "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = o.calDay || 0; if (cols) myPrefs().listCols = cols; go("tasks", v); }, [view, cols || null, savedView || null, o || {}]);
   await page.waitForFunction(() => document.querySelector("#content .task-pagehead .actions .bulk-btn"));
   await page.evaluate(() => document.fonts.ready);
 }
@@ -361,6 +363,74 @@ test("the Calendar page and a project's calendar: the month's controls are one l
     }
   } finally {
     await page.evaluate(c => { const set = taskCheckSet(); set.length = 0; JSON.parse(c).forEach(id => set.push(id)); taskCheckSave(); S.calMode = "month"; setLanguage("en"); }, checks0);
+  }
+});
+
+/* A week's title, whatever today is: the widest weeks of 2026 and 2027 in either language inside one month ("May
+   24–30", "Agu 24–30"), across two months ("Okt 26 – Nov 1", "Aug 30 – Sep 5") and across two years ("Des 28 – Jan
+   3"), at the widths where the month's row gives way, with and without the "N checked" chip, on the Tasks page (and its
+   phone's bar), the Calendar page and a project. It was cut on 27 Oct 2026, today in a week into November: beside the
+   chip at 600 and 601 px the title had 89 and 74 px, and on one line such a week needs 112, one inside a month 85. Now
+   below 700 px it is two lines, its first day over its last. A width's weeks are drawn and measured in one go. */
+const WEEKS = { "2026-08-24": "inside one month", "2027-05-24": "inside one month", "2026-10-26": "across two months", "2027-08-30": "across two months", "2026-12-28": "across two years" };
+const weekTitles = (page, wheres) => page.evaluate(([weeks, wheres, pid]) => {
+  const vis = e => !!(e && e.offsetParent && e.getBoundingClientRect().width > 0), out = [];
+  const checks = TASKS.filter(t => /^Row task /.test(t.title)).slice(0, 3).map(t => t.id), set = taskCheckSet();
+  for (const chip of [false, true]) {
+    set.length = 0; if (chip) checks.forEach(id => set.push(id)); taskCheckSave();
+    for (const where of wheres) for (const monday of weeks) {
+      const [y, mo, d] = monday.split("-").map(Number);
+      Object.assign(S, { calMode: "week", calMonth: TODAY.getMonth(), calYear: TODAY.getFullYear(), calDay: Math.round((new Date(y, mo - 1, d) - TODAY) / 864e5) - weekRange(0)[0], calScope: "all", taskScope: "all", sort: "due", sortDir: 1, group: "", activeView: null, filters: emptyTaskFilters() });
+      if (where === "tasks") go("tasks", "calendar"); else if (where === "calendar") go("calendar"); else { S.projectTab = "calendar"; go("projects", pid); }
+      const bar = [...document.querySelectorAll("#content .calendar-toolbar.cal-row, #content .calendar-mobile-controls")].find(vis);
+      const h = bar.querySelector("h2, .cal-mobile-date strong"), two = h.querySelector(".cal-t-two"), s = weekRange(0)[0] + Math.floor(S.calDay / 7) * 7;
+      const c = document.getElementById("content"), cs = getComputedStyle(c), row = bar.classList.contains("cal-row");
+      out.push({ where, chip, monday, first: uiMo(mo - 1) + " " + d, from: dueDate(s), to: dueDate(s + 6), long: calTitle(), short: calTitleShort(),
+        row, text: h.innerText, cut: h.scrollWidth > h.clientWidth + 1, height: h.getBoundingClientRect().height,
+        shortShown: vis(h.querySelector(".cal-t-short")), longShown: vis(h.querySelector(".cal-t-long")), one: vis(h.querySelector(".cal-t-one")), two: vis(two),
+        lines: vis(two) ? [...two.children].map(e => ({ text: e.textContent, t: e.getBoundingClientRect().top })) : [],
+        els: row ? [...bar.querySelectorAll(".cal-nav>*, .calendar-display-controls>*")].filter(vis).map(e => { const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom, r: b.right, name: (e.getAttribute("aria-label") || e.textContent).trim().slice(0, 24) }; }) : [],
+        right: c.getBoundingClientRect().right - parseFloat(cs.paddingRight), sw: document.scrollingElement.scrollWidth, vw: innerWidth });
+    }
+  }
+  return out;
+}, [Object.keys(WEEKS), wheres, M.pid]);
+
+test("a week's title is whole at every width, in English and Indonesian, inside one month, across two months and across two years, whatever today is", async ({ page }) => {
+  test.setTimeout(240000);
+  await signIn(page);
+  const checks0 = await page.evaluate(() => JSON.stringify(taskCheckSet()));
+  try {
+    for (const lang of ["en", "id"]) {
+      await page.evaluate(l => setLanguage(l), lang);
+      await page.waitForFunction(l => UI_LANG === l, lang);
+      /* the Tasks page: the phone's bar up to 599 px, the month's row (row 2) from 600; the Calendar page and a
+         project: the month's row from 761 px */
+      for (const w of [390, 599].concat(CAL_EDGES)) {
+        await page.setViewportSize({ width: w, height: 900 });
+        await page.evaluate(() => document.fonts.ready);
+        for (const t of await weekTitles(page, w > 760 ? ["tasks", "calendar", "project"] : ["tasks"])) {
+          const at = [lang, t.where, w + "px", "the week of " + t.monday, "(" + WEEKS[t.monday] + ")", t.chip ? "with N checked" : ""].join(" ");
+          expect(t.from, at + ": that week is shown").toBe(t.first);
+          expect(t.cut, at + ": the week's title is whole (" + t.text + ")").toBe(false);
+          if (w < 600) { expect([t.row, t.text], at + ": the phone's bar names the week").toEqual([false, t.long]); continue; }
+          expect(t.row, at + ": the month's row").toBe(true);
+          expect(rowsOf(t.els).length, at + ": one line — " + t.els.map(e => e.name).join(" · ")).toBe(1);
+          for (const e of t.els) expect(e.r, at + ": " + e.name + " ends inside the page").toBeLessThanOrEqual(t.right + 0.5);
+          expect(t.sw, at + ": no sideways scroll").toBeLessThanOrEqual(t.vw);
+          const short = w < (t.where === "tasks" ? 1100 : 828);
+          expect([t.shortShown, t.longShown], at + ": the " + (short ? "short" : "whole") + " title").toEqual([short, !short]);
+          if (w < 700) {
+            expect([t.one, t.two], at + ": below 700 px the title is two lines").toEqual([false, true]);
+            expect(t.lines.map(l => l.text), at + ": its first day over its last").toEqual([t.from + " –", t.to]);
+            expect(t.lines[1].t - t.lines[0].t, at + ": the last day under the first").toBeGreaterThan(8);
+            expect(t.height, at + ": the two lines within the row's 36 px").toBeLessThanOrEqual(36);
+          } else expect(t.text, at + ": one line").toBe(short ? t.short : t.long);
+        }
+      }
+    }
+  } finally {
+    await page.evaluate(c => { const set = taskCheckSet(); set.length = 0; JSON.parse(c).forEach(id => set.push(id)); taskCheckSave(); S.calMode = "month"; S.calDay = 0; setLanguage("en"); }, checks0);
   }
 });
 

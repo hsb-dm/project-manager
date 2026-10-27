@@ -2558,6 +2558,7 @@ body.auth .nav-messages{display:none!important}
   }
 }
 .cal-t-short,
+.cal-t-two,
 .cal-legend-foot,
 .cal-scope-seg .seg-ico {
   display: none;
@@ -2757,6 +2758,16 @@ body.auth .nav-messages{display:none!important}
   }
   .cal-row .cal-nav h2 {
     font-size: 15px;
+  }
+  .cal-row.cal-m-week .cal-t-one {
+    display: none;
+  }
+  .cal-row.cal-m-week .cal-t-two {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    font-size: 13px;
+    line-height: 15px;
   }
   .cal-row .tcheck-chip.on>svg {
     display: none;

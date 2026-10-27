@@ -3174,7 +3174,9 @@ function calendar(list,opts){ opts=opts||{}; var byDay=calItems(list,opts); CAL_
   return h; }
 function calTitle(){ if (S.calMode==="month") return uiMol(S.calMonth)+" "+S.calYear; if (S.calMode==="week"){ var w=weekRange(0); var s=w[0]+Math.floor(S.calDay/7)*7; return (UI_LANG==="id"?"Pekan ":"Week of ")+dueDate(s)+" – "+dueDate(s+6); } var d=dateOf(S.calDay); return uiDow(d.getDay())+", "+uiMol(d.getMonth())+" "+d.getDate(); }
 function calTitleShort(){ if (S.calMode==="month") return uiMo(S.calMonth)+" "+S.calYear; if (S.calMode==="week"){ var w=weekRange(0), s=w[0]+Math.floor(S.calDay/7)*7, a=dateOf(s), b=dateOf(s+6); return a.getMonth()===b.getMonth()?dueDate(s)+"–"+b.getDate():dueDate(s)+" – "+dueDate(s+6); } var d=dateOf(S.calDay); return '<span class="cal-t-dow">'+esc(tr(["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]))+', </span>'+dueDate(S.calDay); }
-function calTitleBoth(){ return '<span class="cal-t-long">'+calTitle()+'</span><span class="cal-t-short">'+calTitleShort()+'</span>'; }
+function calTitleBoth(){ var short=calTitleShort();
+  if (S.calMode==="week"){ var s=weekRange(0)[0]+Math.floor(S.calDay/7)*7; short='<span class="cal-t-one">'+short+'</span><span class="cal-t-two"><span>'+dueDate(s)+' –</span> <span>'+dueDate(s+6)+'</span></span>'; }
+  return '<span class="cal-t-long">'+calTitle()+'</span><span class="cal-t-short">'+short+'</span>'; }
 function setCalMode(m){ S.calMode=m; renderScreen(false); }
 function openCalendarTask(id){ closeModal(); openTask(id); }
 function calAgendaRow(it){

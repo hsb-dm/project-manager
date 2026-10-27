@@ -470,8 +470,13 @@ function calTitle(){ if (S.calMode==="month") return uiMol(S.calMonth)+" "+S.cal
    weekday (.cal-t-dow) the narrowest row leaves out; it is markup, built from the app's own month and day names */
 function calTitleShort(){ if (S.calMode==="month") return uiMo(S.calMonth)+" "+S.calYear; if (S.calMode==="week"){ var w=weekRange(0), s=w[0]+Math.floor(S.calDay/7)*7, a=dateOf(s), b=dateOf(s+6); return a.getMonth()===b.getMonth()?dueDate(s)+"–"+b.getDate():dueDate(s)+" – "+dueDate(s+6); } var d=dateOf(S.calDay); return '<span class="cal-t-dow">'+esc(tr(["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]))+', </span>'+dueDate(S.calDay); }
 /* both, for the CSS to choose (.cal-t-short is hidden unless a row is short of room: the month's row on a tablet, a
-   phone's bar at 360 px or less, a team's at 400 px or less, in a week or a day) */
-function calTitleBoth(){ return '<span class="cal-t-long">'+calTitle()+'</span><span class="cal-t-short">'+calTitleShort()+'</span>'; }
+   phone's bar at 360 px or less, a team's at 400 px or less, in a week or a day). A week's short title has a second
+   form, its first day over its last (.cal-t-two: "Okt 26 –" / "Nov 1"), for the Tasks page's row below 700 px: beside
+   the "N checked" chip the title has 74 px there, and on one line a week across two months needs 112 ("Aug 30 – Sep 5")
+   and one inside a month 85 ("May 24–30"), so in a month's last week the title was cut (27 Oct 2026) */
+function calTitleBoth(){ var short=calTitleShort();
+  if (S.calMode==="week"){ var s=weekRange(0)[0]+Math.floor(S.calDay/7)*7; short='<span class="cal-t-one">'+short+'</span><span class="cal-t-two"><span>'+dueDate(s)+' –</span> <span>'+dueDate(s+6)+'</span></span>'; }
+  return '<span class="cal-t-long">'+calTitle()+'</span><span class="cal-t-short">'+short+'</span>'; }
 function setCalMode(m){ S.calMode=m; renderScreen(false); }
 function openCalendarTask(id){ closeModal(); openTask(id); }
 function calAgendaRow(it){

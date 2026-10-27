@@ -9,6 +9,8 @@
    page's corner. A text input, a select, a link, a selection, the List's header (its own menu), a group's header, a
    board column's header and a comment keep what they had; Shift+F10 or the menu key on a focused control in a row
    opens it under that control with the focus in it, and Esc gives the focus back; a phone has no such menu.
+   Each right-click is on a point of the row's own, never on the connection pill or a button floating over it (a Next
+   14 days row at the screen's bottom edge, as in a month's last week, is right-clicked where it can be seen).
    The tasks and the project made here are deleted, and what was changed (Saved, Watch, the look) is put back.
    With TCM_SHOTS=<folder>, screenshots of the menu on a List row and a Kanban card, light and dark. */
 const { test, expect } = require("@playwright/test");
@@ -27,11 +29,19 @@ test.describe.serial("Right-click on a task row opens that task's menu", () => {
   const state = () => page.evaluate(() => ({ drawer: document.getElementById("drawer").classList.contains("open"), task: document.getElementById("drawer").classList.contains("open") ? S.drawerTask : null, modal: document.getElementById("modalWrap").classList.contains("open"), screen: S.screen }));
   const view = (v, o) => page.evaluate(([v, t, o]) => { closePops(); closeModal(); closeDrawer(); S.search = ""; S.taskScope = "all"; S.group = (o && o.group) || ""; S.sort = "manual"; S.sortDir = 1; S.filters = Object.assign(emptyTaskFilters(), { tag: t }); ENH.bulk = false; if (v === "calendar") { S.calMode = "month"; S.calMonth = TODAY.getMonth(); S.calYear = TODAY.getFullYear(); S.calDay = 0; } go("tasks", v); }, [v, tag, o || null]);
 
-  /* a right-click at a point inside the element (the left part, which no task panel covers); what the page did with it */
+  /* a right-click at a point inside the element (the left part, which no task panel covers); what the page did with it.
+     The point must be the element's own, as a person's would be: something fixed may lie over it, as the connection
+     pill in the screen's bottom left corner (#conn) does over the left end of a row scrolled to the bottom edge. A
+     Next 14 days row was left there when today was in the month's last week (27 Oct 2026, a week into November), so
+     the right-click went to the pill and no menu opened. Where the point is covered, the element is brought to the
+     middle of its scroller first. */
   async function rightClick(loc, dx) {
     await loc.scrollIntoViewIfNeeded();
-    const b = await loc.boundingBox();
-    const x = Math.round(b.x + Math.min(dx || 24, b.width / 2)), y = Math.round(b.y + b.height / 2);
+    const spot = () => loc.evaluate((e, dx) => { const b = e.getBoundingClientRect(), x = Math.round(b.left + Math.min(dx, b.width / 2)), y = Math.round(b.top + b.height / 2), hit = document.elementFromPoint(x, y); return { x, y, own: !!hit && e.contains(hit), over: hit && !e.contains(hit) ? (hit.closest("[id]") || hit).id || hit.className : null }; }, dx || 24);
+    let p = await spot();
+    if (!p.own) { await loc.evaluate(e => e.scrollIntoView({ block: "center" })); p = await spot(); }
+    expect(p.own, "the point (" + p.x + "," + p.y + ") is the element's, not under " + p.over).toBe(true);
+    const x = p.x, y = p.y;
     await page.evaluate(() => { window.__cm = null; });
     await page.mouse.click(x, y, { button: "right" });
     const cm = await page.evaluate(() => window.__cm);
@@ -194,8 +204,12 @@ test.describe.serial("Right-click on a task row opens that task's menu", () => {
     expect(await page.evaluate(() => S.drawerTask)).toBe(a);
     await page.evaluate(() => closeDrawer());
 
-    /* Next 14 days: Remind me… opens its menu where the task's menu was; Esc closes it alone and sets nothing */
+    /* Next 14 days: Remind me… opens its menu where the task's menu was; Esc closes it alone and sets nothing. The row
+       starts at the screen's bottom edge, where it was when today was in the month's last week (27 Oct 2026), with the
+       connection pill over its left end: whatever today is, it is right-clicked where it can be seen */
     const agenda = page.locator('#content .agenda .row.dated[data-id="' + m.ids[2] + '"]');
+    await agenda.evaluate(e => e.scrollIntoView({ block: "end" }));
+    expect(await agenda.evaluate(e => { const b = e.getBoundingClientRect(), hit = document.elementFromPoint(b.left + 24, b.top + b.height / 2); return !!(hit && hit.closest("#conn")); }), "at the bottom edge the connection pill is over the row's left end").toBe(true);
     at = await rightClick(agenda);
     await expectMenu(m.ids[2], at, "Next 14 days row");
     await item("Remind me…").click();
