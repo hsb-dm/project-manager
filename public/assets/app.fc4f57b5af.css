@@ -5560,6 +5560,54 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 @keyframes upbarWait{0%,100%{opacity:1}50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.upbar.indet>i{animation:none;width:100%!important;opacity:.45}.upbar.wait>i{animation:none}}
 
+/* src/upload-tray.js */
+
+.uptray{position:fixed;left:16px;bottom:52px;z-index:250;width:300px;max-width:calc(100vw - 32px);box-sizing:border-box;display:none;flex-direction:column;background:var(--color-surface);color:var(--color-text-primary);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.uptray.on{display:flex;animation:uptrayIn .18s ease}
+@keyframes uptrayIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+body.auth .uptray{display:none!important}
+.uptray-head{position:relative;display:flex;align-items:center;gap:4px;min-height:44px;box-sizing:border-box;padding:6px 6px 6px 14px}
+.uptray-title{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uptray-pct{font-size:12px;font-weight:650;color:var(--color-text-secondary);font-variant-numeric:tabular-nums}
+.uptray .upbar.uptray-all{position:absolute;left:0;right:0;bottom:0;height:3px;min-width:0;border-radius:0;background:transparent}
+.uptray:not(.collapsed) .uptray-pct,.uptray:not(.collapsed) .uptray-all{display:none}
+.uptray-btn{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--color-text-secondary)}
+.uptray-btn:hover{background:var(--color-surface-hover);color:var(--color-text-primary)}
+.uptray-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.uptray.collapsed .uptray-tog svg{transform:rotate(180deg)}
+.uptray-list{max-height:min(268px,38vh);overflow-y:auto;overscroll-behavior:contain;border-top:1px solid var(--color-border)}
+.uptray.collapsed .uptray-list{display:none}
+.uptray-row{display:grid;grid-template-columns:28px minmax(0,1fr) 30px;gap:10px;align-items:center;padding:9px 6px 9px 14px}
+.uptray-row+.uptray-row{border-top:1px solid var(--color-border)}
+.uptray-row .ficon{width:28px;height:28px;border-radius:8px;font-size:8px}
+.uptray-main{min-width:0}
+.uptray-name{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.uptray-meta{margin-top:5px;font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uptray-row[data-stage="failed"] .uptray-meta{color:var(--color-danger)}
+.uptray-end{display:grid;place-items:center;width:30px;height:30px}
+.uptray-ok{display:grid;color:var(--color-success)}.uptray-ok svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.uptray-bad{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--color-danger);color:#fff;font-size:12px;font-weight:800;line-height:1}
+.uptray-off{color:var(--color-text-tertiary);font-weight:800}
+@media (max-width:980px){
+  .uptray{bottom:calc(var(--uptray-tb,60px) + 8px);width:360px}
+  .uptray[data-resv]{bottom:calc(8px + env(safe-area-inset-bottom))}
+  html:has(#upTray.on.dock){--tabbar-h:var(--uptray-dock)!important}
+  body:has(#upTray.on.dock) .toasts{bottom:calc(var(--uptray-dock) + 14px)}
+  body:has(#upTray.on[data-resv="modal"]) #modal{max-height:calc(100dvh - 12px - var(--uptray-r))}
+}
+@media (max-width:640px){
+  .uptray{right:16px;width:auto}
+  body:has(#upTray.on.dock) .aifab{bottom:calc(var(--uptray-dock) + 10px)}
+  body:has(#upTray.on.dock) .msgfab{bottom:calc(var(--uptray-dock) + 66px)}
+}
+body:has(#upTray.on[data-resv="modal"]) #modalWrap.open{padding-bottom:var(--uptray-r)}
+@media (min-width:981px){body:has(#upTray.on[data-resv="modal"]) #modal{max-height:calc(100dvh - 20px - var(--uptray-r))}
+  html[data-task-panel="center"] body:has(#upTray.on[data-resv="drawer"]) #drawer{height:min(calc(100dvh - 2 * var(--uptray-r)),960px)}}
+body:has(#upTray.on[data-resv="drawer"]) #drawer{bottom:var(--uptray-r)}
+body:has(#upTray.on[data-resv="chat"]) #aiChat{bottom:var(--uptray-r)}
+@media (prefers-reduced-motion:reduce){.uptray.on{animation:none}.uptray-btn svg{transition:none}}
+@media print{.uptray{display:none!important}}
+
 /* src/tasks.js */
 
 .vpage{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:10px 12px}

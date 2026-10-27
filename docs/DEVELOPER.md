@@ -249,6 +249,8 @@ Builder bersama yang harus dipakai ulang (semua di `core.js`):
 | `core.js` | state `S`, ikon `I`, helper, router `go()`, `renderScreen`, nav, popover, modal, toast, Workspace Quest, task panel position, personal tick, sync layer |
 | `auth.js` | layar login/register, `demoLogin` |
 | `gdrive.js` | Google Drive OAuth + upload |
+| `upload-progress.js` | record per upload (`UPLOADS`), byte lewat XHR (`uploadSend`), bar + teks (`uploadBarHtml`, `uploadPaint`) |
+| `upload-tray.js` | panel unggahan mengambang yang menampilkan semua upload |
 | `dashboard.js` | layar Home, kartu, preset layout |
 | `tasks.js` | 5 view task, filter bar, kanban, table, grid, calendar, timeline; List/Grid tampil per halaman — 100 baris, atau 25 per grup saat dikelompokkan (`VPAGE_SIZE`, `VPAGE_GROUP`), tiap grup halamannya sendiri — dengan pager di bawahnya (`vpagePagerHtml`: Prev, nomor dengan "…" lewat `vpageItems`, Next, rentang `vpageRangeText` berformat `toLocaleString` id-ID/en-US); `vpageGo` → `vpageShow` mengganti hanya baris grup/tabel itu, fokus tetap di pager, `vpageReveal` menggulir atas grup/tabel ke layar; Kanban/Timeline menggambar 30 pertama lalu "Show 30 more" menambah di tempat (`vpageMore`); halaman (List/Grid: `S.vpage["p"+hash] = {grup: halaman}`) atau jumlah yang tampil (Kanban/Timeline) disimpan per view, sort, filter, grup, dan kembali ke halaman 1 bila filter, sort, grup atau scope List/Grid berubah (`VPAGE.last` per `vpageSlot`), halaman lewat batas jadi halaman terakhir; `vpageAllIds()` = semua task view itu (Select all), `vpageOrder(el)` = urutan penuh untuk drop; Print menggambar semua halaman (`beforeprint`/`afterprint`); grid hari Timeline digambar sekali (`.tl-days`); diuji `tests/view-paging.test.js` dan `e2e/view-paging.spec.js` |
 | `drawer.js` | task drawer: header, meta, tab, versions, comments, activity, dependencies, gear menu |
@@ -268,6 +270,87 @@ Builder bersama yang harus dipakai ulang (semua di `core.js`):
 | `onboarding-refinements.js` | perbaikan targeting Workspace Quest |
 | `boot.js` | blok kamus terakhir + `boot()` |
 | `refinements.css` | seluruh CSS tambahan (disisipkan ke `head.html`) |
+
+### Upload: progress dan tray (Oktober 2026)
+
+**Record.** Setiap file yang dikirim `uploadAny()` (`gdrive.js`) adalah satu record `rec` di `UPLOADS`
+(`upload-progress.js`), dari saat dipilih sampai tersimpan, gagal atau dibatalkan:
+`id`, `name`, `size`, `mime`, `loaded`, `total`, `stage`, `dest` (`"server"` / `"gdrive"`), `note` (yang dihemat
+optimasi gambar), `error`, `startedAt`, `endedAt`. Record yang sudah selesai disimpan paling banyak 40
+(`UPLOAD_KEEP`), yang tertua dibuang dulu.
+
+| Stage | Artinya |
+|---|---|
+| `preparing` | belum ada byte terkirim: gambar sedang dioptimasi, atau sign-in Drive ditunggu |
+| `uploading` | byte sedang keluar; `loaded` / `total` |
+| `finishing` | semua byte terkirim, menunggu jawaban (server menyimpan, Drive mengonfirmasi) |
+| `done`, `failed`, `cancelled` | selesai; `endedAt` terisi |
+
+`fetch()` tidak bisa melaporkan progress body request, jadi ketiga jalur (`/api/files/upload`,
+`/api/cloud/gdrive/upload` lewat akun admin bersama, dan multipart Drive dari sign-in browser) mengirim lewat
+`uploadSend(url, {method, headers, body, rec})` — XHR dengan `upload.onprogress`, lalu `finishing` di
+`upload.onload`. Hasilnya bagian Response yang dipakai uploader (`ok`, `status`, `text()`, `json()`).
+
+Setiap perubahan record (`uploadSet`) melakukan tiga hal: memanggil `opts.onProgress(rec)` milik
+`uploadAny(file, opts)`, menembakkan event `"zc-upload"` di `document` (`detail = rec`), dan `uploadPaint(rec)`
+yang mem-*patch* setiap elemen `data-upload="<id>"` (bar) dan `data-upload-text="<id>"` (teks) di tempat.
+**Layar cukup menggambar markup sekali** (`uploadBarHtml(rec)`, `uploadTextHtml(rec)`); tidak ada redraw per event.
+
+Helper: `uploadStatusText(rec)` ("45% · 3.2 MB of 7.1 MB", "Optimising image…", "Saving to Google Drive…",
+"Uploaded", "Upload failed · <alasan>"), `uploadPct`, `uploadActive()`, `uploadById(id)`, `uploadCanCancel(rec)`
+(hanya saat `preparing` / `uploading`), `uploadCancel(id)`. Promise dari `uploadAny` membawa `.upload = rec`
+(hanya nilai kembalian langsung, bukan setelah `.then`). Upload yang dibatalkan reject dengan error
+`.cancelled === true` ("Upload cancelled") — jangan tampilkan toast merah untuknya.
+
+Yang dilacak: semua `uploadAny` ke server atau Drive, dan gambar emoji kustom (`custom-emoji.js`, lewat
+`uploadTracked` + `uploadSend`). Upload "local" (hanya preview: demo standalone, mode legacy) tidak mengirim apa-apa,
+jadi tidak punya record. Untuk uploader baru: `uploadTracked(file, opts, dest, function(rec){ return uploadSend(…, {rec:rec}); })`.
+
+**Tray** (`upload-tray.js`). Panel kecil seperti panel upload Google Drive, untuk semua upload dari layar mana pun.
+Dibuat saat record pertama (`"zc-upload"`), sebagai `<section id="upTray">` sendiri di `<body>`: tray tidak pernah
+mengubah markup layar lain.
+
+- Satu baris per record: ikon file (`fileIcon`), nama (`data-no-translate`), bar dan teks dari record, tujuan
+  ("to this server" / "to Google Drive"), `note`, lalu × batal selama `uploadCanCancel`, kemudian ✓, ! atau –.
+- Hanya patch: record baru menambah barisnya; perubahan `stage` atau `note` mengganti tanda dan kata di baris itu;
+  judul header (`role="status"`, `aria-live="polite"`) hanya berubah saat jumlah berubah ("Uploading 2 files",
+  "2 uploads complete · 1 failed"), tidak pernah per byte. `e2e/upload-tray.spec.js` menghitung mutasi DOM-nya.
+- ˅ melipat ke header saja (header lalu menampilkan persentase total dan bar tipis). × juga hanya melipat selama
+  masih ada yang berjalan; setelah itu menutup tray dan membuang baris yang selesai. Tanpa yang berjalan dan tanpa
+  yang gagal, tray menutup sendiri `UPT_HIDE_MS` (4 detik) kemudian — ditunda selama pointer di atasnya, fokus di
+  dalamnya, atau ada ketikan/klik di halaman dalam 1,5 detik terakhir (tray yang hilang bisa menggeser kotak chat di
+  ponsel, jangan sampai terjadi di bawah jari). Ada yang gagal: tray tetap sampai ditutup.
+- `beforeunload` saat ada upload aktif: dialog "Leave site?" milik browser. Tersembunyi di `body.auth` dan saat print.
+- Bahasa: `languageRedraw` dibungkus `upTrayRetext()`, yang mem-patch kata-kata di tempat.
+
+**Posisi** (`upTrayPlace`, dijalankan saat tampil, resize, perubahan class `#modalWrap` / `#modal` / `#drawer` /
+`#aiChat` / `body`, dan perubahan ukuran tray — tidak per event progress):
+
+| Lebar | Posisi |
+|---|---|
+| > 980 px | kiri bawah: `left:16px; bottom:52px` (di atas pill "Connected"), lebar 300 px — jauh dari `#aiFab`, toast di tengah, task panel di kanan, dan kotak chat di Messages |
+| ≤ 980 px | di atas tab bar (`--uptray-tb` = tinggi tab bar, + 8 px); ≤ 640 px selebar layar dengan gutter 16 px dan mulai terlipat |
+
+z-index 250: di atas dialog (200) supaya tetap bisa dijangkau saat dialog terbuka (upload dimulai dari dialog), di
+bawah menu (260) dan toast (300) — lihat urutan di `src/v38.css`.
+
+Di ponsel/tablet, tinggi tray ikut "dipinjamkan" ke tab bar: `html:has(#upTray.on.dock)` mengganti `--tabbar-h`
+(dipublikasikan `core.js`) dengan `--uptray-dock`, sehingga semua yang duduk di tab bar — tinggi `.msg-layout`
+(kotak chat), Save sticky di Settings, bulk bar, scoring bar — naik ke atas tray. `#aiFab`, `#msgFab` dan toast ikut
+naik lewat aturan tray sendiri.
+
+Layer yang akan menutupi tray (dialog, task panel, panel AI) berakhir di atas tray: tray memberi `data-resv`
+(`modal` / `drawer` / `chat`) dan `--uptray-r` (jarak dari bawah layar sampai atas tray + 8 px), lalu
+`#modalWrap` mendapat `padding-bottom` (dan `#modal` `max-height` yang lebih kecil), `#drawer` / `#aiChat` mendapat
+`bottom` (task panel mode tengah: `height`). Di ≤ 980 px berlaku untuk setiap layer; di desktop hanya bila layer
+memotong kolom tray (dialog di layar sempit, task panel di kiri atau sangat lebar) — dialog di tengah layar lebar
+tidak bergeser sama sekali. Selama ada reservasi tray terlipat ke header, dan terbuka lagi setelah layer pergi
+(kecuali pengguna melipat/membukanya sendiri). Jadi tombol Save dialog tidak pernah di bawah tray.
+
+> Jebakan: `--uptray-r` dihitung dari `bottom` computed + `offsetHeight`, bukan `getBoundingClientRect()` —
+> tray masuk dengan animasi `translateY(8px)`. Task panel meluncur 0,22 s, jadi posisinya dicek lagi 320 ms setelah
+> class berubah. Request yang di-intercept `page.route` tidak pernah melaporkan body-nya terkirim (`upload.onload`
+> tidak jalan), jadi test `finishing` memakai throttling CDP tanpa route, atau `uploadSet(rec, {stage:"finishing"})`.
 
 ---
 

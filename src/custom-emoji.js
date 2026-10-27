@@ -55,11 +55,12 @@ function customEmojiNameCheck(){ var n=customEmojiName(), h=document.getElementB
 function customEmojiSave(){ if(!CE_NEW||!customEmojiNameCheck()) return; var name=customEmojiName(), b=document.getElementById("ceSave"), item=CE_NEW; if(b) b.disabled=true;
   var done=function(list){ customEmojiLoad(list); CE_NEW=null; closeModal(); toast(tr("Emoji added")+" :"+name+":"); customEmojiRedraw(); };
   if(!API.on){ var l=customEmojiLocal(); l.push({name:name,url:item.url,by:ME,at:new Date().toISOString()}); customEmojiLocalSave(l); return done(l); }
-  var send=function(blob){ var h={"Content-Type":"application/octet-stream"}; if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
-    return fetch(API.base+"/api/files/upload?name="+encodeURIComponent(name+"."+item.ext),{method:"POST",credentials:"same-origin",headers:h,body:blob}).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); })
+  /* sent like any upload (src/upload-progress.js), so it shows in the upload tray and can be cancelled there */
+  var send=function(blob){ var h={"Content-Type":"application/octet-stream"}, file=name+"."+item.ext; if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
+    return uploadTracked(blob,{name:file},"server",function(rec){ return uploadSend(API.base+"/api/files/upload?name="+encodeURIComponent(file),{method:"POST",headers:h,body:blob,rec:rec}).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); })
       .then(function(j){ return apiFetch("POST","/api/emoji",{name:name,url:j.url}); }); };
   var blob=item.blob?Promise.resolve(item.blob):new Promise(function(res){ var t=0, wait=function(){ if(item.blob||t++>40) return res(item.blob); setTimeout(wait,25); }; wait(); });
-  blob.then(function(bl){ if(!bl) throw new Error(tr("Could not read that picture")); return send(bl); }).then(done).catch(function(e){ if(b) b.disabled=false; toast(e.message||tr("Could not add the emoji"),"bad"); }); }
+  blob.then(function(bl){ if(!bl) throw new Error(tr("Could not read that picture")); return send(bl); }).then(done).catch(function(e){ if(b) b.disabled=false; if(e&&e.cancelled) return; toast(e.message||tr("Could not add the emoji"),"bad"); }); }
 
 /* ---------- the list, and removing one (whoever added it, or an admin) ---------- */
 function customEmojiManage(){ closePops(); var admin=canI.manageWorkspace();
