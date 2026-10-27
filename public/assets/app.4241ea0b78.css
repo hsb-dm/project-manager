@@ -5547,6 +5547,19 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .ai-expand-review-pic img{display:block;max-width:100%;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
 .ai-expand-review .ai-expand-dims{margin-top:10px}
 
+/* src/upload-progress.js */
+
+.upbar{display:block;position:relative;height:4px;min-width:40px;border-radius:2px;background:var(--color-surface-sunken);overflow:hidden}
+.upbar>i{display:block;height:100%;width:0;background:var(--color-primary);border-radius:inherit;transition:width .2s ease}
+.upbar.indet>i{width:38%!important;animation:upbarSlide 1.15s ease-in-out infinite}
+.upbar.wait>i{animation:upbarWait 1.4s ease-in-out infinite}
+.upbar.ok>i{background:var(--color-success)}
+.upbar.bad>i,.upbar.off>i{background:var(--color-danger)}
+.upbar.off>i{opacity:.45}
+@keyframes upbarSlide{0%{transform:translateX(-100%)}100%{transform:translateX(265%)}}
+@keyframes upbarWait{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.upbar.indet>i{animation:none;width:100%!important;opacity:.45}.upbar.wait>i{animation:none}}
+
 /* src/tasks.js */
 
 .vpage{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:10px 12px}

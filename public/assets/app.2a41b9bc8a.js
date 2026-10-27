@@ -2485,13 +2485,13 @@ function gdCfg(){ var c=cloudOf("gdrive"); return (c&&c.config)||{}; }
 function gdShared(){ var c=cloudOf("gdrive"); return !!(c&&c.shared); }
 function gdSharedAccount(){ var c=cloudOf("gdrive"); return (c&&c.sharedAccount)||""; }
 function gdReady(){ return gdShared()||!!gdCfg().clientId; }
-function gdUploadShared(file,name){
+function gdUploadShared(file,name,rec){
   var mime=file.type||"application/octet-stream";
   var q="?name="+encodeURIComponent(name||file.name||"file")+"&mime="+encodeURIComponent(mime);
   var h={"Content-Type":mime};
   if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
-  return fetch(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",credentials:"same-origin",headers:h,body:file}).then(function(r){
-    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+  return uploadSend(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",headers:h,body:file,rec:rec}).then(function(r){
+    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
       if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
   });
 }
@@ -2533,32 +2533,31 @@ function gdToken(opts){ opts=opts||{}; var live=gdLiveToken(); if (live) return 
   tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?tr("Google sign-in cancelled"):tr("Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.")));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdSaveToken(); gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
   request(silent?"":"consent");
  }); }).then(function(token){GD.request=null;return token;},function(e){GD.request=null;throw e;}); return GD.request; }
-function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
-  return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
+function gdUpload(file,name,rec){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
+  return uploadSend("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,rec:rec}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
   .then(function(j){ var done=function(){ return {driveId:j.id,url:j.webViewLink||("https://drive.google.com/file/d/"+j.id+"/view"),thumb:"https://drive.google.com/thumbnail?id="+j.id+"&sz=w1600",preview:"https://drive.google.com/file/d/"+j.id+"/preview",mime:j.mimeType,size:j.size?(j.size/1048576).toFixed(1)+" MB":"—"}; };
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 function storageKeepsFiles(){ var m=storageMode(); return m==="server"?!!API.on:gdReady(); }
 function storageLabel(){ return storageMode()==="server"?tr("this server"):tr("Google Drive"); }
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
   var needsStore=!!(opts.forceDrive||opts.needsStore);
-  if (storageMode()==="server"&&!opts.forceLocal) return API.on?serverUpload(file,type,opts):localUpload(file,type,size);
-  if ((gdAuto()||(needsStore&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
+  if (storageMode()==="server"&&!opts.forceLocal) return API.on?uploadTracked(file,opts,"server",function(rec){ return serverUpload(file,type,opts,rec); }):localUpload(file,type,size);
+  if ((gdAuto()||(needsStore&&gdReady()))&&!opts.forceLocal) return uploadTracked(file,opts,"gdrive",function(rec){ return (gdShared()?gdUploadShared(file,opts.name,rec):gdUpload(file,opts.name,rec)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
     if(type!=="image") return out;
     return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
-  }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
+  }).catch(function(e){ if(e&&e.cancelled) throw e; throw new Error("Drive upload failed. "+e.message); }); });
   return localUpload(file,type,size); }
 function serverMaxBytes(){ return (typeof WS!=="undefined"&&WS&&+WS.fileMaxBytes)||5242880; }
-function serverUpload(file,type,opts){
+function serverUpload(file,type,opts,rec){
   opts=opts||{};
   var prep=type==="image"?optimizeImage(file):Promise.resolve({file:file,changed:false});
   return prep.then(function(o){
     var f=o.file, max=serverMaxBytes();
     if(f.size>max) throw new Error(tr("That file is larger than the")+" "+Math.round(max/1048576)+" MB "+tr("limit for server storage. Use Google Drive for larger files."));
-    if(o.changed) toast(tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after));
-    else toast(tr("Uploading…"));
+    if(rec) uploadSet(rec,{size:f.size,total:f.size,note:o.changed?tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after):""});
     var h={"Content-Type":"application/octet-stream"};
     if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
-    return fetch(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",credentials:"same-origin",headers:h,body:f}).then(function(r){
+    return uploadSend(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",headers:h,body:f,rec:rec}).then(function(r){
       return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
         if(r.status===401&&typeof showLogin==="function") showLogin(j.error||"Please sign in");
         if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
@@ -2583,6 +2582,68 @@ function copyImageToClipboard(src){ if(!navigator.clipboard||!window.ClipboardIt
 function previewModal(o){ var body; if (o.driveId&&!o.img) body='<iframe src="https://drive.google.com/file/d/'+attr(o.driveId)+'/preview" style="width:100%;height:72vh;border:0;border-radius:var(--radius);background:#111" allow="autoplay"></iframe>'; else if (o.img) body='<div style="text-align:center;background:var(--color-surface-sunken);border-radius:var(--radius);padding:8px"><img src="'+attr(o.img)+'" style="max-width:100%;max-height:72vh;border-radius:8px"></div>'; else if (o.url&&typeof embedFor==="function"&&embedFor(o.url)) body=embedFor(o.url).kind==="image"?'<div class="vp-image"><img src="'+attr(embedFor(o.url).src)+'" alt=""></div>':embedFrameHtml(embedFor(o.url),true); else body=emptyBox("No preview available","Open the file in its storage provider.");
   var saveArg=attr(JSON.stringify({name:o.name||o.plainTitle||"",img:o.img||"",url:o.url||"",driveId:o.driveId||null})); var canSave=!!(o.img||o.driveId||(o.url&&/^https?:/i.test(o.url)));
   openModal(o.rawTitle?o.title:esc(o.title||"Preview"),body,(o.url?'<button class="btn" onclick="openExternal('+jsq(o.url)+')">'+I.ext+(o.driveId?"Open in Google Drive":"Open")+'</button>':'')+(canSave?'<button class="btn" onclick="saveFile('+saveArg+')">'+I.download+tr("Download")+'</button>':'')+(o.img?'<button class="btn ghost" onclick="copyImageToClipboard('+jsq(o.img)+')">'+I.copy+tr("Copy image")+'</button>':'')+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">Close</button>',true); }
+
+;/* src/upload-progress.js */
+
+var UPLOADS=[], UPLOAD_SEQ=0, UPLOAD_KEEP=40;
+function uploadBegin(file,opts){ opts=opts||{}; var n=(file&&file.size)||0;
+  var rec={id:"up"+(++UPLOAD_SEQ),name:opts.name||(file&&file.name)||"file",size:n,loaded:0,total:n,stage:"preparing",dest:opts.dest||"",mime:(file&&file.type)||"",note:"",error:"",startedAt:Date.now(),endedAt:0,xhr:null,cancelRequested:false,onProgress:opts.onProgress||null};
+  UPLOADS.push(rec);
+  while(UPLOADS.length>UPLOAD_KEEP){ var i=0; while(i<UPLOADS.length&&!UPLOADS[i].endedAt) i++; if(i>=UPLOADS.length) break; UPLOADS.splice(i,1); }
+  uploadEmit(rec); return rec; }
+function uploadSet(rec,patch){ if(!rec) return; Object.keys(patch||{}).forEach(function(k){ rec[k]=patch[k]; });
+  if(uploadOver(rec)&&!rec.endedAt){ rec.endedAt=Date.now(); rec.xhr=null; }
+  uploadEmit(rec); }
+function uploadOver(rec){ return !!rec&&(rec.stage==="done"||rec.stage==="failed"||rec.stage==="cancelled"); }
+function uploadEmit(rec){ uploadPaint(rec); if(rec.onProgress){ try{ rec.onProgress(rec); }catch(e){} }
+  try{ document.dispatchEvent(new CustomEvent("zc-upload",{detail:rec})); }catch(e){} }
+function uploadById(id){ for(var i=0;i<UPLOADS.length;i++) if(UPLOADS[i].id===id) return UPLOADS[i]; return null; }
+function uploadActive(){ return UPLOADS.filter(function(r){ return !uploadOver(r); }); }
+function uploadPct(rec){ if(!rec) return 0; if(rec.stage==="done"||rec.stage==="finishing") return 100; return rec.total>0?Math.min(99,Math.floor(rec.loaded/rec.total*100)):0; }
+function uploadCanCancel(rec){ return !!rec&&(rec.stage==="preparing"||rec.stage==="uploading"); }
+function uploadCancel(id){ var r=uploadById(id); if(!uploadCanCancel(r)) return false; r.cancelRequested=true; if(r.xhr) r.xhr.abort(); return true; }
+function uploadCancelledError(){ var e=new Error(tr("Upload cancelled")); e.cancelled=true; return e; }
+
+function uploadSend(url,o){ o=o||{}; var rec=o.rec||null;
+  return new Promise(function(res,rej){
+    if(rec&&rec.cancelRequested) return rej(uploadCancelledError());
+    var x=new XMLHttpRequest(); x.open(o.method||"POST",url,true);
+    if(o.credentials==="include") x.withCredentials=true;
+    var h=o.headers||{}; Object.keys(h).forEach(function(k){ x.setRequestHeader(k,h[k]); });
+    if(rec){ rec.xhr=x; var size=(o.body&&o.body.size)||rec.total||0;
+      uploadSet(rec,{stage:"uploading",loaded:0,total:size});
+      x.upload.onprogress=function(e){ if(rec.stage!=="uploading") return; uploadSet(rec,{loaded:e.loaded,total:e.lengthComputable&&e.total?e.total:rec.total}); };
+      x.upload.onload=function(){ if(rec.stage==="uploading") uploadSet(rec,{stage:"finishing",loaded:rec.total}); }; }
+    x.onload=function(){ if(rec) rec.xhr=null; var t=x.responseText||"", st=x.status;
+      res({ok:st>=200&&st<300,status:st,text:function(){ return Promise.resolve(t); },json:function(){ return new Promise(function(ok,no){ try{ ok(t?JSON.parse(t):{}); }catch(e){ no(e); } }); }}); };
+    x.onerror=function(){ if(rec) rec.xhr=null; rej(new Error(tr("The connection dropped before the upload finished."))); };
+    x.onabort=function(){ if(rec) rec.xhr=null; rej(uploadCancelledError()); };
+    x.send(o.body==null?null:o.body);
+  });
+}
+function uploadTracked(file,opts,dest,run){ opts=opts||{};
+  var rec=uploadBegin(file,{name:opts.name||(file&&file.name),dest:dest,onProgress:opts.onProgress});
+  var p=Promise.resolve().then(function(){ return run(rec); }).then(function(out){ uploadSet(rec,{stage:"done",loaded:rec.total}); return out; },
+    function(e){ var c=!!(e&&e.cancelled)||rec.cancelRequested; uploadSet(rec,{stage:c?"cancelled":"failed",error:c?"":String((e&&e.message)||e||"")}); if(c&&!(e&&e.cancelled)) throw uploadCancelledError(); throw e; });
+  p.upload=rec; return p; }
+function uploadDestLabel(rec){ return rec&&rec.dest==="gdrive"?tr("Google Drive"):tr("this server"); }
+function uploadStatusText(rec){ if(!rec) return "";
+  switch(rec.stage){
+    case "preparing": return rec.dest==="server"&&/^image\//.test(rec.mime)?tr("Optimising image…"):tr("Preparing…");
+    case "uploading": return uploadPct(rec)+"%"+(rec.total?" · "+humanBytes(rec.loaded)+" "+tr("of")+" "+humanBytes(rec.total):"");
+    case "finishing": return rec.dest==="gdrive"?tr("Saving to Google Drive…"):tr("Saving…");
+    case "done": return tr("Uploaded");
+    case "cancelled": return tr("Upload cancelled");
+    default: return tr("Upload failed")+(rec.error?" · "+rec.error:"");
+  } }
+function uploadBarClass(rec){ var s=rec&&rec.stage; return "upbar"+(s==="preparing"?" indet":s==="finishing"?" wait":s==="done"?" ok":s==="failed"?" bad":s==="cancelled"?" off":""); }
+function uploadBarHtml(rec){ if(!rec) return ""; var p=uploadPct(rec);
+  return '<span class="'+uploadBarClass(rec)+'" data-upload="'+attr(rec.id)+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'" aria-label="'+attr(rec.name)+'"><i style="width:'+p+'%"></i></span>'; }
+function uploadTextHtml(rec){ return rec?'<span class="uptext" data-upload-text="'+attr(rec.id)+'">'+esc(uploadStatusText(rec))+'</span>':""; }
+function uploadPaint(rec){ if(!rec||typeof document==="undefined") return; var p=uploadPct(rec), cls=uploadBarClass(rec), txt=uploadStatusText(rec);
+  document.querySelectorAll('[data-upload="'+rec.id+'"]').forEach(function(el){ if(el.className!==cls) el.className=cls; el.setAttribute("aria-valuenow",p); var i=el.firstElementChild; if(i) i.style.width=p+"%"; });
+  document.querySelectorAll('[data-upload-text="'+rec.id+'"]').forEach(function(el){ if(el.textContent!==txt) el.textContent=txt; }); }
+void 0;
 
 ;/* src/image-optimize.js */
 

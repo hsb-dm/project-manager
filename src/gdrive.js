@@ -11,14 +11,15 @@ function gdCfg(){ var c=cloudOf("gdrive"); return (c&&c.config)||{}; }
 function gdShared(){ var c=cloudOf("gdrive"); return !!(c&&c.shared); }
 function gdSharedAccount(){ var c=cloudOf("gdrive"); return (c&&c.sharedAccount)||""; }
 function gdReady(){ return gdShared()||!!gdCfg().clientId; }
-function gdUploadShared(file,name){
+function gdUploadShared(file,name,rec){
   var mime=file.type||"application/octet-stream";
   var q="?name="+encodeURIComponent(name||file.name||"file")+"&mime="+encodeURIComponent(mime);
   var h={"Content-Type":mime};
   if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
-  /* the file is the body: no base64, no JSON, nothing buffered on either side */
-  return fetch(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",credentials:"same-origin",headers:h,body:file}).then(function(r){
-    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
+  /* the file is the body: no base64, no JSON, nothing buffered on either side. uploadSend counts
+     the bytes into rec (src/upload-progress.js); "finishing" is the server handing it to Drive */
+  return uploadSend(API.base+"/api/cloud/gdrive/upload"+q,{method:"POST",headers:h,body:file,rec:rec}).then(function(r){
+    return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
       if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
   });
 }
@@ -81,8 +82,8 @@ function gdToken(opts){ opts=opts||{}; var live=gdLiveToken(); if (live) return 
   tc=google.accounts.oauth2.initTokenClient({client_id:gdCfg().clientId,scope:"https://www.googleapis.com/auth/drive.file",error_callback:function(e){ if(silent&&!retried){ retried=true; return request("consent"); } settle(rej,new Error(e.type==="popup_closed"?tr("Google sign-in cancelled"):tr("Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.")));},callback:function(r){ if (!r||r.error){ if(silent&&!retried){ retried=true; return request("consent"); } return settle(rej,new Error((r&&r.error_description)||(r&&r.error)||"Google sign-in cancelled")); } GD.token=r.access_token; GD.exp=Date.now()+((r.expires_in||3600)-60)*1000; gdSaveToken(); gdRememberAuth(); var c=cloudOf("gdrive"); if (c&&!c.connected){ c.connected=true; c.account=c.account||"Google account (signed in from the browser)"; c.lastSync=0; if (canI.manageWorkspace()) persistWS(); } settle(res,GD.token); }});
   request(silent?"":"consent");
  }); }).then(function(token){GD.request=null;return token;},function(e){GD.request=null;throw e;}); return GD.request; }
-function gdUpload(file,name){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
-  return fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
+function gdUpload(file,name,rec){ var cfg=gdCfg(); return gdToken().then(function(token){ var meta={name:name||file.name}; if (cfg.folderId) meta.parents=[cfg.folderId]; var fd=new FormData(); fd.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"})); fd.append("file",file);
+  return uploadSend("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,thumbnailLink,mimeType,size",{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,rec:rec}).then(function(r){ return r.json().then(function(j){ if (!r.ok){ if(r.status===401||r.status===403) gdForgetToken(); throw new Error((j.error&&j.error.message)||"Drive upload failed"); } return j; }); })
   .then(function(j){ var done=function(){ return {driveId:j.id,url:j.webViewLink||("https://drive.google.com/file/d/"+j.id+"/view"),thumb:"https://drive.google.com/thumbnail?id="+j.id+"&sz=w1600",preview:"https://drive.google.com/file/d/"+j.id+"/preview",mime:j.mimeType,size:j.size?(j.size/1048576).toFixed(1)+" MB":"—"}; };
     if (cfg.publicLinks!==true) return done(); return fetch("https://www.googleapis.com/drive/v3/files/"+j.id+"/permissions?supportsAllDrives=true",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({role:"reader",type:"anyone"})}).then(function(){ return done(); }).catch(function(){ return done(); }); }); }); }
 /* Where a file that must be kept whole can go, and what to call it in a message. */
@@ -95,33 +96,35 @@ function storageLabel(){ return storageMode()==="server"?tr("this server"):tr("G
    ID was still configured, which is exactly the state a workspace is in when Drive did not work out. */
 function uploadAny(file,opts){ opts=opts||{}; var type=/^image\//.test(file.type)?"image":/^video\//.test(file.type)?"video":/pdf$/.test(file.type)?"pdf":"other"; var size=(file.size/1048576).toFixed(1)+" MB";
   var needsStore=!!(opts.forceDrive||opts.needsStore);
-  if (storageMode()==="server"&&!opts.forceLocal) return API.on?serverUpload(file,type,opts):localUpload(file,type,size);
-  if ((gdAuto()||(needsStore&&gdReady()))&&!opts.forceLocal){ toast("Uploading to Google Drive…"); return (gdShared()?gdUploadShared(file,opts.name):gdUpload(file,opts.name)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
+  /* opts.onProgress(rec) follows the bytes (src/upload-progress.js); the upload tray shows every
+     upload either way. A preview-only "local" upload sends nothing, so it has no record. */
+  if (storageMode()==="server"&&!opts.forceLocal) return API.on?uploadTracked(file,opts,"server",function(rec){ return serverUpload(file,type,opts,rec); }):localUpload(file,type,size);
+  if ((gdAuto()||(needsStore&&gdReady()))&&!opts.forceLocal) return uploadTracked(file,opts,"gdrive",function(rec){ return (gdShared()?gdUploadShared(file,opts.name,rec):gdUpload(file,opts.name,rec)).then(function(r){ var out={source:"gdrive",url:r.url,driveId:r.driveId,preview:null,previewUrl:r.previewUrl||r.preview,size:r.size||size,type:type,name:file.name};
     /* The thumbnail used to point at Drive, but the server stores previews itself and refuses
        a remote link ("no hot-linking arbitrary paths into the database"), so the attach was
        rejected. Make the thumbnail here from the file we already hold. */
     if(type!=="image") return out;
     return new Promise(function(done){ shrinkImage(file,640,640,function(u){ out.preview=u; done(out); }, function(){ done(out); }); });
-  }).catch(function(e){ throw new Error("Drive upload failed. "+e.message); }); }
+  }).catch(function(e){ if(e&&e.cancelled) throw e; throw new Error("Drive upload failed. "+e.message); }); });
   return localUpload(file,type,size); }
 /* "This server" storage (server/filestore.js). Images are optimised first; everything is checked
    against the size limit before a single byte is sent, so a too-large file fails at once instead of
    after a long upload. The result has the same shape as a Drive upload — a link to the original and
    a small preview — so every screen that shows an attachment works unchanged. */
 function serverMaxBytes(){ return (typeof WS!=="undefined"&&WS&&+WS.fileMaxBytes)||5242880; }
-function serverUpload(file,type,opts){
+function serverUpload(file,type,opts,rec){
   opts=opts||{};
   var prep=type==="image"?optimizeImage(file):Promise.resolve({file:file,changed:false});
   return prep.then(function(o){
     var f=o.file, max=serverMaxBytes();
     if(f.size>max) throw new Error(tr("That file is larger than the")+" "+Math.round(max/1048576)+" MB "+tr("limit for server storage. Use Google Drive for larger files."));
-    if(o.changed) toast(tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after));
-    else toast(tr("Uploading…"));
+    /* what the optimiser saved is said beside the bar now, not in a toast of its own */
+    if(rec) uploadSet(rec,{size:f.size,total:f.size,note:o.changed?tr("Image optimised")+": "+humanBytes(o.before)+" → "+humanBytes(o.after):""});
     var h={"Content-Type":"application/octet-stream"};
     if(SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME;
     /* the stored extension comes from this name, so it must be the file actually sent — after
        optimisation a .webp is a .jpg */
-    return fetch(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",credentials:"same-origin",headers:h,body:f}).then(function(r){
+    return uploadSend(API.base+"/api/files/upload?name="+encodeURIComponent(f.name||"file"),{method:"POST",headers:h,body:f,rec:rec}).then(function(r){
       return r.text().then(function(t){ var j; try{ j=t?JSON.parse(t):{}; }catch(e){ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; }
         if(r.status===401&&typeof showLogin==="function") showLogin(j.error||"Please sign in");
         if(!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; });
