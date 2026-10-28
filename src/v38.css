@@ -1760,3 +1760,29 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .paste-up .paste-thumb img{opacity:.6}
 .paste-up-bar{position:absolute;left:6px;right:6px;bottom:6px;line-height:normal}
 .paste-up-bar .upbar{min-width:0;background:color-mix(in srgb,var(--color-surface) 80%,transparent)}
+
+/* ---- Assets, List view (assetRowHtml in src/assets.js) ----
+   ".tbl thead th:first-child" (src/head.html) sizes the first column for the task list's check and drag
+   handles: 44 px wide, no padding, centred. The assets table and Settings → Members start with their
+   content, so that rule squeezed the name into four lines, flattened its icon and centred its header. */
+.tbl.asset-tbl thead th:first-child,.tbl.members-tbl thead th:first-child{width:auto;min-width:0;padding:10px var(--sp-3);text-align:left}
+.asset-tbl .asset-name-c{width:40%;min-width:260px}
+.asset-tbl td:not(.asset-name-c),.asset-tbl th{white-space:nowrap}
+.asset-cell{display:flex;align-items:center;gap:10px;min-width:0}
+.asset-cell>.ficon{flex:none;width:28px;height:28px;font-size:8px}
+.asset-nm{display:flex;flex-direction:column;gap:2px;min-width:0}
+.asset-nm-row{display:flex;align-items:center;gap:8px;min-width:0}
+.asset-nm-t{flex:0 1 auto;min-width:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.35}
+.asset-nm-row>.badge{flex:none}
+.asset-sub{display:none}
+.asset-tbl td.asset-when>span{display:block}
+.asset-tbl td.asset-when .mono{font-size:11.5px}
+.asset-tbl td.asset-when .rel{margin-top:1px;font-size:11px;color:var(--color-text-tertiary)}
+/* the six other columns need about 630 px and the name 260: below 1200 px (the folder column beside the
+   table, a scroll bar) they do not fit, so the row becomes the name with the rest in a line under it */
+@media (max-width:1200px){
+ .asset-tbl thead{display:none}
+ .asset-tbl td:not(.asset-name-c){display:none}
+ .asset-tbl .asset-name-c{width:auto;min-width:0}
+ .asset-sub{display:block;font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
