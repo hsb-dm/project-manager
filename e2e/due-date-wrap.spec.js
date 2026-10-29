@@ -67,7 +67,11 @@ test("the due date stays on one line, the relative note beside it wraps between 
     const name = "Due wrap project " + Date.now(); await apiFetch("POST", "/api/projects", { name, status: "active", owner: ME, teams: [] });
     const proj = (await apiFetch("GET", "/api/bootstrap")).projects.find(p => p.name === name).id;
     const mk = async (title, due) => { const d = await apiFetch("POST", "/api/tasks", { title, status: WS.workflow[1].id, prio: "high", assignee: ME, assignees: [ME], reviewer: ME, reviewers: [ME], proj, dueDate: iso(due), startDate: iso(due - 3) }); return d.id; };
-    const out = { proj, long: await mk("Due wrap 120 overdue", -120), month: await mk("Due wrap 29 overdue", -29), today: await mk("Due wrap today", 0) };
+    /* the owner's case had a two-digit day ("30 Sep"); "1 Jul" is narrow enough for the note to fit on one line,
+       which is right but is not the case under test, so each date is moved back to the nearest two-digit day */
+    const back = days => { for (let k = 0; k < 25; k++) { const d = new Date(); d.setDate(d.getDate() - (days + k)); if (d.getDate() >= 10) return days + k; } return days; };
+    const longDays = back(120), monthDays = back(29);
+    const out = { proj, longDays, monthDays, long: await mk("Due wrap " + longDays + " overdue", -longDays), month: await mk("Due wrap " + monthDays + " overdue", -monthDays), today: await mk("Due wrap today", 0) };
     await reloadAll(); return out;
   });
   const open = async id => { await page.evaluate(id => openTask(id), id); await expect(page.locator('#drawer [data-meta="due"] .due-day')).toBeVisible(); };
@@ -76,7 +80,7 @@ test("the due date stays on one line, the relative note beside it wraps between 
     /* the owner's case: a 183px column of the panel's 4-column header, on a laptop and a smaller one */
     for (const width of [1366, 1100]) {
       await page.setViewportSize({ width, height: 768 });
-      for (const [id, note] of [[ids.long, "120 hari terlambat"], [ids.month, "29 hari terlambat"]]) {
+      for (const [id, note] of [[ids.long, ids.longDays + " hari terlambat"], [ids.month, ids.monthDays + " hari terlambat"]]) {
         await open(id);
         const m = await dueField(page);
         expect(m.note).toBe(note);
@@ -115,8 +119,8 @@ test("the due date stays on one line, the relative note beside it wraps between 
     await page.evaluate(() => setLanguage("en"));
     await open(ids.long);
     m = await dueField(page);
-    expect(m.note).toBe("120d overdue");
-    clean(m, "120d overdue");
+    expect(m.note).toBe(ids.longDays + "d overdue");
+    clean(m, ids.longDays + "d overdue");
     expect(m.noteLines).toBe(2);
     expect(m.beside).toBe(true);
     expect(m.vsProject).toBeLessThanOrEqual(2);
