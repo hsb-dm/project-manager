@@ -111,6 +111,7 @@ function cmtToolbarHtml(){
     + '<button type="button" class="btn xs" onclick="cmtLibraryModal()">'+I.assets.replace('class="i"','')+tr("Attach from library")+'</button>'
     + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="task" title="'+attr(tr("Attach a task"))+'" onclick="cmtAttachRef(this,\'task\')">'+I.tasks+tr("Task")+'</button>'
     + '<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="project" title="'+attr(tr("Attach a project"))+'" onclick="cmtAttachRef(this,\'project\')">'+I.projects+tr("Project")+'</button>'
+    + (typeof cmtAttachAsset==="function"?'<button type="button" class="btn xs cmt-ref-btn" data-ref-kind="asset" title="'+attr(tr("Attach an asset"))+'" onclick="cmtAttachAsset(this)">'+I.assets+tr("Asset")+'</button>':'')
     + '</div>';
 }
 var CMT_MAX_ATT=50;

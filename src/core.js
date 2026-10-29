@@ -301,7 +301,8 @@ function fileFromComment(t,f){
   if(!t||!f) return false;
   if(commentFileIds(t).indexOf(f.id)>=0) return false;
   return (t.comments||[]).some(function(c){
-    if((c.attachments||[]).some(function(a){ return a&&((f.url&&a.url===f.url)||(f.preview&&a.preview===f.preview)||(f.driveId&&a.driveId===f.driveId)); })) return true;
+    /* an asset picked into a comment (a.from, src/comment-assets.js) points at a file kept somewhere already: it does not make that file one from the comments */
+    if((c.attachments||[]).some(function(a){ return a&&!a.from&&((f.url&&a.url===f.url)||(f.preview&&a.preview===f.preview)||(f.driveId&&a.driveId===f.driveId)); })) return true;
     return !!(f.url&&/^https?:/i.test(f.url)&&String(c.text||"").indexOf(f.url)>=0);
   });
 }

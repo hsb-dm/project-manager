@@ -55,17 +55,17 @@ test("a task to comment on", async ({ page }) => {
 /* the ways to attach are one paperclip with a menu: open it and choose */
 const attach = async (page, label) => { await page.locator("#drawer .composer .m-attach").click(); await page.locator("#ctxMenu.m-attach-menu button", { hasText: new RegExp("^\\s*" + label + "\\s*$") }).click(); };
 const attachLabels = async page => { await page.locator("#drawer .composer .m-attach").click(); const l = (await page.locator("#ctxMenu.m-attach-menu button").allInnerTexts()).map(s => s.trim()); await page.evaluate(() => closePops()); return l; };
-test("the comment box has the same five ways in as Assets & versions, and a task or a project — in one paperclip", async ({ page }) => {
+test("the comment box has the same five ways in as Assets & versions, and a task, a project or an asset — in one paperclip", async ({ page }) => {
   await signIn(page);
   await openComments(page);
-  /* one paperclip on a laptop too, not a row of seven buttons */
+  /* one paperclip on a laptop too, not a row of eight buttons */
   await expect(page.locator("#drawer .composer .m-attach")).toBeVisible();
   await expect(page.locator("#drawer .composer .cmt-tools")).toBeHidden();
   const labels = await attachLabels(page);
-  expect(labels).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library", "Task", "Project"]);
+  expect(labels).toEqual(["Upload images", "Upload file", "Link Google Drive", "Attach link", "Attach from library", "Task", "Project", "Asset"]);   /* Asset: e2e/comment-assets.spec.js */
   await page.evaluate(() => { UI_LANG = "id"; renderDrawer(); });
   const id = await attachLabels(page);
-  expect(id).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka", "Task", "Project"]);   /* the workspace's Indonesian keeps Task and Project */
+  expect(id).toEqual(["Unggah gambar", "Unggah file", "Tautkan Google Drive", "Lampirkan tautan", "Lampirkan dari pustaka", "Task", "Project", "Aset"]);   /* the workspace's Indonesian keeps Task and Project */
   await page.evaluate(() => { UI_LANG = "en"; });
 });
 
