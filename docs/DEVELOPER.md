@@ -488,6 +488,22 @@ Konvensi: fungsi persistence mengembalikan `false` (bukan throw) sebagai sentine
 `PUT /api/members/:id` (dengan id dirimu sendiri) dengan `.catch(function(){})`. Itu sebabnya preferensi personal
 (bahasa, `navHidden`, `taskPanelPosition`, progres quest) bekerja identik di standalone.
 
+### Live: saved view, AI Gallery, email pengumuman (Oktober 2026)
+
+Ketiganya dulu tidak live sama sekali. Sekarang server mengirim `live_changed {kind, id, by, tab}` lewat stream SSE
+(`server/live-more.js`), hanya ke orang yang boleh melihat hal itu:
+- `views` — saved view milik pemiliknya saja, jadi hanya ke tab dan perangkat lain pemiliknya;
+- `gallery` — desain aktif ke semua yang boleh melihat AI Gallery; desain yang diarsipkan sebelum dan sesudah
+  perubahan hanya ke pemiliknya dan yang mengelola semua desain; favorit hanya ke halaman orang itu sendiri;
+- `announcements` — hanya ke yang boleh mengirim pengumuman (hanya mereka yang melihat daftarnya), saat mulai
+  dan, tanpa `tab`, saat selesai.
+
+Event tidak membawa isi (nama, catatan, gambar); halaman meminta ulang daftarnya sendiri (`GET /api/views`,
+`GET /api/ai/gallery?…` dengan filter yang sedang dipakai, `GET /api/announcements`) dan menambal yang berubah saja
+(`src/live-more.js`): menu Views yang terbuka, kartu galeri yang berubah, daftar "Sent before". `tab` adalah header
+`X-ZC-Tab` dari request (`/^[a-z0-9]{8,32}$/`), dan tab yang membuat perubahan melewati event-nya sendiri
+(`liveFromThisTab`). Request kreatif adalah task (task di tahap pertama), jadi sudah live lewat `task_changed`.
+
 ### Perbedaan mode demo vs server
 
 | Aspek | `API.on = true` | `API.on = false` |
@@ -946,7 +962,8 @@ dependency dicek tanpa self-dep, tanpa duplikat, dan **deteksi siklus**.
 
 `POST/PUT/DELETE /api/assets[/:id]`, `POST/DELETE /api/folders[/:id]` → `manage_assets`.
 `POST/PUT/DELETE /api/knowledge[/:id]` → `manage_knowledge`.
-`POST/PUT/DELETE /api/views[/:id]` → **tanpa cek capability**; owner dipaksa ke pemanggil.
+`GET /api/views` (milik pemanggil saja), `POST/PUT/DELETE /api/views[/:id]` → **tanpa cek capability**; owner dipaksa
+ke pemanggil.
 `POST /api/notifications`, `POST /api/notifications/read`, `POST /api/activity` → tanpa cek capability,
 tapi `activity.k` dibatasi allow-list dan penerima notifikasi difilter ke anggota workspace.
 

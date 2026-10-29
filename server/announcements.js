@@ -9,9 +9,16 @@
    Sending is one e-mail per person, through the same mail settings as every notification, one after another in
    the background; the request answers at once and the history says how far it got (sent, failed). At most five
    announcements an hour, so a mistake or a stuck button cannot flood everyone's inbox — or the mail account's
-   sending limits. */
+   sending limits.
+
+   Live (Oct 2026, server/live-more.js): one sent shows at once in the list of whoever else has Settings →
+   Notifications open, and in the sender's other tabs: live_changed {kind:"announcements", id, by, tab} when it starts
+   and again, with no tab, when the last e-mail has gone. Only those who may send announcements hear of it, the only
+   ones who see the list; a page that is told asks for the list and follows how far it got while it is going. A test
+   changes no list and tells no one. */
 module.exports = function announcements(db, WS_ID, d) {
-  const { route, HttpError, forbid, can, mailer, sz, uid, now, security } = d;
+  const { route, HttpError, forbid, can, mailer, sz, uid, now, security, live } = d;
+  const tell = (id, u, ctx) => { if (live) live.toWhoever(v => can.sendAnnouncements(v), "announcements", id, u, ctx); };
   const PER_HOUR = 5;
   db.exec(`CREATE TABLE IF NOT EXISTS announcements (
     id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, link TEXT, sent_by TEXT,
@@ -55,7 +62,7 @@ module.exports = function announcements(db, WS_ID, d) {
     return { members: all.filter(r => !r.stakeholder).length, stakeholders: all.filter(r => r.stakeholder).length, people: all.map(r => ({ id: r.id, stakeholder: !!r.stakeholder })), perHour: PER_HOUR, history: history() };
   });
 
-  route("POST", "/api/announcements", (u, p, q, b) => {
+  route("POST", "/api/announcements", (u, p, q, b, ctx) => {
     forbid(can.sendAnnouncements(u), "send announcements");
     const f = fields(b), ws = sz.readWorkspace(db, WS_ID), sender = db.prepare("SELECT name, email FROM users WHERE id=?").get(u.id) || {};
     /* a test: to the sender alone, and the answer says whether it went */
@@ -72,6 +79,7 @@ module.exports = function announcements(db, WS_ID, d) {
     db.prepare("INSERT INTO announcements (id,workspace_id,subject,body,link,sent_by,stakeholders,chosen,recipients,sent,failed,status,created_at) VALUES (?,?,?,?,?,?,?,?,?,0,0,'sending',?)")
       .run(id, WS_ID, f.subject, f.body, f.link || null, u.id, !chosen && b && b.stakeholders ? 1 : 0, chosen ? 1 : 0, people.length, now());
     security.log("announcement_sent", { userId: u.id, recipients: people.length, chosen });
+    tell(id, u, ctx);
     /* one after another, in the background; the history counts as it goes */
     setImmediate(async () => {
       let sent = 0, failed = 0;
@@ -80,6 +88,7 @@ module.exports = function announcements(db, WS_ID, d) {
         try { db.prepare("UPDATE announcements SET sent=?, failed=? WHERE id=?").run(sent, failed, id); } catch (e) {}
       }
       try { db.prepare("UPDATE announcements SET status=?, finished_at=? WHERE id=?").run(failed ? (sent ? "partial" : "failed") : "sent", now(), id); } catch (e) {}
+      tell(id, u, null);   /* done: no request behind this one, so no tab */
     });
     return { announcement: shape(db.prepare("SELECT * FROM announcements WHERE id=?").get(id)), history: history() };
   });

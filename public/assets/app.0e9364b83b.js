@@ -3100,7 +3100,8 @@ function filterBar(opts){ opts=opts||{};
 function filterModal(){ var f=S.filters; var defs=FILTER_DEFS({noProject:S.screen==="projects"&&S.projectId}); openModal("Filters",'<div class="fgrid">'+defs.map(function(d){ return fieldHtml("fm_"+d[0],d[1],selectHtml("fm_"+d[0],d[2],f[d[0]]||"",d[0]==="due"?'onchange="document.getElementById(\'fm_range\').style.display=this.value===\'custom\'?\'grid\':\'none\'"':'')); }).join("")+'</div><div id="fm_range" class="field-row" style="display:'+(f.due==="custom"?"grid":"none")+'">'+fieldHtml("fm_from","From",'<input id="fm_from" type="date" value="'+(f.dueFrom||iso(0))+'">')+fieldHtml("fm_to","To",'<input id="fm_to" type="date" value="'+(f.dueTo||iso(14))+'">')+'</div><p class="hint">Filters combine with AND. Save the result as a view to reuse it.</p>','<button class="btn ghost" onclick="closeModal();clearFilters()">Clear all</button><span class="spacer"></span><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="applyFilterModal()">Apply</button>',true); }
 function applyFilterModal(){ useManualTaskFilters(); var defs=FILTER_DEFS({noProject:S.screen==="projects"&&S.projectId}); defs.forEach(function(d){ S.filters[d[0]]=val("fm_"+d[0]); }); if (S.filters.due==="custom"){ S.filters.dueFrom=val("fm_from"); S.filters.dueTo=val("fm_to"); } S.activeView=null; closeModal(); renderScreen(false); }
 function viewsMenuBtn(){ var cur=S.activeView?byId(VIEWS,S.activeView):null; return '<button class="iconbtn task-round-action'+(cur?" active":"")+'" data-menu onclick="viewsMenu(this)" aria-label="Views" title="'+attr(cur?cur.name:"Views")+'">'+I.pin+'</button>'; }
-function viewsMenu(anchor){ ctxMenu(anchor,'<div class="mh">Saved views</div>'+(VIEWS.length?VIEWS.map(function(v){ return '<button onclick="closePops();applyView(\''+v.id+'\')">'+I.pin+'<span style="flex:1">'+esc(v.name)+(S.activeView===v.id?" ✓":"")+'</span><span class="hint">'+esc(v.type)+'</span></button>'; }).join(""):'<div class="hint" style="padding:6px 10px">No saved views yet</div>')+'<div class="mh">This view</div><button onclick="closePops();saveViewModal()">'+I.plus+(S.activeView?"Save as new view":"Save current view")+'</button>'+(S.activeView?'<button onclick="closePops();updateView()">'+I.check+'Update “'+esc((byId(VIEWS,S.activeView)||{}).name)+'”</button><button onclick="closePops();renameView(\''+S.activeView+'\')">'+I.edit+'Rename</button><button onclick="closePops();deleteViewById(\''+S.activeView+'\');toast(\'View deleted\',\'bad\')">'+I.trash+'Delete</button><button onclick="closePops();S.activeView=null;clearFilters()">'+I.x+'Exit view</button>':'')); }
+function viewsMenu(anchor){ ctxMenu(anchor,viewsMenuHtml()); }
+function viewsMenuHtml(){ return '<div class="mh">Saved views</div>'+(VIEWS.length?VIEWS.map(function(v){ return '<button onclick="closePops();applyView(\''+v.id+'\')">'+I.pin+'<span style="flex:1">'+esc(v.name)+(S.activeView===v.id?" ✓":"")+'</span><span class="hint">'+esc(v.type)+'</span></button>'; }).join(""):'<div class="hint" style="padding:6px 10px">No saved views yet</div>')+'<div class="mh">This view</div><button onclick="closePops();saveViewModal()">'+I.plus+(S.activeView?"Save as new view":"Save current view")+'</button>'+(S.activeView?'<button onclick="closePops();updateView()">'+I.check+'Update “'+esc((byId(VIEWS,S.activeView)||{}).name)+'”</button><button onclick="closePops();renameView(\''+S.activeView+'\')">'+I.edit+'Rename</button><button onclick="closePops();deleteViewById(\''+S.activeView+'\');toast(\'View deleted\',\'bad\')">'+I.trash+'Delete</button><button onclick="closePops();S.activeView=null;clearFilters()">'+I.x+'Exit view</button>':''); }
 var GRID_FIELDS=[["status","Status"],["team","Team"],["assignee","Assignee"],["reviewer","Reviewer"],["proj","Project"],["prio","Priority"],["start","Start"],["due","Due"],["effort","Effort (h)"],["tags","Tags"]].concat((WS.customFields||[]).map(function(f){ return ["cf:"+f.id,locName(f)]; }));
 function fieldsMenu(anchor){ var cf=(WS.customFields||[]).map(function(f){ return ["cf:"+f.id,locName(f)]; }); ctxMenu(anchor,'<div class="mh">Visible columns</div>'+GRID_FIELDS.slice(0,10).concat(cf).map(function(f){ var on=S.gridFields.indexOf(f[0])>=0; return '<button onclick="event.stopPropagation();toggleGridField(\''+f[0]+'\')"><span style="width:16px">'+(on?"✓":"")+'</span>'+esc(f[1])+'</button>'; }).join("")); }
 function toggleGridField(k){ var i=S.gridFields.indexOf(k); if (i>=0) S.gridFields.splice(i,1); else S.gridFields.push(k); renderScreen(false); fieldsMenu(document.querySelector("[data-menu]")||document.body); }
@@ -15367,9 +15368,10 @@ function annSection(){ if(!canAnnounce()) return "";
     +fieldHtml("ann_link",tr("Link (optional)"),'<input id="ann_link" inputmode="url" maxlength="500" value="'+attr(d.link)+'" placeholder="https://" oninput="ANN_DRAFT.link=this.value"><div class="hint">'+tr("The e-mail's button opens it; without one, the button opens ZenCrevia.")+'</div>')
     +(ANN.loading?'':annRecipientsHtml())
     +'<p class="hint ann-who">'+(ANN.loading?tr("Counting who it goes to…"):fmt(tr(n===1?"It goes to {n} person.":"It goes to {n} people."),{n:n}))+'</p>';
-  var hist=(ANN.history||[]).map(function(h){ return '<div class="pref ann-row"><div class="pl"><b>'+esc(h.subject)+'</b><span>'+esc(person(h.by).name||h.by)+' · '+esc(whenLabel(h.createdAt))+' · '+(h.chosen?fmt(tr(h.recipients===1?"to {n} person chosen":"to {n} people chosen"),{n:h.recipients}):tr(h.stakeholders?"to everyone, with stakeholders":"to everyone"))+'</span></div>'+annStatus(h)+'</div>'; }).join("");
   var foot='<button class="btn" onclick="annSend(true)">'+I.bell+tr("Send a test to me")+'</button><span class="spacer"></span><button class="btn primary" onclick="annSend(false)"'+(ANN.loading||!n?' disabled':'')+'>'+(d.mode==="pick"?fmt(tr(n===1?"Send to {n} person":"Send to {n} people"),{n:n}):tr("Send to everyone"))+'</button>';
-  return '<div id="annPanel">'+sp("Announcement email",body+(ANN.err?'<p class="hint" style="color:var(--color-danger)">'+esc(ANN.err)+'</p>':'')+(hist?'<h3 class="ann-h">'+tr("Sent before")+'</h3>'+hist:''),foot,I.bell,"ann-panel")+'</div>'; }
+  return '<div id="annPanel">'+sp("Announcement email",body+(ANN.err?'<p class="hint" style="color:var(--color-danger)">'+esc(ANN.err)+'</p>':'')+'<div id="annHistory">'+annHistoryHtml()+'</div>',foot,I.bell,"ann-panel")+'</div>'; }
+function annHistoryHtml(){ var hist=((ANN&&ANN.history)||[]).map(function(h){ return '<div class="pref ann-row"><div class="pl"><b>'+esc(h.subject)+'</b><span>'+esc(person(h.by).name||h.by)+' · '+esc(whenLabel(h.createdAt))+' · '+(h.chosen?fmt(tr(h.recipients===1?"to {n} person chosen":"to {n} people chosen"),{n:h.recipients}):tr(h.stakeholders?"to everyone, with stakeholders":"to everyone"))+'</span></div>'+annStatus(h)+'</div>'; }).join("");
+  return hist?'<h3 class="ann-h">'+tr("Sent before")+'</h3>'+hist:''; }
 function annValues(){ ["subject","message","link"].forEach(function(k){ var el=document.getElementById("ann_"+k); if(el) ANN_DRAFT[k]=el.value; }); return ANN_DRAFT; }
 function annSend(test){ var d=annValues();
   if(!d.subject.trim()) return toast(tr("Write a subject"),"bad"); if(!d.message.trim()) return toast(tr("Write a message"),"bad");
@@ -17832,6 +17834,80 @@ function redrawRestore(st){ var root=document.getElementById("content"); if(!st|
 (function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(){ var self=this, args=arguments; return bgRedraw(function(){ return base.apply(self,args); }); }; })();
 (function(){ if(typeof pwToggleAttach!=="function") return; var base=pwToggleAttach; pwToggleAttach=function(inp){ var had=document.activeElement===inp, s=had?inp.selectionStart:null, e=had?inp.selectionEnd:null, r=base.apply(this,arguments);
   if(had&&document.activeElement!==inp){ try{ inp.focus({preventScroll:true}); if(s!=null) inp.setSelectionRange(s,e); }catch(x){} } return r; }; })();
+
+;/* src/live-more.js */
+
+var LIVE_MORE={wait:{},timer:{},hidden:{},galleryHeld:false,annPoll:null};
+function liveMoreOwn(ev){ return typeof liveFromThisTab==="function"&&liveFromThisTab(ev); }
+var LIVE_MORE_KINDS={views:liveViews,gallery:liveGallery,announcements:liveAnnouncements};
+function liveMoreTake(ev){ var k=ev&&ev.kind; if(!LIVE_MORE_KINDS[k]||!API.on||liveMoreOwn(ev)) return;
+  if(document.hidden){ LIVE_MORE.hidden[k]=ev; return; }
+  LIVE_MORE.wait[k]=ev; if(LIVE_MORE.timer[k]) return;
+  LIVE_MORE.timer[k]=setTimeout(function(){ var e=LIVE_MORE.wait[k]; delete LIVE_MORE.wait[k]; delete LIVE_MORE.timer[k]; try{ LIVE_MORE_KINDS[k](e); }catch(x){ console.error(x); } },120); }
+if(typeof document!=="undefined"&&document.addEventListener) document.addEventListener("visibilitychange",function(){ if(document.hidden) return; var h=LIVE_MORE.hidden; LIVE_MORE.hidden={}; Object.keys(h).forEach(function(k){ liveMoreTake(h[k]); }); });
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ var r=base.apply(this,arguments); if(ev&&ev.type==="live_changed") liveMoreTake(ev); return r; }; })();
+
+function liveViews(){ return apiFetch("GET","/api/views").then(function(list){
+  if(!Array.isArray(list)||JSON.stringify(list)===JSON.stringify(VIEWS)) return;
+  var act=S.activeView, was=act?byId(VIEWS,act):null, wasName=was?was.name:null;
+  VIEWS=list; var now=act?byId(VIEWS,act):null;
+  if(act&&!now) S.activeView=null;
+  liveViewsMenu();
+  if(act&&(!now||now.name!==wasName)&&(S.screen==="tasks"||S.screen==="calendar")) requestRefresh({bg:true});
+}).catch(function(){}); }
+(function(){ if(typeof viewsMenu!=="function") return; var base=viewsMenu; viewsMenu=function(){ var r=base.apply(this,arguments), m=document.getElementById("ctxMenu"); if(m) m._liveViews=m.classList.contains("open")?m._anchor:null; return r; }; })();
+function liveViewsMenu(){ var m=document.getElementById("ctxMenu"); if(!m||!m.classList.contains("open")||!m._liveViews||m._liveViews!==m._anchor||typeof viewsMenuHtml!=="function") return;
+  var at=Array.prototype.indexOf.call(m.querySelectorAll("button"),document.activeElement);
+  m.innerHTML=viewsMenuHtml(); if(typeof localizeVisibleText==="function") localizeVisibleText(m);
+  var bs=m.querySelectorAll("button"); if(at>=0&&bs.length){ try{ bs[Math.min(at,bs.length-1)].focus({preventScroll:true}); }catch(e){} } }
+
+function liveGallery(){
+  if(S.screen!=="aigallery"||typeof agCanView!=="function"||!agCanView()) return;
+  if(liveGalleryHeld()){ LIVE_MORE.galleryHeld=true; return; }
+  var seq=AG.sequence, user=ME;
+  agRequest("GET",agFilterQuery()).then(function(r){ if(!r||seq!==AG.sequence||S.screen!=="aigallery"||user!==ME) return; liveGalleryPatch(r.items||[],r.total||0); }).catch(function(){});
+  agRefreshOwnedCount().then(function(){ var el=document.querySelector(".ag-usage"); if(!el||S.screen!=="aigallery") return; var t=document.createElement("div"); t.innerHTML=agUsageIndicator(); var n=t.firstElementChild; if(n&&!n.isEqualNode(el)) el.replaceWith(n); });
+}
+function liveGalleryHeld(){ var w=document.getElementById("modalWrap"), f=document.getElementById("agRename"); return !!(w&&f&&w.classList.contains("open")&&w.contains(f)); }
+(function(){ if(typeof closeModal!=="function") return; var base=closeModal; closeModal=function(){ var r=base.apply(this,arguments); if(LIVE_MORE.galleryHeld){ LIVE_MORE.galleryHeld=false; setTimeout(function(){ liveMoreTake({type:"live_changed",kind:"gallery"}); },0); } return r; }; })();
+function liveGallerySig(x){ return JSON.stringify(x); }
+function liveGalleryPatch(items,total){
+  var box=document.getElementById("agItems"); if(!box) return;
+  var old=AG.items||[];
+  if(total===AG.total&&items.length===old.length&&items.every(function(x,i){ return liveGallerySig(x)===liveGallerySig(old[i]); })) return;
+  AG.items=items; AG.total=total;
+  var grid=box.querySelector(".ag-grid");
+  if(!grid||!items.length||grid.children.length!==old.length){ agCards(); if(typeof localizeVisibleText==="function") localizeVisibleText(box); return; }
+  var kids=Array.prototype.slice.call(grid.children), cards={};
+  kids.forEach(function(c,i){ cards[old[i].id]={el:c,sig:liveGallerySig(old[i])}; });
+  var a=document.activeElement, fCard=a&&grid.contains(a)?a.closest(".ag-card"):null, fId=null, fKey=fCard?(a.getAttribute("onclick")||a.className||a.tagName):null;
+  if(fCard) kids.forEach(function(c,i){ if(c===fCard) fId=old[i].id; });
+  items.forEach(function(x,i){ var had=cards[x.id], node;
+    if(had&&had.sig===liveGallerySig(x)) node=had.el;
+    else { var t=document.createElement("div"); t.innerHTML=agCardHTML(x); node=t.firstElementChild; if(typeof localizeVisibleText==="function") localizeVisibleText(node);
+      var o=had&&had.el.querySelector("details.ag-note"), n=node.querySelector("details.ag-note"); if(o&&n&&o.open) n.open=true; }
+    if(had) delete cards[x.id];
+    if(grid.children[i]!==node) grid.insertBefore(node,grid.children[i]||null); });
+  while(grid.children.length>items.length) grid.removeChild(grid.lastElementChild);
+  if(fId&&document.activeElement!==a){ var f=a.isConnected?a:null;
+    if(!f){ var at=-1; items.forEach(function(x,i){ if(x.id===fId) at=i; }); var nc=at>=0?grid.children[at]:null;
+      f=nc&&Array.prototype.filter.call(nc.querySelectorAll("button,summary"),function(b){ return (b.getAttribute("onclick")||b.className||b.tagName)===fKey; })[0]; }
+    if(f){ try{ f.focus({preventScroll:true}); }catch(e){} } }
+  var pg=box.querySelector(".ag-pagination"); if(pg){ var s=pg.querySelector("span"), bs=pg.querySelectorAll("button");
+    if(s) s.textContent=(AG.offset+1)+"–"+(AG.offset+AG.items.length)+" / "+AG.total; if(bs[0]) bs[0].disabled=AG.offset===0; if(bs[1]) bs[1].disabled=AG.offset+24>=AG.total; }
+}
+
+function liveAnnOpen(){ return S.screen==="settings"&&S.settingsTab==="notifications"&&!!document.getElementById("annHistory"); }
+function liveAnnouncements(){
+  if(typeof canAnnounce!=="function"||!canAnnounce()||ANN===null) return;
+  if(!liveAnnOpen()){ ANN=null; return; }
+  if(ANN.loading) return;
+  clearTimeout(LIVE_MORE.annPoll); LIVE_MORE.annPoll=null;
+  apiFetch("GET","/api/announcements").then(function(d){ if(!d||!ANN||ANN.loading||!liveAnnOpen()) return;
+    var was=JSON.stringify(ANN.history||[]); ANN.history=d.history||[];
+    if(JSON.stringify(ANN.history)!==was){ var box=document.getElementById("annHistory"); box.innerHTML=annHistoryHtml(); if(typeof localizeVisibleText==="function") localizeVisibleText(box); }
+    if(ANN.history.some(function(h){ return h.status==="sending"; })) LIVE_MORE.annPoll=setTimeout(function(){ LIVE_MORE.annPoll=null; liveMoreTake({type:"live_changed",kind:"announcements"}); },1500);
+  }).catch(function(){}); }
 
 ;/* src/view-memory.js */
 

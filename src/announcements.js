@@ -44,9 +44,11 @@ function annSection(){ if(!canAnnounce()) return "";
     +fieldHtml("ann_link",tr("Link (optional)"),'<input id="ann_link" inputmode="url" maxlength="500" value="'+attr(d.link)+'" placeholder="https://" oninput="ANN_DRAFT.link=this.value"><div class="hint">'+tr("The e-mail's button opens it; without one, the button opens ZenCrevia.")+'</div>')
     +(ANN.loading?'':annRecipientsHtml())
     +'<p class="hint ann-who">'+(ANN.loading?tr("Counting who it goes to…"):fmt(tr(n===1?"It goes to {n} person.":"It goes to {n} people."),{n:n}))+'</p>';
-  var hist=(ANN.history||[]).map(function(h){ return '<div class="pref ann-row"><div class="pl"><b>'+esc(h.subject)+'</b><span>'+esc(person(h.by).name||h.by)+' · '+esc(whenLabel(h.createdAt))+' · '+(h.chosen?fmt(tr(h.recipients===1?"to {n} person chosen":"to {n} people chosen"),{n:h.recipients}):tr(h.stakeholders?"to everyone, with stakeholders":"to everyone"))+'</span></div>'+annStatus(h)+'</div>'; }).join("");
   var foot='<button class="btn" onclick="annSend(true)">'+I.bell+tr("Send a test to me")+'</button><span class="spacer"></span><button class="btn primary" onclick="annSend(false)"'+(ANN.loading||!n?' disabled':'')+'>'+(d.mode==="pick"?fmt(tr(n===1?"Send to {n} person":"Send to {n} people"),{n:n}):tr("Send to everyone"))+'</button>';
-  return '<div id="annPanel">'+sp("Announcement email",body+(ANN.err?'<p class="hint" style="color:var(--color-danger)">'+esc(ANN.err)+'</p>':'')+(hist?'<h3 class="ann-h">'+tr("Sent before")+'</h3>'+hist:''),foot,I.bell,"ann-panel")+'</div>'; }
+  return '<div id="annPanel">'+sp("Announcement email",body+(ANN.err?'<p class="hint" style="color:var(--color-danger)">'+esc(ANN.err)+'</p>':'')+'<div id="annHistory">'+annHistoryHtml()+'</div>',foot,I.bell,"ann-panel")+'</div>'; }
+/* "Sent before": in a box of its own, so one sent elsewhere is written in alone (src/live-more.js) */
+function annHistoryHtml(){ var hist=((ANN&&ANN.history)||[]).map(function(h){ return '<div class="pref ann-row"><div class="pl"><b>'+esc(h.subject)+'</b><span>'+esc(person(h.by).name||h.by)+' · '+esc(whenLabel(h.createdAt))+' · '+(h.chosen?fmt(tr(h.recipients===1?"to {n} person chosen":"to {n} people chosen"),{n:h.recipients}):tr(h.stakeholders?"to everyone, with stakeholders":"to everyone"))+'</span></div>'+annStatus(h)+'</div>'; }).join("");
+  return hist?'<h3 class="ann-h">'+tr("Sent before")+'</h3>'+hist:''; }
 function annValues(){ ["subject","message","link"].forEach(function(k){ var el=document.getElementById("ann_"+k); if(el) ANN_DRAFT[k]=el.value; }); return ANN_DRAFT; }
 function annSend(test){ var d=annValues();
   if(!d.subject.trim()) return toast(tr("Write a subject"),"bad"); if(!d.message.trim()) return toast(tr("Write a message"),"bad");

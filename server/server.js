@@ -570,7 +570,10 @@ function readRoles() { return db.prepare("SELECT * FROM roles ORDER BY rank DESC
 function publicUser(id) { const u = db.prepare("SELECT id, name, email, initials, avatar_color FROM users WHERE id=?").get(id); const m = db.prepare("SELECT role_id, job_title FROM workspace_members WHERE user_id=? AND workspace_id=?").get(id, WS_ID); return u && { id: u.id, name: u.name, email: u.email, ini: u.initials, c: u.avatar_color, perm: m ? m.role_id : null, role: m ? m.job_title : "" }; }
 function workspaceFor(u) { const w = sz.readWorkspace(db, WS_ID); if (!can.manageWorkspace(u)) w.joinCode = ""; if (!can.manageWorkspace(u) && w.ai && Array.isArray(w.ai.chatModels)) w.ai.chatModels = require("./ai-chat-models").pure.publicState({ models: w.ai.chatModels, use: w.ai.chatUse, purposes: [] }).models;   /* the chat models' settings are the admins': everyone else learns which there are and whether each is ready */ if (w.ai && Array.isArray(w.ai.promptTemplates)) w.ai.promptTemplates = w.ai.promptTemplates.filter(t => !t || !t.private || t.owner === u.id);   /* someone's own templates are theirs alone */ /* read-only: lets the page refuse an oversized file before uploading it; writeWorkspace ignores it */ w.fileMaxBytes = filestore.MAX_BYTES; return w; }
 const route = (method, pattern, handler) => routes.push({ method, re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), handler });
-require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID));
+/* saved views, AI Gallery and the announcements' list, live for whoever may see them (server/live-more.js); the
+   messages module, which carries the event, is made further down and is asked for when something is sent */
+const liveMore = require("./live-more")(db, WS_ID, { userContext, chat: () => chat });
+require('./gallery')(db, WS_ID, route, () => sz.readAIRaw(db, WS_ID), liveMore);
 /* v18 §144–147 Messages: the SSE stream handler needs the raw response, which route handlers receive as ctx.res */
 /* v19 task.meta (watchers, checklist, actual effort, source message) — one JSON column, added lazily for existing DBs */
 try { db.exec("ALTER TABLE tasks ADD COLUMN meta TEXT DEFAULT '{}'"); } catch (e) {}
@@ -649,7 +652,7 @@ const chat = require('./messages')(db, WS_ID, (method, pattern, handler) => rout
    GET /api/link-preview, fetched through the same guarded fetch as link names */
 linkPreviewLib.register(db, { route, fetch: linkFetchStub || chat.guardedFetch });
 /* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
-require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security });
+require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security, live: liveMore });
 /* a project's discussion: its own comments, routes and notifications (server/project-discussion.js) */
 require("./project-discussion")(db, WS_ID, { route, HttpError, forbid, can, has: require("./permissions").has, tooLong, validateStoredFiles, uid, now, J, S, userContext,
   notifyUsers: (list, o) => deliverNotifs(list.map(x => ({ recipient: x.id, k: x.k, message: JSON.stringify(Object.assign({ comment: o.comment, text: o.text }, x.reply ? { reply: true } : {})) })), o),
@@ -1962,9 +1965,12 @@ route("DELETE", "/api/knowledge-folders/:id", (u, p) => { forbid(can.manageKnowl
 /* v29 saved views: validated body, and a view can only ever be written by its owner
    (the upsert used to let anyone overwrite another member's view by id). */
 const cleanView = b => { const name = String(b.name || "").trim(); if (!name || name.length > 120) throw new HttpError(400, "A view name under 120 characters is required"); if (b.id != null && !/^[A-Za-z0-9_-]{1,80}$/.test(String(b.id))) throw new HttpError(400, "Invalid view id"); return Object.assign({}, b, { name, type: String(b.type || "list").slice(0, 40), sort: b.sort == null ? null : String(b.sort).slice(0, 200), group: b.group == null ? null : String(b.group).slice(0, 200), filters: b.filters && typeof b.filters === "object" ? b.filters : {}, fields: Array.isArray(b.fields) ? b.fields : [], config: b.config && typeof b.config === "object" ? b.config : {} }); };
-route("POST", "/api/views", (u, p, q, b) => { const v = cleanView(b); v.id = v.id || uid("sv"); const other = db.prepare("SELECT owner_id FROM saved_views WHERE id=?").get(v.id); if (other && other.owner_id !== u.id) v.id = uid("sv"); v.owner = u.id; tx(db, () => sz.writeView(db, WS_ID, v)); return sz.readViews(db, WS_ID, u.id); });
-route("PUT", "/api/views/:id", (u, p, q, b) => { const cur = db.prepare("SELECT owner_id FROM saved_views WHERE id=? AND workspace_id=?").get(p.id, WS_ID); if (!cur || cur.owner_id !== u.id) throw new HttpError(404, "View not found"); const v = cleanView(b); v.id = p.id; v.owner = u.id; tx(db, () => sz.writeView(db, WS_ID, v)); return sz.readViews(db, WS_ID, u.id); });
-route("DELETE", "/api/views/:id", (u, p) => { db.prepare("DELETE FROM saved_views WHERE id=? AND owner_id=?").run(p.id, u.id); return sz.readViews(db, WS_ID, u.id); });
+/* Oct 2026 live: a view is its owner's alone, so a change to one reaches only the owner's other tabs and devices
+   (live_changed {kind:"views"}, server/live-more.js), which ask again with GET /api/views */
+route("GET", "/api/views", (u) => sz.readViews(db, WS_ID, u.id));
+route("POST", "/api/views", (u, p, q, b, ctx) => { const v = cleanView(b); v.id = v.id || uid("sv"); const other = db.prepare("SELECT owner_id FROM saved_views WHERE id=?").get(v.id); if (other && other.owner_id !== u.id) v.id = uid("sv"); v.owner = u.id; tx(db, () => sz.writeView(db, WS_ID, v)); liveMore.toSelf(u, "views", v.id, ctx); return sz.readViews(db, WS_ID, u.id); });
+route("PUT", "/api/views/:id", (u, p, q, b, ctx) => { const cur = db.prepare("SELECT owner_id FROM saved_views WHERE id=? AND workspace_id=?").get(p.id, WS_ID); if (!cur || cur.owner_id !== u.id) throw new HttpError(404, "View not found"); const v = cleanView(b); v.id = p.id; v.owner = u.id; tx(db, () => sz.writeView(db, WS_ID, v)); liveMore.toSelf(u, "views", v.id, ctx); return sz.readViews(db, WS_ID, u.id); });
+route("DELETE", "/api/views/:id", (u, p, q, b, ctx) => { if (db.prepare("DELETE FROM saved_views WHERE id=? AND owner_id=?").run(p.id, u.id).changes) liveMore.toSelf(u, "views", p.id, ctx); return sz.readViews(db, WS_ID, u.id); });
 /* notifications + activity */
 /* v29 client-raised notifications: they trigger real email, so they must point at a real
    entity, use a known kind, reach a bounded number of people and be rate limited per
