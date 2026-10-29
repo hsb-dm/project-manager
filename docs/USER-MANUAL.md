@@ -450,6 +450,10 @@ utuh seperti aset: ke Google Drive apa adanya, atau ke server ini sesuai optimas
 chip-nya menampilkan gambar itu dengan bilah progres dan **×** untuk membatalkan. Komentar menampilkan pratinjau
 kecilnya; klik untuk membuka file aslinya, dan **Download** di sana mengunduh file asli. Kalau workspace belum punya
 tempat menyimpan file (demo, atau penyimpanan belum diatur), gambar diperkecil di browser seperti sebelumnya.
+**Aset** (di menu lampiran, setelah **Task** dan **Project**) melampirkan aset yang sudah ada tanpa mengunggah ulang:
+di komentar task, versi dan file final task ini lebih dulu, lalu aset task lain di project yang sama, lalu
+**Pustaka aset**; di **Diskusi** project, semua aset project itu, lalu Pustaka aset. Aset yang dipilih tampil dan
+terbuka seperti file lain di komentar, dan tidak tercatat lagi di Assets & versions.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.
 
