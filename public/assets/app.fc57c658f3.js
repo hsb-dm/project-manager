@@ -4978,7 +4978,7 @@ function aiSaveGeneratedToDrive(){
       if(!ASSET_FOLDERS.some(function(f){return f.id==="ai";}))ASSET_FOLDERS.push({id:"ai",name:"AI generated",type:"image"});
       var a={id:uid("as"),name:name,type:"image",folder:"ai",tags:["ai","banner",aiLayout(AIF.layout).id],size:up.size,ver:1,source:up.source,url:up.url,driveId:up.driveId||null,ago:0,color:(WS.brand&&WS.brand.primary)||"#0B2A5B",by:ME,brand:false,description:"Generated in AI Hub — "+esc(AIF.brief).slice(0,140),img:up.preview||null};
       ASSETS.unshift(a); if(typeof persistAsset==="function")persistAsset(a,true); toast(tr("Generated visual saved to")+" "+storageLabel()); renderScreen(false);
-    }).catch(function(e){toast(tr("Could not save the generated visual")+": "+e.message,"bad");});
+    }).catch(function(e){ if(e&&e.cancelled) return; toast(tr("Could not save the generated visual")+": "+e.message,"bad");});
   },"image/png"); });
 }
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "banner"; }
