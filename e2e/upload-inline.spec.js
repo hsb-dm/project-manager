@@ -181,7 +181,7 @@ test("Files: every file on its way has its row with a bar; × cancels one and th
   }
 });
 
-test("a comment: a file's chip is in the box at once with its bar; Post says how far; × cancels; a picture stays local", async ({ page }) => {
+test("a comment: a file's chip is in the box at once with its bar; Post says how far; × cancels; a picture goes up too", async ({ page }) => {
   await signIn(page);
   const id = await newTask(page, "Comment chip");
   const unthrottle = await throttle(page, 50000);
@@ -227,19 +227,22 @@ test("a comment: a file's chip is in the box at once with its bar; Post says how
     await expect(page.locator("#drawer .composer .att-up")).toHaveCount(0);
     await expect(box).toHaveValue("Notes for you");
     expect(await page.evaluate(() => window.__ta === document.getElementById("cmtText") && document.activeElement === window.__ta)).toBe(true);
-    /* a picture is made small here, as before: no upload */
+    /* a picture goes up whole too (kept as an asset's, e2e/comment-pictures.spec.js), and lands as its preview */
     const n = await page.evaluate(() => UPLOADS.length);
     chooser = page.waitForEvent("filechooser");
     await page.evaluate(() => cmtUpload(true));
     await (await chooser).setFiles({ name: "red.png", mimeType: "image/png", buffer: require("fs").readFileSync(require("path").join(__dirname, "fixtures", "red.png")) });
-    await expect(page.locator("#drawer .composer .att-img")).toBeVisible();
-    expect(await page.evaluate(() => UPLOADS.length)).toBe(n);
+    await expect(page.locator("#drawer .composer .att-img")).toBeVisible({ timeout: 20000 });
+    expect(await page.evaluate(() => UPLOADS.length)).toBe(n + 1);
     await page.locator("#drawer .composer .bar .btn.primary").click();
     await expect.poll(() => page.evaluate(i => (task(i).comments[0] || {}).attachments || [], id).then(a => a.map(x => x.name)), { timeout: 15000 }).toEqual(["Brief notes.pdf", "red.png"]);
-    const att = await page.evaluate(i => task(i).comments[0].attachments[0], id);
-    expect(att.url).toMatch(/^\/files\/d\//);
-    expect(att.pending).toBeUndefined();
-    expect(att.upId).toBeUndefined();
+    const atts = await page.evaluate(i => task(i).comments[0].attachments, id);
+    atts.forEach(att => {
+      expect(att.url).toMatch(/^\/files\/d\//);
+      expect(att.pending).toBeUndefined();
+      expect(att.upId).toBeUndefined();
+    });
+    expect(atts[1].preview).toBeTruthy();
     expect(await redToasts(page)).toEqual([]);
   } finally {
     await unthrottle(); await restore(page); await dropTask(page, id);

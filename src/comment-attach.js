@@ -132,14 +132,33 @@ function cmtUpload(imagesOnly){
     var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if(!files.length) return;
     if(files.length>cmtRoom()){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,cmtRoom())); }
     files.forEach(function(f){
-      var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type);
-      if(isImg) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+      /* with nowhere to keep it, a picture is made small here, as it always was */
+      if(cmtIsPicture(f)&&!cmtKeepsPictures()) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+      /* a picture goes up whole, its chip in the box at once with its bar (cmtPicStart, below) */
+      else if(cmtIsPicture(f)) cmtPicStart(f,cmtStage);
       /* not a picture: its chip is in the box at once, with its bar and × (cmtUpStart, src/drawer.js) */
       else cmtUpStart(f,cmtStage,function(u){ return {source:u.source||(u.driveId?"gdrive":"local")}; });
     });
   };
   inp.click();
 }
+/* A picture attached to a comment is kept whole (Oct 2026), the way Assets, versions and a task's Files keep one. It
+   was made small here (1600 px, WebP and smaller again when large, 560 px when pasted) and kept only as that data URL,
+   so a poster came out blurry and Download gave the small copy. It now goes up through uploadAny like any other file
+   of a comment: to Google Drive as it is, or to this server under the workspace's image optimisation. While it goes,
+   its chip waits in the box with its bar and ×, the picture itself in it (CMT_UP_THUMB, read by cmtUpChipHtml in
+   src/drawer.js); once it lands the attachment carries the original (url, driveId) and the small preview uploadAny
+   made, which is what the comment shows, and a click opens the original (cmtPicOpen). With nowhere to keep files
+   (storageKeepsFiles: the standalone demo, or no storage set up) a picture is still made small here, as before. */
+var CMT_UP_THUMB={};
+function cmtIsPicture(f){ return !!f&&/^image\/(png|jpe?g|webp|gif)$/i.test(f.type||""); }
+function cmtKeepsPictures(){ return typeof storageKeepsFiles==="function"&&storageKeepsFiles(); }
+function cmtPicStart(f,stage){ var thumb=""; try{ thumb=URL.createObjectURL(f); }catch(e){}
+  var job=cmtUpStart(f,function(a){ if(a&&a.pending&&thumb) CMT_UP_THUMB[a.upId]=thumb; stage(a); },
+    function(u){ return {name:u.name||f.name,type:"image",preview:u.preview||null,source:u.source||(u.driveId?"gdrive":"local")}; });
+  /* landed (drawn as its preview by then), cancelled or failed: the picture held for the chip is let go */
+  var gone=function(){ Object.keys(CMT_UP_THUMB).forEach(function(k){ if(CMT_UP_THUMB[k]===thumb) delete CMT_UP_THUMB[k]; }); if(thumb) try{ URL.revokeObjectURL(thumb); }catch(e){} };
+  if(job&&typeof job.then==="function") job.then(gone,gone); else gone(); }
 /* Link Google Drive / Attach link: paste a link; a Drive link's name is filled in by itself when it
    can be read, and can always be typed over. */
 function cmtLinkModal(kind){
@@ -243,7 +262,8 @@ function cmtFileAssets(t,list){
   list.forEach(function(a){
     var dup=(t.files||[]).some(function(f){ return (a.url&&f.url===a.url)||(a.driveId&&f.driveId===a.driveId)||(a.preview&&f.preview===a.preview); });
     if(dup) return;
-    var drive=a.url&&isGoogleLink(a.url);
+    /* a picture kept in Drive is filed as the picture it is, as one uploaded in Files is */
+    var drive=a.url&&isGoogleLink(a.url)&&!a.preview;
     var f=F(a.name,drive?"document":(a.type==="link"?"document":(a.type||(a.preview?"image":"other"))),a.source||(a.driveId?"gdrive":(a.url&&/^https?:/i.test(a.url)?"link":"local")),a.size||"—",0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null});
     t.files.push(f); added.push(f);
   });
@@ -301,16 +321,35 @@ function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
-function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
+function cmtStagedChipHtml(a,i){ if(a.preview&&!a.ref) return cmtStagedPicHtml(a,i); return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
+/* a staged picture, drawn as the box draws one (cmtBoxHtml, src/drawer.js): what a picture's chip becomes, in place,
+   when its upload lands */
+function cmtStagedPicHtml(a,i){ return '<span class="att att-img"><img src="'+attr(a.preview)+'" alt="">'+esc(a.name)+' <button onclick="cmtAttRemove('+i+')">×</button></span>'; }
+/* A posted comment's pictures: the small preview, inline. One kept whole (its url or driveId beside the preview)
+   opens the original; one made before pictures were kept (a data URL and nothing else) opens as it always did. */
+function cmtPicKept(a){ return !!(a&&typeof a==="object"&&!a.ref&&a.preview&&(a.url||a.driveId)); }
+function cmtPicHtml(a){ var name=a.name||"";
+  var open=cmtPicKept(a)?'cmtPicOpen({name:'+jsq(name)+',url:'+jsq(a.url||"")+',driveId:'+jsq(a.driveId||"")+',preview:'+jsq(a.preview)+'})'
+    :'previewModal({name:'+jsq(name)+',title:'+jsq(name||tr("Preview"))+',img:'+jsq(a.preview)+'})';
+  return '<button type="button" class="cmt-img" title="'+attr(name)+'" onclick="'+open+'"><img src="'+attr(a.preview)+'" alt="'+attr(name)+'" loading="lazy"></button>'; }
+/* the original in the preview dialog, whose Download gives the original too (saveFile): a file on this server as
+   itself, a Drive file in Drive's viewer, anything else (a link with a preview) as its preview */
+function cmtPicOpen(o){ o=o||{}; var title=o.name||tr("Preview");
+  if(/^\/files\//.test(o.url||"")) return previewModal({name:o.name,title:title,img:o.url,url:o.url});
+  if(o.driveId) return previewModal({name:o.name,title:title,driveId:o.driveId,url:o.url||"https://drive.google.com/file/d/"+encodeURIComponent(o.driveId)+"/view"});
+  previewModal({name:o.name,title:title,img:o.preview||"",url:o.url||""}); }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;
   commentAttachmentsHtml=function(c){
     var list=(c&&c.attachments||[]).filter(Boolean);
     var links=list.filter(function(a){ return a&&typeof a==="object"&&!a.preview&&(a.url||(a.ref&&a.refId)); });
-    if(!links.length) return base.apply(this,arguments);
-    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0; })});
-    return base.call(this,rest)+'<div class="cmt-drive cmt-links">'+links.map(function(a){ return a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a); }).join("")+'</div>';
+    /* a comment with a picture kept whole has its pictures drawn here, all in one row; one without is drawn as before */
+    var pics=list.some(cmtPicKept)?list.filter(function(a){ return a&&typeof a==="object"&&!a.ref&&a.preview; }):[];
+    if(!links.length&&!pics.length) return base.apply(this,arguments);
+    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0&&pics.indexOf(a)<0; })});
+    return (pics.length?'<div class="cmt-images">'+pics.map(cmtPicHtml).join("")+'</div>':'')+base.call(this,rest)
+      +(links.length?'<div class="cmt-drive cmt-links">'+links.map(function(a){ return a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a); }).join("")+'</div>':'');
   };
 })();
 /* In Assets & versions a Drive link's row said its full URL under its name; it says what kind of

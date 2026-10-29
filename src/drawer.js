@@ -582,19 +582,21 @@ function cmtBoxHtml(o){ var d=o.draft||{}, att=d.att||[], rt=o.reply, editing=o.
 function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); var k=e.target&&e.target.getAttribute&&e.target.getAttribute("data-cmt-key"); if(!cmtUpReady(k||undefined)) return; if(/^project:/.test(k||"")&&typeof pdSubmit==="function") return pdSubmit(typeof cmtKeyProject==="function"?cmtKeyProject(k):k.slice(8),k); postComment(k||undefined); }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]), forTask=S.drawerTask; inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ if(typeof cmtDraftAttach!=="function"){ window._cmtAtt.push(a); cmtRedraw(); } else if(cmtDraftAttach(forTask,a)) cmtRedraw(); };
-    if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+    /* a picture goes up whole, with its bar (cmtPicStart, src/comment-attach.js); with nowhere to keep it, it is made small here, as before */
+    if(isImg&&typeof cmtPicStart==="function"&&cmtKeepsPictures()) cmtPicStart(f,done);
+    else if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
     else cmtUpStart(f,done); }); }; inp.click(); }
 /* An attachment arriving redraws the comment box with what is in it now — not what was there when the
    upload started — and someone typing keeps typing: same focus, same caret. */
 function cmtRedraw(){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }; var ta=box(), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
-/* A comment's file that is not a picture goes up at once, and its chip is in the box from the start: its bar, how far
+/* A comment's file goes up at once (a picture too, through cmtPicStart), and its chip is in the box from the start: its bar, how far
    it is, and × to cancel it. It is a staged attachment marked pending, so it moves with its draft between boxes like
    any other; when the upload lands it becomes the attachment, in place — the box being typed in keeps its focus and
-   caret — and Post (or Enter) refuses while one is pending, saying how far it is. stage(a) puts a chip in its box. */
+   caret — and Post (or Enter) refuses while one is pending, saying how far it is. stage(a) puts a chip in its box. What it returns settles once the upload's end is dealt with. */
 function cmtUpStart(f,stage,more){ var job=uploadAny(f,{forceDrive:true}), rec=job.upload, a=null;
   var landed=function(u){ return Object.assign({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type},more?more(u):{}); };
   if(rec){ a={name:f.name,size:(f.size/1048576).toFixed(1)+" MB",type:"other",pending:true,upId:rec.id}; stage(a); if(!cmtUpHeld(a)){ a.gone=true; uploadCancel(rec.id); } }
-  job.then(function(u){ if(!a) return stage(landed(u)); if(a.gone||!cmtUpHeld(a)) return; delete a.pending; delete a.upId; Object.assign(a,landed(u)); cmtUpLanded(a,rec.id); },
+  return job.then(function(u){ if(!a) return stage(landed(u)); if(a.gone||!cmtUpHeld(a)) return; delete a.pending; delete a.upId; Object.assign(a,landed(u)); cmtUpLanded(a,rec.id); },
     function(e){ var dropped=!!(a&&a.gone); if(a&&!dropped){ a.gone=true; if(cmtAttUnstage(a)&&document.querySelector('[data-cmt-up="'+rec.id+'"]')) cmtRedraw(); }
       if((e&&e.cancelled)||dropped) return; toast(f.name+": "+e.message,"bad"); }); }
 /* every list a staged attachment can be in: the box being written in, the other boxes' drafts, the draft put aside while a comment is edited */
@@ -602,8 +604,9 @@ function cmtAttLists(){ var out=[window._cmtAtt||[]]; if(typeof CMT_DRAFTS!=="un
 function cmtUpHeld(a){ return cmtAttLists().some(function(l){ return l.indexOf(a)>=0; }); }
 function cmtAttUnstage(a){ var hit=false; cmtAttLists().forEach(function(l){ var i=l.indexOf(a); if(i>=0){ l.splice(i,1); hit=true; } }); return hit; }
 function cmtUpFind(id){ var hit=null; cmtAttLists().forEach(function(l){ l.forEach(function(a){ if(a&&a.pending&&a.upId===id) hit=a; }); }); return hit; }
-function cmtUpChipHtml(a){ var r=uploadById(a.upId), e=typeof DESC_FILE_EXT!=="undefined"&&typeof descFileExt==="function"&&DESC_FILE_EXT[descFileExt(a.name)]||["FILE","#546E7A"];
-  return '<span class="att att-chip att-up" data-cmt-up="'+attr(a.upId)+'"><span class="drive-chip file-chip up-chip" title="'+attr(a.name+(r?" · "+uploadStatusText(r):""))+'"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span class="lc-name">'+esc(a.name)+'</span>'+(r?uploadBarHtml(r)+'<span class="up-pct" data-up-pct="'+attr(r.id)+'">'+uploadPct(r)+'%</span>':'')+'</span><button type="button" class="att-x" title="'+attr(tr("Cancel this upload"))+'" aria-label="'+attr(tr("Cancel this upload")+" "+a.name)+'" onclick="cmtUpDrop('+jsq(a.upId)+')">×</button></span>'; }
+/* a picture on its way shows itself where a file shows its type's badge (CMT_UP_THUMB, src/comment-attach.js) */
+function cmtUpChipHtml(a){ var r=uploadById(a.upId), e=typeof DESC_FILE_EXT!=="undefined"&&typeof descFileExt==="function"&&DESC_FILE_EXT[descFileExt(a.name)]||["FILE","#546E7A"], pic=typeof CMT_UP_THUMB!=="undefined"&&CMT_UP_THUMB[a.upId];
+  return '<span class="att att-chip att-up'+(pic?' att-up-pic':'')+'" data-cmt-up="'+attr(a.upId)+'"><span class="drive-chip file-chip up-chip" title="'+attr(a.name+(r?" · "+uploadStatusText(r):""))+'">'+(pic?'<img class="up-chip-pic" src="'+attr(pic)+'" alt="">':'<span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span>')+'<span class="lc-name">'+esc(a.name)+'</span>'+(r?uploadBarHtml(r)+'<span class="up-pct" data-up-pct="'+attr(r.id)+'">'+uploadPct(r)+'%</span>':'')+'</span><button type="button" class="att-x" title="'+attr(tr("Cancel this upload"))+'" aria-label="'+attr(tr("Cancel this upload")+" "+a.name)+'" onclick="cmtUpDrop('+jsq(a.upId)+')">×</button></span>'; }
 /* landed: the chip becomes the attachment's own, where it is; drawn again only when it cannot be */
 function cmtUpLanded(a,id){ var els=document.querySelectorAll('[data-cmt-up="'+id+'"]'); if(!els.length) return; if(!(a.url||a.ref)||typeof cmtStagedChipHtml!=="function") return cmtRedraw();
   for(var k=0;k<els.length;k++){ var box=els[k].closest("[data-cmt-key]"), key=box&&box.getAttribute("data-cmt-key"), list=key&&typeof cmtDraftOf==="function"?cmtDraftOf(key).att:(window._cmtAtt||[]), i=(list||[]).indexOf(a); if(i<0) return cmtRedraw(); els[k].outerHTML=cmtStagedChipHtml(a,i); } }

@@ -5592,6 +5592,9 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .up-chip .lc-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .up-chip .upbar,.msg-staged-chip.up>.upbar{width:44px;min-width:44px;flex:none}
 .up-pct{flex:none;font-size:10.5px;font-weight:700;color:var(--color-text-secondary)}
+.up-chip .up-chip-pic{width:26px;height:26px;object-fit:cover;border-radius:6px;display:block;flex:none;background:var(--color-surface)}
+:is(#drawer,.pd-box) .composer .att.att-up-pic{vertical-align:baseline}
+:is(#drawer,.pd-box) .composer .att.att-up-pic .up-chip{padding-left:7px}
 .msg-staged-chip.up{min-width:0}
 .msg-staged-chip.up>small b{font-weight:800}
 .msg-staged-chip.up>.upbar{background:color-mix(in srgb,var(--color-primary) 16%,var(--color-surface))}

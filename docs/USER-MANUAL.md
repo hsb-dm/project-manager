@@ -445,6 +445,11 @@ tempat balasannya nanti muncul — dengan @mention, lampiran, gambar yang di-pas
 **Esc** atau **Batal** menutupnya. Kotak di paling bawah tetap untuk komentar baru. Satu kotak balasan terbuka
 sekaligus; balasan yang belum dikirim tersimpan per komentar (tombolnya menjadi **Balas (draft)**). Sama di
 **Diskusi** project.
+Gambar yang kamu lampirkan ke komentar — lewat **Upload images**, ikon klip, atau di-paste dengan Ctrl+V — diunggah
+utuh seperti aset: ke Google Drive apa adanya, atau ke server ini sesuai optimasi gambar workspace. Selama diunggah,
+chip-nya menampilkan gambar itu dengan bilah progres dan **×** untuk membatalkan. Komentar menampilkan pratinjau
+kecilnya; klik untuk membuka file aslinya, dan **Download** di sana mengunduh file asli. Kalau workspace belum punya
+tempat menyimpan file (demo, atau penyimpanan belum diatur), gambar diperkecil di browser seperti sebelumnya.
 
 **Activity** — linimasa kronologis semua kejadian pada task ini.
 

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="ec9d4a1d1875">
+<meta name="zc-build" content="ad99aa2c4157">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={i18nSrc:""}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -5621,6 +5621,9 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
 .up-chip .lc-name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .up-chip .upbar,.msg-staged-chip.up>.upbar{width:44px;min-width:44px;flex:none}
 .up-pct{flex:none;font-size:10.5px;font-weight:700;color:var(--color-text-secondary)}
+.up-chip .up-chip-pic{width:26px;height:26px;object-fit:cover;border-radius:6px;display:block;flex:none;background:var(--color-surface)}
+:is(#drawer,.pd-box) .composer .att.att-up-pic{vertical-align:baseline}
+:is(#drawer,.pd-box) .composer .att.att-up-pic .up-chip{padding-left:7px}
 .msg-staged-chip.up{min-width:0}
 .msg-staged-chip.up>small b{font-weight:800}
 .msg-staged-chip.up>.upbar{background:color-mix(in srgb,var(--color-primary) 16%,var(--color-surface))}
@@ -10507,21 +10510,22 @@ function cmtBoxHtml(o){ var d=o.draft||{}, att=d.att||[], rt=o.reply, editing=o.
 function cmtKey(e){ if(e.key!=="Enter"||e.shiftKey||e.altKey||e.isComposing||e.keyCode===229) return; e.preventDefault(); var k=e.target&&e.target.getAttribute&&e.target.getAttribute("data-cmt-key"); if(!cmtUpReady(k||undefined)) return; if(/^project:/.test(k||"")&&typeof pdSubmit==="function") return pdSubmit(typeof cmtKeyProject==="function"?cmtKeyProject(k):k.slice(8),k); postComment(k||undefined); }
 function attachToComment(){ var inp=document.getElementById("fileInput"); inp.accept="*/*"; inp.multiple=true; inp.onchange=function(){ var files=Array.prototype.slice.call(inp.files||[]), forTask=S.drawerTask; inp.value=""; inp.multiple=false; if (!files.length) return; var room=10-(window._cmtAtt||[]).length; if(files.length>room){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,room)); }
   files.forEach(function(f){ var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type); var done=function(a){ if(typeof cmtDraftAttach!=="function"){ window._cmtAtt.push(a); cmtRedraw(); } else if(cmtDraftAttach(forTask,a)) cmtRedraw(); };
-    if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+    if(isImg&&typeof cmtPicStart==="function"&&cmtKeepsPictures()) cmtPicStart(f,done);
+    else if(isImg) shrinkImage(f,1600,1600,function(u){ done({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
     else cmtUpStart(f,done); }); }; inp.click(); }
 function cmtRedraw(){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }; var ta=box(), had=!!ta&&document.activeElement===ta, a=ta?ta.selectionStart:0, b=ta?ta.selectionEnd:0, top=ta?ta.scrollTop:0; if(ta) window._cmtDraft=ta.value; if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(had&&n){ n.focus(); try{ n.setSelectionRange(a,b); }catch(x){} n.scrollTop=top; } }
 function cmtUpStart(f,stage,more){ var job=uploadAny(f,{forceDrive:true}), rec=job.upload, a=null;
   var landed=function(u){ return Object.assign({name:f.name,size:u.size,url:u.url,driveId:u.driveId||null,type:u.type},more?more(u):{}); };
   if(rec){ a={name:f.name,size:(f.size/1048576).toFixed(1)+" MB",type:"other",pending:true,upId:rec.id}; stage(a); if(!cmtUpHeld(a)){ a.gone=true; uploadCancel(rec.id); } }
-  job.then(function(u){ if(!a) return stage(landed(u)); if(a.gone||!cmtUpHeld(a)) return; delete a.pending; delete a.upId; Object.assign(a,landed(u)); cmtUpLanded(a,rec.id); },
+  return job.then(function(u){ if(!a) return stage(landed(u)); if(a.gone||!cmtUpHeld(a)) return; delete a.pending; delete a.upId; Object.assign(a,landed(u)); cmtUpLanded(a,rec.id); },
     function(e){ var dropped=!!(a&&a.gone); if(a&&!dropped){ a.gone=true; if(cmtAttUnstage(a)&&document.querySelector('[data-cmt-up="'+rec.id+'"]')) cmtRedraw(); }
       if((e&&e.cancelled)||dropped) return; toast(f.name+": "+e.message,"bad"); }); }
 function cmtAttLists(){ var out=[window._cmtAtt||[]]; if(typeof CMT_DRAFTS!=="undefined") Object.keys(CMT_DRAFTS).forEach(function(k){ if(CMT_DRAFTS[k]&&CMT_DRAFTS[k].att) out.push(CMT_DRAFTS[k].att); }); if(S.cmtEditStash&&S.cmtEditStash.att) out.push(S.cmtEditStash.att); return out; }
 function cmtUpHeld(a){ return cmtAttLists().some(function(l){ return l.indexOf(a)>=0; }); }
 function cmtAttUnstage(a){ var hit=false; cmtAttLists().forEach(function(l){ var i=l.indexOf(a); if(i>=0){ l.splice(i,1); hit=true; } }); return hit; }
 function cmtUpFind(id){ var hit=null; cmtAttLists().forEach(function(l){ l.forEach(function(a){ if(a&&a.pending&&a.upId===id) hit=a; }); }); return hit; }
-function cmtUpChipHtml(a){ var r=uploadById(a.upId), e=typeof DESC_FILE_EXT!=="undefined"&&typeof descFileExt==="function"&&DESC_FILE_EXT[descFileExt(a.name)]||["FILE","#546E7A"];
-  return '<span class="att att-chip att-up" data-cmt-up="'+attr(a.upId)+'"><span class="drive-chip file-chip up-chip" title="'+attr(a.name+(r?" · "+uploadStatusText(r):""))+'"><span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span><span class="lc-name">'+esc(a.name)+'</span>'+(r?uploadBarHtml(r)+'<span class="up-pct" data-up-pct="'+attr(r.id)+'">'+uploadPct(r)+'%</span>':'')+'</span><button type="button" class="att-x" title="'+attr(tr("Cancel this upload"))+'" aria-label="'+attr(tr("Cancel this upload")+" "+a.name)+'" onclick="cmtUpDrop('+jsq(a.upId)+')">×</button></span>'; }
+function cmtUpChipHtml(a){ var r=uploadById(a.upId), e=typeof DESC_FILE_EXT!=="undefined"&&typeof descFileExt==="function"&&DESC_FILE_EXT[descFileExt(a.name)]||["FILE","#546E7A"], pic=typeof CMT_UP_THUMB!=="undefined"&&CMT_UP_THUMB[a.upId];
+  return '<span class="att att-chip att-up'+(pic?' att-up-pic':'')+'" data-cmt-up="'+attr(a.upId)+'"><span class="drive-chip file-chip up-chip" title="'+attr(a.name+(r?" · "+uploadStatusText(r):""))+'">'+(pic?'<img class="up-chip-pic" src="'+attr(pic)+'" alt="">':'<span class="file-chip-ico" style="background:'+e[1]+'">'+e[0]+'</span>')+'<span class="lc-name">'+esc(a.name)+'</span>'+(r?uploadBarHtml(r)+'<span class="up-pct" data-up-pct="'+attr(r.id)+'">'+uploadPct(r)+'%</span>':'')+'</span><button type="button" class="att-x" title="'+attr(tr("Cancel this upload"))+'" aria-label="'+attr(tr("Cancel this upload")+" "+a.name)+'" onclick="cmtUpDrop('+jsq(a.upId)+')">×</button></span>'; }
 function cmtUpLanded(a,id){ var els=document.querySelectorAll('[data-cmt-up="'+id+'"]'); if(!els.length) return; if(!(a.url||a.ref)||typeof cmtStagedChipHtml!=="function") return cmtRedraw();
   for(var k=0;k<els.length;k++){ var box=els[k].closest("[data-cmt-key]"), key=box&&box.getAttribute("data-cmt-key"), list=key&&typeof cmtDraftOf==="function"?cmtDraftOf(key).att:(window._cmtAtt||[]), i=(list||[]).indexOf(a); if(i<0) return cmtRedraw(); els[k].outerHTML=cmtStagedChipHtml(a,i); } }
 function cmtUpDrop(id){ var a=cmtUpFind(id); if(a){ a.gone=true; cmtAttUnstage(a); } uploadCancel(id); cmtRedraw(); }
@@ -17646,6 +17650,8 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
   return null; }
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
+  if(where==="comment"&&typeof cmtPicStart==="function"&&cmtKeepsPictures()){
+    files.forEach(function(f){ if(cmtIsPicture(f)) cmtPicStart(f,cmtStage); else cmtUpStart(f,cmtStage,function(u){ return {source:u.source||(u.driveId?"gdrive":"local")}; }); }); return true; }
   if(where==="comment"){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }, redraw=function(){ if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(n) clipboardRefocus(n.id); }; var ta=box(); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); redraw(); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); redraw(); } }); return true; }
   if(where==="brief"){
     var a=document.activeElement, inDesc=!!(a&&a.closest&&a.closest("#descSrc")), docs=files.filter(function(f){ return !/^image\//.test(f.type||""); });
@@ -19081,13 +19087,21 @@ function cmtUpload(imagesOnly){
     var files=Array.prototype.slice.call(inp.files||[]); inp.value=""; inp.multiple=false; if(!files.length) return;
     if(files.length>cmtRoom()){ toast(tr("Up to 10 attachments per comment"),"bad"); files=files.slice(0,Math.max(0,cmtRoom())); }
     files.forEach(function(f){
-      var isImg=/^image\/(png|jpe?g|webp|gif)$/i.test(f.type);
-      if(isImg) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+      if(cmtIsPicture(f)&&!cmtKeepsPictures()) shrinkImage(f,1600,1600,function(u){ cmtStage({name:f.name,size:(f.size/1048576).toFixed(1)+" MB",preview:u,type:"image"}); },function(){ toast(tr("Could not read")+" "+f.name,"bad"); });
+      else if(cmtIsPicture(f)) cmtPicStart(f,cmtStage);
       else cmtUpStart(f,cmtStage,function(u){ return {source:u.source||(u.driveId?"gdrive":"local")}; });
     });
   };
   inp.click();
 }
+var CMT_UP_THUMB={};
+function cmtIsPicture(f){ return !!f&&/^image\/(png|jpe?g|webp|gif)$/i.test(f.type||""); }
+function cmtKeepsPictures(){ return typeof storageKeepsFiles==="function"&&storageKeepsFiles(); }
+function cmtPicStart(f,stage){ var thumb=""; try{ thumb=URL.createObjectURL(f); }catch(e){}
+  var job=cmtUpStart(f,function(a){ if(a&&a.pending&&thumb) CMT_UP_THUMB[a.upId]=thumb; stage(a); },
+    function(u){ return {name:u.name||f.name,type:"image",preview:u.preview||null,source:u.source||(u.driveId?"gdrive":"local")}; });
+  var gone=function(){ Object.keys(CMT_UP_THUMB).forEach(function(k){ if(CMT_UP_THUMB[k]===thumb) delete CMT_UP_THUMB[k]; }); if(thumb) try{ URL.revokeObjectURL(thumb); }catch(e){} };
+  if(job&&typeof job.then==="function") job.then(gone,gone); else gone(); }
 function cmtLinkModal(kind){
   var drive=kind==="drive";
   openModal(drive?(driveIcon()+" "+tr("Link Google Drive")):tr("Attach link"),
@@ -19175,7 +19189,7 @@ function cmtFileAssets(t,list){
   list.forEach(function(a){
     var dup=(t.files||[]).some(function(f){ return (a.url&&f.url===a.url)||(a.driveId&&f.driveId===a.driveId)||(a.preview&&f.preview===a.preview); });
     if(dup) return;
-    var drive=a.url&&isGoogleLink(a.url);
+    var drive=a.url&&isGoogleLink(a.url)&&!a.preview;
     var f=F(a.name,drive?"document":(a.type==="link"?"document":(a.type||(a.preview?"image":"other"))),a.source||(a.driveId?"gdrive":(a.url&&/^https?:/i.test(a.url)?"link":"local")),a.size||"—",0,a.url||"",{preview:a.preview||null,driveId:a.driveId||null});
     t.files.push(f); added.push(f);
   });
@@ -19215,16 +19229,28 @@ function cmtLinkLabel(url){ var u; try{ u=new URL(url); }catch(e){ return String
   if(words&&words.length>48) words=words.slice(0,47)+"…";
   var brand=typeof brandOf==="function"?brandOf(url):null;
   return brand?(words||brand.name):(words?host+" › "+words:host); }
-function cmtStagedChipHtml(a,i){ return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
+function cmtStagedChipHtml(a,i){ if(a.preview&&!a.ref) return cmtStagedPicHtml(a,i); return '<span class="att att-chip">'+(a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a))+'<button type="button" class="att-x" title="'+attr(tr("Remove"))+'" aria-label="'+attr(tr("Remove")+" "+(a.name||""))+'" onclick="cmtAttRemove('+i+')">×</button></span>'; }
+function cmtStagedPicHtml(a,i){ return '<span class="att att-img"><img src="'+attr(a.preview)+'" alt="">'+esc(a.name)+' <button onclick="cmtAttRemove('+i+')">×</button></span>'; }
+function cmtPicKept(a){ return !!(a&&typeof a==="object"&&!a.ref&&a.preview&&(a.url||a.driveId)); }
+function cmtPicHtml(a){ var name=a.name||"";
+  var open=cmtPicKept(a)?'cmtPicOpen({name:'+jsq(name)+',url:'+jsq(a.url||"")+',driveId:'+jsq(a.driveId||"")+',preview:'+jsq(a.preview)+'})'
+    :'previewModal({name:'+jsq(name)+',title:'+jsq(name||tr("Preview"))+',img:'+jsq(a.preview)+'})';
+  return '<button type="button" class="cmt-img" title="'+attr(name)+'" onclick="'+open+'"><img src="'+attr(a.preview)+'" alt="'+attr(name)+'" loading="lazy"></button>'; }
+function cmtPicOpen(o){ o=o||{}; var title=o.name||tr("Preview");
+  if(/^\/files\//.test(o.url||"")) return previewModal({name:o.name,title:title,img:o.url,url:o.url});
+  if(o.driveId) return previewModal({name:o.name,title:title,driveId:o.driveId,url:o.url||"https://drive.google.com/file/d/"+encodeURIComponent(o.driveId)+"/view"});
+  previewModal({name:o.name,title:title,img:o.preview||"",url:o.url||""}); }
 (function(){
   if(typeof commentAttachmentsHtml!=="function") return;
   var base=commentAttachmentsHtml;
   commentAttachmentsHtml=function(c){
     var list=(c&&c.attachments||[]).filter(Boolean);
     var links=list.filter(function(a){ return a&&typeof a==="object"&&!a.preview&&(a.url||(a.ref&&a.refId)); });
-    if(!links.length) return base.apply(this,arguments);
-    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0; })});
-    return base.call(this,rest)+'<div class="cmt-drive cmt-links">'+links.map(function(a){ return a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a); }).join("")+'</div>';
+    var pics=list.some(cmtPicKept)?list.filter(function(a){ return a&&typeof a==="object"&&!a.ref&&a.preview; }):[];
+    if(!links.length&&!pics.length) return base.apply(this,arguments);
+    var rest=Object.assign({},c,{attachments:list.filter(function(a){ return links.indexOf(a)<0&&pics.indexOf(a)<0; })});
+    return (pics.length?'<div class="cmt-images">'+pics.map(cmtPicHtml).join("")+'</div>':'')+base.call(this,rest)
+      +(links.length?'<div class="cmt-drive cmt-links">'+links.map(function(a){ return a.ref?cmtRefChipHtml(a):cmtAttChipHtml(a); }).join("")+'</div>':'');
   };
 })();
 function fileUrlLabel(url){ return isGoogleLink(url)?driveLinkKindLabel(url):url; }

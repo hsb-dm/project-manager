@@ -39,6 +39,11 @@ function clipboardTarget(e){ var t=e&&e.target, tag=t&&t.tagName; var editing=t&
   return null; }
 function clipboardPasteFiles(files,where){ if(!files.length) return false;
   if(where==="message"){ if(!msgCan("send_message")) return false; var c=conv(S.messageConversationId); if(!c||convArchived(c)) return false; files.forEach(msgStageFile); return true; }
+  /* pasted into a comment, a picture goes up whole with its bar, as one chosen with Upload images does, and any other
+     file as Upload file sends it (src/comment-attach.js); the box keeps its focus and caret. With nowhere to keep files
+     it is made small here, as before. */
+  if(where==="comment"&&typeof cmtPicStart==="function"&&cmtKeepsPictures()){
+    files.forEach(function(f){ if(cmtIsPicture(f)) cmtPicStart(f,cmtStage); else cmtUpStart(f,cmtStage,function(u){ return {source:u.source||(u.driveId?"gdrive":"local")}; }); }); return true; }
   if(where==="comment"){ var box=function(){ return typeof cmtInput==="function"?cmtInput():document.getElementById("cmtText"); }, redraw=function(){ if(typeof cmtBoxRedraw==="function") cmtBoxRedraw(); else renderDrawer(); var n=box(); if(n) clipboardRefocus(n.id); }; var ta=box(); if(ta) window._cmtDraft=ta.value; window._cmtAtt=window._cmtAtt||[]; files.forEach(function(f){ var att={name:f.name,size:(f.size/1048576).toFixed(1)+" MB"}; if(/^image\//.test(f.type)) shrinkImage(f,560,560,function(u){ att.preview=u; window._cmtAtt.push(att); redraw(); toast(tr("Image attached to your comment")); }); else { window._cmtAtt.push(att); redraw(); } }); return true; }
   if(where==="brief"){
     /* in the description, a file that is not a picture (a deck, a document, a PDF…) is attached as a
