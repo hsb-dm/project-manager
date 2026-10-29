@@ -61,7 +61,10 @@ function uploadSend(url,o){ o=o||{}; var rec=o.rec||null;
     if(rec&&rec.cancelRequested) return rej(uploadCancelledError());
     var x=new XMLHttpRequest(); x.open(o.method||"POST",url,true);
     if(o.credentials==="include") x.withCredentials=true;
-    var h=o.headers||{}; Object.keys(h).forEach(function(k){ x.setRequestHeader(k,h[k]); });
+    var h=Object.assign({},o.headers||{});
+    /* to this server, the tab it comes from (src/core.js ZC_TAB); never to Google Drive, which would refuse the header */
+    if(typeof zcTabHeaders==="function"&&String(url).indexOf(((typeof API!=="undefined"&&API.base)||"")+"/api/")===0) zcTabHeaders(h);
+    Object.keys(h).forEach(function(k){ x.setRequestHeader(k,h[k]); });
     if(rec){ rec.xhr=x; var size=(o.body&&o.body.size)||rec.total||0;
       uploadSet(rec,{stage:"uploading",loaded:0,total:size});
       x.upload.onprogress=function(e){ if(rec.stage!=="uploading") return; uploadSet(rec,{loaded:e.loaded,total:e.lengthComputable&&e.total?e.total:rec.total}); };

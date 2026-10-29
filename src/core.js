@@ -351,7 +351,21 @@ var canI={ submitRequest:function(){ return has("submit_request")||has("create_t
 /* ---------- API + hydration (wire docs use ISO dates; the UI works in day offsets / minutes ago) ---------- */
 var SESSION={user:null,ws:null,canRegister:true};
 function httpStatusMessage(st){ return st===502||st===503?tr("The server could not be reached (")+st+tr("). It may be restarting — try again in a minute."):st===504||st===524?tr("The request took too long (")+st+tr("). Try again; for AI, pick a faster model or a smaller size."):st===413?tr("That upload is too large."):tr("Unexpected server response (HTTP ")+st+")."; }
-function apiFetch(method,path,body){ var h={"Content-Type":"application/json"}; if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ if(typeof zcBuildSeen==="function") zcBuildSeen(r.headers.get("X-ZC-Build")); return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
+/* This tab, one page load (Oct 2026). Every request the page sends says which tab sent it (X-ZC-Tab), and the server
+   puts it on each live event that request causes, so only the tab that saved skips the echo of its own save
+   (liveFromThisTab) while the same person's other tabs and devices take it. Made afresh on each load and kept
+   nowhere: sessionStorage would follow a duplicated tab, which is another tab. */
+var ZC_TAB=(function(){ var a="abcdefghijklmnopqrstuvwxyz0123456789", s="";
+  try{ var b=new Uint8Array(20); crypto.getRandomValues(b); for(var i=0;i<b.length;i++) s+=a.charAt(b[i]%36); }catch(e){ s=""; }
+  while(s.length<20) s+=a.charAt(Math.floor(Math.random()*36));
+  return s; })();
+if(typeof window!=="undefined") window.ZC_TAB=ZC_TAB;
+/* a live event caused by a request of this very tab, by the person signed in here: one "by" someone else is never
+   skipped, even carrying this tab's id (someone who learnt it could send it to have their changes skipped here) */
+function liveFromThisTab(ev){ return !!(ev&&ev.tab&&typeof window!=="undefined"&&window.ZC_TAB&&ev.tab===window.ZC_TAB&&(!ev.by||(typeof ME!=="undefined"&&ev.by===ME))); }
+/* the headers that say which tab a request to this server comes from (never sent anywhere else: Google Drive) */
+function zcTabHeaders(h){ h=h||{}; if(typeof window!=="undefined"&&window.ZC_TAB) h["X-ZC-Tab"]=window.ZC_TAB; return h; }
+function apiFetch(method,path,body){ var h=zcTabHeaders({"Content-Type":"application/json"}); if (SESSION.user&&ME!==SESSION.user.id) h["x-act-as"]=ME; return fetch(API.base+path,{method:method,credentials:"same-origin",headers:h,body:body!==undefined?JSON.stringify(body):undefined}).then(function(r){ if(typeof zcBuildSeen==="function") zcBuildSeen(r.headers.get("X-ZC-Build")); return r.text().then(function(t){ var j; try { j=t?JSON.parse(t):{}; } catch(e){ /* v38: a proxy/CDN error page (HTML) is never shown raw */ j={error:/^\s*</.test(t)?httpStatusMessage(r.status):String(t).slice(0,300)}; } if (r.status===401&&path.indexOf("/api/auth/")<0){ showLogin(j.error||"Please sign in"); } if (!r.ok) throw new Error(j.error||("HTTP "+r.status)); return j; }); }); }
 function hTask(d){ var t=clone(d); t.due=offsetFromIso(d.dueDate); t.span=Math.max(1,t.due-offsetFromIso(d.startDate||d.dueDate)); t._dates=[d.startDate||null,t.due,t.span]; t.ago=minAgo(d.createdAt); t.prio=t.prio==="normal"?"medium":(t.prio||"medium"); t.tags=t.tags||[]; t.dependencies=Array.isArray(t.dependencies)?t.dependencies:[]; t.assignees=assigneesOf(t); t.reviewers=reviewersOf(t); t.hidden=!!t.hidden; t.assetCount=Math.max(0,+(d.assetCount||0)); t.labels=Array.isArray(t.labels)?t.labels:[]; t.alsoIn=Array.isArray(t.alsoIn)?t.alsoIn:[]; t.custom=t.custom||{}; t.description=t.description||"";
   /* one copy of what the server sent (t above) is all a task needs: its versions, files, comments and history are
      that copy's own, so each is completed in place — a second copy of every one used to be made here — and nothing

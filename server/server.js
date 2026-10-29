@@ -341,10 +341,26 @@ function checkTextLimits(pathname, b) {
   if (!b || typeof b !== "object") return;
   for (const [re, fields, extra] of TEXT_LIMITS) { if (!re.test(pathname)) continue; Object.entries(fields).forEach(([k, max]) => tooLong(k, b[k], max)); if (extra) extra(b); }
 }
+/* The tab a request came from (Oct 2026): the page makes an id once per load (src/core.js ZC_TAB) and sends it as
+   X-ZC-Tab with every request; each live event the request causes carries it as `tab`, so the tab that saved skips its
+   own echo while the same person's other tabs and devices take the change (they used to skip anything "by" that
+   person). Anything else in the header is ignored; an event with no request behind it (a job, the server) has none.
+   requestTab takes a request or a route's ctx. The tab goes only to the pages of whoever made the change (and of an
+   admin acting as them): a colleague never learns another's tab id, which they could send as their own X-ZC-Tab to
+   have their changes skipped there as an echo (the page also skips only events "by" its own person, src/core.js). */
+const TAB_ID = /^[a-z0-9]{8,32}$/;
+function requestTab(r) { const req = r && r.req ? r.req : r, t = req && req.headers ? req.headers["x-zc-tab"] : null; return typeof t === "string" && TAB_ID.test(t) ? t : null; }
+function publishWithTab(ids, ev, tab, user) {
+  if (typeof chat === "undefined" || !chat.publishToUsers) return;
+  const own = tab && user ? [user.id, user.impersonatedBy].filter(Boolean) : [];
+  const others = ids.filter(id => own.indexOf(id) < 0), mine = ids.filter(id => own.indexOf(id) >= 0);
+  if (others.length) chat.publishToUsers(others, ev);
+  if (mine.length) chat.publishToUsers(mine, Object.assign({}, ev, { tab }));
+}
 /* v34 live board. After any successful task write, every signed-in client gets a small
    "task_changed" event and fetches just that task, so boards stop going stale while several
    people work at once. Bulk bootstrap is not re-sent. */
-function announceTaskChange(method, pathname, out, user) {
+function announceTaskChange(method, pathname, out, user, tab) {
   try {
     /* Smart Scoring's routes on a task change it too: its scores, its time log, its efficiency award, its outcome links */
     const m = /^\/api\/tasks(?:\/([^\/]+))?(?:\/(move|hidden|comments|progress(?:\/\d+)?|scoring(?:\/[^\/]+){0,2}|time(?:\/[^\/]+)?|efficiency(?:\/[^\/]+)?|outcomes(?:\/[^\/]+){0,2}))?$/.exec(pathname.replace(/^\/api\/restore\/task\//, "/api/tasks/")); if (!m) return;
@@ -354,18 +370,23 @@ function announceTaskChange(method, pathname, out, user) {
     const deleted = method === "DELETE" && !m[2];
     const row = deleted ? null : db.prepare("SELECT updated_at FROM tasks WHERE id=?").get(id);
     const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id);
-    if (typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers(ids, { type: "task_changed", id, deleted, updatedAt: row ? row.updated_at : null, by: user.id });
+    publishWithTab(ids, { type: "task_changed", id, deleted, updatedAt: row ? row.updated_at : null, by: user.id }, tab, user);
   } catch (e) { /* live updates are best effort */ }
 }
 /* v38 live updates for projects, teams, members, assets, knowledge, workspace settings and roles.
    Clients refetch only the named collection via GET /api/live/:kind. */
 const LIVE_KINDS = [[/^\/api\/projects(?!\/[^\/]+\/comments(\/|$))(\/|$)/, "projects"], [/^\/api\/teams(\/|$)/, "teams"], [/^\/api\/members\/[^\/]+\/cap-grants$/, "grants"], [/^\/api\/members(\/|$)/, "people"], [/^\/api\/(assets|folders)(\/|$)/, "assets"], [/^\/api\/knowledge(-folders)?(\/|$)/, "knowledge"], [/^\/api\/workspace(\/notif-prefs)?$/, "workspace"], [/^\/api\/roles(\/|$)/, "roles"], [/^\/api\/ai\/templates(\/|$)/, "workspace"], [/^\/api\/emoji(\/|$)/, "emoji"], [/^\/api\/scoring\/settings$/, "workspace"], [/^\/api\/scoring\/delegate-leads$/, "roles"], [/^\/api\/outcomes(\/|$)/, "outcomes"]];
-function announceWorkspaceChange(pathname, user) {
+function announceWorkspaceChange(pathname, user, tab) {
   try {
     const hit = LIVE_KINDS.find(([re]) => re.test(pathname)); if (!hit) return;
     const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id);
-    if (typeof chat !== "undefined" && chat.publishToUsers) chat.publishToUsers(ids, { type: "ws_changed", kind: hit[1], by: user.id });
+    publishWithTab(ids, { type: "ws_changed", kind: hit[1], by: user.id }, tab, user);
   } catch (e) { /* best effort */ }
+}
+/* someone's own preferences (theme, language, reminders, layout) are told to nobody else: only to their own other
+   tabs and devices, which fetch the people again and take their own preferences from it (src/v38.js) */
+function announcePrefsChange(user, tab) {
+  try { publishWithTab([user.id, user.impersonatedBy].filter(Boolean), { type: "ws_changed", kind: "prefs", by: user.id }, tab, user); } catch (e) { /* best effort */ }
 }
 const DUMMY_PW = auth.hashPassword(crypto.randomBytes(18).toString("hex"));
 const passwordError = (pw) => { const problem = auth.passwordProblem(pw); if (problem) throw new HttpError(400, problem); };
@@ -654,9 +675,9 @@ linkPreviewLib.register(db, { route, fetch: linkFetchStub || chat.guardedFetch }
 /* announcement e-mails to every member, from Settings → Notifications (server/announcements.js) */
 require("./announcements")(db, WS_ID, { route, HttpError, forbid, can, mailer, sz, uid, now, security, live: liveMore });
 /* a project's discussion: its own comments, routes and notifications (server/project-discussion.js) */
-require("./project-discussion")(db, WS_ID, { route, HttpError, forbid, can, has: require("./permissions").has, tooLong, validateStoredFiles, uid, now, J, S, userContext,
+require("./project-discussion")(db, WS_ID, { route, HttpError, forbid, can, has: require("./permissions").has, tooLong, validateStoredFiles, uid, now, J, S, userContext, tabOf: requestTab,
   notifyUsers: (list, o) => deliverNotifs(list.map(x => ({ recipient: x.id, k: x.k, message: JSON.stringify(Object.assign({ comment: o.comment, text: o.text }, x.reply ? { reply: true } : {})) })), o),
-  publish: ev => { try { chat.publishToUsers(db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id), ev); } catch (e) { /* live updates are best effort */ } } });
+  publish: (ev, user) => { try { const tab = ev.tab; delete ev.tab; publishWithTab(db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id), ev, tab, user); } catch (e) { /* live updates are best effort */ } } });
 
 require("./task-checks")(db, WS_ID, { route, HttpError, now, publish: (ids, ev) => chat.publishToUsers(ids, ev) });   /* a person's own ticks on tasks, on every device (server/task-checks.js) */
 /* v36: the health check proves the database answers (an uptime monitor saw "ok" even with a
@@ -1557,11 +1578,11 @@ route("DELETE", "/api/teams/:id", (u, p) => { forbid(can.manageTeams(u), "archiv
 route("POST", "/api/teams/reorder", (u, p, q, b) => { forbid(can.manageTeams(u), "reorder teams"); tx(db, () => (b.ids || []).forEach((id, i) => db.prepare("UPDATE teams SET sort_order=? WHERE id=? AND workspace_id=?").run(i + 1, id, WS_ID))); return sz.readTeams(db, WS_ID); });
 /* members */
 route("POST", "/api/members", (u, p, q, b) => { forbid(can.manageMembers(u), "add members"); if (b && b.perm) forbidAboveMe(u, b.perm, "give that role"); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); if (db.prepare("SELECT 1 FROM users WHERE lower(email)=?").get(b.email)) throw new HttpError(409, "That email is already used by another member"); } if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (b.id != null && !/^[A-Za-z0-9_-]{1,60}$/.test(String(b.id))) throw new HttpError(400, "Invalid member id"); let id = b.id || uid("u"); /* v38: never reuse the id of a removed account (it would bring back its old password) */ if (db.prepare("SELECT 1 FROM users WHERE id=?").get(id)) id = auth.userIdFor(b.name, db); /* a photo given with a new member: the same limits as a member save, kept as a file */ try { b.avatar = avatars.accept(db, b.avatar, null, u.id); } catch (e) { throw new HttpError(e.status || 400, e.message); } tx(db, () => { sz.writePerson(db, WS_ID, id, b); db.prepare("UPDATE users SET is_active=1 WHERE id=?").run(id); }); act(u, "member_added", "user", id, { what: b.name }); return { id, people: sz.readPeople(db, WS_ID) }; });
-route("PUT", "/api/members/:id", (u, p, q, b) => { forbid(can.manageMembers(u) || u.id === p.id, "edit members"); const existing = sz.readPeople(db, WS_ID)[p.id]; if (!existing) throw new HttpError(404, "Member not found"); b = Object.assign({}, existing, b || {}); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (!can.manageMembers(u)) { const cur = existing; b.perm = cur.perm; b.teams = cur.teams; b.stakeholder = cur.stakeholder; b.cap = cur.cap; b.active = cur.active; } else if (u.id !== p.id || b.perm !== existing.perm) { forbidAboveMe(u, existing.perm, "change this member"); forbidAboveMe(u, b.perm, "give that role"); }
+route("PUT", "/api/members/:id", (u, p, q, b, ctx) => { forbid(can.manageMembers(u) || u.id === p.id, "edit members"); const existing = sz.readPeople(db, WS_ID)[p.id]; if (!existing) throw new HttpError(404, "Member not found"); b = Object.assign({}, existing, b || {}); b.name = String(b.name || "").trim(); if (!b.name || b.name.length > 120) throw new HttpError(400, "Name is required"); if (!b.ini) b.ini = b.name.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase(); if (!can.manageMembers(u)) { const cur = existing; b.perm = cur.perm; b.teams = cur.teams; b.stakeholder = cur.stakeholder; b.cap = cur.cap; b.active = cur.active; } else if (u.id !== p.id || b.perm !== existing.perm) { forbidAboveMe(u, existing.perm, "change this member"); forbidAboveMe(u, b.perm, "give that role"); }
   /* deactivating the last admin locks everyone out just as demoting them did */
   if (existing.perm === "admin" && existing.active !== false && b.active === false && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); /* v34: never leave the workspace without an admin (the last admin demoting themselves locked everyone out of members, backups and settings). */ if (existing.perm === "admin" && b.perm !== "admin" && !db.prepare("SELECT 1 FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND m.role_id='admin' AND x.is_active=1 AND m.user_id<>?").get(WS_ID, p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); if (b.email) { b.email = String(b.email).trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email)) throw new HttpError(400, "Invalid email"); const other = db.prepare("SELECT id FROM users WHERE lower(email)=? AND id!=?").get(b.email, p.id); if (other) throw new HttpError(409, "That email is already used by another member"); } /* a new photo arrives as a data URL (PNG/JPEG/WebP, up to 300,000 characters) and is kept as a file; the one there was comes back as its URL */ try { b.avatar = avatars.accept(db, b.avatar, existing.avatar, u.id); } catch (e) { throw new HttpError(e.status || 400, e.message); } tx(db, () => sz.writePerson(db, WS_ID, p.id, b));
   /* a status (focus, meeting, away…) reaches everyone at once; the rest of someone's preferences stay theirs */
-  { const was = JSON.stringify((existing.prefs || {}).availability || null), is = JSON.stringify((b.prefs || {}).availability || null); if (was !== is) { try { const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND x.is_active=1").all(WS_ID).map(r => r.user_id); chat.publishToUsers(ids, { type: "person_status", id: p.id, availability: (b.prefs || {}).availability || null, by: u.id }); } catch (e) { /* best effort */ } } }
+  { const was = JSON.stringify((existing.prefs || {}).availability || null), is = JSON.stringify((b.prefs || {}).availability || null); if (was !== is) { try { const ids = db.prepare("SELECT m.user_id FROM workspace_members m JOIN users x ON x.id=m.user_id WHERE m.workspace_id=? AND x.is_active=1").all(WS_ID).map(r => r.user_id); publishWithTab(ids, { type: "person_status", id: p.id, availability: (b.prefs || {}).availability || null, by: u.id }, requestTab(ctx), u); } catch (e) { /* best effort */ } } }
   return sz.readPeople(db, WS_ID); });
 route("DELETE", "/api/members/:id", (u, p) => { forbid(can.manageMembers(u), "remove members"); if (p.id === u.id) throw new HttpError(400, "You cannot remove yourself"); { const t = sz.readPeople(db, WS_ID)[p.id]; if (t) { forbidAboveMe(u, t.perm, "remove this member"); if (t.perm === "admin" && !otherActiveAdmin(p.id)) throw new HttpError(400, "At least one active admin must remain. Make someone else an admin first."); } } tx(db, () => { db.prepare("UPDATE tasks SET assignee_id=? WHERE assignee_id=?").run(u.id, p.id); db.prepare("UPDATE tasks SET reviewer_id=? WHERE reviewer_id=?").run(u.id, p.id); db.prepare("UPDATE projects SET owner_id=? WHERE owner_id=?").run(u.id, p.id); db.prepare("UPDATE teams SET team_lead_id=NULL WHERE team_lead_id=?").run(p.id); db.prepare("DELETE FROM project_members WHERE user_id=?").run(p.id); db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); db.prepare("DELETE FROM workspace_members WHERE user_id=? AND workspace_id=?").run(p.id, WS_ID); db.prepare("DELETE FROM push_subscriptions WHERE user_id=?").run(p.id); releaseAccount(p.id); }); security.log("member_removed", { adminId: u.id, userId: p.id }); return sz.readPeople(db, WS_ID); });
 route("POST", "/api/members/:id/team", (u, p, q, b) => { forbid(can.manageTeams(u), "change team membership"); tx(db, () => { if (b.isPrimary) db.prepare("UPDATE team_memberships SET is_primary=0 WHERE user_id=?").run(p.id); if (b.fromTeamId) db.prepare("DELETE FROM team_memberships WHERE user_id=? AND team_id=?").run(p.id, b.fromTeamId); db.prepare("INSERT INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,?) ON CONFLICT(team_id,user_id) DO UPDATE SET is_primary=excluded.is_primary").run("tm_" + b.teamId + "_" + p.id, b.teamId, p.id, b.isPrimary ? 1 : 0); if (!db.prepare("SELECT 1 FROM team_memberships WHERE user_id=? AND is_primary=1").get(p.id)) db.prepare("UPDATE team_memberships SET is_primary=1 WHERE id=(SELECT id FROM team_memberships WHERE user_id=? LIMIT 1)").run(p.id); }); act(u, "member_team", "user", p.id, { team: b.teamId, user: p.id }); return sz.readPeople(db, WS_ID); });
@@ -2247,9 +2268,11 @@ const server = http.createServer(async (req, res) => {
       if (ctx.setCookie) res.setHeader("Set-Cookie", ctx.setCookie);
       /* sign-ins, chat, read receipts, saved views, AI calls and a person's own checks never touch tasks */
       if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live|cloud|task-checks)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;
-      if (req.method !== "GET" && user) announceTaskChange(req.method, url.pathname, out, user);
-      /* v38.1 personal preferences (theme, layout, saved items) are nobody else's business: no broadcast */
-      if (req.method !== "GET" && user && !(url.searchParams.get("prefsOnly") === "1" && url.pathname === "/api/members/" + user.id)) announceWorkspaceChange(url.pathname, user);
+      const tab = requestTab(req);
+      if (req.method !== "GET" && user) announceTaskChange(req.method, url.pathname, out, user, tab);
+      /* v38.1 personal preferences (theme, layout, saved items) are nobody else's business: told only to the person's
+         own other tabs and devices (Oct 2026) */
+      if (req.method !== "GET" && user) { if (url.searchParams.get("prefsOnly") === "1" && url.pathname === "/api/members/" + user.id) announcePrefsChange(user, tab); else announceWorkspaceChange(url.pathname, user, tab); }
       return send(200, out);
     }
     /* Public legal pages. Google requires a privacy policy and terms anyone can open before an

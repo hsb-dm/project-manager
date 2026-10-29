@@ -71,8 +71,9 @@ function customEmojiRemove(name){ var c=customEmoji(":"+name+":"); if(!c) return
   if(!API.on){ var l=customEmojiLocal().filter(function(x){ return x.name!==name; }); customEmojiLocalSave(l); return done(l); }
   apiFetch("DELETE","/api/emoji/"+encodeURIComponent(name)).then(done).catch(function(e){ toast(e.message,"bad"); }); }
 /* a colleague's emoji arrives at once: nothing is redrawn but the messages, so it need not wait for
-   an open dialog or a field being typed in, as other live updates do */
-(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ if(ev&&ev.type==="ws_changed"&&ev.kind==="emoji"&&API.on&&ev.by!==ME){ apiFetch("GET","/api/live/emoji").then(function(d){ customEmojiLoad(d&&d.customEmoji); customEmojiRedraw(); }).catch(function(){}); } return base.apply(this,arguments); }; })();
+   an open dialog or a field being typed in, as other live updates do. One added in another tab or on another
+   device of one's own arrives the same way; only the tab that added it skips it (src/core.js liveFromThisTab). */
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ if(ev&&ev.type==="ws_changed"&&ev.kind==="emoji"&&API.on&&!(typeof liveFromThisTab==="function"&&liveFromThisTab(ev))){ apiFetch("GET","/api/live/emoji").then(function(d){ customEmojiLoad(d&&d.customEmoji); customEmojiRedraw(); }).catch(function(){}); } return base.apply(this,arguments); }; })();
 /* what is on screen picks up an emoji added or removed — by me, or (live) by a colleague */
 function customEmojiRedraw(){ if(S.screen==="messages"&&typeof renderMsgTimeline==="function"&&document.getElementById("msgTimeline")) renderMsgTimeline(true); }
 

@@ -64,13 +64,14 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
     var more=function(s){ if(s==="all"||!need) need=s||need; };
     Promise.all(ids.map(function(id){
       var ev=evs[id], cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];   /* one being created carries a proposed number, not this task */
-      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } more("all"); } return null; }
+      if (ev.deleted){ if (cur){ var i=TASKS.indexOf(cur); if (i>=0) TASKS.splice(i,1); if (S.drawerTask===id&&typeof closeDrawer==="function"){ closeDrawer(); toast(ev.by===ME?tr("This task was deleted"):tr("This task was deleted by")+" "+((person(ev.by)||{}).name||tr("a colleague"))); } more("all"); } return null; }
       return zcTaskIdle(id,4000).then(function(){
         var cur=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
         if (cur&&cur.updatedAt&&ev.updatedAt&&cur.updatedAt>=ev.updatedAt) return; /* already have it (our own save) */
         return apiFetch("GET","/api/tasks/"+encodeURIComponent(id)).then(function(d){
           var t=hTask(d), now=TASKS.filter(function(x){ return x.id===id&&!x._creating; })[0];
           if (now){ if (now._draft) return; more(taskRedrawNeed(now,t)); replaceInto(now,t); } else { TASKS.push(t); more("all"); }
+          /* who changed it, when it was a colleague; one's own change from another tab or device is only drawn */
           if (S.drawerTask===id&&ev.by!==ME) toast(tr("Updated by")+" "+((person(ev.by)||{}).name||tr("a colleague")));
         }).catch(function(){});
       });
@@ -83,7 +84,7 @@ Object.assign(UI_ID,{"Someone else edited this task at the same time. Both chang
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
   window.EventSource.prototype=ES.prototype; ["CONNECTING","OPEN","CLOSED"].forEach(function(k){ window.EventSource[k]=ES[k]; });
 })();
-Object.assign(UI_ID,{"Updated by":"Diperbarui oleh","This task was deleted by":"Task ini dihapus oleh","a colleague":"rekan kerja"});
+Object.assign(UI_ID,{"Updated by":"Diperbarui oleh","This task was deleted by":"Task ini dihapus oleh","This task was deleted":"Task ini dihapus","a colleague":"rekan kerja"});
 </script>
 <script>
 /* ---------- v34 bulk status respects stage rules ----------

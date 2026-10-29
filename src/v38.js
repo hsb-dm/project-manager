@@ -366,21 +366,59 @@ function descInsertLink(){ var raw=val("desc_link_url").trim(), url=descNormaliz
 function descFormat(act){ var el=document.getElementById("descSrc"); if(!el) return; if(act==="link") return descLinkModal(); el.focus(); var command={bold:"bold",italic:"italic",strike:"strikeThrough",h:"formatBlock",ul:"insertUnorderedList",ol:"insertOrderedList",quote:"formatBlock",code:"formatBlock"}[act]; if(!command) return; if(act==="h"||act==="quote"||act==="code") document.execCommand(command,false,act==="h"?"<h3>":act==="quote"?"<blockquote>":"<pre>"); else document.execCommand(command,false,null); descWysiwygInput(); }
 
 /* ---------- #18 live updates for everything that is not a task ---------- */
+/* Oct 2026: only the tab that made a change skips its echo (liveFromThisTab, src/core.js); a change "by" the person
+   signed in here, made in another tab of theirs or on another device, is taken like a colleague's. Their own
+   preferences (kind "prefs", told to them alone: light/dark, look, language, reminders, layout, notifications) are
+   then the server's, unless this tab saved its own meanwhile (LIVE_PREFS), and what they change is put back at once:
+   the look, the language, the bell. A batch that changed nothing on show draws nothing; one that did is drawn on the
+   next frame as a redraw from elsewhere, keeping the reader's place (src/live-redraw.js). */
+var LIVE_PREFS={n:0,busy:0};
 (function(){
-  var pending={}, timer=null;
+  var pending={}, timer=null, mine=false;
+  function fromHere(ev){ return typeof liveFromThisTab==="function"&&liveFromThisTab(ev); }
   function busy(){ var a=document.activeElement; return (a&&(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a.isContentEditable)&&!a.closest("#msgComposer,.msg-composer"))||document.getElementById("modalWrap")&&document.getElementById("modalWrap").classList.contains("open"); }
-  function apply(kind,d){
+  /* this tab saving its own preferences: counted, so a fetch begun before it does not undo it */
+  if(typeof saveMyPrefs==="function"){ var baseSave=saveMyPrefs; saveMyPrefs=function(){ LIVE_PREFS.n++; var r=baseSave.apply(this,arguments);
+    if(r&&typeof r.then==="function"){ LIVE_PREFS.busy++; var done=function(){ LIVE_PREFS.busy--; }; r.then(done,done); } return r; }; }
+  var json=function(x){ return JSON.stringify(x===undefined?null:x); };
+  function shown(fn){ if(typeof document==="undefined"||!document.hidden) return fn(); var h=function(){ if(document.hidden) return; document.removeEventListener("visibilitychange",h); fn(); }; document.addEventListener("visibilitychange",h); }
+  /* the language chosen elsewhere: put on here without saving it again (setLanguage would) */
+  function langTake(l){ l=l==="id"?"id":"en"; if(l===UI_LANG) return;
+    if(l==="id"&&typeof ZC_I18N!=="undefined"&&!ZC_I18N.ready&&typeof zcI18nLoad==="function"){ zcI18nLoad().then(function(ok){ if(ok&&PEOPLE[ME]&&myPrefs().language==="id") langTake("id"); }); return; }
+    UI_LANG=l; if(typeof LANG_WANTED!=="undefined") LANG_WANTED=l; try{ localStorage.setItem("cos.language",l); localStorage.setItem("cos.signedInLang",l); }catch(e){} document.documentElement.lang=l;
+    if(typeof languageRedraw==="function") shown(function(){ if(typeof bgRedraw==="function") bgRedraw(languageRedraw); else languageRedraw(); }); }
+  /* PEOPLE[ME].prefs is the server's now (was: this tab's): kept, and what changed is put back on */
+  function prefsTake(was){ var p=PEOPLE[ME]; if(!p) return; var now=p.prefs=p.prefs||{}; now._loaded=true; was=was||{};
+    var same=function(k){ return json(was[k])===json(now[k]); };
+    try{ var c=clone(now); delete c._loaded; localStorage.setItem("cos.prefs."+ME,JSON.stringify(c)); if(now.appearance){ localStorage.setItem("cos.appearance."+ME,now.appearance); localStorage.setItem("cos.appearance.last",now.appearance); } }catch(e){}
+    if(!same("appearance")||!same("theme")){ applyTheme(); var q=document.getElementById("themePop"); if(q&&q.classList.contains("open")&&typeof renderQuickTheme==="function") renderQuickTheme(); }
+    if(!same("shortcutStyle")&&typeof syncShortcutHints==="function") syncShortcutHints();
+    if(!same("notif")&&API.on) apiFetch("GET","/api/live/notifs").then(function(d){ if(!d||!d.notifs) return; NOTIFS=d.notifs.map(hNotif); syncNotifDot(); renderNav(); var np=document.getElementById("notifPop"); if(np&&np.classList.contains("open")) renderNotifs(); }).catch(function(){});
+    if(now.language&&now.language!==UI_LANG) langTake(now.language); }
+  /* everyone, from the server; this person's own preferences kept as this tab has them, or (take) taken */
+  function peopleFrom(next,take){ var cur=PEOPLE[ME]&&PEOPLE[ME].prefs, before=json(PEOPLE); PEOPLE=next; WS.people=PEOPLE;
+    if(PEOPLE[ME]){ if(take) prefsTake(cur); else if(cur) PEOPLE[ME].prefs=cur; }
+    return json(PEOPLE)!==before; }
+  /* true when what is on show may have changed */
+  function apply(kind,d,take){
     if(kind==="projects") PROJECTS=d.projects.map(hProject);
-    else if(kind==="teams"){ TEAMS=d.teams; PEOPLE=d.people; WS.people=PEOPLE; if(typeof msgRefreshConversations==="function") msgRefreshConversations(); }
-    else if(kind==="people"){ var mine=PEOPLE[ME]&&PEOPLE[ME].prefs; PEOPLE=d.people; if(mine&&PEOPLE[ME]) PEOPLE[ME].prefs=mine; WS.people=PEOPLE; }
+    else if(kind==="teams"){ var tb=json(TEAMS)!==json(d.teams); TEAMS=d.teams; var pc=peopleFrom(d.people,take); if(typeof msgRefreshConversations==="function") msgRefreshConversations(); return tb||pc; }
+    else if(kind==="people") return peopleFrom(d.people,take);
     else if(kind==="assets"){ ASSETS=d.assets.map(hAsset); ASSET_FOLDERS=d.folders; }
     else if(kind==="knowledge"){ KNOWLEDGE=d.knowledge.map(hPage); KNOWLEDGE_FOLDERS=(d.knowledgeFolders||[]).slice(); }
     else if(kind==="workspace"){ var ws=clone(d.ws); ws.cloud=(ws.cloud||[]).map(hCloud); ws.people=PEOPLE; WS=ws; applyTheme(); applyShell(); }
     else if(kind==="roles") ROLES=d.roles;
+    /* KPIs and OKRs (src/scoring-outcomes.js): patched in place where they are shown */
+    else if(kind==="outcomes"){ if(typeof SCO==="undefined"||!d||!Array.isArray(d.metrics)) return false; SCO.data={on:d.on,objectives:d.objectives,metrics:d.metrics,can:d.can}; SCO.loadedAt=Date.now(); SCO.err=false; SCO.taskAt={};
+      if(typeof scoPaint==="function") scoPaint(); if(typeof scoTaskRefreshAll==="function") scoTaskRefreshAll(); return false; }
+    return true;
   }
-  function flush(){ timer=null; if(busy()){ timer=setTimeout(flush,2000); return; } var kinds=Object.keys(pending); pending={};
-    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ apply(k,d); }).catch(function(){}); })).then(function(){ AN=null; requestRefresh(); }); }   /* drawn on the next frame with anything else that asked; in a hidden tab, once it is shown (src/core.js) */
-  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.by===ME||ev.kind==="emoji") return; /* emoji: custom-emoji.js, at once */ pending[ev.kind]=1; if(!timer) timer=setTimeout(flush,400); }
+  function flush(){ timer=null; if(busy()){ timer=setTimeout(flush,2000); return; } var kinds=Object.keys(pending), take=mine, seq=LIVE_PREFS.n, changed=false; pending={}; mine=false;
+    Promise.all(kinds.map(function(k){ return apiFetch("GET","/api/live/"+k).then(function(d){ if(apply(k,d,take&&seq===LIVE_PREFS.n&&!LIVE_PREFS.busy)) changed=true; }).catch(function(){}); })).then(function(){ if(!changed) return; AN=null; requestRefresh({bg:true}); }); }   /* drawn on the next frame with anything else that asked; in a hidden tab, once it is shown (src/core.js) */
+  /* emoji: custom-emoji.js, at once; grants: cap-grants.js */
+  function onEvent(e){ var ev; try{ ev=JSON.parse(e.data); }catch(x){ return; } if(!ev||ev.type!=="ws_changed"||!API.on||ev.kind==="emoji"||ev.kind==="grants"||fromHere(ev)) return;
+    var k=ev.kind==="prefs"?"people":ev.kind; if(k==="people"&&ev.by===ME) mine=true;
+    pending[k]=1; if(!timer) timer=setTimeout(flush,400); }
   var ES=window.EventSource; if(typeof ES!=="function") return;
   window.EventSource=function(u,o){ var es=new ES(u,o); es.addEventListener("message",onEvent); return es; };
   window.EventSource.prototype=ES.prototype; ["CONNECTING","OPEN","CLOSED"].forEach(function(k){ window.EventSource[k]=ES[k]; });

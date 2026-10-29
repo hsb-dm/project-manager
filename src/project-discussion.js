@@ -196,8 +196,9 @@ function pdDelete(pid,cid){ var st=pdState(pid), c=byId(st.items,cid); if(!c) re
   apiFetch("DELETE",pdUrl(pid,"/"+encodeURIComponent(cid))).then(function(r){ gone(r.total); }).catch(function(e){ toast(e.message||tr("Could not delete the comment"),"bad"); }); }
 
 /* ---------- hearing about it ---------- */
-/* the live stream: someone else's comment, change or removal in a discussion that is on show */
-(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ var r=base.apply(this,arguments); try{ if(ev&&ev.type==="project_comments"&&ev.by!==ME&&PD[ev.project]) pdRefresh(ev.project); }catch(e){} return r; }; })();
+/* the live stream: a comment, change or removal in a discussion that is on show — someone else's, or one's own from
+   another tab or device; only the tab it was written in skips it (src/core.js liveFromThisTab) */
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ var r=base.apply(this,arguments); try{ if(ev&&ev.type==="project_comments"&&!(typeof liveFromThisTab==="function"&&liveFromThisTab(ev))&&PD[ev.project]) pdRefresh(ev.project); }catch(e){} return r; }; })();
 function pdNoticeInfo(n){ var info={}; try{ info=JSON.parse(n.message||"{}")||{}; }catch(e){} return info; }
 function pdNoticeLine(n,info){ return n.k==="mention"?"{who} mentioned you in the discussion on {t}":info.reply?"{who} replied to you in the discussion on {t}":"{who} commented in the discussion on {t}"; }
 /* the bell: says it is the project's discussion, quotes the comment, opens it */

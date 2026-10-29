@@ -16,6 +16,7 @@
    each once, and never anyone who could not read the comment. */
 module.exports = function projectDiscussion(db, WS_ID, d) {
   const { route, HttpError, forbid, can, has, tooLong, validateStoredFiles, uid, now, J, S, userContext, notifyUsers, publish } = d;
+  const tabOf = typeof d.tabOf === "function" ? d.tabOf : () => null;
   const MAX_TEXT = 10000, MAX_ATT = 50;
 
   function projectOf(id) {
@@ -58,8 +59,10 @@ module.exports = function projectDiscussion(db, WS_ID, d) {
     (others || []).forEach(o => add(o.id, "comment", o.reply));
     if (list.length) notifyUsers(list.slice(0, 25), { who: u.id, t: p.id, entityType: "project", comment: row.id, text: String(row.body || "").slice(0, 160) });
   }
-  /* everyone signed in hears that this discussion changed (which comment, not what it says) and asks for it again */
-  const announce = (u, p, cid) => publish({ type: "project_comments", project: p.id, comment: cid, by: u.id });
+  /* everyone signed in hears that this discussion changed (which comment, not what it says) and asks for it again;
+     the tab it was written in (src/core.js ZC_TAB, told to the writer's own pages only) skips it, the writer's other
+     tabs and devices do not */
+  const announce = (u, p, cid, ctx) => { const ev = { type: "project_comments", project: p.id, comment: cid, by: u.id }, tab = tabOf(ctx); if (tab) ev.tab = tab; publish(ev, u); };
 
   route("GET", "/api/projects/:id/comments", (u, p, q) => {
     const pr = projectOf(p.id); forbid(involved(u, pr), "read this project's discussion");
@@ -76,7 +79,7 @@ module.exports = function projectDiscussion(db, WS_ID, d) {
     return { comments: q.view === "preview" ? list : list.concat(replies.map(r => shape(r))), total: total(u, pr), hasMore, archived: pr.status === "archived" };
   });
 
-  route("POST", "/api/projects/:id/comments", (u, p, q, b) => {
+  route("POST", "/api/projects/:id/comments", (u, p, q, b, ctx) => {
     const pr = projectOf(p.id); forbid(involved(u, pr), "comment on this project"); writable(pr);
     b = b || {};
     const text = String(b.text || "").trim(); tooLong("comment", text, MAX_TEXT);
@@ -98,12 +101,12 @@ module.exports = function projectDiscussion(db, WS_ID, d) {
       .run(id, WS_ID, pr.id, parent ? parent.id : null, u.id, vis, text, S(att), now());
     const row = db.prepare("SELECT * FROM project_comments WHERE id=?").get(id);
     tell(u, pr, row, mentionsIn(text), [parent ? { id: parent.author_id, reply: true } : null, { id: pr.owner }].filter(Boolean));
-    announce(u, pr, id);
+    announce(u, pr, id, ctx);
     return { comment: shape(row), total: total(u, pr) };
   });
 
   /* the words and attachments change; who can see it and the thread it is in stay as they were */
-  route("PUT", "/api/projects/:id/comments/:cid", (u, p, q, b) => {
+  route("PUT", "/api/projects/:id/comments/:cid", (u, p, q, b, ctx) => {
     const pr = projectOf(p.id), row = rowOf(u, pr, p.cid);
     forbid((row.author_id === u.id && can.comment(u)) || can.manageWorkspace(u), "edit this comment"); writable(pr);
     b = b || {};
@@ -115,18 +118,18 @@ module.exports = function projectDiscussion(db, WS_ID, d) {
     db.prepare("UPDATE project_comments SET body=?, attachments=?, edited_at=? WHERE id=?").run(text, S(att), now(), row.id);
     const next = db.prepare("SELECT * FROM project_comments WHERE id=?").get(row.id), before = mentionsIn(row.body);
     tell(u, pr, next, mentionsIn(text).filter(id => !before.includes(id)), []);   /* only whoever the new words name */
-    announce(u, pr, row.id);
+    announce(u, pr, row.id, ctx);
     return { comment: shape(next), total: total(u, pr) };
   });
 
-  route("DELETE", "/api/projects/:id/comments/:cid", (u, p) => {
+  route("DELETE", "/api/projects/:id/comments/:cid", (u, p, q, b, ctx) => {
     const pr = projectOf(p.id), row = rowOf(u, pr, p.cid);
     forbid(row.author_id === u.id || can.manageWorkspace(u), "remove this comment"); writable(pr);
     /* its replies stay, each on its own, as a task comment's do */
     db.exec("BEGIN");
     try { db.prepare("UPDATE project_comments SET parent_id=NULL WHERE parent_id=?").run(row.id); db.prepare("DELETE FROM project_comments WHERE id=?").run(row.id); db.exec("COMMIT"); }
     catch (e) { db.exec("ROLLBACK"); throw e; }
-    announce(u, pr, row.id);
+    announce(u, pr, row.id, ctx);
     return { ok: true, total: total(u, pr) };
   });
 

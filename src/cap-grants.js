@@ -60,9 +60,11 @@ function capGrantsSection(){
       :'<div class="hint">'+tr("Nobody has extra permissions.")+'</div>'), null, I.lock);
 }
 (function(){ if(typeof setRoles!=="function") return; var base=setRoles; setRoles=function(){ return base.apply(this,arguments)+capGrantsSection(); }; })();
-/* from the workspace as it arrives, and again when an admin changes them */
+/* from the workspace as it arrives, and again when an admin changes them: in every tab but the one that saved them
+   (which drew them from its answer), the admin's other tabs and devices too (src/core.js liveFromThisTab), drawn
+   as a redraw from elsewhere that keeps the reader's place */
 (function(){ if(typeof loadBootstrap!=="function") return; var base=loadBootstrap; loadBootstrap=function(d){ var r=base.apply(this,arguments); MY_GRANTS=(d&&d.me&&d.me.extraCaps)||[]; CAP_GRANTS=(d&&d.capGrants)||[]; return r; }; })();
-(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ if(ev&&ev.type==="ws_changed"&&ev.kind==="grants"&&API.on){ apiFetch("GET","/api/live/grants").then(function(d){ MY_GRANTS=d.mine||[]; CAP_GRANTS=d.grants||[]; refresh(); }).catch(function(){}); } return base.apply(this,arguments); }; })();
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ if(ev&&ev.type==="ws_changed"&&ev.kind==="grants"&&API.on&&!(typeof liveFromThisTab==="function"&&liveFromThisTab(ev))){ apiFetch("GET","/api/live/grants").then(function(d){ MY_GRANTS=d.mine||[]; CAP_GRANTS=d.grants||[]; AN=null; requestRefresh({bg:true}); }).catch(function(){}); } return base.apply(this,arguments); }; })();
 (function(d){ Object.keys(d).forEach(function(k){ if(!(k in UI_ID)) UI_ID[k]=d[k]; }); })({
   "Extra permissions":"Izin tambahan",
   "extra permission":"izin tambahan",
