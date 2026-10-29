@@ -268,6 +268,7 @@ Builder bersama yang harus dipakai ulang (semua di `core.js`):
 | `report-template.js`, `report-layout.js`, `export.js` | XLSX/PPTX/CSV/JSON |
 | `i18n.js` | kamus `UI_ID` + `localizeVisibleText` versi hidup |
 | `onboarding-refinements.js` | perbaikan targeting Workspace Quest |
+| `task-checks.js` | centang pribadi ke server dan kembali: migrasi dari `localStorage`, antrean, live `checks_changed` (§13) |
 | `boot.js` | blok kamus terakhir + `boot()` |
 | `refinements.css` | seluruh CSS tambahan (disisipkan ke `head.html`) |
 
@@ -840,19 +841,42 @@ setiap offset hari saat masuk dan **menolak berjalan ketika `API.on`** —
 
 ## 13. Personal "checked" tick
 
-Penanda personal "sudah saya lihat". **Bukan** task state: tidak dikirim ke server,
-tidak menggerakkan workflow, tidak muncul di export/laporan/activity/board orang lain.
+Penanda personal "sudah saya lihat". **Bukan** task state: tidak menggerakkan workflow, tidak muncul di
+export/laporan/activity/board orang lain, tidak mengubah `updated_at` task, tidak memicu `task_changed`.
+Sejak Oktober 2026 disimpan di server **per orang** (`server/task-checks.js`, tabel `task_checks`), sehingga ikut ke
+tab dan perangkat lain orang itu; tanpa server (standalone demo, `API.on` false) tetap di `localStorage`.
 
-| Fungsi | Perilaku |
+| Fungsi (`core.js`) | Perilaku |
 |---|---|
-| `taskCheckKey()` | `"cos.taskChecked." + (ME \|\| "anon")` |
-| `taskCheckSet()` | cache modul + key yang memilikinya, sehingga `actAs` otomatis meng-invalidate |
-| `taskChecked(id)` / `taskCheckCount()` | query |
+| `taskCheckKey()` | `"cos.taskChecked." + (ME \|\| "anon")` — penyimpanan lama / demo |
+| `taskCheckSet()` | satu array `TASK_CHECKED` per akun dan mode (`server`/`local`), diubah di tempat; `actAs` dan masuk ke mode server otomatis meng-invalidate; mode server memanggil `taskChecksStart` |
+| `taskCheckSave()` | mode server: `taskChecksSend()` (selisih ke server); demo: tulis `localStorage` |
+| `taskChecked(id)` / `taskCheckCount()` | query; count hanya menghitung task yang masih ada di `TASKS` |
 | `taskCheckBtn(id, extra)` | tombol `role="checkbox"`; `extra` = `"xs"` untuk chip kalender |
 | `toggleTaskChecked(id, ev)` | `stopPropagation` + `preventDefault` (tick duduk di atas kartu yang seluruh permukaannya membuka task) |
 | `paintTaskCheck(id)` | repaint bedah `.tcheck[data-check="…"]`, toggle `.checked` pada `.kcard, tr, .chip, .row` terdekat |
-| `taskCheckChip()` / `syncTaskCheckBar()` | chip "n checked" + tombol clear di toolbar |
-| `clearTaskChecks()` | kosongkan semua |
+| `taskCheckChip()` / `syncTaskCheckBar()` | chip "n checked" + tombol clear di toolbar; angka yang berubah ditulis di tempat (`.tcheck-n`), chip digambar ulang hanya saat muncul/hilang |
+| `clearTaskChecks()` | kosongkan semua (`clear: true` ke server) |
+
+**Server** (`server/task-checks.js`): `GET /api/task-checks` → `{ ids }` milik yang login saja (urut centang
+terlama); `POST /api/task-checks { check?, uncheck?, clear? }` → `{ ids }` dalam satu transaksi (`clear` dulu, lalu
+`check` yang **menambah**, lalu `uncheck`). Id yang bukan task workspace ini diabaikan; centang ikut terhapus
+bersama task-nya (`ON DELETE CASCADE`). Tidak menaikkan `DATA_VERSION`. Setelah ada yang berubah:
+`checks_changed { by, tab? }` hanya ke orang itu (`tab` dari header `X-ZC-Tab` bila cocok `/^[a-z0-9]{8,32}$/`).
+
+**Klien** (`task-checks.js`):
+- `taskChecksStart(key)` — pertama kali tab memakai set akun: gambar dari cache server terakhir
+  (`cos.taskChecks.<id>`) ∪ penyimpanan lama (`cos.taskChecked.<id>`). Yang lama dikirim sekali sebagai `check`
+  (digabung, tidak menimpa) dan key lama dihapus **hanya** setelah server menjawab request itu.
+- `taskChecksSend(clearAll)` — selisih `TASK_CHECKED` terhadap `TCHK.shadow` (set yang akan dimiliki server setelah
+  semua yang terkirim tiba) masuk antrean `TCHK.want`; satu request pada satu waktu, perubahan selama menunggu ikut
+  request berikutnya.
+- `taskChecksAdopt(ids)` — jawaban server + antrean yang belum terkirim; hanya id yang berbeda yang di-paint.
+- `taskChecksStale()` — `checks_changed` dari tab/perangkat lain (`liveFromThisTab` melewati gema tab sendiri), tab
+  yang kembali terlihat, atau stream yang tersambung lagi (`msgStream` dibungkus): minta set sekali lagi. Tab
+  tersembunyi menunggu sampai terlihat.
+- Gagal: dikirim ulang dengan jeda 5 s, 10 s … 1 menit (langsung pada perubahan berikutnya), toast sekali
+  *"Your checks aren't saved yet — trying again"* bila ada perubahan dari tab ini yang menunggu.
 
 Permukaan render: kanban card (`tasks.js` `kcard`), baris tabel (`taskTable`), chip kalender
 (`chipHtml`), agenda "Next 14 days", sheet hari kalender (`calAgenda` lewat

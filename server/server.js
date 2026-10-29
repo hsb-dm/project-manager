@@ -658,6 +658,7 @@ require("./project-discussion")(db, WS_ID, { route, HttpError, forbid, can, has:
   notifyUsers: (list, o) => deliverNotifs(list.map(x => ({ recipient: x.id, k: x.k, message: JSON.stringify(Object.assign({ comment: o.comment, text: o.text }, x.reply ? { reply: true } : {})) })), o),
   publish: ev => { try { chat.publishToUsers(db.prepare("SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.is_active=1").all(WS_ID).map(r => r.user_id), ev); } catch (e) { /* live updates are best effort */ } } });
 
+require("./task-checks")(db, WS_ID, { route, HttpError, now, publish: (ids, ev) => chat.publishToUsers(ids, ev) });   /* a person's own ticks on tasks, on every device (server/task-checks.js) */
 /* v36: the health check proves the database answers (an uptime monitor saw "ok" even with a
    broken database) and reports 503 while shutting down, so a load balancer stops routing. */
 route("GET", "/api/health", () => { if (typeof shuttingDown !== "undefined" && shuttingDown) throw new HttpError(503, "shutting down"); try { db.prepare("SELECT 1").get(); } catch (e) { throw new HttpError(503, "database unavailable"); } return { ok: true, service: "zencrevia" }; });
@@ -2244,8 +2245,8 @@ const server = http.createServer(async (req, res) => {
          cookie behaviour. */
       if (!ctx.setCookie && ctx.session) { const exp = auth.renewSession(db, ctx.token, ctx.session); if (exp) ctx.setCookie = auth.cookie(ctx.token, exp); }
       if (ctx.setCookie) res.setHeader("Set-Cookie", ctx.setCookie);
-      /* sign-ins, chat, read receipts, saved views and AI calls never touch tasks */
-      if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live|cloud)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;
+      /* sign-ins, chat, read receipts, saved views, AI calls and a person's own checks never touch tasks */
+      if (req.method !== "GET" && !/^\/api\/(auth|messages|notifications|views|ai|live|cloud|task-checks)(\/|$)/.test(url.pathname) && url.searchParams.get("prefsOnly") !== "1") DATA_VERSION++;
       if (req.method !== "GET" && user) announceTaskChange(req.method, url.pathname, out, user);
       /* v38.1 personal preferences (theme, layout, saved items) are nobody else's business: no broadcast */
       if (req.method !== "GET" && user && !(url.searchParams.get("prefsOnly") === "1" && url.pathname === "/api/members/" + user.id)) announceWorkspaceChange(url.pathname, user);

@@ -2195,16 +2195,17 @@ function searchShowAll(key,btn){ var sec=SEARCH_SECTIONS[key]; if(!sec||!btn||!b
 
 function taskCheckKey(){ return "cos.taskChecked."+(typeof ME!=="undefined"&&ME?ME:"anon"); }
 var TASK_CHECKED=null, TASK_CHECKED_FOR=null;
+function taskCheckList(key){ var v=null; try{ v=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){} return Array.isArray(v)?v.filter(function(x){ return typeof x==="string"&&x; }):null; }
 function taskCheckSet(){
-  var key=taskCheckKey();
-  if(TASK_CHECKED&&TASK_CHECKED_FOR===key) return TASK_CHECKED;
-  try{ TASK_CHECKED=JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){ TASK_CHECKED=null; }
-  if(!Array.isArray(TASK_CHECKED)) TASK_CHECKED=[];
-  TASK_CHECKED_FOR=key; return TASK_CHECKED;
+  var key=taskCheckKey(), mode=(API.on?"server ":"local ")+key;
+  if(TASK_CHECKED&&TASK_CHECKED_FOR===mode) return TASK_CHECKED;
+  TASK_CHECKED_FOR=mode;
+  TASK_CHECKED=API.on&&typeof taskChecksStart==="function"?taskChecksStart(key):(taskCheckList(key)||[]);
+  return TASK_CHECKED;
 }
-function taskCheckSave(){ try{ localStorage.setItem(taskCheckKey(),JSON.stringify(taskCheckSet())); }catch(e){} }
+function taskCheckSave(){ var set=taskCheckSet(); if(API.on&&typeof taskChecksSend==="function") return taskChecksSend(); try{ localStorage.setItem(taskCheckKey(),JSON.stringify(set)); }catch(e){} }
 function taskChecked(id){ return taskCheckSet().indexOf(id)>=0; }
-function taskCheckCount(){ return taskCheckSet().length; }
+function taskCheckCount(){ var set=taskCheckSet(); if(!set.length) return 0; var have=Object.create(null); for(var i=0;i<TASKS.length;i++) have[TASKS[i].id]=1; return set.filter(function(id){ return have[id]===1; }).length; }
 function taskCheckBtn(id,extra){
   var on=taskChecked(id);
   return '<button type="button" class="tcheck'+(extra?" "+extra:"")+(on?" on":"")+'" data-check="'+attr(id)+'" role="checkbox"'
@@ -2242,13 +2243,22 @@ function taskCheckChip(){
   return '<span id="taskCheckChip" class="tcheck-chip on">'
     + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.4"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.6l4.9 4.9L19.5 7"/></svg>'
-    + '<span>'+n+'<span class="tcheck-word"> '+tr("checked")+'</span></span>'
+    + '<span><span class="tcheck-n">'+n+'</span><span class="tcheck-word"> '+tr("checked")+'</span></span>'
     + '<button type="button" title="'+attr(tr("Clear checks"))+'" aria-label="'+attr(tr("Clear checks"))+'" onclick="clearTaskChecks()">'+I.x+'</button></span>';
 }
-function syncTaskCheckBar(){ var el=document.getElementById("taskCheckChip"); if(el) el.outerHTML=taskCheckChip(); }
+function syncTaskCheckBar(){
+  var n=taskCheckCount();
+  Array.prototype.forEach.call(document.querySelectorAll(".tcheck-chip"),function(el){
+    var num=el.querySelector(".tcheck-n");
+    if(n&&num&&el.classList.contains("on")){ if(num.textContent!==String(n)) num.textContent=String(n); return; }
+    if(!n&&!el.classList.contains("on")) return;
+    el.outerHTML=taskCheckChip();
+  });
+}
 function clearTaskChecks(){
-  var ids=taskCheckSet().slice();
-  TASK_CHECKED=[]; taskCheckSave();
+  var set=taskCheckSet(), ids=set.slice();
+  set.length=0;
+  if(API.on&&typeof taskChecksSend==="function") taskChecksSend(true); else taskCheckSave();
   ids.forEach(paintTaskCheck);
   syncTaskCheckBar();
 }
@@ -18498,6 +18508,95 @@ function pwaIconsSync(){ if(!API.on||!WS||!WS.favicon||!canI.manageWorkspace()) 
   return apiFetch("GET","/api/workspace/pwa-icons").then(function(r){ if(r&&r.hash===h&&r.live) return; return pwaDrawIcons(src).then(function(icons){ if(WS.favicon!==src) return; return apiFetch("PUT","/api/workspace/pwa-icons",{hash:h,icons:icons}); }); }).catch(function(e){ console.warn("[pwa icon]",e&&e.message); }); }
 if(pwaSupported()) setInterval(function(){ if(window.ZC_READY&&API.on&&window.WS&&WS.favicon!==PWA.iconSrc){ PWA.iconSrc=WS.favicon; pwaIconsSync(); } },2000);
 function pwaRefreshSettings(){ var el=document.querySelector(".pwa-device"); if(el&&S.screen==="settings"){ var t=document.createElement("div"); t.innerHTML=pwaDeviceHtml(); if(t.firstChild){ el.replaceWith(t.firstChild); if(typeof localizeVisibleText==="function") localizeVisibleText(document.querySelector(".pwa-device")); } } }
+
+;/* src/task-checks.js */
+
+var TCHK={ gen:0, key:null };
+function taskChecksCacheKey(key){ return "cos.taskChecks."+String(key).replace(/^cos\.taskChecked\./,""); }
+function taskChecksHas(list){ var o=Object.create(null); for(var i=0;i<list.length;i++) o[list[i]]=1; return o; }
+function taskChecksCache(){ if(!TCHK.key||!TASK_CHECKED) return; try{ localStorage.setItem(taskChecksCacheKey(TCHK.key),JSON.stringify(TASK_CHECKED)); }catch(e){} }
+
+function taskChecksStart(key){
+  if(TCHK.retry) clearTimeout(TCHK.retry);
+  var cache=taskCheckList(taskChecksCacheKey(key))||[], old=taskCheckList(key), set=cache.slice(), has=taskChecksHas(set);
+  (old||[]).forEach(function(id){ if(!has[id]){ has[id]=1; set.push(id); } });
+  TCHK={ gen:TCHK.gen+1, key:key, shadow:set.slice(), want:{}, clear:false, load:true, migrate:old!==null, mine:false, busy:false, stale:false, retry:null, wait:0, told:false };
+  (old||[]).forEach(function(id){ TCHK.want[id]=true; });
+  setTimeout(taskChecksPush,0);
+  return set;
+}
+
+function taskChecksSend(clearAll){
+  var c=TCHK, set=TASK_CHECKED; if(!c.key||!set) return;
+  c.mine=true;
+  if(clearAll){ c.clear=true; c.want={}; c.shadow=[]; }
+  var has=taskChecksHas(set), sh=taskChecksHas(c.shadow);
+  set.forEach(function(id){ if(!sh[id]) c.want[id]=true; });
+  c.shadow.forEach(function(id){ if(!has[id]) c.want[id]=false; });
+  c.shadow=set.slice();
+  taskChecksCache();
+  if(c.retry){ clearTimeout(c.retry); c.retry=null; }
+  taskChecksPush();
+}
+
+function taskChecksPush(){
+  var c=TCHK;
+  if(c.busy||c.retry||!c.key||!API.on||!SESSION.user||c.key!==taskCheckKey()) return;
+  var check=[], uncheck=[]; Object.keys(c.want).forEach(function(id){ (c.want[id]?check:uncheck).push(id); });
+  var body=null;
+  if(check.length||uncheck.length||c.clear){ body={}; if(c.clear) body.clear=true; if(check.length) body.check=check; if(uncheck.length) body.uncheck=uncheck; }
+  else if(!c.load) return;
+  var sent={ want:c.want, clear:c.clear, migrate:c.migrate, mine:c.mine&&!!body }, gen=c.gen, key=c.key;
+  c.want={}; c.clear=false; c.migrate=false; c.load=false; c.mine=false; c.busy=true;
+  (body?apiFetch("POST","/api/task-checks",body):apiFetch("GET","/api/task-checks")).then(function(r){
+    if(TCHK.gen!==gen) return;
+    TCHK.busy=false; TCHK.wait=0; TCHK.told=false;
+    if(sent.migrate){ try{ localStorage.removeItem(key); }catch(e){} }
+    taskChecksAdopt(r&&r.ids);
+    taskChecksPush();
+  },function(){
+    if(TCHK.gen!==gen) return;
+    var c=TCHK; c.busy=false;
+    if(!c.clear) Object.keys(sent.want).forEach(function(id){ if(!(id in c.want)) c.want[id]=sent.want[id]; });
+    if(sent.clear) c.clear=true;
+    if(sent.migrate) c.migrate=true;
+    if(sent.mine) c.mine=true;
+    c.load=true;
+    c.wait=Math.min(60000,(c.wait||2500)*2);
+    if(c.mine&&!c.told){ c.told=true; toast("Your checks aren't saved yet — trying again","bad"); }
+    c.retry=setTimeout(function(){ if(TCHK.gen!==gen) return; TCHK.retry=null; taskChecksPush(); },c.wait);
+  });
+}
+
+function taskChecksAdopt(ids){
+  if(!Array.isArray(ids)||!TASK_CHECKED) return;
+  var c=TCHK, next=c.clear?[]:ids.filter(function(x){ return typeof x==="string"&&x; }), has=taskChecksHas(next);
+  Object.keys(c.want).forEach(function(id){ if(c.want[id]&&!has[id]){ has[id]=1; next.push(id); } else if(!c.want[id]&&has[id]) has[id]=0; });
+  next=next.filter(function(id){ return has[id]===1; });
+  c.shadow=next.slice();
+  var set=TASK_CHECKED, was=taskChecksHas(set), changed=[];
+  set.forEach(function(id){ if(has[id]!==1) changed.push(id); });
+  next.forEach(function(id){ if(was[id]!==1) changed.push(id); });
+  if(changed.length){
+    set.length=0; for(var i=0;i<next.length;i++) set.push(next[i]);
+    changed.forEach(paintTaskCheck);
+    syncTaskCheckBar();
+  }
+  taskChecksCache();
+}
+
+function taskChecksStale(){
+  var c=TCHK; if(!c.key||!API.on) return;
+  if(document.hidden){ c.stale=true; return; }
+  c.stale=false; c.load=true;
+  if(c.retry){ clearTimeout(c.retry); c.retry=null; }
+  taskChecksPush();
+}
+document.addEventListener("visibilitychange",function(){ if(!document.hidden&&TCHK.stale) taskChecksStale(); });
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){ var r=base.apply(this,arguments); try{ if(ev&&ev.type==="checks_changed"&&API.on&&(!ev.by||ev.by===ME)&&!(typeof liveFromThisTab==="function"&&liveFromThisTab(ev))) taskChecksStale(); }catch(e){} return r; }; })();
+(function(){ if(typeof msgStream!=="function"||typeof CHAT_RUNTIME==="undefined") return; var base=msgStream, opened=false;
+  msgStream=function(){ var had=!!CHAT_RUNTIME.connection, r=base.apply(this,arguments); if(!had&&CHAT_RUNTIME.connection){ if(opened) taskChecksStale(); opened=true; } return r; }; })();
+void 0;
 
 ;/* src/boot.js */
 

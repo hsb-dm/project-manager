@@ -268,12 +268,19 @@ sort, grouping, kolom Grid, cakupan, dan arah urutan. Setelah satu view aktif, k
 
 Setiap kartu kanban, baris list, chip kalender, dan baris agenda punya tombol centang bulat kecil.
 
-- Ini **murni penanda pribadi**. Tidak mengubah status task, tidak dikirim ke server,
-  tidak muncul di export atau di layar orang lain, tidak tercatat di activity.
-- Berguna untuk menandai "sudah saya cek" saat menyisir board.
-- Tersimpan di browser ini untuk akunmu saja.
-- Toolbar menampilkan chip **n checked** dengan tombol × untuk menghapus semuanya sekaligus.
-  Chip ini hilang saat tidak ada yang tercentang.
+- Ini **murni penanda pribadi**. Tidak mengubah status task, tidak muncul di export atau di
+  layar orang lain, tidak tercatat di activity.
+- Berguna untuk menandai "sudah saya lihat" saat menyisir board.
+- Tersimpan untuk akunmu saja, jadi ikut ke mana pun kamu membuka ZenCrevia: tab lain dan
+  perangkat lain (laptop, ponsel) langsung ikut tercentang atau terhapus centangnya, tanpa refresh.
+  Hanya tanda centangnya yang berubah; board, posisi scroll, dan menu yang terbuka tetap di tempatnya.
+- Centang yang dulu disimpan di browser ini dipindahkan sekali ke akunmu dan digabung dengan yang
+  sudah ada; tidak ada yang hilang. Kalau server sedang tidak terjangkau, centang tetap tampil dan
+  dikirim lagi otomatis (*"Centang-mu belum tersimpan — mencoba lagi"*).
+- Task yang dihapus ikut membawa centangnya.
+- Toolbar menampilkan chip **n checked** dengan tombol × untuk menghapus semuanya sekaligus,
+  di semua tab dan perangkatmu. Chip ini hilang saat tidak ada yang tercentang.
+- Di mode demo (file standalone, tanpa server) centang tersimpan di browser ini saja.
 - Tidak ikut tercetak saat print.
 
 ### Membuat task baru

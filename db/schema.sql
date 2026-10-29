@@ -224,6 +224,14 @@ CREATE TABLE IF NOT EXISTS custom_emoji (
   PRIMARY KEY (workspace_id, name)
 );
 
+-- personal checks (Oct 2026): the tick a person puts on a task for themselves, one row per task they ticked
+-- (server/task-checks.js). Only its owner reads or writes it; it goes with its task.
+CREATE TABLE IF NOT EXISTS task_checks (
+  workspace_id TEXT NOT NULL, user_id TEXT NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, checked_at TEXT NOT NULL,
+  PRIMARY KEY (workspace_id, user_id, task_id)
+);
+CREATE INDEX IF NOT EXISTS idx_task_checks_task ON task_checks(task_id);
+
 -- progress notes: where a task stands, kept as versions (V1, V2...). Saving changes the latest; a new version starts the next.
 CREATE TABLE IF NOT EXISTS task_progress_notes (
   id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE, version_number INTEGER NOT NULL,

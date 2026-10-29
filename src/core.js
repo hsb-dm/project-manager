@@ -971,23 +971,31 @@ function searchShowAll(key,btn){ var sec=SEARCH_SECTIONS[key]; if(!sec||!btn||!b
 
 /* ---------- shared row renderers ---------- */
 /* §399 A personal "I have looked at this" tick.
-   It is deliberately NOT task state: nothing is sent to the server, nothing
-   moves in the workflow, nothing shows up in exports, reports, activity or on
-   anybody else's board. It lives in this browser for this account only, which
-   is what makes it safe to click your way down a board full of other people's
-   work — the whole point of the request was a marker that costs nothing. */
+   It is deliberately NOT task state: nothing moves in the workflow, nothing
+   shows up in exports, reports, activity or on anybody else's board, which is
+   what makes it safe to click your way down a board full of other people's
+   work — the whole point of the request was a marker that costs nothing.
+   Since Oct 2026 it is kept on the server for this account alone
+   (server/task-checks.js), so it follows the person to their other tabs and
+   devices; src/task-checks.js sends it, brings it back live and moves up the
+   ticks a browser kept before. With no server (the standalone demo, API.on
+   false) it lives in this browser, as it always did (cos.taskChecked.<id>).
+   TASK_CHECKED is one array for the account, changed in place. */
 function taskCheckKey(){ return "cos.taskChecked."+(typeof ME!=="undefined"&&ME?ME:"anon"); }
 var TASK_CHECKED=null, TASK_CHECKED_FOR=null;
+function taskCheckList(key){ var v=null; try{ v=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){} return Array.isArray(v)?v.filter(function(x){ return typeof x==="string"&&x; }):null; }
 function taskCheckSet(){
-  var key=taskCheckKey();
-  if(TASK_CHECKED&&TASK_CHECKED_FOR===key) return TASK_CHECKED;
-  try{ TASK_CHECKED=JSON.parse(localStorage.getItem(key)||"[]"); }catch(e){ TASK_CHECKED=null; }
-  if(!Array.isArray(TASK_CHECKED)) TASK_CHECKED=[];
-  TASK_CHECKED_FOR=key; return TASK_CHECKED;
+  var key=taskCheckKey(), mode=(API.on?"server ":"local ")+key;
+  if(TASK_CHECKED&&TASK_CHECKED_FOR===mode) return TASK_CHECKED;
+  TASK_CHECKED_FOR=mode;
+  TASK_CHECKED=API.on&&typeof taskChecksStart==="function"?taskChecksStart(key):(taskCheckList(key)||[]);
+  return TASK_CHECKED;
 }
-function taskCheckSave(){ try{ localStorage.setItem(taskCheckKey(),JSON.stringify(taskCheckSet())); }catch(e){} }
+/* the set as it is now goes where it is kept: the server (src/task-checks.js), or this browser with none */
+function taskCheckSave(){ var set=taskCheckSet(); if(API.on&&typeof taskChecksSend==="function") return taskChecksSend(); try{ localStorage.setItem(taskCheckKey(),JSON.stringify(set)); }catch(e){} }
 function taskChecked(id){ return taskCheckSet().indexOf(id)>=0; }
-function taskCheckCount(){ return taskCheckSet().length; }
+/* a tick whose task is gone (deleted here, or by a colleague) is not counted */
+function taskCheckCount(){ var set=taskCheckSet(); if(!set.length) return 0; var have=Object.create(null); for(var i=0;i<TASKS.length;i++) have[TASKS[i].id]=1; return set.filter(function(id){ return have[id]===1; }).length; }
 function taskCheckBtn(id,extra){
   var on=taskChecked(id);
   return '<button type="button" class="tcheck'+(extra?" "+extra:"")+(on?" on":"")+'" data-check="'+attr(id)+'" role="checkbox"'
@@ -1030,13 +1038,24 @@ function taskCheckChip(){
   return '<span id="taskCheckChip" class="tcheck-chip on">'
     + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.4"'
     + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.6l4.9 4.9L19.5 7"/></svg>'
-    + '<span>'+n+'<span class="tcheck-word"> '+tr("checked")+'</span></span>'
+    + '<span><span class="tcheck-n">'+n+'</span><span class="tcheck-word"> '+tr("checked")+'</span></span>'
     + '<button type="button" title="'+attr(tr("Clear checks"))+'" aria-label="'+attr(tr("Clear checks"))+'" onclick="clearTaskChecks()">'+I.x+'</button></span>';
 }
-function syncTaskCheckBar(){ var el=document.getElementById("taskCheckChip"); if(el) el.outerHTML=taskCheckChip(); }
+/* a count that only changes is written in place, so a focused × keeps its focus; the chip is drawn again only when it
+   comes or goes */
+function syncTaskCheckBar(){
+  var n=taskCheckCount();
+  Array.prototype.forEach.call(document.querySelectorAll(".tcheck-chip"),function(el){
+    var num=el.querySelector(".tcheck-n");
+    if(n&&num&&el.classList.contains("on")){ if(num.textContent!==String(n)) num.textContent=String(n); return; }
+    if(!n&&!el.classList.contains("on")) return;
+    el.outerHTML=taskCheckChip();
+  });
+}
 function clearTaskChecks(){
-  var ids=taskCheckSet().slice();
-  TASK_CHECKED=[]; taskCheckSave();
+  var set=taskCheckSet(), ids=set.slice();
+  set.length=0;
+  if(API.on&&typeof taskChecksSend==="function") taskChecksSend(true); else taskCheckSave();
   ids.forEach(paintTaskCheck);
   syncTaskCheckBar();
 }
