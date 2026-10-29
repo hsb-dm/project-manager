@@ -5622,6 +5622,15 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
  .asset-sub{display:block;font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 
+.modal-head h3:has(.pv-head){flex:1;min-width:0}
+.modal-head:has(.pv-head)>.spacer{display:none}
+.pv-head{display:flex;align-items:center;gap:6px 10px;min-width:0}
+.pv-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:24px}
+.pv-tags{display:inline-flex;align-items:center;gap:6px;flex:none}
+.pv-tags .badge svg{width:11px;height:11px;flex:none}
+.pv-tags .pv-id{font-family:var(--font-mono);font-weight:600;letter-spacing:.02em}
+@media (max-width:640px){.pv-head{flex-direction:column;align-items:flex-start}.pv-name{max-width:100%}}
+
 /* src/upload-progress.js */
 
 .upbar{display:block;position:relative;height:4px;min-width:40px;border-radius:2px;background:var(--color-surface-sunken);overflow:hidden}

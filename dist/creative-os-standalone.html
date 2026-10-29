@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="9bed03cc5aa1">
+<meta name="zc-build" content="ec9d4a1d1875">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={i18nSrc:""}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -5651,6 +5651,15 @@ body:has(.scr-bar.on) :is(.aifab,.msgfab){display:none}
  .asset-sub{display:block;font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 
+.modal-head h3:has(.pv-head){flex:1;min-width:0}
+.modal-head:has(.pv-head)>.spacer{display:none}
+.pv-head{display:flex;align-items:center;gap:6px 10px;min-width:0}
+.pv-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:24px}
+.pv-tags{display:inline-flex;align-items:center;gap:6px;flex:none}
+.pv-tags .badge svg{width:11px;height:11px;flex:none}
+.pv-tags .pv-id{font-family:var(--font-mono);font-weight:600;letter-spacing:.02em}
+@media (max-width:640px){.pv-head{flex-direction:column;align-items:flex-start}.pv-name{max-width:100%}}
+
 /* src/upload-progress.js */
 
 .upbar{display:block;position:relative;height:4px;min-width:40px;border-radius:2px;background:var(--color-surface-sunken);overflow:hidden}
@@ -10066,7 +10075,8 @@ function V(n,by,agoMin,state,color,note,annots){ return {id:uid("ver"),n:n,by:by
 function C(by,agoMin,vis,text,parent){ return {id:uid("cm"),by:by,ago:agoMin||0,vis:vis,text:text,parent:parent||null,attachments:[]}; }
 function F(name,type,source,size,agoMin,url,extra){ var f={id:uid("file"),name:name,type:type,source:source,size:size,ago:agoMin||0,url:url||"",preview:null,driveId:null}; if (extra) for (var k in extra) f[k]=extra[k]; return f; }
 function fileThumb(f){ if (f.preview) return '<span class="fthumb" style="background-image:url('+attr(f.preview)+')" onclick="previewFile(\''+f.id+'\')" title="Preview"></span>'; return fileIcon(f); }
-function previewFile(fid){ var tk=task(S.drawerTask); var f=byId(tk.files,fid); if (!f) return; previewModal({title:esc(f.name)+' <span class="badge" style="margin-left:6px">'+esc(tk.id)+'</span> '+statusBadge(tk.status)+(isClosed(tk)?' <span class="badge done">'+I.check+'done</span>':""),name:f.name,img:f.preview,driveId:f.driveId,url:f.url,rawTitle:true}); }
+function previewFile(fid){ var tk=task(S.drawerTask); var f=byId(tk.files,fid); if (!f) return; var st=statusBadge(tk.status); if(isClosed(tk)) st=st.replace('">',' pv-closed">'+I.check);
+  previewModal({title:'<span class="pv-head"><span class="pv-name" title="'+attr(f.name)+'">'+esc(f.name)+'</span><span class="pv-tags"><span class="badge pv-id">'+esc(tk.id)+'</span>'+st+'</span></span>',name:f.name,img:f.preview,driveId:f.driveId,url:f.url,rawTitle:true}); }
 function previewVersion(n){ var tk=task(S.drawerTask); var v=tk.versions.filter(function(x){ return x.n===n; })[0]; if (!v) return; openModal(tr("Version")+" "+n+" · "+esc(tk.title)+' '+statusBadge(tk.status)+' '+verBadge(v),versionPreviewHtml(tk,v,{full:true})+(typeof verNotesReadHtml==="function"?verNotesReadHtml(v):""),(v.driveUrl?'<button class="btn" onclick="openExternal('+jsq(v.driveUrl)+')">'+I.ext+origLabel(v.driveUrl)+'</button>':"")+((v.img||v.driveId)?'<button class="btn" onclick="saveFile('+attr(JSON.stringify({name:tk.id+" V"+v.n+" "+tk.title,img:v.img||"",driveId:v.driveId||null,url:v.driveUrl||""}))+')">'+I.download+tr("Download")+'</button>':"")+(v.img?'<button class="btn ghost" onclick="copyImageToClipboard('+jsq(v.img)+')">'+I.copy+tr("Copy image")+'</button>':"")+'<span class="spacer"></span><button class="btn primary" onclick="closeModal()">'+tr("Close")+'</button>',true); }
 function openTask(id){ if(typeof signedIn==="function"&&!signedIn()) return; var tk=task(id); if (!tk) return; if(typeof figmaTaskOpened==="function") figmaTaskOpened(tk,S.drawerTask!==id); if(S.drawerTask!==id){ if(S.briefEdit&&S.drawerTask) briefFlush(task(S.drawerTask)); S.drawerExpanded=!tk._draft&&drawerAutoExpand(); S.descMode=null; S.briefOptOpen=false; } var prev=S.drawerTask&&S.drawerTask!==id?task(S.drawerTask):null; if(prev&&prev._draft){ var di=TASKS.indexOf(prev); if(di>=0) TASKS.splice(di,1); } S.drawerTask=id; S.drawerTab=tk.versions.length?"versions":"brief"; S.drawerVer=tk.versions.length?tk.versions[tk.versions.length-1].n:null; S.revOpen=false; S.briefEdit=false; S.replyTo=typeof cmtDraftReplyFor==="function"?cmtDraftReplyFor(id):null; closePops(); markRead(id);
   document.getElementById("overlay").classList.add("open"); var d=document.getElementById("drawer"); d.classList.add("open"); d.setAttribute("aria-hidden","false"); renderDrawer(); }
