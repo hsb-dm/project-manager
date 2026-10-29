@@ -838,6 +838,8 @@ label.chipx,label.report-slide-chip{
 .kt-line .kt{flex:1;min-width:0}
 /* a checked card is only tinted, never dimmed — it has been reviewed, not retired */
 .kcard.checked{border-color:color-mix(in srgb,var(--color-success) 38%,var(--color-border))}
+/* a List row is tinted cell by cell; on a phone, where the row is a card of loose cells, the card carries the tint
+   instead (src/responsive.css) */
 .tbl tr.checked>td{background:var(--color-success-soft)}
 .tbl th.tcheck-col,.tbl td.tcheck-col{width:34px;padding-left:10px;padding-right:0;cursor:default}
 /* the running count in the toolbar doubles as the way to clear them all */

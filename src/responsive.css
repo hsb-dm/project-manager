@@ -2177,6 +2177,32 @@ body.bulk-on .bulk-selectable {
   .kcard.bulk-selectable .kt-line {
     padding-right: 24px;
   }
+  /* a checked list card (the personal tick, src/core.js) is tinted as one card too: the computer's tint on each cell
+     (.tbl tr.checked>td, src/refinements.css) left green patches with gaps between them on a card of loose cells.
+     It outranks the row's hover (a tap leaves :hover behind), and a selected card's tint below outranks it */
+  table.tbl.lcol-tbl tbody tr.checked {
+    background: var(--color-success-soft);
+  }
+  table.tbl.lcol-tbl tbody tr.checked > td {
+    background: transparent;
+  }
+  /* the first and the last card meet the panel's round corners: a tinted one (checked or selected) follows them
+     rather than poking a square corner out of them; the radius is the panel's own, handed down */
+  div.tbl-wrap.lcol-wrap,
+  table.tbl.lcol-tbl,
+  table.tbl.lcol-tbl tbody {
+    border-radius: inherit;
+  }
+  table.tbl.lcol-tbl tbody tr.checked:first-child,
+  table.tbl.lcol-tbl tbody tr.bulk-selected:first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+  }
+  table.tbl.lcol-tbl tbody tr.checked:last-child,
+  table.tbl.lcol-tbl tbody tr.bulk-selected:last-child {
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+  }
   /* a selected list card is highlighted as one card, not cell by cell */
   table.tbl.lcol-tbl tr.bulk-selectable.bulk-selected {
     background: var(--color-primary-soft);
