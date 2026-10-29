@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="1bc96c9117ac">
+<meta name="zc-build" content="8769c0f2f61c">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={i18nSrc:""}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -22051,6 +22051,66 @@ function notifyUnblocked(tk){ if(!tk||typeof blockingTasksOf!=="function") retur
   var ws=((tk.meta&&tk.meta.watchers)||[]).filter(function(u){ return u!==ME&&told.indexOf(u)<0; }); if(ws.length) notify("watch",ws,tk.id);
   notifyUnblocked(tk); }; })();
 void 0;
+
+;/* src/notif-live.js */
+
+var NL={stream:"",server:{},dirty:false,catching:null};
+function nlFromHere(ev){ return typeof liveFromThisTab==="function"&&liveFromThisTab(ev); }
+function nlTime(s){ var t=Date.parse(s||""); return isNaN(t)?0:t; }
+function nlHits(n,ev,at){ if(ev.ids&&ev.ids.indexOf(n.id)>=0) return true;
+  if(at&&nlTime(n.createdAt)>at) return false;
+  if(ev.all) return true;
+  return ev.entityId!=null&&n.t===ev.entityId&&(!ev.entityType||(n.entityType||"task")===ev.entityType); }
+function nlApply(ev){ var changed=0;
+  if(ev.removed){ var keep=NOTIFS.filter(function(n){ return !nlHits(n,ev,0); }); changed=NOTIFS.length-keep.length; if(changed) NOTIFS=keep; }
+  else { var at=nlTime(ev.at); NOTIFS.forEach(function(n){ if(n.read||!nlHits(n,ev,at)) return; n.read=true; changed++; }); }
+  if(changed) nlShow(); return changed; }
+function nlShow(){ if(typeof syncNotifDot==="function") syncNotifDot(); if(typeof document!=="undefined"&&document.hidden){ NL.dirty=true; return; } nlLists(); }
+function nlLists(){ NL.dirty=false; var np=document.getElementById("notifPop");
+  if(np&&np.classList.contains("open")&&typeof notifRows==="function") nlPatch(document.getElementById("notifList"),notifRows());
+  if(S.screen==="notifications"&&!S.search) nlScreen(); }
+function nlScreen(){ var c=document.getElementById("content"), body=c&&c.querySelector(".panel .panel-body"), head=c&&c.querySelector(".pagehead .muted"), cnt=c&&c.querySelector(".panel .panel-head .cnt");
+  if(!body||!head){ if(typeof bgRedraw==="function") bgRedraw(function(){ renderScreen(false); }); else renderScreen(false); return; }
+  nlPatch(body,notifRows()); nlText(head,NOTIFS.filter(function(n){ return !n.read; }).length+" unread"); if(cnt) nlText(cnt,String(NOTIFS.length)); }
+function nlPatch(box,html){ if(!box) return; var tmp=document.createElement("div"); tmp.innerHTML=html; if(typeof localizeVisibleText==="function") localizeVisibleText(tmp); nlKids(box,tmp); }
+function nlText(el,s){ var tmp=document.createElement(el.tagName); tmp.textContent=s; if(typeof localizeVisibleText==="function") localizeVisibleText(tmp); nlKids(el,tmp); }
+function nlKids(a,b){ if(a.innerHTML===b.innerHTML) return; var an=Array.prototype.slice.call(a.childNodes), bn=Array.prototype.slice.call(b.childNodes);
+  if(an.length!==bn.length){ var top=a.scrollTop; a.textContent=""; bn.forEach(function(n){ a.appendChild(n); }); if(top) a.scrollTop=top; return; }
+  an.forEach(function(x,i){ var y=bn[i];
+    if(x.nodeType===3&&y.nodeType===3){ if(x.nodeValue!==y.nodeValue){ x.nodeValue=y.nodeValue; nlSource(x,y); } }
+    else if(x.nodeType===1&&y.nodeType===1&&x.outerHTML===y.outerHTML){}
+    else if(nlSameBut(x,y)){ if(y.hasAttribute("class")) x.setAttribute("class",y.getAttribute("class")); else x.removeAttribute("class"); nlKids(x,y); }
+    else a.replaceChild(y,x); }); }
+function nlSameBut(x,y){ if(x.nodeType!==1||y.nodeType!==1||x.tagName!==y.tagName) return false; var p=x.cloneNode(false), q=y.cloneNode(false);
+  if(q.hasAttribute("class")) p.setAttribute("class",q.getAttribute("class")); else p.removeAttribute("class"); return p.outerHTML===q.outerHTML; }
+function nlSource(x,y){ try{ if(typeof UI_TEXT_SOURCE==="undefined") return; var s=UI_TEXT_SOURCE.get(y); if(s) UI_TEXT_SOURCE.set(x,s); else UI_TEXT_SOURCE.delete(x); }catch(e){} }
+function nlConvRead(c,rs){ if(!c||!rs||!rs.lastReadAt||!ME) return false; var all=c.readState=c.readState||{}, cur=all[ME]||{};
+  if(cur.lastReadAt&&cur.lastReadAt>=rs.lastReadAt) return false; all[ME]={lastReadMessageId:rs.lastReadMessageId||null,lastReadAt:rs.lastReadAt}; return true; }
+function nlConnected(){ var who=(ME||"")+"|"+((typeof WS!=="undefined"&&WS&&WS.id)||""); if(NL.stream!==who){ NL.stream=who; return; } nlCatchUp(); }
+function nlCatchUp(){ if(!API.on||!ME) return Promise.resolve(); if(NL.catching) return NL.catching;
+  var a=apiFetch("GET","/api/live/notifs").then(function(d){ if(d&&Array.isArray(d.notifs)) nlMerge(d.notifs); }).catch(function(){});
+  var b=typeof CONVERSATIONS!=="undefined"&&CONVERSATIONS.length?apiFetch("GET","/api/messages/conversations").then(nlConvMerge).catch(function(){}):null;
+  NL.catching=Promise.all([a,b]).then(function(){ NL.catching=null; }); return NL.catching; }
+function nlMerge(list){ var have={}, got={}, changed=0; NOTIFS.forEach(function(n){ have[n.id]=n; });
+  list.slice().reverse().forEach(function(d){ got[d.id]=1; NL.server[d.id]=1; var n=have[d.id]; if(n){ if(d.read&&!n.read){ n.read=true; changed++; } } else { NOTIFS.unshift(hNotif(d)); changed++; } });
+  var oldest=list.length>=100?list.reduce(function(m,d){ var t=nlTime(d.createdAt); return t&&t<m?t:m; },Infinity):0;
+  var keep=NOTIFS.filter(function(n){ return got[n.id]||!NL.server[n.id]||(oldest&&nlTime(n.createdAt)<oldest); });
+  if(keep.length!==NOTIFS.length){ changed+=NOTIFS.length-keep.length; NOTIFS=keep; }
+  if(changed) nlShow(); return changed; }
+function nlConvMerge(list){ if(!Array.isArray(list)) return; var any=false;
+  list.forEach(function(inc){ var c=typeof conv==="function"?conv(inc.id):null; if(!c) return; if(nlConvRead(c,(inc.readState||{})[ME])) any=true;
+    if(typeof MESSAGES!=="undefined"&&!MESSAGES[c.id]&&typeof inc.unread==="number"&&c.unread!==inc.unread){ c.unread=inc.unread; any=true; } });
+  if(!any) return; if(S.screen==="messages"&&typeof renderMsgNav==="function") renderMsgNav(); if(typeof messagesBadgeSync==="function") messagesBadgeSync(); }
+(function(){ if(typeof loadBootstrap!=="function") return; var lb=loadBootstrap; loadBootstrap=function(d){ var r=lb.apply(this,arguments); try{ NL.server={}; ((d&&d.notifs)||[]).forEach(function(n){ NL.server[n.id]=1; }); }catch(e){} return r; }; })();
+(function(){ if(typeof msgOnEvent!=="function") return; var base=msgOnEvent; msgOnEvent=function(ev){
+  try{ if(ev&&ev.type==="unread_count_changed"&&ev.lastReadAt&&API.on&&!nlFromHere(ev)&&typeof conv==="function") nlConvRead(conv(ev.conversationId),{lastReadMessageId:ev.lastReadMessageId,lastReadAt:ev.lastReadAt}); }catch(e){}
+  var r=base.apply(this,arguments);
+  try{ if(!ev||!API.on){}
+    else if(ev.type==="notifications_read"){ if(!nlFromHere(ev)) nlApply(ev); }
+    else if(ev.type==="notification_created"&&ev.notification) NL.server[ev.notification.id]=1;
+    else if(ev.type==="connected") nlConnected(); }catch(e){ console.error(e); }
+  return r; }; })();
+if(typeof document!=="undefined"&&document.addEventListener) document.addEventListener("visibilitychange",function(){ if(!document.hidden&&NL.dirty) nlLists(); });
 
 ;/* src/settings-access.js */
 

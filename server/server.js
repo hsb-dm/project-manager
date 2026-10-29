@@ -735,7 +735,7 @@ route("POST", "/api/auth/password", (u, p, q, b, ctx) => { const row = db.prepar
    settled either way. */
 const pendingRow = id => db.prepare("SELECT u.name, u.email, wm.role_id FROM workspace_members wm JOIN users u ON u.id=wm.user_id WHERE wm.workspace_id=? AND wm.user_id=? AND coalesce(wm.pending,0)=1").get(WS_ID, id);
 route("GET", "/api/members/pending", (u) => { forbid(can.approveMembers(u), "approve sign-ups"); return { pending: sz.readPending(db, WS_ID) }; });
-route("POST", "/api/members/:id/approve", (u, p, q, b) => {
+route("POST", "/api/members/:id/approve", (u, p, q, b, ctx) => {
   forbid(can.approveMembers(u), "approve sign-ups");
   const m = pendingRow(p.id); if (!m) throw new HttpError(404, "Nobody is waiting for approval under this id");
   let role = m.role_id;
@@ -751,20 +751,25 @@ route("POST", "/api/members/:id/approve", (u, p, q, b) => {
     if (tid && !db.prepare("SELECT 1 FROM teams WHERE id=? AND workspace_id=? AND coalesce(is_archived,0)=0").get(tid, WS_ID)) throw new HttpError(400, "Unknown team");
     teamIds = tid ? [tid] : [];
   }
+  /* every approver who was told: their bell, in each of their pages, settles at once */
+  const at = now(), told = db.prepare("SELECT DISTINCT recipient_id FROM notifications WHERE workspace_id=? AND type='signup' AND entity_id=? AND read_at IS NULL").all(WS_ID, p.id).map(r => r.recipient_id);
   tx(db, () => {
     if (teamIds) { db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id); teamIds.forEach(t => db.prepare("INSERT OR IGNORE INTO team_memberships (id,team_id,user_id,is_primary) VALUES (?,?,?,1)").run("tm_" + t + "_" + p.id, t, p.id)); }
     db.prepare("UPDATE workspace_members SET pending=0, role_id=? WHERE workspace_id=? AND user_id=?").run(role, WS_ID, p.id);
-    db.prepare("UPDATE notifications SET read_at=coalesce(read_at, ?) WHERE workspace_id=? AND type='signup' AND entity_id=?").run(now(), WS_ID, p.id);
+    db.prepare("UPDATE notifications SET read_at=coalesce(read_at, ?) WHERE workspace_id=? AND type='signup' AND entity_id=?").run(at, WS_ID, p.id);
   });
+  notifReadPublish(told, { entityId: p.id, entityType: "user", at }, ctx && ctx.req, u.id);
   sz.appendActivity(db, WS_ID, { who: u.id, k: "member_added", a: { what: m.name + " joined" } }, "user", p.id);
   security.log("signup_approved", { userId: p.id, by: u.id, role });
   const ws = sz.readWorkspace(db, WS_ID);
   if (m.email) setImmediate(() => mailer.send({ to: m.email, subject: "[" + ws.name + "] Your account is approved", text: "Hi " + String(m.name).split(" ")[0] + ", " + u.name + " approved your account. You can sign in now.", meta: {}, link: mailer.link("/"), cta: "Sign in", workspace: ws.name }).catch(e => console.error("[mail] " + e.message)));
   return { people: sz.readPeople(db, WS_ID), pending: sz.readPending(db, WS_ID) };
 });
-route("POST", "/api/members/:id/decline", (u, p) => {
+route("POST", "/api/members/:id/decline", (u, p, q, b, ctx) => {
   forbid(can.approveMembers(u), "approve sign-ups");
   const m = pendingRow(p.id); if (!m) throw new HttpError(404, "Nobody is waiting for approval under this id");
+  /* turned away: the notification is gone from every approver's bell, in each of their pages (removed) */
+  const told = db.prepare("SELECT DISTINCT recipient_id FROM notifications WHERE workspace_id=? AND type='signup' AND entity_id=?").all(WS_ID, p.id).map(r => r.recipient_id);
   tx(db, () => {
     db.prepare("DELETE FROM notifications WHERE workspace_id=? AND type='signup' AND entity_id=?").run(WS_ID, p.id);
     db.prepare("DELETE FROM team_memberships WHERE user_id=?").run(p.id);
@@ -772,6 +777,7 @@ route("POST", "/api/members/:id/decline", (u, p) => {
     db.prepare("DELETE FROM push_subscriptions WHERE user_id=?").run(p.id);
     releaseAccount(p.id);
   });
+  notifReadPublish(told, { entityId: p.id, entityType: "user", removed: true, at: now() }, ctx && ctx.req, u.id);
   security.log("signup_declined", { userId: p.id, by: u.id });
   return { pending: sz.readPending(db, WS_ID) };
 });
@@ -1981,7 +1987,25 @@ route("PUT", "/api/workspace/pwa-icons", (u, p, q, b) => { forbid(can.manageWork
   db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('pwa_icons', ?)").run(JSON.stringify({ hash: String(b.hash), icons })); return { ok: true, hash: String(b.hash) }; });
 route("GET", "/api/mail/status", (u) => { forbid(can.manageEmail(u), "view email diagnostics"); return { transport: mailer.cfg.transport, from: mailer.cfg.from, outbox: mailer.cfg.transport === "log" ? mailer.cfg.outbox : null, sent: mailer.state.sent, failed: mailer.state.failed, lastError: mailer.state.lastError, lastTo: mailer.state.lastTo, lastAt: mailer.state.lastAt, pending: db.prepare("SELECT count(*) n FROM notifications WHERE emailed_at IS NULL AND email_error IS NOT NULL").get().n }; });
 route("POST", "/api/mail/test", (u) => { forbid(can.manageEmail(u), "send test email"); const me = db.prepare("SELECT email, name FROM users WHERE id=?").get(u.id); if (!me || !me.email) throw new HttpError(400, "Your user has no email address"); const ws = sz.readWorkspace(db, WS_ID); return mailer.send({ to: me.email, subject: "[" + ws.name + "] Test email from ZenCrevia", text: "Hi " + me.name.split(" ")[0] + ", this is a test message. If you can read this, email notifications work.", meta: { Transport: mailer.cfg.transport }, link: mailer.link("/"), workspace: ws.name }).then(r => ({ ok: true, transport: mailer.cfg.transport, result: r && r.file ? { file: path.basename(r.file) } : r })).catch(e => { throw new HttpError(424, "Send failed: " + e.message); }); });
-route("POST", "/api/notifications/read", (u, p, q, b) => { if (b.all) db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(now(), u.id); else (b.ids || []).forEach(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(now(), id, u.id)); if (b.entityId) db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(now(), b.entityId, u.id); return readNotifsFor(u.id); });
+/* Notifications read, everywhere at once (Oct 2026). With two tabs open, or a phone and a laptop, what was read in one
+   stayed unread in the other until a reload. Whenever someone's notifications become read — Mark all read, a task or
+   a conversation opened, a sign-up settled — every page of theirs is told at once (notifications_read: all of them,
+   some ids, or those about one thing, and when), and src/notif-live.js applies it in place. tab: the page that asked
+   (its X-ZC-Tab, a random id made once per page), so that page can tell its own echo. Only the asker's own pages are
+   told it: someone else who knew a page's id could send it with their own changes, and that page would take them for
+   its own and skip them. An event with no request behind it carries none. The chat's read route says the same in
+   server/messages.js. */
+function notifTabOf(req) { const v = req && req.headers ? req.headers["x-zc-tab"] : null; return typeof v === "string" && /^[a-z0-9]{8,32}$/.test(v) ? v : undefined; }
+function notifReadPublish(userIds, o, req, asker) { try { if (!userIds.length || typeof chat === "undefined" || !chat.publishToUsers) return;
+  const ev = Object.assign({ type: "notifications_read" }, o), others = userIds.filter(id => id !== asker);
+  if (others.length < userIds.length) chat.publishToUsers([asker], Object.assign({}, ev, { tab: notifTabOf(req) }));
+  if (others.length) chat.publishToUsers(others, ev); } catch (e) { /* best effort: the bell is right on the next load */ } }
+route("POST", "/api/notifications/read", (u, p, q, b, ctx) => { const at = now(), ev = { at }; let n = 0;
+  if (b.all) { n = db.prepare("UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL").run(at, u.id).changes; ev.all = true; }
+  else { const ids = (Array.isArray(b.ids) ? b.ids : []).slice(0, 500).map(String).filter(id => db.prepare("UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?").run(at, id, u.id).changes); if (ids.length) { n += ids.length; ev.ids = ids; } }
+  if (b.entityId) { const k = db.prepare("UPDATE notifications SET read_at=? WHERE entity_id=? AND recipient_id=? AND read_at IS NULL").run(at, String(b.entityId), u.id).changes; if (k) { n += k; ev.entityId = String(b.entityId); } }
+  if (n) notifReadPublish([u.id], ev, ctx && ctx.req, u.id);
+  return readNotifsFor(u.id); });
 route("POST", "/api/activity", (u, p, q, b) => { const allowed = new Set(["created","edited","moved","assigned","deadline","commented","mentioned","uploaded","approved","revision","file","request","request_submitted","request_approved","request_rejected","hidden","unhidden","team","asset","project_created","member_team"]); if (!allowed.has(String(b.k || ""))) throw new HttpError(400, "Unknown activity type"); if (b.entityType === "task") throw new HttpError(400, "A task's history is written by the server"); const entityType = ["workspace","project","asset","request"].includes(b.entityType) ? b.entityType : "workspace"; const a = {}; Object.keys(b.a && typeof b.a === "object" ? b.a : {}).slice(0, 8).forEach(k => { const v = b.a[k]; if (typeof v === "string") a[String(k).slice(0, 30)] = v.slice(0, 200); else if (typeof v === "number" || typeof v === "boolean") a[String(k).slice(0, 30)] = v; }); act(u, b.k, entityType, String(b.entityId || WS_ID).slice(0, 100), a); return sz.readActivity(db, WS_ID, 200); });
 /* ============================================================
    v17 §P1-4 — SMTP setup from the Admin dashboard

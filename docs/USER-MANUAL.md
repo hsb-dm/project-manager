@@ -77,6 +77,12 @@ Ikon lonceng menampilkan jumlah notifikasi yang belum dibaca (di atas 99 tampil 
 berdenyut sekali saat ada notifikasi baru. Popover-nya punya **Mark all read**;
 mengklik satu baris menandainya terbaca dan langsung membuka task terkait.
 
+Yang sudah dibaca di satu tempat langsung terbaca di semua tempat. Kalau ZenCrevia terbuka di dua tab, atau di
+ponsel dan laptop, **Mark all read**, membuka task, atau membaca chat di satu tab langsung mengubah tab lainnya tanpa
+refresh: angka di lonceng, titik merah di tab browser, daftar lonceng yang sedang terbuka, halaman Notifications, dan
+jumlah belum dibaca di Messages. Barisnya hanya berganti tanda, jadi posisi gulir dan filter tetap. Tab yang sempat
+terputus (laptop tertidur, jaringan putus) menyusul sendiri begitu tersambung lagi.
+
 Notifikasi baru juga muncul sebagai pop-up di bawah layar selama 10 detik — tetap tampil selama
 kursor berada di atasnya, bisa ditutup dengan tombol ×, dan diklik untuk membuka task atau
 percakapannya. Kalau notifikasi browser aktif, notifikasi browser yang dipakai (tampil 20 detik).
