@@ -442,22 +442,34 @@ function calScopeToggle(k,allLabel){ var mine=S[k]==="mine", label=mine?(UI_LANG
 function calendarMobileControls(opts){ opts=opts||{}; var defs=FILTER_DEFS({noProject:false}), active=defs.filter(filterChipOn).length+(S.filters.kind?1:0), cur=S.activeView?byId(VIEWS,S.activeView):null;
   if(opts.noFilter) return '<div class="calendar-mobile-controls cal-team-controls cal-m-'+S.calMode+'"><div class="cal-mobile-date"><button class="iconbtn" aria-label="'+attr(tr("Previous"))+'" onclick="calNav(-1)">'+I.chevl+'</button><strong>'+calTitleBoth()+'</strong><button class="iconbtn" aria-label="'+attr(tr("Next"))+'" onclick="calNav(1)">'+I.chev+'</button><button class="btn sm cal-mobile-today" onclick="calToday()">'+tr("Today")+'</button></div><div class="cal-mobile-actions">'+calModeSeg()+'</div></div>';
   return '<div class="calendar-mobile-controls cal-m-'+S.calMode+(S.screen==="tasks"?' cal-tasks':'')+'"><div class="cal-mobile-date"><button class="iconbtn" aria-label="'+attr(tr("Previous"))+'" onclick="calNav(-1)">'+I.chevl+'</button><strong>'+calTitleBoth()+'</strong><button class="iconbtn" aria-label="'+attr(tr("Next"))+'" onclick="calNav(1)">'+I.chev+'</button><button class="btn sm cal-mobile-today" onclick="calToday()">'+tr("Today")+'</button></div><div class="cal-mobile-actions"><button class="iconbtn'+(active?' active':'')+'" aria-label="'+attr(tr("Filters"))+'" title="'+attr(tr("Filters"))+'" onclick="filterModal()">'+I.filter+(active?'<span class="cal-mobile-count">'+active+'</span>':'')+'</button>'+(S.screen==="projects"?'':'<button class="iconbtn'+(cur?' active':'')+'" data-menu aria-label="'+attr(tr("Views"))+'" title="'+attr(tr("Views"))+'" onclick="viewsMenu(this)">'+I.pin+'</button>')+(S.screen==="calendar"?calScopeToggle("calScope","Team"):'')+(S.screen==="tasks"?calScopeToggle("taskScope","All"):'')+calModeSeg()+'<button class="iconbtn'+(S.calLabelsOpen?' active':'')+'" aria-pressed="'+(S.calLabelsOpen?'true':'false')+'" aria-label="'+attr(tr(S.calLabelsOpen?'Hide labels':'Show labels'))+'" title="'+attr(tr(S.calLabelsOpen?'Hide labels':'Show labels'))+'" onclick="toggleChipLabels()">'+(S.calLabelsOpen?I.eyeoff:I.eye)+'</button></div></div>'; }
-function calItems(list,opts){ var byDay={}; list.forEach(function(t){ var k=iso(t.due); (byDay[k]=byDay[k]||[]).push({type:"task",o:t}); }); (S.filters.archived?PROJECTS:liveProjects()).filter(function(p){ /* compact (a team's page): the milestones and deadlines of its own projects only */ return !(opts&&opts.compact)||list.some(function(t){ return inProject(t,p.id); }); }).forEach(function(p){ p.milestones.forEach(function(ms){ var k=iso(ms.due); (byDay[k]=byDay[k]||[]).push({type:"ms",o:ms,p:p}); }); if (p.status!=="done"){ var k2=iso(p.due); (byDay[k2]=byDay[k2]||[]).push({type:"pdue",o:p}); } }); return byDay; }
+/* A day's own order (Nov 2026). The tasks due on a day are drawn in an order of their own, which the day's dialog
+   ("+N more") changes by dragging a row or with the keyboard; it is what chooses the three a month's cell shows before
+   "+N more", and the week, the day and the dialog follow it too. A task keeps its place in meta.dayOrder {d: the day,
+   k: its key}, which holds only while d is the day it is due, so a task moved to another day needs nothing cleaned up;
+   without one, or once it is stale, the board's manual order (sort) places it, on the same scale. Moving a task in its
+   day never changes the board's order. Milestones and project deadlines come after the day's tasks and keep their place. */
+function calDayKey(t,k){ var o=t.meta&&t.meta.dayOrder; return o&&o.d===k&&typeof o.k==="number"&&isFinite(o.k)?o.k:(+t.sort||0); }
+function calDayCmp(a,b){ return (a.key-b.key)||((+a.o.sort||0)-(+b.o.sort||0))||(a.o.id<b.o.id?-1:a.o.id>b.o.id?1:0); }
+/* who may drag a task to another day, or in its day: whoever may edit it, which is what the server's move asks */
+function calCanMove(t){ return !!t&&canI.editTask(t); }
+/* a task with no due date stored is drawn on today; its place in a day waits until it has one (the server checks the day) */
+function calCanReorder(t){ return calCanMove(t)&&!(API.on&&t.dueDate===null); }
+function calItems(list,opts){ var byDay={}; list.forEach(function(t){ var k=iso(t.due); (byDay[k]=byDay[k]||[]).push({type:"task",o:t,key:calDayKey(t,k)}); }); Object.keys(byDay).forEach(function(k){ if (byDay[k].length>1) byDay[k].sort(calDayCmp); }); (S.filters.archived?PROJECTS:liveProjects()).filter(function(p){ /* compact (a team's page): the milestones and deadlines of its own projects only */ return !(opts&&opts.compact)||list.some(function(t){ return inProject(t,p.id); }); }).forEach(function(p){ p.milestones.forEach(function(ms){ var k=iso(ms.due); (byDay[k]=byDay[k]||[]).push({type:"ms",o:ms,p:p}); }); if (p.status!=="done"){ var k2=iso(p.due); (byDay[k2]=byDay[k2]||[]).push({type:"pdue",o:p}); } }); return byDay; }
 function chipHtml(t){ var ls=labelsOf(t), dim=t.hidden||autoHidden(t);
-  return '<div class="chip'+(isClosed(t)?" closed":(t.due<0?" over":""))+(dim?" dim":"")+(taskChecked(t.id)?" checked":"")+'" data-id="'+attr(t.id)+'" style="--tc:'+taskCardColor(t,"calendar")+'" draggable="true" ondragstart="kStart(event,taskIdFrom(this))" ondragend="kEnd(this)" onclick="event.stopPropagation();openTask(taskIdFrom(this))" title="'+attr(t.title+" \u00b7 "+stageName(t.status)+" \u00b7 "+person(t.assignee).name+(isTaskBlocked(t)?" \u00b7 "+tr("Blocked by")+" "+unresolvedDependencies(t).map(function(x){return x.title;}).join(", "):"")+(ls.length?" \u00b7 "+ls.map(function(x){return x.name;}).join(", "):""))+'">'
+  return '<div class="chip'+(isClosed(t)?" closed":(t.due<0?" over":""))+(dim?" dim":"")+(taskChecked(t.id)?" checked":"")+'" data-id="'+attr(t.id)+'" style="--tc:'+taskCardColor(t,"calendar")+'"'+(calCanMove(t)?' draggable="true" ondragstart="kStart(event,taskIdFrom(this))" ondragend="kEnd(this)"':'')+' onclick="event.stopPropagation();openTask(taskIdFrom(this))" title="'+attr(t.title+" \u00b7 "+stageName(t.status)+" \u00b7 "+person(t.assignee).name+(isTaskBlocked(t)?" \u00b7 "+tr("Blocked by")+" "+unresolvedDependencies(t).map(function(x){return x.title;}).join(", "):"")+(ls.length?" \u00b7 "+ls.map(function(x){return x.name;}).join(", "):""))+'">'
     + '<div class="chip-eyebrow">'+(ls.length?labelPills(t)+labelFull(t):'<span class="eb">'+esc(teamName(t.team)||projName(t))+'</span>')
     + '<span class="spacer"></span><span class="sb badge '+badgeCls(t.status)+'">'+esc(stageName(t.status))+'</span></div>'
     + '<div class="chip-main">'+taskCheckBtn(t.id,"xs")+'<span class="pd '+t.prio+'"></span><span class="chip-t">'+(isTaskBlocked(t)?'⛓ ':'')+esc(t.title)+'</span>'+avStack(assigneesOf(t))+'</div></div>'; }
 function dayCell(d,items,other,extraCls,limit){ var off=Math.round((d-TODAY)/86400000); var k=iso(off); var h='<div class="cal-day'+(other?" other":"")+(off===0?" today":"")+(extraCls||"")+'" data-off="'+off+'" ondragover="event.preventDefault();this.classList.add(\'over\')" ondragleave="this.classList.remove(\'over\')" ondrop="calDrop(event,this,'+off+')" onclick="if(event.target===this||event.target.classList.contains(\'dn\')||event.target.parentNode.classList.contains(\'dn\'))'+(canI.createTask()?'newTaskModal({due:'+off+'})':'calAgenda(\''+k+'\')')+'"><div class="dn"><span>'+d.getDate()+'</span>'+(off===0?'<b class="todaytag">Today</b>':'')+(items.length>limit?'<small>'+items.length+'</small>':'')+'</div>';
   items.slice(0,limit).forEach(function(it){ if (it.type==="task") h+=chipHtml(it.o); else if (it.type==="ms") h+='<div class="chip ms" onclick="event.stopPropagation();go(\'projects\',\''+it.p.id+'\')" title="'+attr(it.p.name+" · "+it.o.name)+'">◆ '+esc(it.o.name)+'</div>'; else h+='<div class="chip ms" style="border-left-color:var(--color-warning)" onclick="event.stopPropagation();go(\'projects\',\''+it.o.id+'\')">⚑ '+esc(it.o.name)+' '+tr("deadline")+'</div>'; });
   if (items.length>limit) h+='<div class="chip more" onclick="event.stopPropagation();calAgenda(\''+k+'\')">+'+(items.length-limit)+' '+tr("more")+'</div>'; return h+'</div>'; }
-function calDrop(e,el,off){ e.preventDefault(); el.classList.remove("over"); var id=DRAG||e.dataTransfer.getData("text/plain"); DRAG=null; var tk=task(id); if (!tk||tk.due===off) return; var span=tk.span; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(off-span),dueDate:iso(off)},function(t){ t.due=off; }).then(function(saved){ if(saved===false)return false; toast("Due "+dueDate(off)); }); }
+function calDrop(e,el,off){ e.preventDefault(); el.classList.remove("over"); var id=DRAG||e.dataTransfer.getData("text/plain"); DRAG=null; var tk=task(id); if (!tk||tk.due===off||!calCanMove(tk)) return; var span=tk.span; moveTask(tk,{type:"MOVE_TASK_DATE",startDate:iso(off-span),dueDate:iso(off)},function(t){ t.due=off; }).then(function(saved){ if(saved===false)return false; toast(tr("Due date moved to")+" "+dueDate(off)); }); }
 /* The month's row (.cal-row: the Tasks page, the Calendar page, a project; a team's page keeps its own): one line at
    every width it is shown, which is from 600 px on the Tasks page (its second row under the views, "Calendar
    controls" in responsive.css) and from 761 px elsewhere. Where it is short of room the title takes its short form
    (.cal-t-short), Show labels its icon, whose tasks its icons and the period its letters, each named for screen readers;
    the legend then sits under the calendar (.cal-legend-foot), and active filters' chips have a line of their own. */
-function calendar(list,opts){ opts=opts||{}; var byDay=calItems(list,opts); CAL_AGENDA=byDay; var row=!opts.compact, labelsName=tr(S.calLabelsOpen?"Hide labels":"Show labels");
+function calendar(list,opts){ opts=opts||{}; var byDay=calItems(list,opts); CAL_AGENDA=byDay; calAgendaSync(); var row=!opts.compact, labelsName=tr(S.calLabelsOpen?"Hide labels":"Show labels");
   var legend='<span><i style="background:var(--color-primary)"></i>Task (team color)</span><span><i style="background:var(--color-secondary)"></i>Milestone</span><span><i style="background:var(--color-danger)"></i>Overdue</span>', foot=row?'<div class="legend cal-legend-foot">'+legend+'</div>':'';
   var h=calendarMobileControls(opts)+'<div class="toolbar calendar-toolbar'+(row?' cal-row cal-m-'+S.calMode:'')+(row&&S.screen==="tasks"?' cal-tasks':'')+'" style="justify-content:space-between"><div class="cal-nav">'+(opts.noFilter?'':filterInline())+'<button class="iconbtn" aria-label="'+attr(tr("Previous"))+'" onclick="calNav(-1)">'+I.chevl+'</button><h2 title="'+attr(calTitle())+'">'+calTitleBoth()+'</h2><button class="iconbtn" aria-label="'+attr(tr("Next"))+'" onclick="calNav(1)">'+I.chev+'</button><button class="btn sm cal-today" onclick="calToday()">Today</button><button class="btn sm'+(S.calLabelsOpen?" primary":"")+'" aria-pressed="'+(S.calLabelsOpen?"true":"false")+'" aria-label="'+attr(labelsName)+'" id="calLabelBtn" onclick="toggleChipLabels()" title='+(S.calLabelsOpen?'"Hide the label names"':'"Name every label on the board"')+'>'+(S.calLabelsOpen?I.eyeoff+'<span class="cal-lbl-word">Hide labels</span>':I.eye+'<span class="cal-lbl-word">Show labels</span>')+'</button></div><div class="calendar-display-controls">'+taskCheckChip()+viewsMenuBtn()+calModeSeg()+'<div class="legend" style="padding:0">'+legend+'</div></div>'+(opts.noFilter?'':filterInline("chips"))+'</div>';
   if (S.calMode==="month"){ var y=S.calYear, m=S.calMonth; var startDow=(new Date(y,m,1).getDay()+6)%7; var start=new Date(y,m,1-startDow); var cells=(startDow+new Date(y,m+1,0).getDate()<=35)?35:42;
@@ -481,16 +493,94 @@ function calTitleBoth(){ var short=calTitleShort();
   return '<span class="cal-t-long">'+calTitle()+'</span><span class="cal-t-short">'+short+'</span>'; }
 function setCalMode(m){ S.calMode=m; renderScreen(false); }
 function openCalendarTask(id){ closeModal(); openTask(id); }
+/* ---------- the day's dialog ("+N more", or a day clicked by someone who cannot create tasks) ----------
+   Its rows are dragged to change their place in the day (REORDER_TASK_DAY), or out of the dialog onto another day of
+   the calendar to change their due date, as a chip is (calDrop). While the pointer is inside the dialog's card it is a
+   reorder, a line showing where the row lands; once it goes clearly past the card's edge (CAL_DD_MARGIN, so that
+   overshooting a reorder does not count) the dialog and its backdrop fade nearly away and let the pointer through to
+   the calendar's days, those that were under the card too, for the rest of the drag. When the drag ends the dialog is
+   back, drawn again for its own day: a task moved away is gone and the count with it, and one whose last item left
+   closes. The keyboard does the reorder through the shared REORDER system (src/core.js): Space or Enter on a row's
+   handle takes it, the arrows move it, Enter or Space puts it down, Escape lets go. Only the rows the viewer may edit
+   move. */
+var CAL_DD=null, CAL_DD_MARGIN=28, CAL_DD_T=0;
 function calAgendaRow(it){
-  if(it.type==="task") return taskRow(it.o,{fixedMeta:true,check:true,openAction:"openCalendarTask(taskIdFrom(this))"});
   var milestone=it.type==="ms", p=milestone?it.p:it.o, title=milestone?it.o.name:p.name;
-  return '<div class="row cal-context-row" onclick="closeModal();go(\'projects\',\''+p.id+'\')"><span class="cal-context-icon '+(milestone?'milestone':'deadline')+'">'+(milestone?'◆':'⚑')+'</span><span class="cal-context-spacer"></span><div style="min-width:0"><div class="t">'+esc(title)+'</div><div class="m"><span class="badge">'+tr(milestone?'Milestone':'Project deadline')+'</span><span>'+esc(p.name)+'</span></div></div><div class="r meta-grid"><span class="mcell mcell-assets"></span><span class="mcell mcell-due"><span class="due">'+dueDate(milestone?it.o.due:p.due)+'</span></span><span class="mcell mcell-who">'+av(p.owner)+'</span></div></div>';
+  return '<div class="row cal-context-row" onclick="closeModal();go(\'projects\','+jsq(p.id)+')"><span class="cal-context-icon '+(milestone?'milestone':'deadline')+'">'+(milestone?'◆':'⚑')+'</span><span class="cal-context-spacer"></span><div class="mcell-main" style="min-width:0"><div class="t">'+esc(title)+'</div><div class="m"><span class="badge">'+tr(milestone?'Milestone':'Project deadline')+'</span><span>'+esc(p.name)+'</span></div></div><div class="r meta-grid"><span class="mcell mcell-assets"></span><span class="mcell mcell-due"><span class="due">'+dueDate(milestone?it.o.due:p.due)+'</span></span><span class="mcell mcell-who">'+av(p.owner)+'</span></div></div>';
 }
+/* a task's row, i its place among the day's tasks; dd: the list has rows that move (each row that may, a handle) */
+function calAgendaTaskRow(t,i,dd){ var o={fixedMeta:true,check:true,openAction:"openCalendarTask(taskIdFrom(this))"};
+  if (dd&&calCanMove(t)){ var re=calCanReorder(t), grab=re&&REORDER.list==="calday"&&REORDER.kb===i;
+    o.rowCls="cal-dd-row"+(re?" reorder-row":"")+(grab?" kb-grabbed":"");
+    o.rowAttrs=' draggable="true" ondragstart="calDayStart(event,this)" ondragend="calDayEnd()"'+(re?' data-reorder="calday" data-index="'+i+'"':'');
+    if (re) o.lead='<span class="drag-handle cal-dd-h" role="button" tabindex="0" aria-label="'+attr(tr("Reorder")+" — "+t.title)+'" title="'+attr(tr("Drag to reorder, or press Space and use the arrow keys"))+'" onclick="event.stopPropagation()" onkeydown="reorderKey(event,\'calday\','+i+')">'+I.drag+'</span>'; }
+  return taskRow(t,o); }
+/* the day's items as the calendar last drew them: each task still due that day, in the day's order as it is now (a
+   move of one's own shows before the calendar is drawn again), then the milestones and project deadlines */
+function calAgendaItems(k){ var tasks=[], rest=[];
+  (CAL_AGENDA[k]||[]).forEach(function(it){ if (it.type!=="task") return rest.push(it); var t=task(it.o.id); if (t&&iso(t.due)===k) tasks.push({type:"task",o:t,key:calDayKey(t,k)}); });
+  return tasks.sort(calDayCmp).concat(rest); }
+function calAgendaTitle(k,n){ return dueDate(offsetFromIso(k))+(n?' · '+n+' '+tr(n===1?"item":"items"):""); }
+function calAgendaBody(items){ var dd=items.some(function(it){ return it.type==="task"&&calCanMove(it.o); }), i=0;
+  return {dd:dd,html:items.length?items.map(function(it){ return it.type==="task"?calAgendaTaskRow(it.o,i++,dd):calAgendaRow(it); }).join(""):emptyBox(tr("Nothing due"),"")}; }
 function calAgenda(k){
-  var off=offsetFromIso(k), items=CAL_AGENDA[k]||[];
-  openModal(dueDate(off)+(items.length?' \u00b7 '+items.length+' '+tr(items.length===1?"item":"items"):""),
-    '<div class="agenda cal-more-list">'+(items.length?items.map(calAgendaRow).join(""):emptyBox("Nothing due",""))+'</div>');
+  if (REORDER.list==="calday") REORDER={list:null,from:-1,kb:-1}; if (CAL_DD) calDayStop();
+  var items=calAgendaItems(k), b=calAgendaBody(items);
+  openModal(calAgendaTitle(k,items.length),'<div class="agenda cal-more-list'+(b.dd?' cal-dd':'')+'" data-day="'+attr(k)+'" ondragover="calDayOver(event,this)" ondragleave="calDayLeave(event,this)" ondrop="calDayDrop(event,this)">'+b.html+'</div><p class="hint cal-dd-hint">'+tr("Drag a task to reorder the day, or onto another day in the calendar to move its due date.")+'</p>');
+  var l=document.querySelector("#modal .cal-more-list"); if (l) l._calHtml=b.html;
 }
+/* The open day's dialog drawn again in place: after a move of one's own, when a drag ends, and whenever the calendar is
+   drawn again (a colleague's change arriving live, a language switch). Its rows, count and title follow; the list keeps
+   its scroll and the focus stays on the same task's control; nothing is drawn when nothing changed (no blink), and a
+   dialog whose last item left closes. While a row is dragged it waits for the drag to end. */
+function calAgendaSync(){ var list=document.querySelector("#modalWrap.open .cal-more-list[data-day]"); if (!list||CAL_DD) return;
+  var k=list.getAttribute("data-day"), items=calAgendaItems(k);
+  if (!items.length&&list.querySelector(".row")) return closeModal();
+  var b=calAgendaBody(items), h=document.querySelector("#modal .modal-head h3"), title=tr(calAgendaTitle(k,items.length));
+  list.classList.toggle("cal-dd",b.dd); if (h&&h.textContent!==title) h.textContent=title;
+  if (list._calHtml===b.html) return;
+  var a=document.activeElement, was=a&&list.contains(a)?a.closest("[data-id]"):null, id=was&&was.getAttribute("data-id"), what=a&&a.classList&&(a.classList.contains("drag-handle")?".drag-handle":a.classList.contains("tcheck")?".tcheck":"");
+  list.innerHTML=b.html; list._calHtml=b.html; localizeVisibleText(list);
+  if (id){ var row=Array.prototype.filter.call(list.querySelectorAll("[data-id]"),function(x){ return x.getAttribute("data-id")===id; })[0], f=row&&what?row.querySelector(what):null; if (f) try{ f.focus({preventScroll:true}); }catch(e){} } }
+function calDayStart(e,row){ var list=row.closest(".cal-more-list"), id=row.getAttribute("data-id"), t=task(id); if (!list||!t) return;
+  e.stopPropagation(); DRAG=id; CAL_DD={id:id,day:list.getAttribute("data-day"),reorder:calCanReorder(t),out:false};
+  try{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",id); }catch(x){}
+  document.addEventListener("dragover",calDayTrack,true);
+  var wrap=document.getElementById("modalWrap"); clearTimeout(CAL_DD_T); if (wrap) wrap.classList.add("cal-dd-on");
+  /* after the browser has taken the row's picture for the drag */
+  setTimeout(function(){ if (CAL_DD&&CAL_DD.id===id) row.classList.add("dragging"); },0); }
+/* where the pointer is, wherever it is over: clearly past the card's edge, the drag goes to the calendar */
+function calDayTrack(e){ var d=CAL_DD, m=document.getElementById("modal"); if (!d||d.out||!m) return; var r=m.getBoundingClientRect(), x=e.clientX, y=e.clientY;
+  if (x<r.left-CAL_DD_MARGIN||x>r.right+CAL_DD_MARGIN||y<r.top-CAL_DD_MARGIN||y>r.bottom+CAL_DD_MARGIN){ d.out=true; calDayClear(document); document.getElementById("modalWrap").classList.add("cal-dd-out"); } }
+/* where a row dropped at y lands: i, the gap among the day's task rows (0 before the first); from and to, its place
+   before and after */
+function calDayAt(list,y){ var rows=Array.prototype.slice.call(list.querySelectorAll(".task-row[data-id]")), from=-1, i=0;
+  rows.forEach(function(r,j){ if (r.getAttribute("data-id")===CAL_DD.id) from=j; });
+  while (i<rows.length){ var b=rows[i].getBoundingClientRect(); if (y<b.top+b.height/2) break; i++; }
+  return {rows:rows,i:i,from:from,to:i>from?i-1:i}; }
+function calDayClear(root){ (root||document).querySelectorAll(".cal-drop-before,.cal-drop-after").forEach(function(x){ x.classList.remove("cal-drop-before","cal-drop-after"); }); }
+function calDayOver(e,list){ var d=CAL_DD; if (!d||d.out||!d.reorder||list.getAttribute("data-day")!==d.day) return; e.preventDefault(); e.stopPropagation(); try{ e.dataTransfer.dropEffect="move"; }catch(x){}
+  var at=calDayAt(list,e.clientY), mark=at.from<0||at.to===at.from?null:at.i<at.rows.length?[at.rows[at.i],"cal-drop-before"]:[at.rows[at.rows.length-1],"cal-drop-after"];
+  if (mark&&mark[0].classList.contains(mark[1])) return; calDayClear(list); if (mark) mark[0].classList.add(mark[1]); }
+function calDayLeave(e,list){ if (!e.relatedTarget||!list.contains(e.relatedTarget)) calDayClear(list); }
+function calDayDrop(e,list){ var d=CAL_DD; if (!d||d.out||!d.reorder) return; e.preventDefault(); e.stopPropagation(); var at=calDayAt(list,e.clientY); calDayClear(list); if (at.from>=0&&at.to!==at.from) calDayMove(d.day,at.from,at.to); }
+/* the drag is over, dropped or not (Escape, or let go anywhere else): the dialog is back, drawn for its own day */
+function calDayEnd(){ calDayStop(); calAgendaSync(); }
+function calDayStop(){ document.removeEventListener("dragover",calDayTrack,true); CAL_DD=null; DRAG=null;
+  var wrap=document.getElementById("modalWrap"); if (wrap){ wrap.classList.remove("cal-dd-out"); clearTimeout(CAL_DD_T); CAL_DD_T=setTimeout(function(){ wrap.classList.remove("cal-dd-on"); },220); }
+  document.querySelectorAll(".cal-more-list .dragging,.cal-day.over").forEach(function(x){ x.classList.remove("dragging","over"); }); calDayClear(document); }
+/* the day's task at from goes to to (both places among the day's tasks); its key falls between its new neighbours'.
+   When they share a key, or no room is left between them, the day's tasks are numbered again, if all may move. */
+function calDayMove(k,from,to){ var tasks=calAgendaItems(k).filter(function(it){ return it.type==="task"; }).map(function(it){ return it.o; }), n=tasks.length, tk=tasks[from];
+  if (from===to||from<0||to<0||from>=n||to>=n||!calCanReorder(tk)) return false;
+  var order=tasks.slice(); order.splice(from,1); order.splice(to,0,tk);
+  var prev=order[to-1], next=order[to+1], kp=prev?calDayKey(prev,k):null, kn=next?calDayKey(next,k):null;
+  var key=kp!==null&&kn!==null?(kp+kn)/2:kp!==null?kp+1000:kn!==null?kn-1000:calDayKey(tk,k);
+  if ((kp===null||key>kp)&&(kn===null||key<kn)) calDaySet(tk,k,key);
+  else { if (!order.every(calCanReorder)) return false; order.forEach(function(t,j){ var o=t.meta&&t.meta.dayOrder; if (!(o&&o.d===k&&o.k===(j+1)*1000)) calDaySet(t,k,(j+1)*1000); }); }
+  calAgendaSync(); return true; }
+function calDaySet(t,k,key){ return moveTask(t,{type:"REORDER_TASK_DAY",day:k,key:key},function(x){ taskMeta(x).dayOrder={d:k,k:key}; }); }
+if (typeof registerReorderList==="function") registerReorderList("calday",function(from,to){ var l=document.querySelector("#modalWrap.open .cal-more-list[data-day]"); return l?calDayMove(l.getAttribute("data-day"),from,to):false; });
 function renderCalendarScreen(){ var h='<div class="pagehead calendar-pagehead"><div><h1>Calendar</h1><div class="muted" style="margin-top:4px">A view over task dates — drag a task to another day to reschedule it</div></div><div class="actions">'+segRadio("calscope","Show",[["mine","Mine"],["all","Team"]],S.calScope,"setCalScope","cal-scope-seg")+(canI.createTask()?'<button class="btn primary" onclick="newTaskModal()">'+I.plus+'New task</button>':'')+'</div></div>'; var saved=S.taskScope, sv=S.taskView; S.taskScope=S.calScope; S.taskView="calendar"; h+=filterBar({noScope:true}); h+=calendar(filteredTasks()); S.taskScope=saved; S.taskView=sv; document.getElementById("content").innerHTML=h; }
 
 /* ---------- TIMELINE (drag bar = shift dates, resize = change duration; MOVE_TASK_TIMELINE §32) ---------- */

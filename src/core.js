@@ -1089,7 +1089,8 @@ function taskRow(tk,opts){
   /* a closed task already says so with its stage (Approved, Delivered…); "Completed" beside it said it twice */
   var depBadge=isClosed(tk)&&opts.showStatus!==false?'':dependencyBadge(tk,false);
   /* .task-row-cells: the row's right side is the slots below, not the meta grid (the phone layout keys on it) */
-  var head='<div class="row task-row'+(opts.fixedMeta?'':' task-row-cells')+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'" onclick="'+openAction+'"><div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span class="m-proj" title="'+attr(projName(tk))+'">'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
+  /* opts.rowCls, opts.rowAttrs and opts.lead (a first cell): what a list adds to its rows (the calendar's day dialog: dragging) */
+  var head='<div class="row task-row'+(opts.fixedMeta?'':' task-row-cells')+(opts.rowCls?' '+opts.rowCls:'')+(opts.check&&taskChecked(tk.id)?" checked":"")+'" data-id="'+attr(tk.id)+'"'+(opts.rowAttrs||'')+' onclick="'+openAction+'">'+(opts.lead||'')+'<div class="prio '+attr(tk.prio)+'" title="'+prioL(tk.prio)+'"></div>'+(opts.check?taskCheckBtn(tk.id):'')+'<div style="min-width:0"><div class="t">'+esc(tk.title)+'</div><div class="m"><span class="mono">'+esc(tk.id)+'</span><span class="sep">·</span>'+teamBadge(tk.team)+'<span class="sep">·</span><span class="m-proj" title="'+attr(projName(tk))+'">'+esc(projName(tk))+'</span>'+(opts.showStatus!==false?'<span class="sep">·</span>'+statusBadge(tk.status):'')+'</div></div>';
   /* In a wrapping flex row the right-hand metadata lands in a different place
      on every line, because each task carries a different mix of chips. Where
      rows are read as a list (the calendar "see more" sheet), each piece gets a
@@ -1101,7 +1102,7 @@ function taskRow(tk,opts){
        three narrow, always-present slots, which is what makes the list align. */
     var cell=function(name,content){ return '<span class="mcell mcell-'+name+'">'+(content||'')+'</span>'; };
     var labels=depBadge+labelChips(tk,true);
-    var withLabels=head.replace('</div></div>',(labels?'<span class="row-labels">'+labels+'</span>':'')+'</div></div>');
+    var withLabels=head.replace('<div style="min-width:0">','<div class="mcell-main" style="min-width:0">').replace('</div></div>',(labels?'<span class="row-labels">'+labels+'</span>':'')+'</div></div>');
     return withLabels+'<div class="r meta-grid">'
       + cell("assets",assetCount(tk)?assetBadge(tk):'')
       + cell("due",'<span class="due '+dueCls(tk.due,tk)+'">'+dueTxt(tk.due)+'</span>')

@@ -102,8 +102,10 @@ test('Messages link/media additions stay inside the existing Message reference f
 test('Calendar see-more lists every calendar item and closes before opening a task',()=>{
   const tasks=read('src/tasks.js'),core=read('src/core.js'),css=read('src/refinements.css');
   assert.match(tasks,/CAL_AGENDA=byDay/);
-  assert.match(tasks,/items\.map\(calAgendaRow\)/);
-  assert.match(tasks,/if\(it\.type==="task"\) return taskRow/);
+  /* a task's row (with its handle since Nov 2026, src/tasks.js calAgendaTaskRow), then the milestones and deadlines */
+  assert.match(tasks,/items\.map\(function\(it\)\{ return it\.type==="task"\?calAgendaTaskRow\(it\.o,i\+\+,dd\):calAgendaRow\(it\); \}\)/);
+  assert.match(tasks,/function calAgendaTaskRow\(t,i,dd\)\{ var o=\{fixedMeta:true,check:true,openAction:"openCalendarTask/);
+  assert.match(tasks,/return taskRow\(t,o\); \}/);
   assert.match(tasks,/function openCalendarTask\(id\)\{ closeModal\(\); openTask\(id\); \}/);
   assert.match(tasks,/openAction:"openCalendarTask/);
   assert.match(core,/var openAction=opts\.openAction\|\|/);

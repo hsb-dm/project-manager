@@ -613,6 +613,18 @@ dipilih dan tombol panah (atau Home / End) memindahkannya.
 - **Seret chip ke hari lain** untuk menjadwal ulang — durasinya dipertahankan.
 - **Klik hari kosong** untuk membuat task pada tanggal itu.
 - **+n more** membuka daftar semua task yang tenggatnya hari itu.
+- **Urutan dalam satu hari**: di daftar **+n more**, seret baris task ke atas atau ke bawah untuk mengubah urutannya
+  di hari itu; garis biru menunjukkan tempat jatuhnya. Urutan ini yang menentukan tiga chip yang tampil di kotak hari
+  (sebelum **+n more**), juga urutan di Week, Day, dan daftar itu sendiri, dan tersimpan untuk semua orang. Urutan
+  manual di Kanban dan List tidak ikut berubah. Dengan keyboard: fokus ke pegangan (⠿) di kiri baris, tekan **Spasi**,
+  pindahkan dengan **↑ / ↓**, lalu **Enter** (atau **Esc**) untuk melepas. Task yang pindah ke hari lain kembali ke
+  urutan papannya di hari barunya.
+- **Seret dari daftar ke hari lain**: tarik baris keluar dari kotak daftar; daftar memudar dan kalender di belakangnya
+  bisa menerima task itu di hari mana pun, termasuk yang tadinya tertutup daftar. Tenggatnya pindah seperti saat
+  menyeret chip, lalu daftar kembali dengan satu item lebih sedikit (dan tertutup kalau kosong). Dilepas di luar
+  kotak hari, tidak ada yang berubah.
+- Hanya task yang boleh kamu edit yang bisa diseret (chip-nya juga). Di ponsel, seret dengan sentuhan tidak didukung:
+  tenggat diubah lewat panel task, dan urutan dalam hari hanya dengan keyboard tersambung (cara keyboard di atas).
 - **Show labels / Hide labels** menampilkan atau menyembunyikan nama label pada chip.
 - Chip milestone (◆) dan deadline project (⚑) juga muncul dan mengarah ke project-nya.
 

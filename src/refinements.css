@@ -281,6 +281,61 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
   .cal-more-list .row .r.meta-grid{display:flex;flex-wrap:wrap;justify-content:flex-start;width:100%;gap:8px}
   .cal-more-list .mcell{justify-content:flex-start}
 }
+/* The day's rows line up as one table (Nov 2026). Each meta cell above is a fixed slot (44, 70 and 48 px of a 182 px
+   track) that its content spilled out of: four people ("+1") were drawn over the due date ("toda"), an asset badge
+   over "3 hari terlambat", and "43 hari terlambat" ran into the badge. The list is now one grid and each row a subgrid
+   of it, its meta cells placed in the list's own columns, so each column (the handle, the priority, the tick, the
+   title, then the files, the due date and the people) is as wide as its widest cell in this dialog and lines up from
+   row to row, milestones and deadlines too; a meta cell never shrinks below its content, and the title takes what is
+   left and gives way first (it ends in "…"). On a phone (640 px and under) a row has two lines: the title on the
+   first, the files, the due date and the people on the second, each in a column of its own. A browser without subgrid
+   keeps the slots above. */
+@supports (grid-template-columns:subgrid){
+  .cal-more-list{display:grid;align-content:start;column-gap:10px;grid-template-columns:[h p] auto [c] auto [t] minmax(0,1fr) [a] auto [d] auto [w] auto [end]}
+  .cal-more-list.cal-dd{grid-template-columns:[h] auto [p] auto [c] auto [t] minmax(0,1fr) [a] auto [d] auto [w] auto [end]}
+  .cal-more-list>.row,.cal-more-list>.empty{grid-column:h/end}
+  .cal-more-list>.row{grid-template-columns:subgrid;column-gap:normal}
+  /* a size container (zrow, v38.css) lays its content out alone, which is no subgrid */
+  .cal-more-list>.row.task-row{container-type:normal}
+  .cal-more-list .row>.cal-dd-h{grid-column:h}
+  .cal-more-list .row>.prio,.cal-more-list .row>.cal-context-icon{grid-column:p;margin-right:6px}
+  .cal-more-list .row>.tcheck,.cal-more-list .row>.cal-context-spacer{grid-column:c;margin-right:6px}
+  .cal-more-list .row>.mcell-main{grid-column:t;margin-right:6px}
+  .cal-more-list .row>.r.meta-grid{display:contents}
+  .cal-more-list .row .mcell{min-width:max-content}
+  .cal-more-list .row .mcell-assets{grid-column:a}
+  .cal-more-list .row .mcell-due{grid-column:d}
+  .cal-more-list .row .mcell-who{grid-column:w}
+  /* a phone: the title has the whole line; under it the files sit below the handle, priority and tick, the due date
+     starts where the title does and the people end the line */
+  @media (max-width:640px){
+    .cal-more-list{grid-template-columns:[h p] auto [c] auto [t d] minmax(0,1fr) [w] auto [end]}
+    .cal-more-list.cal-dd{grid-template-columns:[h] auto [p] auto [c] auto [t d] minmax(0,1fr) [w] auto [end]}
+    .cal-more-list>.row{row-gap:8px}
+    .cal-more-list .row>.cal-dd-h,.cal-more-list .row>.prio,.cal-more-list .row>.cal-context-icon,.cal-more-list .row>.tcheck,.cal-more-list .row>.cal-context-spacer{grid-row:1}
+    .cal-more-list .row>.cal-dd-h{width:20px}
+    .cal-more-list .row>.mcell-main{grid-column:t/end;grid-row:1;margin-right:0}
+    .cal-more-list .row .mcell-assets{grid-column:h/t;grid-row:2}
+    .cal-more-list .row .mcell-due{grid-column:d;grid-row:2;justify-content:flex-start}
+    .cal-more-list .row .mcell-who{grid-column:w;grid-row:2;justify-content:flex-end}
+  }
+}
+@supports not (grid-template-columns:subgrid){ .cal-more-list .cal-dd-h{display:none} }
+/* dragging a row of the day's dialog (src/tasks.js calDayStart): where it lands, and the dialog stepping aside while
+   it is carried past the card's edge to another day */
+.cal-more-list .row.dragging{opacity:.45}
+.cal-more-list .row.cal-drop-before{box-shadow:inset 0 3px 0 0 var(--color-primary)}
+.cal-more-list .row.cal-drop-after{box-shadow:inset 0 -3px 0 0 var(--color-primary)}
+.cal-more-list .cal-dd-h{margin-left:-6px}
+.cal-dd-hint{margin:0}
+.cal-more-list:not(.cal-dd)+.cal-dd-hint{display:none}
+@media (hover:none) and (pointer:coarse){ .cal-dd-hint{display:none} }
+#modalWrap.cal-dd-on{transition:background-color .16s ease}
+#modalWrap.cal-dd-on>.modal{transition:opacity .16s ease}
+#modalWrap.cal-dd-out{background-color:transparent}
+#modalWrap.cal-dd-out>.modal{opacity:.1}
+#modalWrap.cal-dd-out,#modalWrap.cal-dd-out *{pointer-events:none!important}
+@media (prefers-reduced-motion:reduce){ #modalWrap.cal-dd-on,#modalWrap.cal-dd-on>.modal{transition:none} }
 
 /* §376-379 dependency picker — tabs are pinned, only the result list
    scrolls, so switching Same project / My tasks / All tasks cannot move
