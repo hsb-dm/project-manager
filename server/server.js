@@ -570,6 +570,14 @@ function moveTask(user, id, op) {
         if (doc.status !== op.toStatusId) act(user, "moved", "task", id, { from: doc.status, to: op.toStatusId, task: id });
         break; }
       case "REORDER_TASK": db.prepare("UPDATE tasks SET sort_order=?, updated_at=? WHERE id=?").run(rank(op.beforeTaskId, op.afterTaskId, doc.sort), now(), id); break;
+      /* the task's place among the tasks due the same day (the calendar's day dialog, Nov 2026): meta.dayOrder, its own
+         beside the board's order (sort_order, untouched), and only for the day the task is due — a task moved to another
+         day falls back to the board's order with nothing to clean up. The day must be the stored due date. */
+      case "REORDER_TASK_DAY": {
+        if (typeof op.key !== "number" || !Number.isFinite(op.key)) throw new HttpError(400, "The place in the day must be a number");
+        const due = doc.dueDate ? String(doc.dueDate).slice(0, 10) : "";
+        if (!due || op.day !== due) throw new HttpError(400, "That day is not this task's due date");
+        db.prepare("UPDATE tasks SET meta=?, updated_at=? WHERE id=?").run(S(Object.assign({}, doc.meta || {}, { dayOrder: { d: due, k: op.key } })), now(), id); break; }
       case "MOVE_TASK_DATE": case "MOVE_TASK_TIMELINE":
         db.prepare("UPDATE tasks SET start_date=?, due_date=?, updated_at=? WHERE id=?").run(op.startDate || doc.startDate, op.dueDate || doc.dueDate, now(), id);
         act(user, "deadline", "task", id, { task: id, from: doc.dueDate, to: op.dueDate }); break;
@@ -1735,9 +1743,17 @@ function cleanAssetSplitOk(cur, b, u) {
   const split = {}; Object.keys(m.assetSplit || {}).forEach(id => { if (m.assetSplit[id] > 0) split[id] = m.assetSplit[id]; });
   m.assetSplitOk = { by: u.id, at: now(), split, total: Math.max(0, Math.round(+b.assetCount || 0)) };
 }
+/* A task's place in its day (meta.dayOrder) is written by its own move, REORDER_TASK_DAY, alone: a save keeps the
+   stored one whatever its copy says, so a copy loaded before someone reordered the day — merged field by field, or
+   saved whole — never puts the old place back or drops it. */
+function keepDayOrder(cur, b) {
+  const m = b.meta; if (!m || typeof m !== "object") return;
+  const was = (cur.meta || {}).dayOrder; if (was) m.dayOrder = was; else delete m.dayOrder;
+}
 function sanitizeTaskWrite(cur, b, u, decided) {
   cleanAssetSplit(b);
   cleanAssetSplitOk(cur, b, u);
+  keepDayOrder(cur, b);
   if (!PRIOS.has(b.prio)) b.prio = PRIOS.has(cur.prio) ? cur.prio : "medium";
   b.requestId = cur.requestId || null;
   b.comments = sanitizeComments(cur.comments, b.comments, u);
@@ -1772,7 +1788,7 @@ function sanitizeNewTask(b, u) {
   /* each person's asset count is cleaned as on an edit, and a new task is never born validated (Oct 2026): a lead's
      validation was taken as sent, so a duplicate — or any create — could arrive already "validated by" someone */
   cleanAssetSplit(b);
-  if (b.meta && typeof b.meta === "object") delete b.meta.assetSplitOk;
+  if (b.meta && typeof b.meta === "object") { delete b.meta.assetSplitOk; delete b.meta.dayOrder; }   /* a duplicate starts at the board's place in its day, not on its original's */
   /* while Smart Scoring logs time, a new task — a duplicate too — starts with none logged (server/scoring.js) */
   scoring.guardNewTask(u, b);
   return b;
