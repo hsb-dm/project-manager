@@ -5266,6 +5266,7 @@ function aiSystem(q){
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
     "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
     "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. "+
+    "By team, week, quarter, year, label and kind of work they are in PERSON x TEAM, TEAM OUTPUT BY MONTH, TEAM PEOPLE BY MONTH, WEEKLY OUTPUT, YEAR AND QUARTERS, LABEL OUTPUT BY MONTH and KIND OUTPUT BY MONTH; GLOSSARY maps the words people use, and for a person in a team say which reading you give. "+
     "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
@@ -5322,14 +5323,17 @@ function aiContext(taskLimit,budget){
   });
   if(arch.length) lines.push("ARCHIVED PROJECTS: "+arch.join(", "));
   var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
-  lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
-  done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
-  var seesAn=canI.viewAnalytics(), an=null;
-  aiPart(lines,"RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
-  if(seesAn) aiPart(lines,"ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
-  else lines.push("ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither.");
-  aiPart(lines,"ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
-  aiPart(lines,"ASSETS BY PERSON",function(){ return aiOutputLines(budget-lines.join("\n").length-Math.min(10000,budget*0.25)); });
+  var secs=[], fixed=function(ls){ ls.forEach(function(l){ secs.push({name:"",head:l,lines:[],pri:0,what:""}); }); };
+  secs.push({name:"FINISHED IN THE LAST 30 DAYS",head:"FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):",pri:5,what:"finished tasks (the earliest)",
+    lines:done.slice(0,40).map(function(t){ var m=t.meta||{}; return "  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":""); })});
+  var seesAn=canI.viewAnalytics(), an=null, part=function(name,f){ var ls=[]; aiPart(ls,name,f); fixed(ls); };
+  part("RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
+  if(seesAn) part("ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
+  else fixed(["ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither."]);
+  part("ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
+  part("ASSETS BY PERSON",function(){ secs=secs.concat(aiOutputSections()); return []; });
+  var keep=Math.min(6000,budget*0.15);
+  aiPack(secs,budget-lines.join("\n").length-keep,keep-2000).forEach(function(l){ lines.push(l); });
   var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
   var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
   out+="\n"+head; full.forEach(function(t){ var l="\n"+aiTaskLine(t); if(out.length+l.length<budget-200) out+=l; });
@@ -5364,6 +5368,7 @@ function aiLocalAnswer(q){
     PROJECTS.forEach(function(p){ var n=(p.name||"").toLowerCase(); if(n.length>=4&&s.indexOf(n)>=0&&n.length>best){ found=p; best=n.length; } });
     return found;
   }
+  function whichTeam(){ return aiWhichTeam(s); }
 
   if(/\bhelp\b|what can you|apa saja|bisa apa|kemampuan|contoh|example/.test(s))
     return L("I read this workspace and answer from it. Try:","Saya membaca workspace ini dan menjawabnya. Coba:")+"\n\n"
@@ -5376,9 +5381,11 @@ function aiLocalAnswer(q){
       + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+"\n"
       + "- "+L("how many assets did <name> produce this month","berapa aset <nama> bulan ini")+"\n"
       + "- "+L("who produced the most assets last month","siapa yang paling banyak menghasilkan aset bulan lalu")+"\n"
+      + "- "+L("how many assets did <name> produce this week in the <team> team","berapa aset <nama> minggu ini di tim <tim>")+"\n"
+      + "- "+L("how many tasks did <team> finish in Q3 / this year","berapa task selesai tim <tim> di Q3 / tahun ini")+"\n"
       + "- "+L("revision rate this month / average completion time","tingkat revisi bulan ini / rata-rata waktu selesai")+foot();
 
-  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject()}); if(outA) return outA;
+  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject(),team:whichTeam()}); if(outA) return outA;
   var insA=aiLocalInsight(q,s,{idL:idL,L:L}); if(insA) return insA;
 
   if(/block|depend|terhambat|hambat|blokir|ketergantungan|dependensi/.test(s)){
@@ -5524,59 +5531,125 @@ function aiMonthIn(q,skip){
   return null;
 }
 
-function aiDoneMonth(t){ if(!t||t._draft||!isSuccessfulTask(t)) return null; var d=t.completedAt?new Date(t.completedAt):dateOf(t.due); return isNaN(d.getTime())?null:aiMonthKey(d); }
+function aiDoneDate(t){ if(!t||t._draft||!isSuccessfulTask(t)) return null; var d=t.completedAt?new Date(t.completedAt):dateOf(t.due); return isNaN(d.getTime())?null:d; }
+function aiDoneMonth(t){ var d=aiDoneDate(t); return d?aiMonthKey(d):null; }
+function aiWeekOf(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); x.setDate(x.getDate()-((x.getDay()+6)%7)); return aiDayKey(x); }
+function aiQuarterOf(d){ return d.getFullYear()+"-Q"+(Math.floor(d.getMonth()/3)+1); }
+function aiWeekFrom(){ var p=aiMonthShift(aiMonthKey(TODAY),-1).split("-"); return aiWeekOf(new Date(+p[0],+p[1]-1,1)); }
+function aiTaskTeams(t){ var o={}; if(t.team) o[t.team]=1; assigneesOf(t).forEach(function(id){ if(PEOPLE[id]) teamsOf(id).forEach(function(x){ o[x]=1; }); }); return Object.keys(o); }
+function aiTaskKind(t){ return typeof ScoringEngine!=="undefined"&&ScoringEngine.kindPick&&typeof estKindList==="function"?ScoringEngine.kindPick(t,estKindList(),estHoursSet())||"":""; }
+function aiKindName(k,id){ if(!k) return "(kind not set)"; var x=(typeof estKindList==="function"?estKindList():[]).filter(function(y){ return y.id===k; })[0]; return x?(id&&x.nameId||x.name):k; }
+function aiTeamName(id){ var x=team(id); return x?x.name:"(a removed team)"; }
+function aiLabelName(id){ var x=typeof label==="function"?label(id):null; return x?x.name:"(a removed label)"; }
 function aiOutput(tasks){
-  var cells={}, rows=[], idx={};
+  var cells={}, rows=[], idx={}, wk0=aiWeekFrom();
   function add(k,n,raw,est){ var c=cells[k]||(cells[k]={tasks:0,raw:0,est:false}); c.tasks+=n; c.raw+=raw; if(est) c.est=true; }
   (tasks||TASKS).forEach(function(t){
     if(!t||t._draft||t.status==="declined") return;
-    var total=assetCount(t), c=total?taskAssetCredit(t):{by:{},exact:true}, by=c.by, est=!c.exact, cr=Object.keys(by), who=assigneesOf(t), mo=aiDoneMonth(t),
-        also=(t.alsoIn||[]).filter(function(x){ return x&&x!==t.proj; }), pj=t.proj?[t.proj].concat(also):also.length?also:[""];
-    function put(m){ add(m+"|*|*",1,total,false); pj.forEach(function(p){ add(m+"|*|"+p,1,total,false); });
-      who.forEach(function(id){ add(m+"|"+id+"|*",1,0,false); pj.forEach(function(p){ add(m+"|"+id+"|"+p,1,0,false); }); });
-      cr.forEach(function(id){ add(m+"|"+id+"|*",0,by[id],est); pj.forEach(function(p){ add(m+"|"+id+"|"+p,0,by[id],est); }); }); }
-    put("total"); if(!mo) return;
-    put("done"); put(mo); rows.push({t:t,month:mo,projects:pj,assignees:who,credit:c});
-    var ix=idx[mo]||(idx[mo]={}); who.concat(cr).forEach(function(id){ var o=ix[id]||(ix[id]={}); pj.forEach(function(p){ o[p]=1; }); });
+    var total=assetCount(t), c=total?taskAssetCredit(t):{by:{},exact:true}, by=c.by, est=!c.exact, cr=Object.keys(by), who=assigneesOf(t), d=aiDoneDate(t),
+        also=(t.alsoIn||[]).filter(function(x){ return x&&x!==t.proj; }), pj=t.proj?[t.proj].concat(also):also.length?also:[""], tms=aiTaskTeams(t),
+        tg=tms.map(function(x){ return "team:"+x; }), base=["*"].concat(pj,tg);
+    function put(m,gs){ gs.forEach(function(g){ add(m+"|*|"+g,1,total,false); who.forEach(function(id){ add(m+"|"+id+"|"+g,1,0,false); }); cr.forEach(function(id){ add(m+"|"+id+"|"+g,0,by[id],est); }); }); }
+    put("total",base); if(!d) return;
+    var mo=aiMonthKey(d), wk=aiWeekOf(d), lb=(t.labels||[]).filter(Boolean), kd=aiTaskKind(t), all=base.concat(lb.map(function(x){ return "label:"+x; }),["kind:"+kd]), few=["*"].concat(tg);
+    put("done",all); put(mo,all); put(aiQuarterOf(d),few); put("Y"+d.getFullYear(),few); if(wk>=wk0) put("W"+wk,few);
+    rows.push({t:t,month:mo,week:wk,quarter:aiQuarterOf(d),year:"Y"+d.getFullYear(),projects:pj,teams:tms,labels:lb,kind:kd,assignees:who,credit:c});
+    [mo,"W"+wk].forEach(function(k){ var ix=idx[k]||(idx[k]={}); who.concat(cr).forEach(function(id){ var o=ix[id]||(ix[id]={}); all.forEach(function(g){ if(g!=="*") o[g]=1; }); }); });
   });
+  var none={tasks:0,assets:0,raw:0,est:false};
   return {rows:rows,
-    get:function(m,id,p){ var c=cells[(m||"done")+"|"+(id||"*")+"|"+(p==null?"*":p)]; return c?{tasks:c.tasks,assets:Math.round(c.raw),raw:c.raw,est:c.est}:{tasks:0,assets:0,raw:0,est:false}; },
+    get:function(m,id,g){ var c=cells[(m||"done")+"|"+(id||"*")+"|"+(g==null?"*":g)]; return c?{tasks:c.tasks,assets:Math.round(c.raw),raw:c.raw,est:c.est}:none; },
+    sum:function(keep,id){ var g={tasks:0,raw:0,est:false}; rows.forEach(function(r){ if(!keep(r)) return; if(!id){ g.tasks++; g.raw+=assetCount(r.t); return; } if(r.assignees.indexOf(id)>=0) g.tasks++; var x=r.credit.by[id]; if(x){ g.raw+=x; if(!r.credit.exact) g.est=true; } }); g.assets=Math.round(g.raw); return g; },
     people:function(m){ return idx[m]||{}; }};
 }
 function aiProjLabel(p){ if(!p) return "(no project)"; var x=project(p); return x?x.name+(x.status==="archived"?" [archived]":""):"(a removed project)"; }
-function aiOutputLines(room){
-  var A=aiOutput(), cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), months=[], out=[], i;
-  for(i=0;i<AI_OUT_MONTHS;i++) months.push(aiMonthShift(cur,-i));
-  var st=function(g){ return g.assets+(g.est?"*":""); }, ta=function(g){ return "tasks="+g.tasks+" assets="+st(g); };
-  out.push("OUTPUT RULE: a task is finished in a done stage other than Declined and counts in the month it was finished (local time; its due date's month when no finish time was kept), as Teams' \"Done this month\" and each person's \"this month\" count it. Its assets are credited as the reports, the person pages and Smart Scoring credit them: each person's count typed under Assets & versions, else whoever uploaded its versions (in proportion), else shared among its assignees, which is an estimate and marked * (old finished tasks are loaded without their versions and may land there). A person's tasks are the finished tasks they are assigned to. A task in two projects counts in each project, once in a person's or a month's total. Quote these figures as they are.");
-  var T=A.get("total"), D=A.get("done");
-  out.push("ASSETS IN ALL: produced="+T.assets+" on every task not Declined, open ones included; delivered="+D.assets+" on "+D.tasks+" finished tasks; "+cur+" (this month)="+A.get(cur).assets+"; "+prev+" (last month)="+A.get(prev).assets+".");
-  out.push("ASSETS BY PERSON (produced = on all their tasks not Declined, open ones included, as their page's \"Assets produced\"; delivered = on finished tasks; "+cur+" = this month, "+prev+" = last month; tasks finished = finished tasks they are assigned to):");
-  var idle=[];
-  Object.keys(PEOPLE).forEach(function(id){ var p=PEOPLE[id]; if(!p||p.active===false||p.stakeholder) return;
-    var t=A.get("total",id), d=A.get("done",id), a=A.get(cur,id), b=A.get(prev,id);
-    if(!t.raw&&!d.tasks){ idle.push(p.name); return; }
-    out.push("- "+p.name+": produced="+st(t)+" delivered="+st(d)+" "+cur+"="+st(a)+" "+prev+"="+st(b)+" | tasks finished: all="+d.tasks+" "+cur+"="+a.tasks+" "+prev+"="+b.tasks); });
-  if(idle.length) out.push("- nothing produced or finished yet: "+idle.join(", "));
-  out.push("OUTPUT BY MONTH, whole workspace (finished tasks and all their assets; "+AI_OUT_MONTHS+" calendar months, newest first; "+cur+" is the current month, still running): "+months.map(function(m){ var g=A.get(m); return aiMonthTag(m)+" tasks="+g.tasks+" assets="+g.assets; }).join("; "));
-  var w={}; A.rows.forEach(function(r){ if(months.indexOf(r.month)>=0) r.projects.forEach(function(p){ w[p]=(w[p]||0)+assetCount(r.t)+0.001; }); });
-  var cap1=Math.max(1200,Math.min(4000,room*0.25)), used=0, left=0;
-  out.push("PROJECT OUTPUT BY MONTH (finished tasks and all their assets, the same months, newest first; months with nothing finished, and projects with nothing finished in them, are left out):");
-  Object.keys(w).sort(function(a,b){ return (w[b]-w[a])||aiProjLabel(a).localeCompare(aiProjLabel(b)); }).forEach(function(p){
-    var l="- "+aiProjLabel(p)+": "+months.filter(function(m){ return A.get(m,null,p).tasks; }).map(function(m){ return m+" "+ta(A.get(m,null,p)); }).join("; ")+" | all time: "+ta(A.get("done",null,p));
-    if(left||used+l.length+1>cap1){ left++; return; } used+=l.length+1; out.push(l); });
-  if(left) out.push("- …"+left+" more projects with less output left out, for room");
-  var cap2=Math.max(800,Math.min(12000,room-used-1500)), used2=0, cut=0, from=null;
-  out.push("MONTHLY OUTPUT BY PERSON x PROJECT (finished tasks the person is assigned to and the assets credited to them, newest month first; each line is the person's month total, then by project; nobody is listed in a month they finished nothing in):");
-  months.forEach(function(m){
-    var ix=A.people(m), ids=Object.keys(ix).sort(function(a,b){ var x=A.get(m,a), y=A.get(m,b); return (y.raw-x.raw)||(y.tasks-x.tasks)||person(a).name.localeCompare(person(b).name); });
-    var ls=[aiMonthTag(m)+(m===cur?" (current month)":m===prev?" (last month)":"")+(ids.length?":":": nothing finished")];
-    ids.forEach(function(id){ var ps=Object.keys(ix[id]); ls.push("- "+person(id).name+": "+ta(A.get(m,id))+" | "+(ps.length===1?"all in "+aiProjLabel(ps[0]):ps.map(function(p){ return aiProjLabel(p)+" "+ta(A.get(m,id,p)); }).join("; "))); });
-    ls.forEach(function(l){ if(cut||used2+l.length+1>cap2){ cut++; if(!from) from=m; return; } used2+=l.length+1; out.push(l); });
-  });
-  if(cut) out.push("…"+cut+" more lines left out, for room: part of "+aiMonthTag(from)+" and the months before it. The totals above still cover every month.");
+function aiPack(secs,room,spare){
+  var left=room-250, extra=Math.max(0,spare||0), NOTE=70;
+  secs.slice().sort(function(a,b){ return a.pri-b.pri; }).forEach(function(x){ x.n=0; x.drop=false;
+    var top=x.pri>0&&x.pri<=2, have=function(){ return left+(top?extra:0); }, take=function(n){ left-=n; if(left<0&&top){ extra+=left; left=0; } };
+    if(x.pri>0&&x.head.length+1+(x.lines.length?NOTE:0)>have()){ x.drop=true; return; }
+    take(x.head.length+1);
+    for(var i=0;i<x.lines.length;i++){ var l=x.lines[i].length+1; if(l+(i<x.lines.length-1?NOTE:0)>have()) break; take(l); x.n++; }
+    if(x.pri>0&&x.lines.length&&!x.n){ x.drop=true; left+=x.head.length+1; return; }
+    if(x.n<x.lines.length) take(NOTE); });
+  var out=[], dropped=[];
+  secs.forEach(function(x){ if(x.drop){ dropped.push(x.name+" ("+x.lines.length+" lines)"); return; } out.push(x.head); for(var i=0;i<x.n;i++) out.push(x.lines[i]); if(x.n<x.lines.length) out.push("…"+(x.lines.length-x.n)+" more "+x.what+" left out, for room."); });
+  if(dropped.length) out.push("LEFT OUT FOR ROOM (say so if asked about them): "+dropped.join(", ")+".");
   return out;
 }
+function aiOutputSections(){
+  var A=aiOutput(), cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), months=[], secs=[], i;
+  for(i=0;i<AI_OUT_MONTHS;i++) months.push(aiMonthShift(cur,-i));
+  var st=function(g){ return g.assets+(g.est?"*":""); }, ta=function(g){ return "tasks="+g.tasks+" assets="+st(g); };
+  var push=function(l){ secs.push({name:"",head:l,lines:[],pri:0,what:""}); };
+  var fit=function(head,lines,pri,what){ secs.push({name:head.replace(/ \(.*$|,.*$|:.*$/,""),head:head,lines:lines,pri:pri,what:what}); };
+  var ppl=Object.keys(PEOPLE).filter(function(id){ var p=PEOPLE[id]; return p&&p.active!==false&&!p.stakeholder; }), tms=typeof activeTeams==="function"?activeTeams():[];
+  var act={}; tms.forEach(function(x){ act[x.id]=1; });
+  var teamsIn=function(id){ return teamsOf(id).filter(function(x){ return act[x]; }); }, memberOf=function(id){ return teamsIn(id).map(aiTeamName); };
+  push("OUTPUT RULE: a task is finished in a done stage other than Declined and counts in the month it was finished (local time; its due date's month when no finish time was kept), as Teams' \"Done this month\" and each person's \"this month\" count it. Its assets are credited as the reports, the person pages and Smart Scoring credit them: each person's count typed under Assets & versions, else whoever uploaded its versions (in proportion), else shared among its assignees, which is an estimate and marked * (old finished tasks are loaded without their versions and may land there). A person's tasks are the finished tasks they are assigned to. A team's tasks are those set to the team or assigned to one of its members, as the Teams page counts them (a project's teams do not count). A task in two projects, teams or labels counts in each, once in a person's or a period's total. In a person's line every figure is their own; \"of N\" and \"team total\" or \"label total\" are the whole group's. Quote these figures as they are; never add them up.");
+  push("GLOSSARY: assets = aset, asset, konten, output, deliverable, materi; finished = selesai, done, approved, delivered (any done stage but Declined); team = tim; \"X team\", \"tim X\" and \"X tim\" mean the team named X even when a project's name contains X too; a first name or nickname means the person whose full name starts with it; when a name matches nobody, say so and name the closest people; bulan ini / bulan lalu = this / last month, minggu ini / minggu lalu = this / last week, tahun ini = this year, kuartal = quarter. Asked about a person in a team, say which reading you give: their work on the team's tasks, or all their work as a member (both are below), or both when they differ.");
+  var T=A.get("total"), D=A.get("done");
+  push("ASSETS IN ALL: produced="+T.assets+" on every task not Declined, open ones included; delivered="+D.assets+" on "+D.tasks+" finished tasks; "+cur+" (this month)="+A.get(cur).assets+"; "+prev+" (last month)="+A.get(prev).assets+".");
+  var idle=[], apl=[];
+  ppl.slice().sort(function(a,b){ return A.get("total",b).raw-A.get("total",a).raw; }).forEach(function(id){ var p=PEOPLE[id], t=A.get("total",id), d=A.get("done",id), a=A.get(cur,id), b=A.get(prev,id), mt=memberOf(id);
+    if(!t.raw&&!d.tasks){ idle.push(p.name); return; }
+    apl.push("- "+p.name+(mt.length?" (member of "+mt.join(", ")+")":"")+": produced="+st(t)+" delivered="+st(d)+" "+cur+"="+st(a)+" "+prev+"="+st(b)+" | tasks finished: all="+d.tasks+" "+cur+"="+a.tasks+" "+prev+"="+b.tasks); });
+  if(idle.length) apl.push("- nothing produced or finished yet: "+idle.join(", "));
+  fit("ASSETS BY PERSON (produced = on all their tasks not Declined, open ones included, as their page's \"Assets produced\"; delivered = on finished tasks; "+cur+" = this month, "+prev+" = last month; tasks finished = finished tasks they are assigned to; the most productive first):",apl,1,"people (the least productive)");
+  push("OUTPUT BY MONTH, whole workspace (finished tasks and all their assets; "+AI_OUT_MONTHS+" calendar months, newest first; "+cur+" is the current month, still running): "+months.map(function(m){ var g=A.get(m); return aiMonthTag(m)+" tasks="+g.tasks+" assets="+g.assets; }).join("; "));
+  var px=[], quiet=[];
+  ppl.forEach(function(id){ var mine=teamsIn(id), parts=[];
+    [cur,prev].forEach(function(m){ var all=A.get(m,id), on=function(x){ var g=A.get(m,id,"team:"+x.id); return g.tasks||g.raw; };
+      var own=tms.filter(function(x){ return mine.indexOf(x.id)>=0; }), other=m===cur?tms.filter(function(x){ return mine.indexOf(x.id)<0&&on(x); }).sort(function(a,b){ return A.get(m,id,"team:"+b.id).raw-A.get(m,id,"team:"+a.id).raw; }):[];
+      if(!all.tasks&&!all.raw&&!own.some(on)&&!other.length){ if(mine.length) parts.push(m+": nothing finished"); return; }
+      var cell=function(x){ var g=A.get(m,id,"team:"+x.id); return x.name+(g.tasks||g.raw?" tasks="+g.tasks+" assets="+st(g)+" of ":" none, of ")+A.get(m,null,"team:"+x.id).assets; };
+      var same=own.length===1&&A.get(m,id,"team:"+own[0].id).tasks===all.tasks&&A.get(m,id,"team:"+own[0].id).raw===all.raw;
+      parts.push(m+": "+own.map(cell).join(", ")+(same?" (= all their work)":(own.length?"; ":"")+"all their work tasks="+all.tasks+" assets="+st(all))+(other.length?"; on other teams' tasks: "+other.slice(0,3).map(cell).join(", ")+(other.length>3?", +"+(other.length-3)+" more teams":""):"")); });
+    if(parts.some(function(x){ return !/: nothing finished$/.test(x); })) px.push({id:id,n:A.get(cur,id).raw+A.get(prev,id).raw,l:"- "+person(id).name+(mine.length?" (member of "+memberOf(id).join(", ")+")":" (in no team)")+": "+parts.join(" | ")});
+    else if(mine.length) quiet.push(person(id).name); });
+  px.sort(function(a,b){ return b.n-a.n; });
+  fit("PERSON x TEAM, this month ("+aiMonthTag(cur)+") and last month ("+aiMonthTag(prev)+"): for each team, the person's own finished tasks and assets on the team's tasks, \"of N\" = the whole team's assets that month; \"all their work\" = everything they finished that month, which is what they produced as a member; \"on other teams' tasks\" = tasks of a team they are not in, this month:",px.map(function(x){ return x.l; }).concat(quiet.length?["- in a team, nothing finished in these two months: "+quiet.join(", ")]:[]),3,"people (the least productive)");
+  fit("TEAM OUTPUT BY MONTH (team totals: the team's tasks finished that month and all their assets, as the Teams page's \"Done this month\" and \"Assets produced\"; months with nothing are left out):",tms.map(function(x){ var g="team:"+x.id, ms=months.filter(function(m){ return A.get(m,null,g).tasks; });
+    return "- "+x.name+" ("+teamMembers(x.id).filter(function(id){ return PEOPLE[id]&&!PEOPLE[id].stakeholder; }).length+" members): "+(ms.length?ms.map(function(m){ return m+" tasks="+A.get(m,null,g).tasks+" assets="+A.get(m,null,g).assets; }).join("; "):"nothing finished in these months")+" | all time: tasks="+A.get("done",null,g).tasks+" assets="+A.get("done",null,g).assets; }),2,"teams");
+  var yr=TODAY.getFullYear(), qn=Math.floor(TODAY.getMonth()/3)+1, qs=[1,2,3,4].slice(0,qn);
+  var yq=function(id,g){ var y=A.get("Y"+yr,id,g); if(!y.tasks&&!y.raw&&!A.get("Y"+(yr-1),id,g).tasks&&!A.get("Y"+(yr-1),id,g).raw) return null;
+    var ly=A.get("Y"+(yr-1),id,g), qq=qs.filter(function(q){ var x=A.get(yr+"-Q"+q,id,g); return x.tasks||x.raw; });
+    return yr+" so far "+ta(y)+(qq.length?" ("+qq.map(function(q){ return "Q"+q+" "+ta(A.get(yr+"-Q"+q,id,g)); }).join("; ")+")":"")+" | "+(yr-1)+" "+(ly.tasks||ly.raw?ta(ly):"nothing"); };
+  var yl=[], yw=yq(null,null); if(yw) yl.push("- whole workspace (totals): "+yw);
+  tms.forEach(function(x){ var l=yq(null,"team:"+x.id); if(l) yl.push("- team "+x.name+" (team totals): "+l); });
+  ppl.slice().sort(function(a,b){ return A.get("Y"+yr,b).raw-A.get("Y"+yr,a).raw; }).forEach(function(id){ var l=yq(id,null); if(l) yl.push("- "+person(id).name+" (own): "+l); });
+  fit("YEAR AND QUARTERS (finished tasks and assets; Q1 = Jan-Mar, Q2 = Apr-Jun, Q3 = Jul-Sep, Q4 = Oct-Dec; Q"+qn+" "+yr+" is the current quarter, still running, and a quarter with nothing is left out; "+(yr-1)+" is last year's total):",yl,7,"lines (the least productive people)");
+  var w0=aiWeekFrom(), wks=[], wd=new Date(TODAY); for(var wk=aiWeekOf(wd);wk>=w0;){ wks.push(wk); wd.setDate(wd.getDate()-7); wk=aiWeekOf(wd); }
+  var wline=function(id,g){ var ws=wks.filter(function(k){ var x=A.get("W"+k,id,g); return x.tasks||x.raw; }); return ws.length?ws.map(function(k){ return k+" "+ta(A.get("W"+k,id,g)); }).join("; "):null; };
+  var wl=[], ww=wline(null,null); wl.push("- whole workspace (totals): "+(ww||"nothing finished"));
+  tms.forEach(function(x){ var l=wline(null,"team:"+x.id); if(l) wl.push("- team "+x.name+" (team totals): "+l); });
+  ppl.map(function(id){ var n=0; wks.forEach(function(k){ n+=A.get("W"+k,id).raw+A.get("W"+k,id).tasks; }); return {id:id,n:n}; }).filter(function(x){ return x.n; }).sort(function(a,b){ return b.n-a.n; }).forEach(function(x){ wl.push("- "+person(x.id).name+" (own): "+wline(x.id,null)); });
+  fit("WEEKLY OUTPUT, last month and this month (weeks start on Monday and are named by it; a task counts in the week it was finished; "+wks[0]+" is this week, still running, "+(wks[1]||"-")+" last week; weeks with nothing are left out):",wl,6,"lines (the least productive people)");
+  var w={}; A.rows.forEach(function(r){ if(months.indexOf(r.month)>=0) r.projects.forEach(function(p){ w[p]=(w[p]||0)+assetCount(r.t)+0.001; }); });
+  fit("PROJECT OUTPUT BY MONTH (project totals: finished tasks and all their assets, the same months, newest first; months with nothing finished, and projects with nothing finished in them, are left out):",Object.keys(w).sort(function(a,b){ return (w[b]-w[a])||aiProjLabel(a).localeCompare(aiProjLabel(b)); }).map(function(p){
+    return "- "+aiProjLabel(p)+": "+months.filter(function(m){ return A.get(m,null,p).tasks; }).map(function(m){ return m+" "+ta(A.get(m,null,p)); }).join("; ")+" | all time: "+ta(A.get("done",null,p)); }),4,"projects with less output");
+  var grid=function(prefix,name,total,ok){ var ls=[];
+    months.forEach(function(m){ var ix=A.people(m), gs={};
+      Object.keys(ix).forEach(function(id){ Object.keys(ix[id]).forEach(function(g){ if(g.indexOf(prefix)===0&&(!ok||ok(g.slice(prefix.length)))) (gs[g]=gs[g]||[]).push(id); }); });
+      Object.keys(gs).sort(function(a,b){ return A.get(m,null,b).raw-A.get(m,null,a).raw; }).forEach(function(g){ var tt=A.get(m,null,g), ids=gs[g].sort(function(a,b){ return A.get(m,b,g).raw-A.get(m,a,g).raw||A.get(m,b,g).tasks-A.get(m,a,g).tasks; });
+        ls.push("- "+name(g.slice(prefix.length))+", "+m+": "+total+" tasks="+tt.tasks+" assets="+tt.assets+" | "+ids.map(function(id){ return person(id).name+" tasks="+A.get(m,id,g).tasks+" assets="+st(A.get(m,id,g)); }).join("; ")); }); });
+    return ls; };
+  var pxp=[];
+  months.forEach(function(m){ var ix=A.people(m), ids=Object.keys(ix).sort(function(a,b){ var x=A.get(m,a), y=A.get(m,b); return (y.raw-x.raw)||(y.tasks-x.tasks)||person(a).name.localeCompare(person(b).name); });
+    pxp.push(aiMonthTag(m)+(m===cur?" (current month)":m===prev?" (last month)":"")+(ids.length?":":": nothing finished"));
+    ids.forEach(function(id){ var ps=Object.keys(ix[id]).filter(function(g){ return g.indexOf(":")<0; });
+      pxp.push("- "+person(id).name+": "+ta(A.get(m,id))+" | "+(ps.length===1?"all in "+aiProjLabel(ps[0])+(ps[0]?", of the project's ":", of the ")+A.get(m,null,ps[0]).assets+(ps[0]?"":" with no project"):ps.map(function(p){ return aiProjLabel(p)+" tasks="+A.get(m,id,p).tasks+" assets="+st(A.get(m,id,p))+" of "+A.get(m,null,p).assets; }).join("; "))); }); });
+  fit("MONTHLY OUTPUT BY PERSON x PROJECT (each line is one person's own month: their finished tasks and the assets credited to them, then by project, \"of N\" = the whole project's assets that month; newest month first; nobody is listed in a month they finished nothing in):",pxp,8,"lines (the oldest months)");
+  fit("TEAM PEOPLE BY MONTH (on each team's tasks: the team total, then each person's own share; newest month first):",grid("team:",aiTeamName,"team total",function(x){ return act[x]; }),9,"lines (the oldest months)");
+  var labelled=A.rows.some(function(r){ return r.labels.length&&months.indexOf(r.month)>=0; });
+  if(labelled) fit("LABEL OUTPUT BY MONTH (finished tasks carrying the label: the label total, then each person's own share; newest month first):",grid("label:",aiLabelName,"label total"),10,"lines (the oldest months)");
+  else push("LABEL OUTPUT BY MONTH: no task finished in these months carries a label.");
+  var inWin=A.rows.filter(function(r){ return months.indexOf(r.month)>=0; }), kinded=inWin.filter(function(r){ return r.kind; }).length;
+  if(kinded) fit("KIND OUTPUT BY MONTH (the kind of work chosen on the task, set on "+kinded+" of the "+inWin.length+" tasks finished in these months; the others have none and are not counted here, and titles are not read for it: the kind total, then each person's own share; newest month first):",grid("kind:",aiKindName,"kind total").filter(function(l){ return l.indexOf("- (kind not set)")!==0; }),11,"lines (the oldest months)");
+  else push("KIND OUTPUT BY MONTH: no task finished in these months has its kind of work chosen, so output by kind is not known (titles are not read for it).");
+  return secs;
+}
+function aiOutputLines(room){ return aiPack(aiOutputSections(),room); }
 
 function aiFew(ts,f,n){ n=n||5; return ts.length?ts.slice(0,n).map(f).join("; ")+(ts.length>n?"; +"+(ts.length-n)+" more":""):"none"; }
 function aiRef(t){ return t.id+" \""+t.title+"\""; }
@@ -5665,43 +5738,80 @@ function aiActivityLine(){
   return "ACTIVITY IN THE LAST 7 DAYS ("+n+" events among the "+list.length+" latest the page holds"+(list.length&&oldest>since?"; those go back only to "+aiDayKey(new Date(oldest))+", so these counts are a floor":"")+"): "+(n?top(by,String,10)+"; most active: "+top(who,function(id){ return person(id).name; },5):"none");
 }
 
+function aiHas(s,x){ for(var i=s.indexOf(x);i>=0;i=s.indexOf(x,i+1)){ if(!/[a-z0-9]/.test(s.charAt(i-1))&&!/[a-z0-9]/.test(s.charAt(i+x.length))) return true; } return false; }
+function aiWhichTeam(s,skip){ var best=null, bl=0; if(skip) s=s.split(skip).join(" "); (typeof activeTeams==="function"?activeTeams():[]).forEach(function(t){ var n=String(t.name||"").toLowerCase(), core=n.replace(/\b(?:team|tim)\b/g," ").replace(/\s+/g," ").trim(); [n,core].forEach(function(x){ if(x.length>=3&&aiHas(s,x)&&x.length>bl){ best=t; bl=x.length; } }); }); return best; }
+function aiWhichLabel(s){ var best=null, bl=0; (typeof allLabels==="function"?allLabels():[]).forEach(function(l){ var n=String(l.name||"").toLowerCase(); if(n.length>=3&&aiHas(s,n)&&n.length>bl){ best=l; bl=n.length; } }); return best; }
+function aiWhichKind(s,A){ var used={}, best=null, bl=0; A.rows.forEach(function(r){ if(r.kind) used[r.kind]=1; });
+  (typeof estKindList==="function"?estKindList():[]).forEach(function(k){ if(!used[k.id]) return; [k.id,String(k.name||"").split(/ or /)[0],String(k.nameId||"").split(/ atau /)[0]].forEach(function(x){ x=String(x||"").toLowerCase(); if(x.length>=3&&aiHas(s,x)&&x.length>bl){ best=k; bl=x.length; } }); }); return best; }
+var AI_ORD={1:1,2:2,3:3,4:4,satu:1,pertama:1,first:1,dua:2,kedua:2,second:2,tiga:3,ketiga:3,third:3,empat:4,keempat:4,fourth:4};
+function aiPeriodIn(q,skip){
+  var s=" "+String(q||"").toLowerCase().replace(/[?!.,;:()"']/g," ").replace(/\s+/g," ")+" ", m, y=TODAY.getFullYear(), cq=Math.floor(TODAY.getMonth()/3)+1, d;
+  if(/\b(?:this|current) week\b|\b(?:minggu|pekan) ini\b/.test(s)) return {kind:"week",key:aiWeekOf(TODAY),now:true};
+  if(/\b(?:last|previous|past) week\b|\b(?:minggu|pekan) (?:lalu|kemarin|sebelumnya)\b|\bseminggu (?:yang )?lalu\b/.test(s)){ d=new Date(TODAY); d.setDate(d.getDate()-7); return {kind:"week",key:aiWeekOf(d),prev:true}; }
+  var mo=aiMonthIn(q,skip); if(mo) return {kind:"month",key:mo,now:mo===aiMonthKey(TODAY),prev:mo===aiMonthShift(aiMonthKey(TODAY),-1)};
+  var yr=(m=/\b(20\d\d)\b/.exec(s))?+m[1]:0, qn=0;
+  if((m=/\bq([1-4])\b/.exec(s))) qn=+m[1];
+  else if((m=/\b(?:kuartal|triwulan|quarter) (?:ke-?)?([1-4]|satu|pertama|dua|kedua|tiga|ketiga|empat|keempat)\b/.exec(s))||(m=/\b(first|second|third|fourth) quarter\b/.exec(s))) qn=AI_ORD[m[1]];
+  else if(/\b(?:this|current) quarter\b|\b(?:kuartal|triwulan) ini\b/.test(s)){ qn=cq; yr=y; }
+  else if(/\b(?:last|previous) quarter\b|\b(?:kuartal|triwulan) (?:lalu|sebelumnya)\b/.test(s)){ qn=cq===1?4:cq-1; yr=cq===1?y-1:y; }
+  if(qn){ yr=yr||(qn>cq?y-1:y); return {kind:"quarter",key:yr+"-Q"+qn,now:yr===y&&qn===cq}; }
+  if(/\b(?:this|current) year\b|\btahun ini\b|\bytd\b|\byear to date\b/.test(s)) return {kind:"year",key:"Y"+y,now:true};
+  if(/\b(?:last|previous) year\b|\btahun (?:lalu|kemarin|sebelumnya)\b/.test(s)) return {kind:"year",key:"Y"+(y-1),prev:true};
+  if(yr) return {kind:"year",key:"Y"+yr,now:yr===y};
+  return null;
+}
 function aiLocalOutput(q,s,o){
   var L=o.L, idl=o.idL;
-  var aQ=/asset|\baset\b|deliverable|output|produc|hasilkan|dihasilkan|\bhasil\b/.test(s),
+  var aQ=/asset|\baset\b|deliverable|output|produc|produk|hasilkan|dihasilkan|\bhasil\b|\bkonten\b|\bmateri\b/.test(s),
       tQ=/\btasks?\b|\btugas\b|pekerjaan|kerjaan/.test(s)&&/finish|complet|\bdone\b|\bclosed?\b|selesai|rampung|tuntas|\bberes\b/.test(s),
       top=/\bmost\b|\btop\b|terbanyak|paling banyak|paling produktif|tertinggi|ranking|peringkat|\bbest\b/.test(s),
       cnt=/how many|how much|\bcount\b|number of|berapa|jumlah|\btotal\b/.test(s);
   if(!aQ&&!tQ) return null;
-  var who=top?null:o.who, pj=o.pj;
+  var A=aiOutput(), who=top?null:o.who, pj=o.pj, tm=o.team&&o.who?aiWhichTeam(s,String(person(o.who).name||"").toLowerCase()):o.team||null, lb=aiWhichLabel(s), kd=aiWhichKind(s,A);
   if(!who&&!top&&/\bi\b|\bmine\b/.test(s)) who=ME;
-  var mo=aiMonthIn(q,who?String(person(who).name||"").toLowerCase().split(/\s+/):[]);
-  if(!mo&&/\b(?:this|last|past|previous) week\b|\bminggu (?:ini|lalu)\b/.test(s)) return null;
-  if(!(who||pj||mo||top||(tQ&&cnt))) return null;
-  var A=aiOutput(), cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), pid=pj?pj.id:null, est=false;
-  var mon=function(m){ return aiMonthName(m,idl)+(m===cur?L(" (this month)"," (bulan ini)"):m===prev?L(" (last month)"," (bulan lalu)"):""); };
-  var inP=pj?L(" in **"+pj.name+"**"," di **"+pj.name+"**"):"";
+  if(tm&&pj){ if(/\b(?:tim|team)\b/.test(s)) pj=null; else tm=null; }
+  var per=aiPeriodIn(q,who?String(person(who).name||"").toLowerCase().split(/\s+/):[]);
+  if(per&&per.kind==="week"&&!who&&!pj&&!tm&&!lb&&!kd&&!aQ) return null;
+  if(!(who||pj||tm||lb||kd||per||top||(tQ&&cnt))) return null;
+  var cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), est=false;
+  var inPer=function(r){ return !per||(per.kind==="month"?r.month:per.kind==="week"?r.week:per.kind==="quarter"?r.quarter:r.year)===per.key; };
+  var inGrp=function(r){ return (!pj||r.projects.indexOf(pj.id)>=0)&&(!tm||r.teams.indexOf(tm.id)>=0)&&(!lb||r.labels.indexOf(lb.id)>=0)&&(!kd||r.kind===kd.id); };
+  var keep=function(r){ return inPer(r)&&inGrp(r); };
+  var when=function(){ if(!per) return L(" in total"," secara total"); var k=per.key;
+    if(per.kind==="month") return L(" in "," pada ")+aiMonthName(k,idl)+(per.now?L(" (this month)"," (bulan ini)"):per.prev?L(" (last month)"," (bulan lalu)"):"");
+    if(per.kind==="week") return per.now?L(" this week (from "+k+")"," minggu ini (sejak "+k+")"):L(" last week (from "+k+")"," minggu lalu (sejak "+k+")");
+    if(per.kind==="quarter") return L(" in "," pada ")+k.slice(5)+" "+k.slice(0,4)+(per.now?L(" (this quarter, so far)"," (kuartal ini, sejauh ini)"):"");
+    return per.now?L(" in "+k.slice(1)+" so far"," sepanjang "+k.slice(1)+" sejauh ini"):L(" in "," pada ")+k.slice(1); };
+  var inG=(pj?L(" in **"+pj.name+"**"," di **"+pj.name+"**"):"")+(tm?L(/\bteam$/i.test(tm.name)?" on **"+tm.name+"**'s tasks":" on the **"+tm.name+"** team's tasks"," di tim **"+tm.name+"**"):"")+(lb?L(" with the label **"+lb.name+"**"," berlabel **"+lb.name+"**"):"")+(kd?L(" of the kind **"+aiKindName(kd.id)+"**"," jenis **"+aiKindName(kd.id,true)+"**"):"");
   var fa=function(g){ if(g.est) est=true; return g.assets+(g.est?"*":""); };
   var na=function(g){ return fa(g)+L(g.assets===1?" asset":" assets"," aset"); }, nt=function(g){ return g.tasks+L(g.tasks===1?" finished task":" finished tasks"," task selesai"); };
   var foot=function(){ return (est?"\n\n* "+L("Partly estimated: shared among the assignees, because nobody typed each person's count or uploaded the versions.","Sebagian perkiraan: dibagi ke para assignee, karena belum ada yang mengisi jumlah per orang atau mengunggah versinya."):"")
+    +(tm?"\n\n"+L("A team's tasks are those set to the team or assigned to one of its members, as the Teams page counts them.","Task tim adalah task yang diset ke tim itu atau dikerjakan anggotanya, seperti halaman Teams menghitungnya."):"")
     +"\n\n_"+L("Counted as the person pages, the reports and Smart Scoring count them: a task counts once finished, in the month it was finished.","Dihitung seperti halaman anggota, laporan, dan Smart Scoring: task dihitung setelah selesai, pada bulan selesainya.")+"_"; };
-  var ranked=function(key,byTasks){ return Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&!PEOPLE[id].stakeholder; }).map(function(id){ return {id:id,g:A.get(key,id,pid)}; })
+  var produced=!per&&!lb&&!kd;
+  var ranked=function(byTasks){ return Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&!PEOPLE[id].stakeholder; }).map(function(id){ return {id:id,g:produced&&!byTasks?A.get("total",id,pj?pj.id:tm?"team:"+tm.id:null):A.sum(keep,id)}; })
     .filter(function(r){ return byTasks?r.g.tasks:r.g.raw; }).sort(function(a,b){ return byTasks?(b.g.tasks-a.g.tasks)||(b.g.raw-a.g.raw):(b.g.raw-a.g.raw)||(b.g.tasks-a.g.tasks); }); };
-  if(top){ var byT=tQ&&!aQ, key=mo||(byT?"done":"total"), when=mo?L(" in "," pada ")+mon(mo):L(" in total"," secara total"), rs=ranked(key,byT);
-    if(!rs.length) return byT?L("No one finished a task"+inP+when+".","Belum ada yang menyelesaikan task"+inP+when+"."):L("No assets were produced"+inP+when+".","Belum ada aset yang dihasilkan"+inP+when+".");
-    return (byT?L("Most tasks finished"+inP+when+":","Task selesai terbanyak"+inP+when+":"):L("Most assets produced"+inP+when+":","Aset terbanyak yang dihasilkan"+inP+when+":"))+"\n\n"
-      + rs.slice(0,5).map(function(r,i){ return (i+1)+". **"+person(r.id).name+"** — "+(byT?nt(r.g)+", "+na(r.g):na(r.g)+(key==="total"?"":", "+nt(r.g))); }).join("\n")+foot(); }
-  if(who){ var nm="**"+person(who).name+"**";
-    if(mo){ var g=A.get(mo,who,pid), list=A.rows.filter(function(r){ return r.month===mo&&(!pid||r.projects.indexOf(pid)>=0)&&(r.assignees.indexOf(who)>=0||r.credit.by[who]); }), ps=Object.keys(A.people(mo)[who]||{});
-      var head=tQ&&!aQ?L(nm+" finished **"+g.tasks+"** task(s)"+inP+" in "+mon(mo)+", with **"+fa(g)+"** asset(s) credited to them.",nm+" menyelesaikan **"+g.tasks+"** task"+inP+" pada "+mon(mo)+", dengan **"+fa(g)+"** aset.")
-                      :L(nm+" produced **"+fa(g)+"** asset(s)"+inP+" in "+mon(mo)+", from **"+g.tasks+"** finished task(s).",nm+" menghasilkan **"+fa(g)+"** aset"+inP+" pada "+mon(mo)+", dari **"+g.tasks+"** task selesai.");
-      if(!pid&&ps.length>1) head+="\n\n"+L("By project:","Per project:")+"\n"+ps.map(function(p){ var x=A.get(mo,who,p); return "- "+aiProjLabel(p)+": "+na(x)+", "+nt(x); }).join("\n");
+  if(top){ var byT=tQ&&!aQ, rs=ranked(byT), wn=when();
+    if(!rs.length) return byT?L("No one finished a task"+inG+wn+".","Belum ada yang menyelesaikan task"+inG+wn+"."):L("No assets were produced"+inG+wn+".","Belum ada aset yang dihasilkan"+inG+wn+".");
+    return (byT?L("Most tasks finished"+inG+wn+":","Task selesai terbanyak"+inG+wn+":"):L("Most assets produced"+inG+wn+":","Aset terbanyak yang dihasilkan"+inG+wn+":"))+"\n\n"
+      + rs.slice(0,5).map(function(r,i){ return (i+1)+". **"+person(r.id).name+"** — "+(byT?nt(r.g)+", "+na(r.g):na(r.g)+(produced?"":", "+nt(r.g))); }).join("\n")+foot(); }
+  if(who){ var nm="**"+person(who).name+"**", fn=String(person(who).name||"").split(" ")[0];
+    if(!produced){ var g=A.sum(keep,who), list=A.rows.filter(function(r){ return keep(r)&&(r.assignees.indexOf(who)>=0||r.credit.by[who]); }), wn2=when();
+      var head=tQ&&!aQ?L(nm+" finished **"+g.tasks+"** task(s)"+inG+wn2+", with **"+fa(g)+"** asset(s) credited to them.",nm+" menyelesaikan **"+g.tasks+"** task"+inG+wn2+", dengan **"+fa(g)+"** aset.")
+                      :L(nm+" produced **"+fa(g)+"** asset(s)"+inG+wn2+", from **"+g.tasks+"** finished task(s).",nm+" menghasilkan **"+fa(g)+"** aset"+inG+wn2+", dari **"+g.tasks+"** task selesai"+(tm?" milik tim itu":"")+".");
+      if(tm){ var tt=A.sum(keep), all=A.sum(inPer,who), same=all.tasks===g.tasks&&all.raw===g.raw;
+        head+=" "+L("The team's total"+wn2+": "+na(tt)+" from "+tt.tasks+" task(s). All of "+fn+"'s work"+wn2+": "+na(all)+" from "+all.tasks+" task(s)"+(same?" (the same: all of it is the team's)":"")+".",
+                    "Total tim"+wn2+": "+na(tt)+" dari "+tt.tasks+" task. Seluruh pekerjaan "+fn+wn2+": "+na(all)+" dari "+all.tasks+" task"+(same?" (sama: semuanya task tim itu)":"")+"."); }
+      var ps={}; list.forEach(function(r){ r.projects.forEach(function(p){ ps[p]=1; }); }); ps=Object.keys(ps);
+      if(!pj&&per&&per.kind==="month"&&ps.length>1) head+="\n\n"+L("By project:","Per project:")+"\n"+ps.map(function(p){ var x=A.sum(function(r){ return keep(r)&&r.projects.indexOf(p)>=0; },who); return "- "+aiProjLabel(p)+": "+na(x)+", "+nt(x); }).join("\n");
       if(list.length) head+="\n\n"+list.slice(0,8).map(function(r){ var mine=Math.round((r.credit.by[who]||0)*10)/10; return "- **"+r.t.id+"** "+r.t.title+" — "+mine+L(" of "," dari ")+assetCount(r.t)+L(" assets"," aset"); }).join("\n")+(list.length>8?"\n- "+L("…and "+(list.length-8)+" more","…dan "+(list.length-8)+" lainnya"):"");
       return head+foot(); }
-    var t=A.get("total",who,pid), d=A.get("done",who,pid), a=A.get(cur,who,pid), b=A.get(prev,who,pid);
-    return (tQ&&!aQ?L(nm+" has finished **"+d.tasks+"** task(s)"+inP+": "+a.tasks+" this month, "+b.tasks+" last month, with "+na(d)+" delivered.",nm+" telah menyelesaikan **"+d.tasks+"** task"+inP+": "+a.tasks+" bulan ini, "+b.tasks+" bulan lalu, dengan "+na(d)+" terkirim.")
-                   :L(nm+" has produced **"+fa(t)+"** asset(s)"+inP+" in total: "+fa(d)+" delivered from finished tasks, "+fa(a)+" this month, "+fa(b)+" last month. Finished tasks: "+d.tasks+".",nm+" telah menghasilkan **"+fa(t)+"** aset"+inP+" secara total: "+fa(d)+" terkirim dari task selesai, "+fa(a)+" bulan ini, "+fa(b)+" bulan lalu. Task selesai: "+d.tasks+"."))+foot(); }
-  var k2=mo||"done", g2=A.get(k2,null,pid), when2=mo?L(" in "," pada ")+mon(mo):L(" in total"," secara total"), rs2=ranked(k2,tQ&&!aQ);
-  return L("**"+g2.tasks+"** task(s) finished"+inP+when2+", with **"+g2.assets+"** asset(s).","**"+g2.tasks+"** task selesai"+inP+when2+", dengan **"+g2.assets+"** aset.")
+    var gk=pj?pj.id:tm?"team:"+tm.id:null, t=A.get("total",who,gk), d=A.get("done",who,gk), a=A.get(cur,who,gk), b=A.get(prev,who,gk);
+    return (tQ&&!aQ?L(nm+" has finished **"+d.tasks+"** task(s)"+inG+": "+a.tasks+" this month, "+b.tasks+" last month, with "+na(d)+" delivered.",nm+" telah menyelesaikan **"+d.tasks+"** task"+inG+": "+a.tasks+" bulan ini, "+b.tasks+" bulan lalu, dengan "+na(d)+" terkirim.")
+                   :L(nm+" has produced **"+fa(t)+"** asset(s)"+inG+" in total: "+fa(d)+" delivered from finished tasks, "+fa(a)+" this month, "+fa(b)+" last month. Finished tasks: "+d.tasks+".",nm+" telah menghasilkan **"+fa(t)+"** aset"+inG+" secara total: "+fa(d)+" terkirim dari task selesai, "+fa(a)+" bulan ini, "+fa(b)+" bulan lalu. Task selesai: "+d.tasks+"."))+foot(); }
+  var g2=A.sum(keep), wn3=when(), byT2=tQ&&!aQ, rs2=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&!PEOPLE[id].stakeholder; }).map(function(id){ return {id:id,g:A.sum(keep,id)}; })
+    .filter(function(r){ return byT2?r.g.tasks:r.g.raw; }).sort(function(a,b){ return byT2?(b.g.tasks-a.g.tasks)||(b.g.raw-a.g.raw):(b.g.raw-a.g.raw)||(b.g.tasks-a.g.tasks); });
+  return L("**"+g2.tasks+"** task(s) finished"+inG+wn3+", with **"+g2.assets+"** asset(s).","**"+g2.tasks+"** task selesai"+inG+wn3+", dengan **"+g2.assets+"** aset.")
     + (rs2.length?"\n\n"+L("By person:","Per orang:")+"\n"+rs2.slice(0,5).map(function(r){ return "- **"+person(r.id).name+"** — "+na(r.g)+", "+nt(r.g); }).join("\n"):"")+foot();
 }
 function aiLocalInsight(q,s,o){

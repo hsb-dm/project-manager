@@ -985,6 +985,7 @@ function aiSystem(q){
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
     "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
     "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. "+
+    "By team, week, quarter, year, label and kind of work they are in PERSON x TEAM, TEAM OUTPUT BY MONTH, TEAM PEOPLE BY MONTH, WEEKLY OUTPUT, YEAR AND QUARTERS, LABEL OUTPUT BY MONTH and KIND OUTPUT BY MONTH; GLOSSARY maps the words people use, and for a person in a team say which reading you give. "+
     "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
@@ -1055,18 +1056,23 @@ function aiContext(taskLimit,budget){
   });
   if(arch.length) lines.push("ARCHIVED PROJECTS: "+arch.join(", "));
   var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
-  lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
-  done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
-  /* risk, flow, Analytics, the week's events and each person's output (src/ai-insights.js), still ahead of the open
-     tasks: the server keeps the start of the snapshot, so these are never what a long task list pushes out. Analytics'
-     own figures (throughput, quality, time in status) go only to someone who may open Analytics. The output tables
-     take what room is left but a quarter (at most 10 000 characters) kept for the open tasks, and say what they left out. */
-  var seesAn=canI.viewAnalytics(), an=null;
-  aiPart(lines,"RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
-  if(seesAn) aiPart(lines,"ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
-  else lines.push("ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither.");
-  aiPart(lines,"ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
-  aiPart(lines,"ASSETS BY PERSON",function(){ return aiOutputLines(budget-lines.join("\n").length-Math.min(10000,budget*0.25)); });
+  /* what follows is packed into the room the open tasks leave (aiPack, src/ai-insights.js): risk, flow, Analytics and the
+     week's events always; the output tables and the work finished lately by priority, each person's totals and a
+     person in a team first, labels and kinds last, saying what was left out. All of it stays ahead of the open tasks:
+     the server keeps the start of the snapshot, so a long task list is what gives way. At most 6 000 characters (15%)
+     are kept for the open tasks, whose most urgent ones are in OVERDUE, DUE WITHIN 7 DAYS and AWAITING REVIEW already.
+     Analytics' own figures (throughput, quality, time in status) go only to someone who may open Analytics. */
+  var secs=[], fixed=function(ls){ ls.forEach(function(l){ secs.push({name:"",head:l,lines:[],pri:0,what:""}); }); };
+  secs.push({name:"FINISHED IN THE LAST 30 DAYS",head:"FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):",pri:5,what:"finished tasks (the earliest)",
+    lines:done.slice(0,40).map(function(t){ var m=t.meta||{}; return "  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":""); })});
+  var seesAn=canI.viewAnalytics(), an=null, part=function(name,f){ var ls=[]; aiPart(ls,name,f); fixed(ls); };
+  part("RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
+  if(seesAn) part("ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
+  else fixed(["ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither."]);
+  part("ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
+  part("ASSETS BY PERSON",function(){ secs=secs.concat(aiOutputSections()); return []; });
+  var keep=Math.min(6000,budget*0.15);   /* the open tasks' share; each person's totals and the teams may take all but 2 000 of it */
+  aiPack(secs,budget-lines.join("\n").length-keep,keep-2000).forEach(function(l){ lines.push(l); });
   /* the open tasks, most urgent first: in full up to taskLimit, then in short form — as many as the room allows */
   var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
   var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
@@ -1108,6 +1114,8 @@ function aiLocalAnswer(q){
     PROJECTS.forEach(function(p){ var n=(p.name||"").toLowerCase(); if(n.length>=4&&s.indexOf(n)>=0&&n.length>best){ found=p; best=n.length; } });
     return found;
   }
+  /* "tim social media", "social media tim", "Social Media team" (aiWhichTeam, src/ai-insights.js) */
+  function whichTeam(){ return aiWhichTeam(s); }
 
   /* help */
   if(/\bhelp\b|what can you|apa saja|bisa apa|kemampuan|contoh|example/.test(s))
@@ -1121,11 +1129,13 @@ function aiLocalAnswer(q){
       + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+"\n"
       + "- "+L("how many assets did <name> produce this month","berapa aset <nama> bulan ini")+"\n"
       + "- "+L("who produced the most assets last month","siapa yang paling banyak menghasilkan aset bulan lalu")+"\n"
+      + "- "+L("how many assets did <name> produce this week in the <team> team","berapa aset <nama> minggu ini di tim <tim>")+"\n"
+      + "- "+L("how many tasks did <team> finish in Q3 / this year","berapa task selesai tim <tim> di Q3 / tahun ini")+"\n"
       + "- "+L("revision rate this month / average completion time","tingkat revisi bulan ini / rata-rata waktu selesai")+foot();
 
   /* output (assets and finished tasks per person, month and project), then speed, quality and flow — one count with
      the snapshot's (src/ai-insights.js), so a model and this engine give the same numbers */
-  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject()}); if(outA) return outA;
+  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject(),team:whichTeam()}); if(outA) return outA;
   var insA=aiLocalInsight(q,s,{idL:idL,L:L}); if(insA) return insA;
 
   /* blocked / dependencies */

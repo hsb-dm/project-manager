@@ -924,6 +924,18 @@ ke para assignee (ditandai \* sebagai perkiraan). Task lama yang dimuat tanpa ve
 dihitung. Contoh: **berapa aset Rina bulan ini**, **berapa task yang diselesaikan Budi di
 project X bulan Oktober**, **siapa yang paling banyak menghasilkan aset bulan lalu**.
 
+Hasil kerja itu juga dihitung per tim, per label, per jenis pekerjaan, per minggu (bulan lalu
+dan bulan ini), per kuartal, dan untuk tahun ini. Task sebuah tim adalah task yang diset ke tim
+itu atau dikerjakan anggotanya, seperti halaman **Teams** menghitung "Done this month"; tim
+sebuah project tidak ikut menentukan. Untuk orang di sebuah tim ia memberi dua bacaan:
+pekerjaannya di task tim itu, dan seluruh pekerjaannya sebagai anggota, lalu menyebut mana yang
+dipakai. Jenis pekerjaan hanya dari yang dipilih di task (judul seperti "[REELS]" tidak dibaca).
+Setiap baris menyebut milik siapa angkanya: angka seseorang selalu miliknya sendiri, dan total
+project atau tim ditulis "dari N". Contoh: **berapa aset Habib bulan ini di tim Social Media**,
+**berapa aset Motion minggu ini**, **berapa task selesai tim SEO di Q3**, **berapa aset saya
+tahun ini**. Di workspace besar, bagian yang paling jarang ditanya (label, jenis, bulan-bulan
+lama) dilewati lebih dulu, dan AI diberi tahu bagian mana yang dilewati.
+
 Selain itu ia membaca angka **Home** (task saya, tenggat hari ini, review, inbox, aset),
 beban tim dan siapa yang melebihi kapasitas, risiko (project berisiko, task yang tidak
 mungkin selesai sebelum tenggatnya, blocker teratas), pipeline, dan aktivitas 7 hari terakhir.

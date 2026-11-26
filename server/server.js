@@ -1175,6 +1175,7 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
     /* AI Intelligence's snapshot (src/ai-insights.js) carries each person's output by month and project, Home's figures,
        Analytics' trends and quality, and the risks: say where, so they are quoted rather than added up from the lists */
     (b.purpose === "intelligence" ? "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. " +
+      "By team, week, quarter, year, label and kind of work they are in PERSON x TEAM, TEAM OUTPUT BY MONTH, TEAM PEOPLE BY MONTH, WEEKLY OUTPUT, YEAR AND QUARTERS, LABEL OUTPUT BY MONTH and KIND OUTPUT BY MONTH; GLOSSARY maps the words people use, and for a person in a team say which reading you give. " +
       "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. " : "") +
     languageRule + actionRule + "\n\n" +
     (c.systemExtra ? c.systemExtra + "\n\n" : "") + workspaceContext;
