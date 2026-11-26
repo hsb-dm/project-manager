@@ -1142,7 +1142,7 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
     .map(m => ({ role: m.role, content: String(m.content || "").slice(0, 8000) }));
   if (!msgs.length) throw new HttpError(400, "No message to send");
   const latestQuestion = [...msgs].reverse().find(m => m.role === "user");
-  const replyInIndonesian = /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih)\b/i.test((latestQuestion || {}).content || "");
+  const replyInIndonesian = /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih|bulan|aset|revisi|tingkat|rata|waktu|paling|terbanyak|berisiko|dihasilkan|menghasilkan|diselesaikan|menyelesaikan)\b/i.test((latestQuestion || {}).content || "");
   const languageRule = replyInIndonesian
     ? "Reply in Indonesian because the latest user question is in Indonesian. Keep task IDs, proper names, file names, and campaign names exactly as written."
     : "Reply in English because the latest user question is in English. Keep task IDs, proper names, file names, and campaign names exactly as written.";
@@ -1163,7 +1163,12 @@ route("POST", "/api/ai/chat", async (u, p, q, b) => {
     "Read dates from the snapshot: TODAY, and every date written YYYY-MM-DD with its weekday — work out 'this week', 'Friday' or 'overdue' from those. " +
     "Count and list from the snapshot's own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS, FINISHED IN THE LAST 30 DAYS); " +
     "a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. " +
-    "If the snapshot says a list is not complete, say the answer may be partial. If the answer is not in the snapshot, say so. " + languageRule + actionRule + "\n\n" +
+    "If the snapshot says a list is not complete, say the answer may be partial. If the answer is not in the snapshot, say so. " +
+    /* AI Intelligence's snapshot (src/ai-insights.js) carries each person's output by month and project, Home's figures,
+       Analytics' trends and quality, and the risks: say where, so they are quoted rather than added up from the lists */
+    (b.purpose === "intelligence" ? "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. " +
+      "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. " : "") +
+    languageRule + actionRule + "\n\n" +
     (c.systemExtra ? c.systemExtra + "\n\n" : "") + workspaceContext;
   /* the request and the reply in the provider's own shape: server/ai-chat-format.js (OpenAI's /v1/responses included) */
   const req = aiChatFormat.chatRequest(c, system, msgs);

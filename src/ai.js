@@ -919,7 +919,7 @@ function aiAsk(q){
 function aiQuestionLanguage(q){
   /* Indonesian has distinct function words; all other input defaults to English so an
      English question is never answered in Indonesian just because the UI is set to ID. */
-  return /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih)\b/i.test(String(q||""))?"id":"en";
+  return /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih|bulan|aset|revisi|tingkat|rata|waktu|paling|terbanyak|berisiko|dihasilkan|menghasilkan|diselesaikan|menyelesaikan)\b/i.test(String(q||""))?"id":"en";
 }
 /* §P0-5 a stateless single-prompt call for report recommendations. It must not
    read or write the assistant's chat history, and it returns raw text so the
@@ -984,6 +984,8 @@ function aiSystem(q){
     ". Answer about the workspace data you are given: tasks, projects, people, deadlines, assets. Be concise and concrete, cite task IDs and names. "+
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
     "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
+    "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. "+
+    "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
 /* The snapshot the model reads, made to be read accurately (Oct 2026).
@@ -994,7 +996,10 @@ function aiSystem(q){
    - A task names all its assignees and reviewers, its team, labels and tags, its estimate and the hours logged.
    - Open tasks go most urgent first; the ones past taskLimit are still listed in short form, so none is missing.
    - Everyone in the workspace is there, capacity set or not; a person's hours are their share of a task with
-     several assignees, as the workload screen counts them. */
+     several assignees, as the workload screen counts them.
+   - (Nov 2026) Home's figures, risk, the pipeline, Analytics' trends and quality, the week's activity, and what each
+     person produced, month by month and project by project, worked out by src/ai-insights.js with the screens' own
+     functions; the long open-task list stays last. */
 var AI_CTX_MAX=40000;
 function aiDay(off){ if(typeof off!=="number"||!isFinite(off)) return "none"; return iso(off)+" "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dateOf(off).getDay()]+" ("+dueTxt(off)+")"; }
 function aiNames(ids){ return (ids||[]).map(function(id){ return person(id).name; }).join(", ")||"none"; }
@@ -1005,6 +1010,8 @@ function aiTaskLine(t){ var m=t.meta||{}, tm=t.team&&team(t.team), ls=typeof lab
   if(typeof isRequestTask==="function"&&isRequestTask(t)) flags.push("REQUEST");
   return "- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" assignees="+aiNames(assigneesOf(t))+" reviewers="+aiNames(reviewersOf(t))+(tm?" team="+tm.name:"")+" due="+aiDay(t.due)+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")+(ls.length?" labels="+ls.join("/"):"")+(tg.length?" tags="+tg.join("/"):"")+(flags.length?" "+flags.join(" "):""); }
 function aiShortLine(t){ return t.id+" \""+t.title+"\" due="+aiDay(t.due)+" stage="+stageName(t.status)+" assignees="+aiNames(assigneesOf(t)); }
+/* a section of the snapshot that cannot be worked out never stops the question: the model is told so instead */
+function aiPart(lines,name,f){ var ls; try{ ls=f(); }catch(e){ ls=[name+": could not be worked out this time ("+String((e&&e.message)||e).slice(0,120)+"); say so if asked."]; } (ls||[]).forEach(function(l){ lines.push(l); }); }
 function aiContext(taskLimit,budget){
   budget=Math.min(+budget||AI_CTX_MAX,AI_CTX_MAX);
   var open = TASKS.filter(function(t){ return !t._draft&&!isClosed(t)&&!t.hidden; }).sort(function(a,b){ return aiUrgency(a)-aiUrgency(b); });
@@ -1019,23 +1026,26 @@ function aiContext(taskLimit,budget){
   lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") — refer to this person as \"you\".");
   lines.push("STAGES: "+WS.workflow.map(function(s){ return s.name; }).join(" > "));
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
+  /* Home's own figures (src/ai-insights.js): what the viewer sees on Home, so "how many are due today" matches it */
+  aiPart(lines,"HOME DASHBOARD",aiDashLines);
   lines.push("OVERDUE ("+over.length+"): "+(over.length?over.map(ref).join("; "):"none"));
   lines.push("DUE WITHIN 7 DAYS ("+week.length+"): "+(week.length?week.map(ref).join("; "):"none"));
   lines.push("AWAITING REVIEW ("+rev.length+"): "+(rev.length?rev.map(function(t){ return t.id+" \""+t.title+"\" reviewers="+aiNames(reviewersOf(t)); }).join("; "):"none"));
   lines.push("BLOCKED ("+blocked.length+"): "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
-  lines.push("PEOPLE (hours are each person's share of open work; capacity is per week):");
+  lines.push("PEOPLE (hours are each person's share of open work, as Team workload counts them; capacity is per week):");
   Object.keys(PEOPLE).forEach(function(id){
     var p=PEOPLE[id]; if (!p||p.active===false||p.stakeholder) return;
-    var mine=open.filter(function(t){ return isAssignee(t,id); }), cap=+p.cap||0;
-    var h=Math.round(mine.reduce(function(a,t){ return a+(+t.effort||0)/Math.max(1,assigneesOf(t).length); },0)*10)/10;
+    var mine=open.filter(function(t){ return isAssignee(t,id); }), ld=aiLoad(id), cap=ld.cap, h=ld.h;
     var tms=(typeof teamsOf==="function"?teamsOf(id):[]).map(function(x){ var tm=team(x); return tm&&!tm.archived?tm.name:""; }).filter(Boolean);
-    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+Math.round(h/cap*100)+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
+    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+ld.pct+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
   });
+  var oc=aiOverCapacity();
+  lines.push("OVER CAPACITY (open hours above their weekly capacity, as Team workload shows): "+(oc.length?oc.map(function(id){ var ld=aiLoad(id); return PEOPLE[id].name+" "+ld.pct+"% ("+ld.h+"h of "+ld.cap+"h)"; }).join(", "):"nobody"));
   var sh=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false&&PEOPLE[id].stakeholder; });
   if(sh.length) lines.push("STAKEHOLDERS (requesters, not on the team): "+sh.map(function(id){ return PEOPLE[id].name; }).join(", "));
-  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS:");
-    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; });
-      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length); }); }
+  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS: (util = the team's open hours over its weekly capacity, as Home's Team workload and Analytics' Teams utilization show)");
+    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; }), w=teamWorkload(tm.id);
+      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length+" util="+w.pct+"% ("+w.assigned+"h of "+w.cap+"h)"); }); }
   lines.push("PROJECTS:");
   var arch=[];
   PROJECTS.forEach(function(p){
@@ -1047,7 +1057,16 @@ function aiContext(taskLimit,budget){
   var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
   lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
   done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
-  lines.push("ASSETS: "+assetsProduced(TASKS)+" produced total, "+assetsProduced(TASKS.filter(isClosed))+" delivered.");
+  /* risk, flow, Analytics, the week's events and each person's output (src/ai-insights.js), still ahead of the open
+     tasks: the server keeps the start of the snapshot, so these are never what a long task list pushes out. Analytics'
+     own figures (throughput, quality, time in status) go only to someone who may open Analytics. The output tables
+     take what room is left but a quarter (at most 10 000 characters) kept for the open tasks, and say what they left out. */
+  var seesAn=canI.viewAnalytics(), an=null;
+  aiPart(lines,"RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
+  if(seesAn) aiPart(lines,"ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
+  else lines.push("ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither.");
+  aiPart(lines,"ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
+  aiPart(lines,"ASSETS BY PERSON",function(){ return aiOutputLines(budget-lines.join("\n").length-Math.min(10000,budget*0.25)); });
   /* the open tasks, most urgent first: in full up to taskLimit, then in short form — as many as the room allows */
   var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
   var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
@@ -1099,7 +1118,15 @@ function aiLocalAnswer(q){
       + "- "+L("who is overloaded","siapa yang kelebihan beban")+"\n"
       + "- "+L("what is waiting on review","apa yang menunggu review")+"\n"
       + "- "+L("which projects are at risk","project mana yang berisiko")+"\n"
-      + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+foot();
+      + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+"\n"
+      + "- "+L("how many assets did <name> produce this month","berapa aset <nama> bulan ini")+"\n"
+      + "- "+L("who produced the most assets last month","siapa yang paling banyak menghasilkan aset bulan lalu")+"\n"
+      + "- "+L("revision rate this month / average completion time","tingkat revisi bulan ini / rata-rata waktu selesai")+foot();
+
+  /* output (assets and finished tasks per person, month and project), then speed, quality and flow — one count with
+     the snapshot's (src/ai-insights.js), so a model and this engine give the same numbers */
+  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject()}); if(outA) return outA;
+  var insA=aiLocalInsight(q,s,{idL:idL,L:L}); if(insA) return insA;
 
   /* blocked / dependencies */
   if(/block|depend|terhambat|hambat|blokir|ketergantungan|dependensi/.test(s)){
@@ -1126,14 +1153,16 @@ function aiLocalAnswer(q){
   /* workload / capacity — per person if named, else team-wide */
   if(/overload|workload|capacity|utilis|utiliz|beban|kapasitas|sibuk|kelebihan|\bbusy\b/.test(s)){
     var who=whichPerson();
+    /* hours as Team workload counts them (aiLoad: each person's share of a task with several assignees), the same as
+       the snapshot's PEOPLE and OVER CAPACITY */
     if(who&&(who!==ME||/\b(my|saya|aku)\b/.test(s))){
       var wm=open.filter(function(t){return isAssignee(t,who);}).sort(function(a,b){return a.due-b.due;}),
-          wh=wm.reduce(function(a,t){return a+t.effort;},0),wc=person(who).cap||0,wu=wc?Math.round(wh/wc*100):0;
+          wl=aiLoad(who),wh=wl.h,wc=wl.cap,wu=wl.pct;
       return "**"+nm(who)+"** \u2014 "+wu+"% "+L("utilisation","pemakaian")+" ("+wh+"h / "+wc+"h, "+wm.length+" "+L("open","belum selesai")+")"+(wm.length?":\n\n"+list(wm):".");
     }
-    var rows=Object.keys(PEOPLE).filter(function(pid){return PEOPLE[pid].cap&&!PEOPLE[pid].stakeholder;}).map(function(pid){
-      var mine=open.filter(function(t){return isAssignee(t,pid);}),h=mine.reduce(function(a,t){return a+t.effort;},0),cap=PEOPLE[pid].cap;
-      return {n:PEOPLE[pid].name,h:h,cap:cap,u:Math.round(h/cap*100),c:mine.length};
+    var rows=Object.keys(PEOPLE).filter(function(pid){return PEOPLE[pid].cap&&!PEOPLE[pid].stakeholder&&PEOPLE[pid].active!==false;}).map(function(pid){
+      var mine=open.filter(function(t){return isAssignee(t,pid);}),ld=aiLoad(pid);
+      return {n:PEOPLE[pid].name,h:ld.h,cap:ld.cap,u:ld.pct,c:mine.length};
     }).sort(function(a,b){return b.u-a.u;});
     var overl=rows.filter(function(r){return r.u>100;}).length,room=rows.filter(function(r){return r.u<70;}).length;
     var head=overl?L("**"+overl+"** over capacity; **"+room+"** have room.","**"+overl+"** kelebihan beban; **"+room+"** masih punya ruang."):L("No one is over capacity.","Tidak ada yang kelebihan beban.");
@@ -1153,13 +1182,15 @@ function aiLocalAnswer(q){
   }
 
   /* projects at risk */
+  /* one rule with the snapshot's RISK (aiProjectRisks): Analytics' Deadline risk, marked At risk by hand, or more work
+     than time */
   if(/\brisk\b|at risk|risiko|berisiko|meleset|\bslip\b/.test(s)){
-    var rk=PROJECTS.filter(function(p){return p.status!=="archived"&&p.status!=="done"&&(p.status==="risk"||p.due<0||(projectProgress(p)<50&&p.due<=7));});
-    if(!rk.length) return L("No projects are flagged at risk right now.","Tidak ada project yang ditandai berisiko saat ini.");
-    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** project berisiko:")+"\n\n"+rk.map(function(p){
-      var opn=TASKS.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}),
-          od=opn.filter(function(t){return t.due<0;}).length,bk=opn.filter(isTaskBlocked).length;
-      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"%, "+dueTxt(p.due)+L(" \u2014 "+opn.length+" open, "+od+" overdue, "+bk+" blocked"," \u2014 "+opn.length+" belum selesai, "+od+" terlambat, "+bk+" terblokir");
+    var rk=aiProjectRisks(aiAnalytics().m);
+    if(!rk.length) return L("No projects are at risk right now.","Tidak ada project yang berisiko saat ini.");
+    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** project berisiko:")+"\n\n"+rk.map(function(x){
+      var bk=TASKS.filter(function(t){return inProject(t,x.id)&&!isClosed(t)&&isTaskBlocked(t);}).length,
+          why=[x.risk!=="low"?L(x.risk==="high"?"high risk":"medium risk",x.risk==="high"?"risiko tinggi":"risiko sedang"):"",x.marked?L("marked at risk","ditandai berisiko"):"",x.tight?L("more work left than time","sisa pekerjaan melebihi waktu"):""].filter(Boolean).join(", ");
+      return "- **"+x.name+"** ("+why+") "+x.progress+"%, "+(x.days==null?L("no deadline","tanpa tenggat"):dueTxt(x.days))+L(" \u2014 "+x.open+" open, "+x.overdue+" overdue, "+bk+" blocked, "+x.hours+"h left"," \u2014 "+x.open+" belum selesai, "+x.overdue+" terlambat, "+bk+" terblokir, sisa "+x.hours+" jam");
     }).join("\n");
   }
 

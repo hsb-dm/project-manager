@@ -148,9 +148,16 @@ var DDRAG=null;
 function dStart(e,k){ DDRAG=k; e.dataTransfer.effectAllowed="move"; setTimeout(function(){ var el=document.querySelector('[data-sec="'+k+'"]'); if (el) el.classList.add("drag"); },0); }
 function dOver(e,el){ e.preventDefault(); el.classList.add("over"); }
 function dDrop(e,k){ e.preventDefault(); document.querySelectorAll("[data-sec].over,[data-sec].drag").forEach(function(x){ x.classList.remove("over","drag"); }); var from=DDRAG; DDRAG=null; if (!from||from===k) return; var o=dashOrder(); o.splice(o.indexOf(from),1); o.splice(o.indexOf(k),0,from); saveDashOrder(o); renderScreen(false); toast("Dashboard layout saved"); }
-function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
+/* Home's figures, worked out in one place for the page and for AI Intelligence (src/ai-insights.js), so the chat
+   quotes exactly what Home shows. reqs: the Inbox's new requests across the workspace (the panel itself may show only
+   the viewer's, as its Mine / All choice says). */
+function dashCounts(){ var ot=openTasks();
   var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(reviewMine));
-  var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length; var assetsDone=assetsProduced(TASKS.filter(isClosed)); var assetsOpen=assetsProduced(ot);
+  var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length;
+  return {ot:ot,mine:mine,today:today,inrev:inrev,over:over,rev:rev,doneWeek:doneWeek,assetsDone:assetsProduced(TASKS.filter(isClosed)),assetsOpen:assetsProduced(ot),reqs:sortTasks(ot.filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }))}; }
+function renderDashboard(){ var dc=dashCounts(), ot=dc.ot; var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
+  var mine=dc.mine, today=dc.today, inrev=dc.inrev, over=dc.over, rev=dc.rev;
+  var doneWeek=dc.doneWeek, assetsDone=dc.assetsDone, assetsOpen=dc.assetsOpen;
   var h='<div class="pagehead m-head"><div><div class="date">'+uiDow(d.getDay())+', '+uiMol(d.getMonth())+' '+d.getDate()+'</div><h1>'+tr(g)+', '+first(ME)+'</h1><div class="muted" style="margin-top:4px">'+rev.length+' '+tr("waiting for your review")+' · '+today.length+' '+tr("due today")+' · '+over.length+' '+tr("overdue")+' · '+doneWeek+' '+tr("completed this week")+'</div></div><div class="actions"><button class="btn desktop-only" onclick="openMenu(\'exportMenu\',this)" data-menu>'+I.download+tr("Export")+'</button>'+dashboardCreateAction()+'<button class="btn desktop-only" id="dashCustom" title="'+tr("Choose which cards and menu items you see")+'" onclick="customizeModal()">'+I.tiles+tr("Customize")+((dashHidden().length+navHidden().length)?' <span class="cnt">'+(dashHidden().length+navHidden().length)+'</span>':'')+'</button></div></div>';
   h+=typeof wqHomeCard==="function"?wqHomeCard():"";
   var rf=S.railFilter, inStage=function(x){ return !rf||x.status===rf; };

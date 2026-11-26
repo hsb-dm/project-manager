@@ -903,6 +903,24 @@ Ia menjawab tentang task, project, orang, dan deadline; membalas dalam bahasa
 pertanyaanmu; dan tetap memberi jawaban lokal kalau provider AI belum dikonfigurasi.
 Riwayat percakapan tersimpan di perangkatmu (30 pesan terakhir).
 
+Ia juga tahu hasil kerja tiap orang: berapa aset yang dihasilkan dan berapa task yang
+diselesaikan, total, bulan ini, bulan lalu, dan per bulan per project selama enam bulan
+terakhir. Hitungannya sama dengan halaman anggota, laporan, dan Smart Scoring: task dihitung
+setelah selesai (bukan Declined) pada bulan selesainya, dan asetnya milik orang yang jumlahnya
+diisi di **Assets & versions**, kalau tidak, yang mengunggah versinya, kalau tidak, dibagi
+ke para assignee (ditandai \* sebagai perkiraan). Task lama yang dimuat tanpa versinya tetap
+dihitung. Contoh: **berapa aset Rina bulan ini**, **berapa task yang diselesaikan Budi di
+project X bulan Oktober**, **siapa yang paling banyak menghasilkan aset bulan lalu**.
+
+Selain itu ia membaca angka **Home** (task saya, tenggat hari ini, review, inbox, aset),
+beban tim dan siapa yang melebihi kapasitas, risiko (project berisiko, task yang tidak
+mungkin selesai sebelum tenggatnya, blocker teratas), pipeline, dan aktivitas 7 hari terakhir.
+Lead dan admin juga mendapat angka **Analytics**: throughput per minggu, rata-rata waktu
+selesai, tingkat revisi dan persetujuan, putaran revisi, dan waktu di tiap stage. Contoh:
+**tingkat revisi bulan ini**, **rata-rata waktu selesai**, **project mana yang berisiko**,
+**throughput minggu ini**. Semua dihitung dari data yang sudah ada di halamanmu; tidak ada
+data tambahan yang diambil untuk chat.
+
 Tombol header: **New conversation**, **Prompt templates**, **AI settings**, **Close**.
 Enter mengirim, Shift+Enter membuat baris baru.
 

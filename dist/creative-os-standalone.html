@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light" data-density="comfortable" data-radius="round" data-font="system">
 <head>
 <meta charset="UTF-8">
-<meta name="zc-build" content="dbb165791aaf">
+<meta name="zc-build" content="fb4f37a65269">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 (function(){ var Z=window.ZC_EARLY={i18nSrc:""}; if(!/^https?:$/.test(location.protocol)||typeof fetch!=="function") return;
@@ -9626,9 +9626,13 @@ var DDRAG=null;
 function dStart(e,k){ DDRAG=k; e.dataTransfer.effectAllowed="move"; setTimeout(function(){ var el=document.querySelector('[data-sec="'+k+'"]'); if (el) el.classList.add("drag"); },0); }
 function dOver(e,el){ e.preventDefault(); el.classList.add("over"); }
 function dDrop(e,k){ e.preventDefault(); document.querySelectorAll("[data-sec].over,[data-sec].drag").forEach(function(x){ x.classList.remove("over","drag"); }); var from=DDRAG; DDRAG=null; if (!from||from===k) return; var o=dashOrder(); o.splice(o.indexOf(from),1); o.splice(o.indexOf(k),0,from); saveDashOrder(o); renderScreen(false); toast("Dashboard layout saved"); }
-function renderDashboard(){ var ot=openTasks(); var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
+function dashCounts(){ var ot=openTasks();
   var mine=ot.filter(function(x){ return isAssignee(x,ME); }); var today=ot.filter(function(x){ return x.due===0; }); var inrev=ot.filter(function(x){ return isReview(x); }); var over=ot.filter(function(x){ return x.due<0; }); var rev=sortTasks(inrev.filter(reviewMine));
-  var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length; var assetsDone=assetsProduced(TASKS.filter(isClosed)); var assetsOpen=assetsProduced(ot);
+  var doneWeek=TASKS.filter(function(x){ return isClosed(x)&&x.completedAt&&minAgo(x.completedAt)<7*1440; }).length;
+  return {ot:ot,mine:mine,today:today,inrev:inrev,over:over,rev:rev,doneWeek:doneWeek,assetsDone:assetsProduced(TASKS.filter(isClosed)),assetsOpen:assetsProduced(ot),reqs:sortTasks(ot.filter(function(t){ return isRequestTask(t)&&!projArchived(t.proj); }))}; }
+function renderDashboard(){ var dc=dashCounts(), ot=dc.ot; var hr=new Date().getHours(); var g=hr<11?"Good morning":hr<18?"Good afternoon":"Good evening"; var d=new Date();
+  var mine=dc.mine, today=dc.today, inrev=dc.inrev, over=dc.over, rev=dc.rev;
+  var doneWeek=dc.doneWeek, assetsDone=dc.assetsDone, assetsOpen=dc.assetsOpen;
   var h='<div class="pagehead m-head"><div><div class="date">'+uiDow(d.getDay())+', '+uiMol(d.getMonth())+' '+d.getDate()+'</div><h1>'+tr(g)+', '+first(ME)+'</h1><div class="muted" style="margin-top:4px">'+rev.length+' '+tr("waiting for your review")+' · '+today.length+' '+tr("due today")+' · '+over.length+' '+tr("overdue")+' · '+doneWeek+' '+tr("completed this week")+'</div></div><div class="actions"><button class="btn desktop-only" onclick="openMenu(\'exportMenu\',this)" data-menu>'+I.download+tr("Export")+'</button>'+dashboardCreateAction()+'<button class="btn desktop-only" id="dashCustom" title="'+tr("Choose which cards and menu items you see")+'" onclick="customizeModal()">'+I.tiles+tr("Customize")+((dashHidden().length+navHidden().length)?' <span class="cnt">'+(dashHidden().length+navHidden().length)+'</span>':'')+'</button></div></div>';
   h+=typeof wqHomeCard==="function"?wqHomeCard():"";
   var rf=S.railFilter, inStage=function(x){ return !rf||x.status===rf; };
@@ -11799,7 +11803,7 @@ function aiAsk(q){
   });
 }
 function aiQuestionLanguage(q){
-  return /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih)\b/i.test(String(q||""))?"id":"en";
+  return /\b(apa|yang|dan|untuk|dengan|dari|pada|ini|itu|saya|kami|kamu|anda|tolong|bagaimana|berapa|siapa|proyek|tugas|terlambat|hari|minggu|kerja|cek|status|mohon|bisa|belum|sudah|ada|buat|lihat|tampilkan|ringkas|sekarang|mana|lebih|kurang|masih|bulan|aset|revisi|tingkat|rata|waktu|paling|terbanyak|berisiko|dihasilkan|menghasilkan|diselesaikan|menyelesaikan)\b/i.test(String(q||""))?"id":"en";
 }
 function aiDirectChatOnce(prompt){
   var c=aiCfg().chat, key=aiKey("chat");
@@ -11861,6 +11865,8 @@ function aiSystem(q){
     ". Answer about the workspace data you are given: tasks, projects, people, deadlines, assets. Be concise and concrete, cite task IDs and names. "+
     "Never invent tasks, numbers or people that are not in the context. If something is not in the data, say so. "+
     "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
+    "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. "+
+    "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
 var AI_CTX_MAX=40000;
@@ -11873,6 +11879,7 @@ function aiTaskLine(t){ var m=t.meta||{}, tm=t.team&&team(t.team), ls=typeof lab
   if(typeof isRequestTask==="function"&&isRequestTask(t)) flags.push("REQUEST");
   return "- "+t.id+" \""+t.title+"\" proj="+projName(t)+" stage="+stageName(t.status)+" prio="+t.prio+" assignees="+aiNames(assigneesOf(t))+" reviewers="+aiNames(reviewersOf(t))+(tm?" team="+tm.name:"")+" due="+aiDay(t.due)+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")+(ls.length?" labels="+ls.join("/"):"")+(tg.length?" tags="+tg.join("/"):"")+(flags.length?" "+flags.join(" "):""); }
 function aiShortLine(t){ return t.id+" \""+t.title+"\" due="+aiDay(t.due)+" stage="+stageName(t.status)+" assignees="+aiNames(assigneesOf(t)); }
+function aiPart(lines,name,f){ var ls; try{ ls=f(); }catch(e){ ls=[name+": could not be worked out this time ("+String((e&&e.message)||e).slice(0,120)+"); say so if asked."]; } (ls||[]).forEach(function(l){ lines.push(l); }); }
 function aiContext(taskLimit,budget){
   budget=Math.min(+budget||AI_CTX_MAX,AI_CTX_MAX);
   var open = TASKS.filter(function(t){ return !t._draft&&!isClosed(t)&&!t.hidden; }).sort(function(a,b){ return aiUrgency(a)-aiUrgency(b); });
@@ -11887,23 +11894,25 @@ function aiContext(taskLimit,budget){
   lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") — refer to this person as \"you\".");
   lines.push("STAGES: "+WS.workflow.map(function(s){ return s.name; }).join(" > "));
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
+  aiPart(lines,"HOME DASHBOARD",aiDashLines);
   lines.push("OVERDUE ("+over.length+"): "+(over.length?over.map(ref).join("; "):"none"));
   lines.push("DUE WITHIN 7 DAYS ("+week.length+"): "+(week.length?week.map(ref).join("; "):"none"));
   lines.push("AWAITING REVIEW ("+rev.length+"): "+(rev.length?rev.map(function(t){ return t.id+" \""+t.title+"\" reviewers="+aiNames(reviewersOf(t)); }).join("; "):"none"));
   lines.push("BLOCKED ("+blocked.length+"): "+(blocked.length?blocked.map(function(t){ return t.id+" needs "+unresolvedDependencies(t).map(function(d){return d.id;}).join("+"); }).join(", "):"none"));
-  lines.push("PEOPLE (hours are each person's share of open work; capacity is per week):");
+  lines.push("PEOPLE (hours are each person's share of open work, as Team workload counts them; capacity is per week):");
   Object.keys(PEOPLE).forEach(function(id){
     var p=PEOPLE[id]; if (!p||p.active===false||p.stakeholder) return;
-    var mine=open.filter(function(t){ return isAssignee(t,id); }), cap=+p.cap||0;
-    var h=Math.round(mine.reduce(function(a,t){ return a+(+t.effort||0)/Math.max(1,assigneesOf(t).length); },0)*10)/10;
+    var mine=open.filter(function(t){ return isAssignee(t,id); }), ld=aiLoad(id), cap=ld.cap, h=ld.h;
     var tms=(typeof teamsOf==="function"?teamsOf(id):[]).map(function(x){ var tm=team(x); return tm&&!tm.archived?tm.name:""; }).filter(Boolean);
-    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+Math.round(h/cap*100)+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
+    lines.push("- "+p.name+" ("+(p.role||"member")+")"+(tms.length?" teams="+tms.join("/"):"")+" capacity="+(cap?cap+"h":"not set")+" assigned="+h+"h"+(cap?" util="+ld.pct+"%":"")+" open="+mine.length+" overdue="+mine.filter(function(t){ return t.due<0; }).length+" reviewing="+rev.filter(function(t){ return isReviewer(t,id); }).length);
   });
+  var oc=aiOverCapacity();
+  lines.push("OVER CAPACITY (open hours above their weekly capacity, as Team workload shows): "+(oc.length?oc.map(function(id){ var ld=aiLoad(id); return PEOPLE[id].name+" "+ld.pct+"% ("+ld.h+"h of "+ld.cap+"h)"; }).join(", "):"nobody"));
   var sh=Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false&&PEOPLE[id].stakeholder; });
   if(sh.length) lines.push("STAKEHOLDERS (requesters, not on the team): "+sh.map(function(id){ return PEOPLE[id].name; }).join(", "));
-  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS:");
-    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; });
-      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length); }); }
+  if(typeof activeTeams==="function"&&activeTeams().length){ lines.push("TEAMS: (util = the team's open hours over its weekly capacity, as Home's Team workload and Analytics' Teams utilization show)");
+    activeTeams().forEach(function(tm){ var ts=open.filter(function(t){ return t.team===tm.id; }), mem=(typeof teamMembers==="function"?teamMembers(tm.id):[]).filter(function(id){ return PEOPLE[id]&&PEOPLE[id].active!==false; }), w=teamWorkload(tm.id);
+      lines.push("- "+tm.name+" lead="+(tm.lead?person(tm.lead).name:"none")+" members="+(mem.length?aiNames(mem.slice(0,15))+(mem.length>15?" +"+(mem.length-15):""):"none")+" open="+ts.length+" overdue="+ts.filter(function(t){ return t.due<0; }).length+" util="+w.pct+"% ("+w.assigned+"h of "+w.cap+"h)"); }); }
   lines.push("PROJECTS:");
   var arch=[];
   PROJECTS.forEach(function(p){
@@ -11915,7 +11924,12 @@ function aiContext(taskLimit,budget){
   var since=Date.now()-30*864e5, done=TASKS.filter(function(t){ return !t._draft&&isClosed(t)&&t.completedAt&&Date.parse(t.completedAt)>=since; }).sort(function(a,b){ return Date.parse(b.completedAt)-Date.parse(a.completedAt); });
   lines.push("FINISHED IN THE LAST 30 DAYS ("+done.length+(done.length>40?", latest 40":"")+"):");
   done.slice(0,40).forEach(function(t){ var m=t.meta||{}; lines.push("  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":"")); });
-  lines.push("ASSETS: "+assetsProduced(TASKS)+" produced total, "+assetsProduced(TASKS.filter(isClosed))+" delivered.");
+  var seesAn=canI.viewAnalytics(), an=null;
+  aiPart(lines,"RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
+  if(seesAn) aiPart(lines,"ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
+  else lines.push("ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither.");
+  aiPart(lines,"ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
+  aiPart(lines,"ASSETS BY PERSON",function(){ return aiOutputLines(budget-lines.join("\n").length-Math.min(10000,budget*0.25)); });
   var lim=Math.max(1,+taskLimit||60), full=open.slice(0,lim), rest=open.slice(lim);
   var out=lines.join("\n"), head="OPEN TASKS ("+open.length+(rest.length?", "+full.length+" in full, most urgent first":", most urgent first")+"):";
   out+="\n"+head; full.forEach(function(t){ var l="\n"+aiTaskLine(t); if(out.length+l.length<budget-200) out+=l; });
@@ -11959,7 +11973,13 @@ function aiLocalAnswer(q){
       + "- "+L("who is overloaded","siapa yang kelebihan beban")+"\n"
       + "- "+L("what is waiting on review","apa yang menunggu review")+"\n"
       + "- "+L("which projects are at risk","project mana yang berisiko")+"\n"
-      + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+foot();
+      + "- "+L("what is <name> working on","apa yang sedang dikerjakan <nama>")+"\n"
+      + "- "+L("how many assets did <name> produce this month","berapa aset <nama> bulan ini")+"\n"
+      + "- "+L("who produced the most assets last month","siapa yang paling banyak menghasilkan aset bulan lalu")+"\n"
+      + "- "+L("revision rate this month / average completion time","tingkat revisi bulan ini / rata-rata waktu selesai")+foot();
+
+  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject()}); if(outA) return outA;
+  var insA=aiLocalInsight(q,s,{idL:idL,L:L}); if(insA) return insA;
 
   if(/block|depend|terhambat|hambat|blokir|ketergantungan|dependensi/.test(s)){
     var bl=open.filter(isTaskBlocked).sort(function(a,b){return a.due-b.due;});
@@ -11984,12 +12004,12 @@ function aiLocalAnswer(q){
     var who=whichPerson();
     if(who&&(who!==ME||/\b(my|saya|aku)\b/.test(s))){
       var wm=open.filter(function(t){return isAssignee(t,who);}).sort(function(a,b){return a.due-b.due;}),
-          wh=wm.reduce(function(a,t){return a+t.effort;},0),wc=person(who).cap||0,wu=wc?Math.round(wh/wc*100):0;
+          wl=aiLoad(who),wh=wl.h,wc=wl.cap,wu=wl.pct;
       return "**"+nm(who)+"** \u2014 "+wu+"% "+L("utilisation","pemakaian")+" ("+wh+"h / "+wc+"h, "+wm.length+" "+L("open","belum selesai")+")"+(wm.length?":\n\n"+list(wm):".");
     }
-    var rows=Object.keys(PEOPLE).filter(function(pid){return PEOPLE[pid].cap&&!PEOPLE[pid].stakeholder;}).map(function(pid){
-      var mine=open.filter(function(t){return isAssignee(t,pid);}),h=mine.reduce(function(a,t){return a+t.effort;},0),cap=PEOPLE[pid].cap;
-      return {n:PEOPLE[pid].name,h:h,cap:cap,u:Math.round(h/cap*100),c:mine.length};
+    var rows=Object.keys(PEOPLE).filter(function(pid){return PEOPLE[pid].cap&&!PEOPLE[pid].stakeholder&&PEOPLE[pid].active!==false;}).map(function(pid){
+      var mine=open.filter(function(t){return isAssignee(t,pid);}),ld=aiLoad(pid);
+      return {n:PEOPLE[pid].name,h:ld.h,cap:ld.cap,u:ld.pct,c:mine.length};
     }).sort(function(a,b){return b.u-a.u;});
     var overl=rows.filter(function(r){return r.u>100;}).length,room=rows.filter(function(r){return r.u<70;}).length;
     var head=overl?L("**"+overl+"** over capacity; **"+room+"** have room.","**"+overl+"** kelebihan beban; **"+room+"** masih punya ruang."):L("No one is over capacity.","Tidak ada yang kelebihan beban.");
@@ -12007,12 +12027,12 @@ function aiLocalAnswer(q){
   }
 
   if(/\brisk\b|at risk|risiko|berisiko|meleset|\bslip\b/.test(s)){
-    var rk=PROJECTS.filter(function(p){return p.status!=="archived"&&p.status!=="done"&&(p.status==="risk"||p.due<0||(projectProgress(p)<50&&p.due<=7));});
-    if(!rk.length) return L("No projects are flagged at risk right now.","Tidak ada project yang ditandai berisiko saat ini.");
-    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** project berisiko:")+"\n\n"+rk.map(function(p){
-      var opn=TASKS.filter(function(t){return inProject(t,p.id)&&!isClosed(t);}),
-          od=opn.filter(function(t){return t.due<0;}).length,bk=opn.filter(isTaskBlocked).length;
-      return "- **"+p.name+"** ["+p.status+"] "+projectProgress(p)+"%, "+dueTxt(p.due)+L(" \u2014 "+opn.length+" open, "+od+" overdue, "+bk+" blocked"," \u2014 "+opn.length+" belum selesai, "+od+" terlambat, "+bk+" terblokir");
+    var rk=aiProjectRisks(aiAnalytics().m);
+    if(!rk.length) return L("No projects are at risk right now.","Tidak ada project yang berisiko saat ini.");
+    return L("**"+rk.length+"** project(s) at risk:","**"+rk.length+"** project berisiko:")+"\n\n"+rk.map(function(x){
+      var bk=TASKS.filter(function(t){return inProject(t,x.id)&&!isClosed(t)&&isTaskBlocked(t);}).length,
+          why=[x.risk!=="low"?L(x.risk==="high"?"high risk":"medium risk",x.risk==="high"?"risiko tinggi":"risiko sedang"):"",x.marked?L("marked at risk","ditandai berisiko"):"",x.tight?L("more work left than time","sisa pekerjaan melebihi waktu"):""].filter(Boolean).join(", ");
+      return "- **"+x.name+"** ("+why+") "+x.progress+"%, "+(x.days==null?L("no deadline","tanpa tenggat"):dueTxt(x.days))+L(" \u2014 "+x.open+" open, "+x.overdue+" overdue, "+bk+" blocked, "+x.hours+"h left"," \u2014 "+x.open+" belum selesai, "+x.overdue+" terlambat, "+bk+" terblokir, sisa "+x.hours+" jam");
     }).join("\n");
   }
 
@@ -12078,6 +12098,245 @@ function aiLocalAnswer(q){
   return parts.join("\n")+foot();
 }
 void 0;
+
+;/* src/ai-insights.js */
+
+
+var AI_OUT_MONTHS=6;
+function aiPad(n){ return (n<10?"0":"")+n; }
+function aiMonthKey(d){ return d.getFullYear()+"-"+aiPad(d.getMonth()+1); }
+function aiDayKey(d){ return d.getFullYear()+"-"+aiPad(d.getMonth()+1)+"-"+aiPad(d.getDate()); }
+function aiMonthShift(key,n){ var p=String(key).split("-"); return aiMonthKey(new Date(+p[0],+p[1]-1+n,1)); }
+function aiMonthTag(key){ return key+" "+MOL[+String(key).slice(5,7)-1]; }
+function aiMonthName(key,id){ return (id?MOL_ID:MOL)[+String(key).slice(5,7)-1]+" "+String(key).slice(0,4); }
+var AI_MONTH_WORDS=[["january","jan","januari"],["february","feb","februari","pebruari"],["march","mar","maret"],["april","apr"],["may","mei"],["june","jun","juni"],["july","jul","juli"],["august","aug","agustus","agu","agt"],["september","sep","sept"],["october","oct","oktober","okt"],["november","nov","nopember"],["december","dec","desember","des"]];
+var AI_NUM_WORDS={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,satu:1,dua:2,tiga:3,empat:4,lima:5,enam:6,tujuh:7,delapan:8,sembilan:9,sepuluh:10};
+function aiMonthIn(q,skip){
+  var s=" "+String(q||"").toLowerCase().replace(/[?!.,;:()"']/g," ").replace(/\s+/g," ")+" ", cur=aiMonthKey(TODAY), m, n, i, j, w, y;
+  skip=skip||[];
+  if((m=/\b(\d{1,2}|[a-z]+) (?:months? ago|bulan (?:yang )?lalu|bulan (?:kemarin|sebelumnya))\b/.exec(s))){ n=/^\d+$/.test(m[1])?+m[1]:Object.prototype.hasOwnProperty.call(AI_NUM_WORDS,m[1])?AI_NUM_WORDS[m[1]]:0; if(n>0&&n<=120) return aiMonthShift(cur,-n); }
+  if(/\b(?:this|current) month\b|\bbulan (?:ini|sekarang)\b/.test(s)) return cur;
+  if(/\b(?:last|previous|past) month\b|\bbulan (?:yang )?lalu\b|\bbulan (?:kemarin|sebelumnya)\b|\bsebulan (?:yang )?lalu\b/.test(s)) return aiMonthShift(cur,-1);
+  if((m=/\b(20\d\d)-(0[1-9]|1[0-2])\b/.exec(s))) return m[1]+"-"+m[2];
+  y=(m=/\b(20\d\d)\b/.exec(s))?+m[1]:0;
+  for(i=0;i<12;i++) for(j=0;j<AI_MONTH_WORDS[i].length;j++){ w=AI_MONTH_WORDS[i][j]; if(skip.indexOf(w)>=0) continue;
+    if(w==="may"?/\b(?:in|during|of|for|since|bulan) may\b|\bmay 20\d\d\b/.test(s):new RegExp("\\b"+w+"\\b").test(s)) return (y||(i>TODAY.getMonth()?TODAY.getFullYear()-1:TODAY.getFullYear()))+"-"+aiPad(i+1); }
+  return null;
+}
+
+function aiDoneMonth(t){ if(!t||t._draft||!isSuccessfulTask(t)) return null; var d=t.completedAt?new Date(t.completedAt):dateOf(t.due); return isNaN(d.getTime())?null:aiMonthKey(d); }
+function aiOutput(tasks){
+  var cells={}, rows=[], idx={};
+  function add(k,n,raw,est){ var c=cells[k]||(cells[k]={tasks:0,raw:0,est:false}); c.tasks+=n; c.raw+=raw; if(est) c.est=true; }
+  (tasks||TASKS).forEach(function(t){
+    if(!t||t._draft||t.status==="declined") return;
+    var total=assetCount(t), c=total?taskAssetCredit(t):{by:{},exact:true}, by=c.by, est=!c.exact, cr=Object.keys(by), who=assigneesOf(t), mo=aiDoneMonth(t),
+        also=(t.alsoIn||[]).filter(function(x){ return x&&x!==t.proj; }), pj=t.proj?[t.proj].concat(also):also.length?also:[""];
+    function put(m){ add(m+"|*|*",1,total,false); pj.forEach(function(p){ add(m+"|*|"+p,1,total,false); });
+      who.forEach(function(id){ add(m+"|"+id+"|*",1,0,false); pj.forEach(function(p){ add(m+"|"+id+"|"+p,1,0,false); }); });
+      cr.forEach(function(id){ add(m+"|"+id+"|*",0,by[id],est); pj.forEach(function(p){ add(m+"|"+id+"|"+p,0,by[id],est); }); }); }
+    put("total"); if(!mo) return;
+    put("done"); put(mo); rows.push({t:t,month:mo,projects:pj,assignees:who,credit:c});
+    var ix=idx[mo]||(idx[mo]={}); who.concat(cr).forEach(function(id){ var o=ix[id]||(ix[id]={}); pj.forEach(function(p){ o[p]=1; }); });
+  });
+  return {rows:rows,
+    get:function(m,id,p){ var c=cells[(m||"done")+"|"+(id||"*")+"|"+(p==null?"*":p)]; return c?{tasks:c.tasks,assets:Math.round(c.raw),raw:c.raw,est:c.est}:{tasks:0,assets:0,raw:0,est:false}; },
+    people:function(m){ return idx[m]||{}; }};
+}
+function aiProjLabel(p){ if(!p) return "(no project)"; var x=project(p); return x?x.name+(x.status==="archived"?" [archived]":""):"(a removed project)"; }
+function aiOutputLines(room){
+  var A=aiOutput(), cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), months=[], out=[], i;
+  for(i=0;i<AI_OUT_MONTHS;i++) months.push(aiMonthShift(cur,-i));
+  var st=function(g){ return g.assets+(g.est?"*":""); }, ta=function(g){ return "tasks="+g.tasks+" assets="+st(g); };
+  out.push("OUTPUT RULE: a task is finished in a done stage other than Declined and counts in the month it was finished (local time; its due date's month when no finish time was kept), as Teams' \"Done this month\" and each person's \"this month\" count it. Its assets are credited as the reports, the person pages and Smart Scoring credit them: each person's count typed under Assets & versions, else whoever uploaded its versions (in proportion), else shared among its assignees, which is an estimate and marked * (old finished tasks are loaded without their versions and may land there). A person's tasks are the finished tasks they are assigned to. A task in two projects counts in each project, once in a person's or a month's total. Quote these figures as they are.");
+  var T=A.get("total"), D=A.get("done");
+  out.push("ASSETS IN ALL: produced="+T.assets+" on every task not Declined, open ones included; delivered="+D.assets+" on "+D.tasks+" finished tasks; "+cur+" (this month)="+A.get(cur).assets+"; "+prev+" (last month)="+A.get(prev).assets+".");
+  out.push("ASSETS BY PERSON (produced = on all their tasks not Declined, open ones included, as their page's \"Assets produced\"; delivered = on finished tasks; "+cur+" = this month, "+prev+" = last month; tasks finished = finished tasks they are assigned to):");
+  var idle=[];
+  Object.keys(PEOPLE).forEach(function(id){ var p=PEOPLE[id]; if(!p||p.active===false||p.stakeholder) return;
+    var t=A.get("total",id), d=A.get("done",id), a=A.get(cur,id), b=A.get(prev,id);
+    if(!t.raw&&!d.tasks){ idle.push(p.name); return; }
+    out.push("- "+p.name+": produced="+st(t)+" delivered="+st(d)+" "+cur+"="+st(a)+" "+prev+"="+st(b)+" | tasks finished: all="+d.tasks+" "+cur+"="+a.tasks+" "+prev+"="+b.tasks); });
+  if(idle.length) out.push("- nothing produced or finished yet: "+idle.join(", "));
+  out.push("OUTPUT BY MONTH, whole workspace (finished tasks and all their assets; "+AI_OUT_MONTHS+" calendar months, newest first; "+cur+" is the current month, still running): "+months.map(function(m){ var g=A.get(m); return aiMonthTag(m)+" tasks="+g.tasks+" assets="+g.assets; }).join("; "));
+  var w={}; A.rows.forEach(function(r){ if(months.indexOf(r.month)>=0) r.projects.forEach(function(p){ w[p]=(w[p]||0)+assetCount(r.t)+0.001; }); });
+  var cap1=Math.max(1200,Math.min(4000,room*0.25)), used=0, left=0;
+  out.push("PROJECT OUTPUT BY MONTH (finished tasks and all their assets, the same months, newest first; months with nothing finished, and projects with nothing finished in them, are left out):");
+  Object.keys(w).sort(function(a,b){ return (w[b]-w[a])||aiProjLabel(a).localeCompare(aiProjLabel(b)); }).forEach(function(p){
+    var l="- "+aiProjLabel(p)+": "+months.filter(function(m){ return A.get(m,null,p).tasks; }).map(function(m){ return m+" "+ta(A.get(m,null,p)); }).join("; ")+" | all time: "+ta(A.get("done",null,p));
+    if(left||used+l.length+1>cap1){ left++; return; } used+=l.length+1; out.push(l); });
+  if(left) out.push("- …"+left+" more projects with less output left out, for room");
+  var cap2=Math.max(800,Math.min(12000,room-used-1500)), used2=0, cut=0, from=null;
+  out.push("MONTHLY OUTPUT BY PERSON x PROJECT (finished tasks the person is assigned to and the assets credited to them, newest month first; each line is the person's month total, then by project; nobody is listed in a month they finished nothing in):");
+  months.forEach(function(m){
+    var ix=A.people(m), ids=Object.keys(ix).sort(function(a,b){ var x=A.get(m,a), y=A.get(m,b); return (y.raw-x.raw)||(y.tasks-x.tasks)||person(a).name.localeCompare(person(b).name); });
+    var ls=[aiMonthTag(m)+(m===cur?" (current month)":m===prev?" (last month)":"")+(ids.length?":":": nothing finished")];
+    ids.forEach(function(id){ var ps=Object.keys(ix[id]); ls.push("- "+person(id).name+": "+ta(A.get(m,id))+" | "+(ps.length===1?"all in "+aiProjLabel(ps[0]):ps.map(function(p){ return aiProjLabel(p)+" "+ta(A.get(m,id,p)); }).join("; "))); });
+    ls.forEach(function(l){ if(cut||used2+l.length+1>cap2){ cut++; if(!from) from=m; return; } used2+=l.length+1; out.push(l); });
+  });
+  if(cut) out.push("…"+cut+" more lines left out, for room: part of "+aiMonthTag(from)+" and the months before it. The totals above still cover every month.");
+  return out;
+}
+
+function aiFew(ts,f,n){ n=n||5; return ts.length?ts.slice(0,n).map(f).join("; ")+(ts.length>n?"; +"+(ts.length-n)+" more":""):"none"; }
+function aiRef(t){ return t.id+" \""+t.title+"\""; }
+function aiWeekStarts(n){ var s=new Date(TODAY), out=[]; s.setDate(s.getDate()-((s.getDay()+6)%7)-7*(n-1)); for(var i=0;i<n;i++){ var d=new Date(s); d.setDate(s.getDate()+7*i); out.push(aiDayKey(d)); } return out; }
+function aiAnalytics(){
+  var keep=AN, shown=typeof AN_SHOWN!=="undefined"&&AN_SHOWN?AN_SHOWN.an:null, ok=function(a){ return !!(a&&!a.error&&a.weeks&&a.weeks.length); };
+  var raw=ok(AN)?AN:ok(shown)?shown:null, server=!!raw&&!raw.demo,
+      src=raw?(raw.demo?"the demo workspace's figures":raw===AN?"the server's figures":"the server's figures, as the Analytics screen last drew them"):"Analytics' own formula, worked out in the browser over the loaded tasks",
+      note=raw?"":"; old finished tasks are loaded without their versions and history, so the oldest weeks' revision, approval and time-in-status figures can read low";
+  if(!raw) raw=demoAnalytics();
+  var m; try{ AN=raw; m=metrics(); } finally{ AN=keep; }
+  var n=m.weeks.length, off=Math.max(0,(raw.weeks||[]).length-n), sl=function(a){ return (a||[]).slice(off,off+n); };
+  return {m:m,src:src,note:note,server:server,n:n,starts:aiWeekStarts(n),raw:{avgDays:sl(raw.avgDays),revisionRate:sl(raw.revisionRate),approvalHrs:sl(raw.approvalHrs)}};
+}
+function aiReviewOutcomes(id,tasks){ var approvals=0, revisions=0, firstPass=0, reviewed=0;
+  tasks.forEach(function(t){ if(!isAssignee(t,id)) return; var vs=(t.versions||[]).filter(function(v){ return v.by===id; }), got=false;
+    vs.forEach(function(v){ if(v.state==="approved"){ approvals++; if(!got) firstPass++; got=true; } else if(v.state==="revision"){ revisions++; got=true; } });
+    if(vs.some(function(v){ return v.state==="approved"||v.state==="revision"; })) reviewed++; });
+  var n=approvals+revisions; return {outcomes:n,approvalRate:n?Math.round(approvals/n*100):null,revisionRate:n?Math.round(revisions/n*100):null,firstPassRate:reviewed?Math.round(firstPass/reviewed*100):null}; }
+function aiLoad(id){ var p=person(id), h=assigned(id), cap=+p.cap||0; return {h:h,cap:cap,pct:cap?Math.round(h/cap*100):0}; }
+function aiOverCapacity(){ var ld={}; return Object.keys(PEOPLE).filter(function(id){ var p=PEOPLE[id]; if(!p||p.active===false||p.stakeholder) return false; ld[id]=aiLoad(id); return ld[id].pct>100; }).sort(function(a,b){ return ld[b].pct-ld[a].pct; }); }
+function aiDashLines(){
+  var d=dashCounts();
+  return ["HOME DASHBOARD (as the viewer's Home shows it): my tasks="+d.mine.length+", due today="+d.today.length+", in review="+d.inrev.length+" ("+d.rev.length+" waiting for your review), overdue="+d.over.length+", completed in the last 7 days="+d.doneWeek+", assets delivered="+d.assetsDone+" (from completed tasks: every done stage, Declined included, so it can differ from ASSETS IN ALL), assets in production="+d.assetsOpen+" (planned on open tasks), asset links="+assetLinks(TASKS).length+", auto-hidden done tasks="+autoHiddenCount()+". Its upcoming deadlines are DUE WITHIN 7 DAYS below.",
+    "- needs your review ("+d.rev.length+"): "+aiFew(d.rev,aiRef),
+    "- inbox, new requests waiting ("+d.reqs.length+"): "+aiFew(d.reqs,aiRef)];
+}
+function aiProjectRisks(m){
+  var rank=function(x){ return x.risk==="high"?0:x.risk==="medium"?1:2; };
+  var on={};
+  TASKS.forEach(function(t){ if(t._draft||isClosed(t)) return; var who=assigneesOf(t); [t.proj].concat(t.alsoIn||[]).forEach(function(pid){ if(!pid) return; var o=on[pid]||(on[pid]={}); who.forEach(function(id){ o[id]=1; }); }); });
+  return (m.byProject||[]).map(function(r){ var p=project(r.id)||{};
+    var n=Object.keys(on[r.id]||{}).length, hrs=+r.remainingHours||0, tight=r.daysLeft!=null&&r.daysLeft>=0&&hrs>Math.max(1,r.daysLeft)*8*Math.max(1,n);
+    return {id:r.id,name:r.name,risk:r.risk,marked:p.status==="risk",tight:tight,progress:r.progress,open:r.open,overdue:r.overdue,hours:hrs,days:r.daysLeft,people:n}; })
+    .filter(function(x){ return x.risk!=="low"||x.marked||x.tight; })
+    .sort(function(a,b){ return (rank(a)-rank(b))||((a.days==null?1e4:a.days)-(b.days==null?1e4:b.days)); });
+}
+function aiTasksTooBig(open){ return open.filter(function(t){ if(!(t.due>=0)) return false; var left=Math.max(0,(+t.effort||0)-(+((t.meta||{}).actualEffort)||0))/Math.max(1,assigneesOf(t).length); return left>8*(t.due+1); }); }
+function aiRiskLines(an,open){
+  var rk=aiProjectRisks(an.m), big=aiTasksTooBig(open), sch=open.filter(function(t){ return dependencyRisk(t).length; }), tb=an.m.topBlockers||[];
+  return ["RISK:",
+    "- projects at risk ("+rk.length+"; risk= is Analytics' Deadline risk: high = overdue work or past its deadline, medium = 7 days or less left and under 70% done; MARKED = set At risk by hand; MORE-WORK-THAN-TIME = its open hours are more than 8 a day, weekends included, for each person on its open tasks until the deadline): "+aiFew(rk,function(x){ return x.name+" risk="+x.risk+(x.marked?" MARKED":"")+(x.tight?" MORE-WORK-THAN-TIME":"")+" progress="+x.progress+"% open="+x.open+" overdue="+x.overdue+" hours_left="+x.hours+"h days_left="+(x.days==null?"no deadline":x.days)+" people="+x.people; },8),
+    "- open tasks that cannot fit before their due date ("+big.length+"; the estimate left after the hours logged, per assignee, is more than 8h a day, today included): "+aiFew(big,function(t){ return aiRef(t)+" "+Math.max(0,(+t.effort||0)-(+((t.meta||{}).actualEffort)||0))+"h left for "+Math.max(1,assigneesOf(t).length)+" people, due "+aiDay(t.due); }),
+    "- tasks waiting on work due after them (SCHEDULE-RISK, "+sch.length+"): "+aiFew(sch,function(t){ return t.id+" due "+iso(t.due)+" needs "+dependencyRisk(t).map(function(d){ return d.id+" due "+iso(d.due); }).join("+"); }),
+    "- top blockers, open tasks others wait on ("+tb.length+"): "+aiFew(tb,function(x){ return aiRef(x.task)+" blocks "+x.count; })];
+}
+function aiPipelineLines(an,full){
+  var by={}; boardTasks().forEach(function(t){ by[t.status]=(by[t.status]||0)+1; });
+  var cnt=localStages().map(function(s){ return {s:s,n:by[s.id]||0}; }), top=cnt.filter(function(x){ return x.s.kind!=="closed"; }).sort(function(a,b){ return b.n-a.n; })[0];
+  var out=["PIPELINE (tasks in each stage now, as Analytics' Pipeline snapshot counts them; archived projects left out): "+cnt.map(function(x){ return x.s.name+"="+x.n; }).join(", ")+(top&&top.n?"; most open work waits in "+top.s.name+" ("+top.n+")":"")];
+  if(full){ var tis=(an.m.timeInStatus||[]).filter(function(s){ return s.days!=null; }), slow=tis.slice().sort(function(a,b){ return b.days-a.days; })[0];
+    out.push("TIME IN STATUS (average days a task stays in a stage before it moves on, from "+an.src+"; n = moves measured): "+(tis.length?tis.map(function(s){ return s.name+" "+s.days+"d (n="+s.samples+")"; }).join(", ")+"; slowest: "+slow.name:"not enough moves yet")); }
+  return out;
+}
+function aiRevisionRounds(){
+  var ts=TASKS.filter(function(t){ return !t._draft&&(t.versions||[]).length; }).map(function(t){ var vs=t.versions; return {t:t,r:vs.filter(function(v){ return v.state==="revision"; }).length,v:vs.reduce(function(a,v,i){ return Math.max(a,+v.n||i+1); },0)}; });
+  var sum=ts.reduce(function(a,x){ return a+x.r; },0), sent=ts.filter(function(x){ return x.r; });
+  return {tasks:ts.length,avg:ts.length?Math.round(sum/ts.length*10)/10:0,sent:sent.length,top:sent.sort(function(a,b){ return (b.r-a.r)||(b.v-a.v); }).slice(0,5)};
+}
+function aiRevisionsIn(from,to){
+  var up=0, rev=0, when=function(o){ return new Date(o.createdAt||isoAgo(o.ago||0)).getTime(); }, inR=function(v){ return v!=null&&v>=from&&v<to; };
+  TASKS.forEach(function(t){ if(t._draft||t.tutorial) return; (t.versions||[]).forEach(function(v){ if(inR(when(v))) up++; var dd=v.decidedAt?+new Date(v.decidedAt):v.decidedAgo!=null?Date.now()-v.decidedAgo*60000:null; if(v.state==="revision"&&inR(dd)) rev++; }); });
+  return {uploaded:up,revised:rev,rate:up?rev/up:null};
+}
+function aiOnTime(id,from){ var n=0, ok=0; TASKS.forEach(function(t){ if(t._draft||!isSuccessfulTask(t)||!t.completedAt||!isAssignee(t,id)) return; var day=aiDayKey(new Date(t.completedAt)); if(day<from) return; n++; if(day<=iso(t.due)) ok++; }); return {n:n,ok:ok}; }
+function aiAnalyticsLines(an){
+  var m=an.m, raw=an.raw, nz=function(v,u){ return v==null?"-":v+(u||""); }, pc=function(v){ return v==null?"-":Math.round(v*100)+"%"; };
+  var out=["ANALYTICS (from "+an.src+an.note+"; the last "+an.n+" weeks, "+an.starts[0]+" to "+an.starts[an.n-1]+"; weeks start on Monday and the last one is the current week, still running):",
+    "- totals: created="+m.totalCreated+" completed="+m.totalCompleted+" avg completion="+m.avgCompletion+" days from created to completed (the mean of the weekly averages, Analytics' \"Avg completion\"); team utilization="+m.utilization+"% ("+m.asg+"h of "+m.cap+"h a week)",
+    "- by week (overdue = tasks due that week finished late or not yet; avg_days = created to completed; revision = revision requests / versions uploaded; approval_h = hours from upload to approval):"];
+  for(var i=0;i<an.n;i++) out.push("  "+an.starts[i]+": created="+m.created[i]+" completed="+m.completed[i]+" overdue="+m.overdue[i]+" avg_days="+nz(raw.avgDays[i])+" revision="+pc(raw.revisionRate[i])+" approval_h="+nz(raw.approvalHrs[i]));
+  out.push("- quality: revision rate="+m.liveRevRate+"% (Analytics' card: tasks with a version sent back / tasks with versions, all loaded tasks); weekly revision rate on average="+m.revRate+"%; approval rate="+m.approvalRate+"% (tasks whose latest version is approved / tasks with versions); average approval time="+m.avgApproval+"h");
+  var rr=aiRevisionRounds();
+  out.push("- revision rounds (versions sent back per task, over the "+rr.tasks+" loaded tasks with versions): average="+rr.avg+", "+rr.sent+" tasks had at least one; most: "+aiFew(rr.top,function(x){ return aiRef(x.t)+" "+x.r+" rounds, up to V"+x.v; }));
+  var ex=exportTasks(), ppl=Object.keys(PEOPLE).filter(function(id){ var p=PEOPLE[id]; return p&&p.active!==false&&!p.stakeholder; }).map(function(id){ return {id:id,r:aiReviewOutcomes(id,ex),o:aiOnTime(id,an.starts[0])}; })
+    .filter(function(x){ return x.r.outcomes||x.o.n; }).sort(function(a,b){ return (b.r.outcomes+b.o.n)-(a.r.outcomes+a.o.n); });
+  out.push("- per person (review outcomes = their versions approved or sent back on their tasks, as the report's Workload sheet counts them; on time = finished on or before the due date, of their tasks finished in these weeks): "+(ppl.length?"":"nobody yet"));
+  ppl.slice(0,20).forEach(function(x){ var r=x.r; out.push("  "+person(x.id).name+": review outcomes="+r.outcomes+" approved="+nz(r.approvalRate,"%")+" sent back="+nz(r.revisionRate,"%")+" first pass="+nz(r.firstPassRate,"%")+" | on time="+x.o.ok+" of "+x.o.n); });
+  if(ppl.length>20) out.push("  …"+(ppl.length-20)+" more people left out, for room");
+  return out;
+}
+function aiActivityLine(){
+  var list=typeof ACTIVITY!=="undefined"&&ACTIVITY||[], since=Date.now()-7*864e5, by={}, who={}, n=0, oldest=Infinity;
+  list.forEach(function(a){ var at=new Date(a.createdAt||isoAgo(a.ago||0)).getTime(); if(at<oldest) oldest=at; if(!(at>=since)) return; n++; by[a.k]=(by[a.k]||0)+1; if(a.who) who[a.who]=(who[a.who]||0)+1; });
+  var top=function(o,f,k){ return Object.keys(o).sort(function(a,b){ return o[b]-o[a]; }).slice(0,k).map(function(x){ return f(x)+"="+o[x]; }).join(", "); };
+  return "ACTIVITY IN THE LAST 7 DAYS ("+n+" events among the "+list.length+" latest the page holds"+(list.length&&oldest>since?"; those go back only to "+aiDayKey(new Date(oldest))+", so these counts are a floor":"")+"): "+(n?top(by,String,10)+"; most active: "+top(who,function(id){ return person(id).name; },5):"none");
+}
+
+function aiLocalOutput(q,s,o){
+  var L=o.L, idl=o.idL;
+  var aQ=/asset|\baset\b|deliverable|output|produc|hasilkan|dihasilkan|\bhasil\b/.test(s),
+      tQ=/\btasks?\b|\btugas\b|pekerjaan|kerjaan/.test(s)&&/finish|complet|\bdone\b|\bclosed?\b|selesai|rampung|tuntas|\bberes\b/.test(s),
+      top=/\bmost\b|\btop\b|terbanyak|paling banyak|paling produktif|tertinggi|ranking|peringkat|\bbest\b/.test(s),
+      cnt=/how many|how much|\bcount\b|number of|berapa|jumlah|\btotal\b/.test(s);
+  if(!aQ&&!tQ) return null;
+  var who=top?null:o.who, pj=o.pj;
+  if(!who&&!top&&/\bi\b|\bmine\b/.test(s)) who=ME;
+  var mo=aiMonthIn(q,who?String(person(who).name||"").toLowerCase().split(/\s+/):[]);
+  if(!mo&&/\b(?:this|last|past|previous) week\b|\bminggu (?:ini|lalu)\b/.test(s)) return null;
+  if(!(who||pj||mo||top||(tQ&&cnt))) return null;
+  var A=aiOutput(), cur=aiMonthKey(TODAY), prev=aiMonthShift(cur,-1), pid=pj?pj.id:null, est=false;
+  var mon=function(m){ return aiMonthName(m,idl)+(m===cur?L(" (this month)"," (bulan ini)"):m===prev?L(" (last month)"," (bulan lalu)"):""); };
+  var inP=pj?L(" in **"+pj.name+"**"," di **"+pj.name+"**"):"";
+  var fa=function(g){ if(g.est) est=true; return g.assets+(g.est?"*":""); };
+  var na=function(g){ return fa(g)+L(g.assets===1?" asset":" assets"," aset"); }, nt=function(g){ return g.tasks+L(g.tasks===1?" finished task":" finished tasks"," task selesai"); };
+  var foot=function(){ return (est?"\n\n* "+L("Partly estimated: shared among the assignees, because nobody typed each person's count or uploaded the versions.","Sebagian perkiraan: dibagi ke para assignee, karena belum ada yang mengisi jumlah per orang atau mengunggah versinya."):"")
+    +"\n\n_"+L("Counted as the person pages, the reports and Smart Scoring count them: a task counts once finished, in the month it was finished.","Dihitung seperti halaman anggota, laporan, dan Smart Scoring: task dihitung setelah selesai, pada bulan selesainya.")+"_"; };
+  var ranked=function(key,byTasks){ return Object.keys(PEOPLE).filter(function(id){ return PEOPLE[id]&&!PEOPLE[id].stakeholder; }).map(function(id){ return {id:id,g:A.get(key,id,pid)}; })
+    .filter(function(r){ return byTasks?r.g.tasks:r.g.raw; }).sort(function(a,b){ return byTasks?(b.g.tasks-a.g.tasks)||(b.g.raw-a.g.raw):(b.g.raw-a.g.raw)||(b.g.tasks-a.g.tasks); }); };
+  if(top){ var byT=tQ&&!aQ, key=mo||(byT?"done":"total"), when=mo?L(" in "," pada ")+mon(mo):L(" in total"," secara total"), rs=ranked(key,byT);
+    if(!rs.length) return byT?L("No one finished a task"+inP+when+".","Belum ada yang menyelesaikan task"+inP+when+"."):L("No assets were produced"+inP+when+".","Belum ada aset yang dihasilkan"+inP+when+".");
+    return (byT?L("Most tasks finished"+inP+when+":","Task selesai terbanyak"+inP+when+":"):L("Most assets produced"+inP+when+":","Aset terbanyak yang dihasilkan"+inP+when+":"))+"\n\n"
+      + rs.slice(0,5).map(function(r,i){ return (i+1)+". **"+person(r.id).name+"** — "+(byT?nt(r.g)+", "+na(r.g):na(r.g)+(key==="total"?"":", "+nt(r.g))); }).join("\n")+foot(); }
+  if(who){ var nm="**"+person(who).name+"**";
+    if(mo){ var g=A.get(mo,who,pid), list=A.rows.filter(function(r){ return r.month===mo&&(!pid||r.projects.indexOf(pid)>=0)&&(r.assignees.indexOf(who)>=0||r.credit.by[who]); }), ps=Object.keys(A.people(mo)[who]||{});
+      var head=tQ&&!aQ?L(nm+" finished **"+g.tasks+"** task(s)"+inP+" in "+mon(mo)+", with **"+fa(g)+"** asset(s) credited to them.",nm+" menyelesaikan **"+g.tasks+"** task"+inP+" pada "+mon(mo)+", dengan **"+fa(g)+"** aset.")
+                      :L(nm+" produced **"+fa(g)+"** asset(s)"+inP+" in "+mon(mo)+", from **"+g.tasks+"** finished task(s).",nm+" menghasilkan **"+fa(g)+"** aset"+inP+" pada "+mon(mo)+", dari **"+g.tasks+"** task selesai.");
+      if(!pid&&ps.length>1) head+="\n\n"+L("By project:","Per project:")+"\n"+ps.map(function(p){ var x=A.get(mo,who,p); return "- "+aiProjLabel(p)+": "+na(x)+", "+nt(x); }).join("\n");
+      if(list.length) head+="\n\n"+list.slice(0,8).map(function(r){ var mine=Math.round((r.credit.by[who]||0)*10)/10; return "- **"+r.t.id+"** "+r.t.title+" — "+mine+L(" of "," dari ")+assetCount(r.t)+L(" assets"," aset"); }).join("\n")+(list.length>8?"\n- "+L("…and "+(list.length-8)+" more","…dan "+(list.length-8)+" lainnya"):"");
+      return head+foot(); }
+    var t=A.get("total",who,pid), d=A.get("done",who,pid), a=A.get(cur,who,pid), b=A.get(prev,who,pid);
+    return (tQ&&!aQ?L(nm+" has finished **"+d.tasks+"** task(s)"+inP+": "+a.tasks+" this month, "+b.tasks+" last month, with "+na(d)+" delivered.",nm+" telah menyelesaikan **"+d.tasks+"** task"+inP+": "+a.tasks+" bulan ini, "+b.tasks+" bulan lalu, dengan "+na(d)+" terkirim.")
+                   :L(nm+" has produced **"+fa(t)+"** asset(s)"+inP+" in total: "+fa(d)+" delivered from finished tasks, "+fa(a)+" this month, "+fa(b)+" last month. Finished tasks: "+d.tasks+".",nm+" telah menghasilkan **"+fa(t)+"** aset"+inP+" secara total: "+fa(d)+" terkirim dari task selesai, "+fa(a)+" bulan ini, "+fa(b)+" bulan lalu. Task selesai: "+d.tasks+"."))+foot(); }
+  var k2=mo||"done", g2=A.get(k2,null,pid), when2=mo?L(" in "," pada ")+mon(mo):L(" in total"," secara total"), rs2=ranked(k2,tQ&&!aQ);
+  return L("**"+g2.tasks+"** task(s) finished"+inP+when2+", with **"+g2.assets+"** asset(s).","**"+g2.tasks+"** task selesai"+inP+when2+", dengan **"+g2.assets+"** aset.")
+    + (rs2.length?"\n\n"+L("By person:","Per orang:")+"\n"+rs2.slice(0,5).map(function(r){ return "- **"+person(r.id).name+"** — "+na(r.g)+", "+nt(r.g); }).join("\n"):"")+foot();
+}
+function aiLocalInsight(q,s,o){
+  var L=o.L, idl=o.idL;
+  var rev=/(?:revision|revisi)\s*(?:rate|rasio|tingkat|persen)|(?:tingkat|rasio|persentase) revisi|sent back|dikembalikan|approval rate|tingkat persetujuan|revision rounds?|putaran revisi|most revisions|revisi terbanyak|paling banyak revisi|how often.*revis|seberapa sering.*revisi/.test(s),
+      speed=/average completion|avg completion|completion time|cycle time|lead time|how long (?:does|do|did|it)|rata-?rata waktu|waktu (?:penyelesaian|selesai|pengerjaan)|berapa lama/.test(s),
+      thr=/throughput|velocity|created vs|dibuat vs/.test(s)||(/this week|minggu ini/.test(s)&&/finish|complet|\bdone\b|created|selesai|dibuat/.test(s)&&/how many|berapa|jumlah/.test(s)),
+      pile=/bottleneck|piles? up|stuck|menumpuk|macet|tertahan|time in (?:status|stage)|waktu di (?:tahap|status)|paling lama di/.test(s);
+  if(!(rev||speed||thr||pile)) return null;
+  if(typeof canI!=="undefined"&&canI.viewAnalytics&&!canI.viewAnalytics()) return L("Throughput, completion time and revision figures come from Analytics, which is for leads and admins, so I can't read them out for you.","Angka throughput, waktu selesai, dan revisi berasal dari Analytics, yang hanya untuk lead dan admin, jadi saya tidak bisa membacakannya untukmu.");
+  var an=aiAnalytics(), m=an.m, n=an.n, last=n-1, wk=function(i){ return an.starts[i]; };
+  var src="\n\n_"+L("From ","Dari ")+(an.server?L("the server's Analytics figures","angka Analytics dari server"):L("Analytics' own formula over the tasks loaded in this page","rumus Analytics sendiri atas task yang dimuat di halaman ini"))+"._";
+  if(rev){
+    if(/rounds?|putaran|terbanyak|most/.test(s)){ var rr=aiRevisionRounds();
+      return L("On average **"+rr.avg+"** revision round(s) per task with versions ("+rr.tasks+" tasks; "+rr.sent+" had at least one).","Rata-rata **"+rr.avg+"** putaran revisi per task yang punya versi ("+rr.tasks+" task; "+rr.sent+" pernah direvisi.")
+        +(rr.top.length?"\n\n"+rr.top.map(function(x){ return "- **"+x.t.id+"** "+x.t.title+" — "+x.r+L(" round(s), up to V"," putaran, sampai V")+x.v; }).join("\n"):""); }
+    var mo=aiMonthIn(q);
+    if(mo){ var p=mo.split("-"), r=aiRevisionsIn(new Date(+p[0],+p[1]-1,1).getTime(),new Date(+p[0],+p[1],1).getTime()), lbl=aiMonthName(mo,idl);
+      return (r.uploaded?L("Revision rate in "+lbl+": **"+Math.round(r.rate*100)+"%**: "+r.revised+" revision request(s) on "+r.uploaded+" version(s) uploaded.","Tingkat revisi pada "+lbl+": **"+Math.round(r.rate*100)+"%**: "+r.revised+" permintaan revisi dari "+r.uploaded+" versi yang diunggah.")
+        :L("No versions were uploaded in "+lbl+", so there is no revision rate for it.","Tidak ada versi yang diunggah pada "+lbl+", jadi belum ada tingkat revisinya."))
+        +"\n\n_"+L("Revision requests over versions uploaded, from the versions loaded in this page, as Analytics' chart counts a week.","Permintaan revisi dibagi versi yang diunggah, dari versi yang dimuat di halaman ini, seperti grafik Analytics menghitung per minggu.")+"_"; }
+    return L("Revision rate: **"+m.liveRevRate+"%** of the tasks with versions had one sent back. Over the last "+n+" weeks, revision requests were **"+m.revRate+"%** of the versions uploaded on average. Approval rate **"+m.approvalRate+"%**, average approval time **"+m.avgApproval+"h**.",
+             "Tingkat revisi: **"+m.liveRevRate+"%** task yang punya versi pernah dikembalikan untuk revisi. Dalam "+n+" minggu terakhir, permintaan revisi rata-rata **"+m.revRate+"%** dari versi yang diunggah. Tingkat persetujuan **"+m.approvalRate+"%**, rata-rata waktu persetujuan **"+m.avgApproval+" jam**.")
+      +"\n\n"+an.raw.revisionRate.map(function(v,i){ return "- "+wk(i)+": "+(v==null?"—":Math.round(v*100)+"%"); }).slice(-4).join("\n")+src; }
+  if(speed) return L("Average completion time: **"+m.avgCompletion+" days** from created to completed, over the last "+n+" weeks (the mean of the weekly averages).","Rata-rata waktu selesai: **"+m.avgCompletion+" hari** dari dibuat sampai selesai, dalam "+n+" minggu terakhir (rata-rata dari rata-rata mingguan).")
+    +"\n\n"+an.raw.avgDays.map(function(v,i){ return "- "+L("week of ","minggu ")+wk(i)+": "+(v==null?"—":v+L(" days"," hari")); }).slice(-4).join("\n")+src;
+  if(thr){ var d=dashCounts();
+    return L("This week (from "+wk(last)+"): **"+m.created[last]+"** created, **"+m.completed[last]+"** completed. Over the last "+n+" weeks: "+m.totalCreated+" created, "+m.totalCompleted+" completed. In the last 7 days, "+d.doneWeek+" were completed (Home).",
+             "Minggu ini (sejak "+wk(last)+"): **"+m.created[last]+"** dibuat, **"+m.completed[last]+"** selesai. Dalam "+n+" minggu terakhir: "+m.totalCreated+" dibuat, "+m.totalCompleted+" selesai. Dalam 7 hari terakhir, "+d.doneWeek+" selesai (Home).")
+      +"\n\n"+m.weeks.map(function(x,i){ return "- "+wk(i)+": "+m.created[i]+L(" created, "," dibuat, ")+m.completed[i]+L(" completed"," selesai"); }).slice(-4).join("\n")+src; }
+  var stg=localStages().filter(function(x){ return x.kind!=="closed"; }).map(function(x){ return {s:x,n:boardTasks().filter(function(t){ return t.status===x.id; }).length}; }).sort(function(a,b){ return b.n-a.n; }),
+      tis=(m.timeInStatus||[]).filter(function(x){ return x.days!=null; }).sort(function(a,b){ return b.days-a.days; });
+  return L("Most open work waits in **"+(stg[0]?stg[0].s.name:"—")+"** ("+(stg[0]?stg[0].n:0)+" tasks)"+(tis.length?"; tasks stay longest in **"+tis[0].name+"** ("+tis[0].days+" days on average)":"")+".","Pekerjaan terbuka paling banyak menumpuk di **"+(stg[0]?stg[0].s.name:"—")+"** ("+(stg[0]?stg[0].n:0)+" task)"+(tis.length?"; task paling lama tertahan di **"+tis[0].name+"** (rata-rata "+tis[0].days+" hari)":"")+".")
+    +"\n\n"+stg.slice(0,6).map(function(x){ return "- "+x.s.name+": "+x.n; }).join("\n")+src;
+}
 
 ;/* src/ai-expand.js */
 
