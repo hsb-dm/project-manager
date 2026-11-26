@@ -678,6 +678,47 @@ body:not([data-screen="messages"]) #content{isolation:isolate}
   .cal-more-list .row .r.meta-grid{display:flex;flex-wrap:wrap;justify-content:flex-start;width:100%;gap:8px}
   .cal-more-list .mcell{justify-content:flex-start}
 }
+@supports (grid-template-columns:subgrid){
+  .cal-more-list{display:grid;align-content:start;column-gap:10px;grid-template-columns:[h p] auto [c] auto [t] minmax(0,1fr) [a] auto [d] auto [w] auto [end]}
+  .cal-more-list.cal-dd{grid-template-columns:[h] auto [p] auto [c] auto [t] minmax(0,1fr) [a] auto [d] auto [w] auto [end]}
+  .cal-more-list>.row,.cal-more-list>.empty{grid-column:h/end}
+  .cal-more-list>.row{grid-template-columns:subgrid;column-gap:normal}
+  .cal-more-list>.row.task-row{container-type:normal}
+  .cal-more-list .row>.cal-dd-h{grid-column:h}
+  .cal-more-list .row>.prio,.cal-more-list .row>.cal-context-icon{grid-column:p;margin-right:6px}
+  .cal-more-list .row>.tcheck,.cal-more-list .row>.cal-context-spacer{grid-column:c;margin-right:6px}
+  .cal-more-list .row>.mcell-main{grid-column:t;margin-right:6px}
+  .cal-more-list .row>.r.meta-grid{display:contents}
+  .cal-more-list .row .mcell{min-width:max-content}
+  .cal-more-list .row .mcell-assets{grid-column:a}
+  .cal-more-list .row .mcell-due{grid-column:d}
+  .cal-more-list .row .mcell-who{grid-column:w}
+  @media (max-width:640px){
+    .cal-more-list{grid-template-columns:[h p] auto [c] auto [t d] minmax(0,1fr) [w] auto [end]}
+    .cal-more-list.cal-dd{grid-template-columns:[h] auto [p] auto [c] auto [t d] minmax(0,1fr) [w] auto [end]}
+    .cal-more-list>.row{row-gap:8px}
+    .cal-more-list .row>.cal-dd-h,.cal-more-list .row>.prio,.cal-more-list .row>.cal-context-icon,.cal-more-list .row>.tcheck,.cal-more-list .row>.cal-context-spacer{grid-row:1}
+    .cal-more-list .row>.cal-dd-h{width:20px}
+    .cal-more-list .row>.mcell-main{grid-column:t/end;grid-row:1;margin-right:0}
+    .cal-more-list .row .mcell-assets{grid-column:h/t;grid-row:2}
+    .cal-more-list .row .mcell-due{grid-column:d;grid-row:2;justify-content:flex-start}
+    .cal-more-list .row .mcell-who{grid-column:w;grid-row:2;justify-content:flex-end}
+  }
+}
+@supports not (grid-template-columns:subgrid){ .cal-more-list .cal-dd-h{display:none} }
+.cal-more-list .row.dragging{opacity:.45}
+.cal-more-list .row.cal-drop-before{box-shadow:inset 0 3px 0 0 var(--color-primary)}
+.cal-more-list .row.cal-drop-after{box-shadow:inset 0 -3px 0 0 var(--color-primary)}
+.cal-more-list .cal-dd-h{margin-left:-6px}
+.cal-dd-hint{margin:0}
+.cal-more-list:not(.cal-dd)+.cal-dd-hint{display:none}
+@media (hover:none) and (pointer:coarse){ .cal-dd-hint{display:none} }
+#modalWrap.cal-dd-on{transition:background-color .16s ease}
+#modalWrap.cal-dd-on>.modal{transition:opacity .16s ease}
+#modalWrap.cal-dd-out{background-color:transparent}
+#modalWrap.cal-dd-out>.modal{opacity:.1}
+#modalWrap.cal-dd-out,#modalWrap.cal-dd-out *{pointer-events:none!important}
+@media (prefers-reduced-motion:reduce){ #modalWrap.cal-dd-on,#modalWrap.cal-dd-on>.modal{transition:none} }
 
 .dependency-picker{display:flex;flex-direction:column;min-height:0}
 .dependency-picker-tabs{flex:0 0 auto;width:100%;display:flex;align-items:center;position:relative;margin:8px 0}

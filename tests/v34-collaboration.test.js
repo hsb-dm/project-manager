@@ -85,3 +85,28 @@ test('a tampered backup is refused with a clear reason and nothing changes', { t
   assert.equal((await s.req('GET', '/api/health')).status, 200);
   assert.equal((await s.req('GET', '/api/bootstrap', undefined, s.admin)).status, 200);
 });
+
+test("a task's place in its day is its own move's: checked, kept apart from the board's order, never undone by a save", { timeout: 30000 }, async t => {
+  const s = await start(t); const nadia = await s.as('nadia'); const sarah = await s.as('sarah');
+  const cur = await s.get('T-118'), day = String(cur.dueDate).slice(0, 10);
+  const mv = (b, c) => s.req('POST', '/api/tasks/T-118/move', Object.assign({ type: 'REORDER_TASK_DAY' }, b), c || s.admin);
+  // the viewer may not; a key that is not a finite number, or a day that is not the due date, is refused
+  assert.equal((await mv({ day, key: 5 }, nadia)).status, 403);
+  for (const b of [{ day, key: '5' }, { day, key: null }, { day }, { day: '1999-01-01', key: 5 }, { key: 5 }]) assert.equal((await mv(b)).status, 400, JSON.stringify(b));
+  assert.equal((await s.get('T-118')).meta.dayOrder, undefined, 'nothing was written');
+  // the assignee may: the place is written, the board's order and the rest of meta stay
+  let r = await mv({ day, key: 250.5 }, sarah); assert.equal(r.status, 200);
+  let d = await r.json(); assert.deepEqual(d.meta.dayOrder, { d: day, k: 250.5 }); assert.equal(d.sort, cur.sort);
+  assert.deepEqual(Object.assign({}, d.meta, { dayOrder: undefined }), Object.assign({}, cur.meta, { dayOrder: undefined }));
+  // a save from a copy loaded before, whole or merged, and one that sends a place of its own, keep the stored place
+  r = await s.req('PUT', '/api/tasks/T-118', Object.assign({}, cur, { title: 'Stale copy' }), s.admin); assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).meta.dayOrder, { d: day, k: 250.5 });
+  const now = await s.get('T-118');
+  r = await s.req('PUT', '/api/tasks/T-118', Object.assign({}, cur, { meta: Object.assign({}, cur.meta, { watchers: ['sarah'] }), _rev: cur.updatedAt, _changed: ['meta'] }), sarah); assert.equal(r.status, 200);
+  d = await r.json(); assert.deepEqual(d.meta.dayOrder, { d: day, k: 250.5 }); assert.deepEqual(d.meta.watchers, ['sarah']); assert.equal(d.title, now.title);
+  r = await s.req('PUT', '/api/tasks/T-118', Object.assign({}, await s.get('T-118'), { meta: { dayOrder: { d: day, k: -1 } } }), s.admin);
+  assert.deepEqual((await r.json()).meta.dayOrder, { d: day, k: 250.5 });
+  // a duplicate starts at the board's place
+  r = await s.req('POST', '/api/tasks', { title: 'Copy', status: 'todo', dueDate: day, startDate: day, meta: { dayOrder: { d: day, k: 1 } } }, s.admin); assert.equal(r.status, 200);
+  assert.equal((await r.json()).meta.dayOrder, undefined);
+});
