@@ -110,8 +110,9 @@ function aiAttachDetail(){
     + "<<<ATTACHED\n" + aiClip2(parts.join("\n\n"),AI_ATTACH_TOTAL) + "\nATTACHED>>>\n\n";
 }
 /* With attachments the question is about them, so the standing snapshot can be narrower — which
-   also pays for the detail in tokens instead of adding to it. */
-function aiChatContext(){ var n=aiAttachList().length, att=aiAttachDetail(); return att+aiContext(n?18:60,AI_CTX_MAX-att.length); }
+   also pays for the detail in tokens instead of adding to it. The snapshot is focused on what the latest question (or,
+   when it names no one, one of the few before it) names: aiFocusFor reads the chat's own messages. */
+function aiChatContext(){ var n=aiAttachList().length, att=aiAttachDetail(), focus=typeof aiFocusFor==="function"?aiFocusFor():null; return att+aiContext(n?18:60,AI_CTX_MAX-att.length,focus); }
 
 /* ---------- 3 · proposals ---------- */
 var AI_ACTION_OPEN = "<<<ZC_ACTION", AI_ACTION_CLOSE = "ZC_ACTION>>>";

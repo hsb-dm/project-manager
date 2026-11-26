@@ -19,11 +19,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const D = require('../shared/demo-data.js');
-const FILES = ['shared/scoring-engine.js', 'src/core.js', 'src/teams.js', 'src/dashboard.js', 'src/analytics.js', 'src/report-template.js', 'src/report-layout.js', 'src/export.js', 'src/effort-estimate.js', 'src/ai.js', 'src/ai-insights.js'];
+const FILES = ['shared/scoring-engine.js', 'src/core.js', 'src/teams.js', 'src/dashboard.js', 'src/analytics.js', 'src/report-template.js', 'src/report-layout.js', 'src/export.js', 'src/effort-estimate.js', 'src/ai.js', 'src/ai-insights.js', 'src/ai-chat-actions.js'];
 
 /* a stand-in for the DOM that answers anything: the page code only touches it at load and when it draws */
 function anything() { const f = function () { return p; }; const p = new Proxy(f, { get(t, k) { if (k === Symbol.toPrimitive) return () => ''; if (k === 'length') return 0; return p; }, apply() { return p; }, construct() { return p; }, set() { return true; } }); return p; }
-function page() {
+/* over: {file: source} in place of what is on disk (the round 2 code, for the byte-for-byte check) */
+function page(over) {
   const store = { getItem() { return null; }, setItem() {}, removeItem() {} };
   const ctx = { console, setTimeout, clearTimeout, setInterval, clearInterval, Promise, Date, Math, JSON, Intl, URL, TextEncoder, Uint8Array,
     navigator: { userAgent: 'node', language: 'en' }, location: { href: 'http://x/', pathname: '/', search: '', hash: '' }, document: anything(), localStorage: store, sessionStorage: store,
@@ -31,7 +32,7 @@ function page() {
     fetch: () => Promise.reject(new Error('no network')), Image: function () {}, Blob: function () {}, FileReader: function () {} };
   ctx.window = ctx; ctx.self = ctx;
   vm.createContext(ctx);
-  for (const f of FILES) vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8').replace(/^\s*<script>\s*/, '').replace(/<\/script>\s*$/, ''), ctx, { filename: f });
+  for (const f of FILES) vm.runInContext(((over && over[f]) || fs.readFileSync(path.join(root, f), 'utf8')).replace(/^\s*<script>\s*/, '').replace(/<\/script>\s*$/, ''), ctx, { filename: f });
   return ctx;
 }
 const run = (ctx, code) => vm.runInContext(code, ctx);
@@ -624,4 +625,179 @@ test('the server tells the model the same, for AI Intelligence only, and reads a
   const p = page();
   for (const q of ['tingkat revisi bulan ini', 'rata-rata waktu selesai', 'aset terbanyak bulan lalu']) assert.equal(run(p, 'aiQuestionLanguage(' + JSON.stringify(q) + ')'), 'id', q);
   for (const q of ['revision rate this month', 'who produced the most assets']) assert.equal(run(p, 'aiQuestionLanguage(' + JSON.stringify(q) + ')'), 'en', q);
+});
+
+/* ---------- round 3 (Nov 2026): the snapshot focused on what the question names ----------
+   The owner kept the cap at 40 000 characters and asked for the room to go to the question instead: a person, team,
+   project, label or kind named in it has every figure about it first and in full (FOCUS, src/ai-insights.js), the
+   rest packed as before with what is left. A question that names no one gives exactly the round 2 snapshot. */
+const { execFileSync } = require('node:child_process');
+const ROUND2 = '6453329';
+function round2(f) { try { return execFileSync('git', ['show', ROUND2 + ':' + f], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 }); } catch (e) { return null; } }
+const focusOf = (p, q, hist) => 'aiFocusFor(' + JSON.stringify(q) + ',' + JSON.stringify(hist || []) + ')';
+const ctxFor = (p, q, hist, budget) => run(p, 'aiContext(60,' + (budget || 'AI_CTX_MAX') + ',' + focusOf(p, q, hist) + ')');
+const focusBlock = ctx => { const ls = ctx.split('\n'), i = ls.findIndex(l => l.startsWith('FOCUS (')); if (i < 0) return null; const out = [ls[i]]; for (let j = i + 1; j < ls.length && /^(- |  )/.test(ls[j]); j++) out.push(ls[j]); return out; };
+/* the least productive person who still produced something: cut first from PERSON x TEAM at 40 000 in round 2 */
+const quietest = p => run(p, 'var A=aiOutput(); Object.keys(PEOPLE).filter(function(id){ return /^u/.test(id)&&A.get("done",id).raw; }).sort(function(a,b){ return A.get("total",a).raw-A.get("total",b).raw; })[0]');
+
+test('a question that names no one gives the round 2 snapshot, byte for byte, and the same local answers', (t) => {
+  const old = { 'src/ai.js': round2('src/ai.js'), 'src/ai-insights.js': round2('src/ai-insights.js'), 'src/ai-chat-actions.js': round2('src/ai-chat-actions.js') };
+  if (!old['src/ai.js']) return t.skip('no git history here');
+  for (const ws of [null, habib, bigWorkspace]) {
+    const a = page(old), b = page(); workspace(a, ws); workspace(b, ws);
+    for (const [lim, budget] of [[60, 40000], [18, 33000]]) {
+      const before = run(a, 'aiContext(' + lim + ',' + budget + ')');
+      assert.equal(run(b, 'aiContext(' + lim + ',' + budget + ')'), before, 'no focus given');
+      for (const q of ['apa yang terlambat minggu ini?', 'what needs my attention today?', 'berapa aset bulan ini', 'revision rate this month'])
+        assert.equal(run(b, 'aiContext(' + lim + ',' + budget + ',' + focusOf(b, q) + ')'), before, q + ': names no one');
+    }
+    if (ws === bigWorkspace) continue;
+    /* the answers without a model read names with the shared matcher now, and say the same */
+    for (const q of ['berapa asset ana bulan ini', 'How many tasks did Budi finish in Brand book last month?', 'how many assets does Budi have', 'who produced the most assets this month', 'siapa yang paling banyak menghasilkan aset bulan lalu',
+      'berapa banyak asset yang diproduksi habib bulan ini di social media tim?', 'berapa asset habib bulan ini di project Social Media November (2026)', 'berapa aset tim social media bulan ini', 'berapa aset motion bulan ini', 'berapa aset habib minggu ini',
+      'berapa aset reels bulan ini', 'what is my workload', 'which projects are at risk?', 'how many assets did I produce this month', 'berapa task selesai minggu ini', 'what is Budi working on?', 'Website relaunch project status'])
+      assert.equal(run(b, 'aiLocalAnswer(' + JSON.stringify(q) + ')'), run(a, 'aiLocalAnswer(' + JSON.stringify(q) + ')'), q);
+  }
+});
+
+test('a person named who was cut at 40 000 in round 2 has every figure in the FOCUS, equal to aiOutput', () => {
+  const p = page(); workspace(p, bigWorkspace);
+  const id = quietest(p), name = run(p, 'person(' + JSON.stringify(id) + ').name');
+  /* a whole name is read whole: Person Number 12 is not also Person Number 1 */
+  assert.deepEqual(JSON.parse(run(p, 'JSON.stringify(aiFocusFor("berapa aset Person Number 12 bulan ini",[]).people)')), ['u12']);
+  /* without the focus their person x team line is not in the snapshot */
+  const plain = run(p, 'aiContext(60)');
+  assert.ok(!plain.includes('\n- ' + name + ' (member of ') || !block(plain, 'PERSON x TEAM') || !block(plain, 'PERSON x TEAM').some(l => l.startsWith('- ' + name + ' (')), 'round 2: cut');
+  const t0 = Date.now(), ctx = ctxFor(p, 'berapa aset ' + name + ' bulan ini?'), took = Date.now() - t0;
+  assert.ok(ctx.length <= 40000, 'within the budget: ' + ctx.length);
+  assert.match(ctx, /…and \d+ more open tasks not listed here\.$/, 'the open tasks still last');
+  const f = focusBlock(ctx), cur = monthKey(new Date());
+  assert.ok(f, 'a FOCUS section');
+  assert.equal(f[0], 'FOCUS (from the question: person ' + name + ', period ' + cur + '). Every figure about them is here in full; answer from here first. The sections below leave out the lines that are here.');
+  const ls = ctx.split('\n'); assert.ok(ls.indexOf(f[0]) === ls.findIndex(l => l.startsWith('TOTALS: ')) + 1, 'right after TOTALS');
+  assert.ok(!f.some(l => / more lines about /.test(l)), 'in full');
+  /* every month by project and by team, the weeks, the year, labels and kinds: the figures aiOutput gives */
+  const want = JSON.parse(run(p, 'var A=aiOutput(), id=' + JSON.stringify(id) + ', ms=[]; for(var i=0;i<6;i++) ms.push(aiMonthShift(aiMonthKey(TODAY),-i)); JSON.stringify({'
+    + 'proj:ms.map(function(m){ return Object.keys(A.people(m)[id]||{}).filter(function(g){ return g.indexOf(":")<0; }).map(function(g){ return aiProjLabel(g)+" "+aiTa(A.get(m,id,g))+" of "+A.get(m,null,g).assets; }); }),'
+    + 'team:ms.map(function(m){ return activeTeams().filter(function(x){ var g=A.get(m,id,"team:"+x.id); return g.tasks||g.raw; }).map(function(x){ return x.name; }); }),'
+    + 'all:ms.map(function(m){ return "all their work "+aiTa(A.get(m,id)); }),'
+    + 'label:ms.map(function(m){ return Object.keys(A.people(m)[id]||{}).filter(function(g){ return g.indexOf("label:")===0; }).map(function(g){ return aiLabelName(g.slice(6))+" "+aiTa(A.get(m,id,g))+" of "+A.get(m,null,g).assets; }); }),'
+    + 'weekly:aiWeekLine(A,aiWeeks(),id,null), year:aiYearLine(A,id,null), ms:ms})'));
+  want.ms.forEach((m, i) => {
+    const pl = f.find(l => l.startsWith('  by project ' + m + ': ')), tl = f.find(l => l.startsWith('  by team ' + m + ': '));
+    assert.ok(pl && tl, m + ': a line by project and by team');
+    want.proj[i].forEach(c => assert.ok(pl.includes(c), m + ' ' + c));
+    want.team[i].forEach(n => assert.ok(tl.includes(n + ' ') || tl.includes(n + ' (not a member) '), m + ' ' + n));
+    assert.ok(tl.endsWith(want.all[i]), m + ' all their work');
+    want.label[i].forEach(c => assert.ok(f.some(l => l.startsWith('  by label: ') && l.includes(c)), m + ' ' + c));
+  });
+  assert.ok(f.includes('  weekly (weeks start on Monday): ' + want.weekly));
+  assert.ok(f.includes('  year: ' + want.year));
+  assert.ok(f.some(l => l.startsWith('  by kind of work (chosen on the task): ')));
+  /* the tasks finished this month, each with its project, teams and their share */
+  const n = run(p, 'aiOutput().rows.filter(function(r){ return r.month===aiMonthKey(TODAY)&&(r.assignees.indexOf(' + JSON.stringify(id) + ')>=0||r.credit.by[' + JSON.stringify(id) + ']); }).length');
+  assert.ok(f.includes('  finished in ' + run(p, 'aiMonthTag(aiMonthKey(TODAY))') + ' (' + n + (n > 30 ? ', the latest 30' : '') + '):'));
+  assert.equal(f.filter(l => /^  - T-\d+ ".*" project=.* teams=.* on \d{4}-\d\d-\d\d assets=[\d.]+ of \d+$/.test(l)).length, Math.min(n, 30));
+  assert.ok(f.some(l => /^  open tasks \(\d+/.test(l)));
+  /* the general sections leave out the lines the focus carries */
+  assert.ok(!block(ctx, 'ASSETS BY PERSON').some(l => l.startsWith('- ' + name + ' (')), 'not twice');
+  assert.ok(block(ctx, 'ASSETS BY PERSON').length > 10, 'everyone else\'s totals are still there');
+  /* in a narrower snapshot too (an attachment's room taken): within it, the open tasks last, the person still in focus */
+  const narrow = ctxFor(p, 'berapa aset ' + name + ' bulan ini?', [], 33000);
+  assert.ok(narrow.length <= 33000 && /…and \d+ more open tasks not listed here\.$/.test(narrow) && focusBlock(narrow).some(l => l.startsWith('  by project ')), 'narrow: ' + narrow.length);
+  console.log('# focus build, big workspace, in the test sandbox: ' + took + ' ms');
+});
+
+test('a team, a project and a label named have every figure in the FOCUS, equal to aiOutput', () => {
+  const p = page(); workspace(p, bigWorkspace);
+  const cur = monthKey(new Date());
+  /* a team */
+  let ctx = ctxFor(p, 'berapa aset tim Events bulan ini?'), f = focusBlock(ctx);
+  assert.ok(ctx.length <= 40000 && /…and \d+ more open tasks not listed here\.$/.test(ctx));
+  assert.match(f[0], /^FOCUS \(from the question: team Events, period /);
+  const tid = run(p, 'activeTeams().filter(function(x){ return x.name==="Events"; })[0].id');
+  const tt = run(p, 'var A=aiOutput(), ms=[]; for(var i=0;i<6;i++) ms.push(aiMonthShift(aiMonthKey(TODAY),-i)); "  team totals: "+ms.map(function(m){ return m+" "+aiTa(A.get(m,null,"team:' + tid + '")); }).join("; ")+" | all time "+aiTa(A.get("done",null,"team:' + tid + '"))');
+  assert.ok(f.includes(tt), 'the team\'s months');
+  assert.equal(run(p, 'var A=aiOutput(); A.get(aiMonthKey(TODAY),null,"team:' + tid + '").tasks'), run(p, 'TASKS.filter(function(x){ return taskInvolvesTeam(x,"' + tid + '"); }).filter(teamDoneThisMonth).length'), 'the Teams page\'s own count');
+  const ppl = run(p, 'var A=aiOutput(), m=aiMonthKey(TODAY), ix=A.people(m); Object.keys(ix).filter(function(id){ return ix[id]["team:' + tid + '"]; }).map(function(id){ return person(id).name+" "+aiTa(A.get(m,id,"team:' + tid + '")); }).join("|")').split('|');
+  const pl = f.find(l => l.startsWith('  people ' + cur + ': '));
+  ppl.forEach(c => assert.ok(pl.includes(c), c));
+  assert.ok(f.some(l => l.startsWith('  projects ' + cur + ': ')) && f.some(l => l.startsWith('  weekly (team totals): ')) && f.some(l => l.startsWith('  year (team totals): ')));
+  assert.ok(!(block(ctx, 'TEAM OUTPUT BY MONTH') || []).some(l => l.startsWith('- Events (')), 'not twice');
+  /* a project */
+  ctx = ctxFor(p, 'berapa aset Campaign project 7 bulan ini?'); f = focusBlock(ctx);
+  assert.match(f[0], /^FOCUS \(from the question: project Campaign project 7, period /);
+  assert.ok(f.includes(run(p, 'var A=aiOutput(), ms=[]; for(var i=0;i<6;i++) ms.push(aiMonthShift(aiMonthKey(TODAY),-i)); "  project totals: "+ms.map(function(m){ return m+" "+aiTa(A.get(m,null,"q7")); }).join("; ")+" | all time "+aiTa(A.get("done",null,"q7"))')));
+  const pp = run(p, 'var A=aiOutput(), m=aiMonthKey(TODAY), ix=A.people(m); Object.keys(ix).filter(function(id){ return ix[id].q7; }).map(function(id){ return person(id).name+" "+aiTa(A.get(m,id,"q7")); }).join("|")').split('|');
+  pp.forEach(c => assert.ok(f.find(l => l.startsWith('  people ' + cur + ': ')).includes(c), c));
+  /* a label */
+  ctx = ctxFor(p, 'berapa aset label Label name 3 bulan ini?'); f = focusBlock(ctx);
+  assert.match(f[0], /^FOCUS \(from the question: label Label name 3, period /);
+  assert.ok(f.includes(run(p, 'var A=aiOutput(), ms=[]; for(var i=0;i<6;i++) ms.push(aiMonthShift(aiMonthKey(TODAY),-i)); "  label totals: "+ms.map(function(m){ return m+" "+aiTa(A.get(m,null,"label:lb3")); }).join("; ")+" | all time "+aiTa(A.get("done",null,"label:lb3"))')));
+  assert.ok(f.some(l => l.startsWith('  finished in ')));
+});
+
+test('two people named share the focus fairly, both labelled', () => {
+  const p = page(); workspace(p, bigWorkspace);
+  const ctx = ctxFor(p, 'bandingkan Person Number 9 dan Person Number 5 bulan ini'), f = focusBlock(ctx);
+  assert.ok(ctx.length <= 40000 && /…and \d+ more open tasks not listed here\.$/.test(ctx));
+  assert.match(f[0], /^FOCUS \(from the question: person Person Number 9, person Person Number 5, period /, 'in the order named');
+  const at = n => f.findIndex(l => l.startsWith('- person ' + n + ' ('));
+  const a = f.slice(at('Person Number 9'), at('Person Number 5')), b = f.slice(at('Person Number 5'));
+  const len = x => x.join('\n').length;
+  assert.ok(a.length > 5 && b.length > 5, 'both there');
+  assert.ok(Math.abs(len(a) - len(b)) < 0.15 * Math.max(len(a), len(b)) || !a.concat(b).some(l => / more lines about /.test(l)), 'a fair share each: ' + len(a) + ' / ' + len(b));
+  for (const x of [a, b]) {
+    for (const k of ['  totals: ', '  by team ', '  by project ', '  weekly ', '  year: ', '  by label: ']) assert.ok(x.some(l => l.startsWith(k)), k + ' kept, the task lists give way first');
+    if (x.some(l => / more lines about /.test(l))) assert.match(x[x.length - 1], /^  …\d+ more lines about person Person Number \d+ left out, for room\.$/);
+  }
+  assert.ok(len(f) <= 0.45 * 40000 + 200, 'at most 45% of the room: ' + len(f));
+});
+
+test('a follow-up keeps the focus, another name moves it, and the period follows the latest question', () => {
+  const p = page(), m = workspace(p, habib);
+  const first = 'berapa banyak asset yang diproduksi habib bulan ini di social media tim?';
+  const fo = q => JSON.parse(run(p, 'var f=aiFocusFor(' + JSON.stringify(q) + ',' + JSON.stringify([first]) + '); JSON.stringify(f&&{people:f.people,teams:f.teams.map(function(x){ return x.id; }),period:f.period&&f.period.key,earlier:f.earlier})'));
+  assert.deepEqual(fo(first), { people: ['habib'], teams: ['sm'], period: m.cur, earlier: false });
+  assert.deepEqual(fo('dan bulan lalu?'), { people: ['habib'], teams: ['sm'], period: m.prev, earlier: true }, 'still Habib, last month');
+  assert.deepEqual(fo('kalau Sari?'), { people: ['sari'], teams: [], period: m.cur, earlier: false }, 'Sari now, the month asked before');
+  assert.match(ctxFor(p, 'dan bulan lalu?', [first]), new RegExp('\\nFOCUS \\(from an earlier question, as the latest one names no one: person Habib Rahman, team Social Media, period ' + m.prev + '\\)'));
+  /* more than three questions back is too far */
+  assert.equal(run(p, 'aiFocusFor("dan bulan lalu?",[' + JSON.stringify(first) + ',"ok","terima kasih","lalu?"])'), null);
+  /* the viewer is in focus for "saya" only in a question about work */
+  assert.deepEqual(JSON.parse(run(p, 'JSON.stringify(aiFocusFor("berapa aset saya bulan ini",[]).people)')), ['ana']);
+  assert.equal(run(p, 'aiFocusFor("apa yang perlu saya perhatikan hari ini",[])'), null);
+  /* the chat's own messages, as the server path reads them (aiChatContext), and the browser-key path's question */
+  run(p, 'AI_CHAT.msgs=[{role:"user",text:' + JSON.stringify(first) + '},{role:"assistant",text:"30"},{role:"user",text:"dan bulan lalu?"}]');
+  const sent = run(p, 'aiChatContext()');
+  assert.ok(sent.includes('\nFOCUS (from an earlier question, as the latest one names no one: person Habib Rahman, team Social Media, period ' + m.prev + ')'));
+  assert.ok(sent.length <= 40000);
+  const src = fs.readFileSync(path.join(root, 'src/ai.js'), 'utf8');
+  assert.equal((src.match(/aiSystem\(q\)\+"\\n\\n"\+aiContext\(60,AI_CTX_MAX,aiFocusFor\(q\)\)/g) || []).length, 3, 'all three browser-key providers');
+});
+
+test('a name a team and a project share: both in focus, labelled apart; "tim" says the team, "project" the project', () => {
+  const p = page(); workspace(p, ctx => { habib(ctx); ctx.PROJECTS.push({ id: 'psm2', name: 'Social Media', status: 'active', owner: 'sari', due: 20, start: -30, team: [], teams: ['sm'], milestones: [] }); ctx.TASKS.find(t => t.id === 'T-H5').proj = 'psm2'; });
+  const head = q => focusBlock(ctxFor(p, q))[0];
+  assert.match(head('berapa aset social media bulan ini'), /^FOCUS \(from the question: team Social Media, project Social Media, period /);
+  const both = focusBlock(ctxFor(p, 'berapa aset social media bulan ini'));
+  assert.ok(both.some(l => l.startsWith('- team Social Media (')) && both.includes('- project Social Media:'), 'each labelled for what it is');
+  assert.match(head('berapa aset tim social media bulan ini'), /^FOCUS \(from the question: team Social Media, period /);
+  assert.match(head('berapa aset social media tim bulan ini'), /^FOCUS \(from the question: team Social Media, period /);
+  assert.match(head('berapa aset project social media bulan ini'), /^FOCUS \(from the question: project Social Media, period /);
+  /* a label of the same name is not read a third time from the same words; by itself it is the label */
+  run(p, 'WS.labels.push({id:"lsm",name:"Social Media",color:"blue"})');
+  assert.equal(run(p, 'aiNamesIn("berapa aset tim social media bulan ini").labels.length'), 0);
+  assert.equal(run(p, 'aiNamesIn("berapa aset label motion dan social media").labels.map(function(l){ return l.name; }).join()'), 'Motion');
+  run(p, 'WS.labels.pop()');
+  /* the live question: Habib and his team, the one line to quote in the focus */
+  const f = focusBlock(ctxFor(p, 'berapa banyak asset yang diproduksi habib bulan ini di social media tim?'));
+  assert.match(f[0], /^FOCUS \(from the question: person Habib Rahman, team Social Media, period /);
+  assert.ok(f.some(l => l.startsWith('  by team ' + monthKey(new Date()) + ': Social Media tasks=3 assets=30 of 50, ') && l.endsWith('; all their work tasks=3 assets=33')));
+});
+
+test('the system prompt and the server say to answer from FOCUS first', () => {
+  const p = page(); workspace(p);
+  assert.match(run(p, 'aiSystem("berapa aset habib bulan ini")'), /When the snapshot has a FOCUS section, answer from FOCUS first when it covers the question\. /);
+  assert.match(fs.readFileSync(path.join(root, 'server/server.js'), 'utf8'), /"When the snapshot has a FOCUS section, answer from FOCUS first when it covers the question\. " \+/);
 });

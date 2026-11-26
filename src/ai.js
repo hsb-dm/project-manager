@@ -960,14 +960,14 @@ function aiDirectChat(q){
   var body, endpoint=c.endpoint;
   if (anthropic){
     headers["x-api-key"]=key; headers["anthropic-version"]="2023-06-01"; headers["anthropic-dangerous-direct-browser-access"]="true";
-    body = { model:c.model, max_tokens:1024, system:aiSystem(q)+"\n\n"+aiContext(), messages:AI_CHAT.msgs.filter(function(m){return m.role!=="system"}).slice(-12).map(function(m){ return {role:m.role,content:m.text}; }) };
+    body = { model:c.model, max_tokens:1024, system:aiSystem(q)+"\n\n"+aiContext(60,AI_CTX_MAX,aiFocusFor(q)), messages:AI_CHAT.msgs.filter(function(m){return m.role!=="system"}).slice(-12).map(function(m){ return {role:m.role,content:m.text}; }) };
   } else if (gemini) {
     endpoint=(endpoint||"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent").replace("{model}",encodeURIComponent(c.model||"gemini-3.5-flash"));
     headers["x-goog-api-key"]=key;
-    body={ systemInstruction:{parts:[{text:aiSystem(q)+"\n\n"+aiContext()}]}, contents:AI_CHAT.msgs.slice(-12).map(function(m){return {role:m.role==="assistant"?"model":"user",parts:[{text:m.text}]};}) };
+    body={ systemInstruction:{parts:[{text:aiSystem(q)+"\n\n"+aiContext(60,AI_CTX_MAX,aiFocusFor(q))}]}, contents:AI_CHAT.msgs.slice(-12).map(function(m){return {role:m.role==="assistant"?"model":"user",parts:[{text:m.text}]};}) };
   } else {
     headers["Authorization"]="Bearer "+key;
-    body = { model:c.model, messages:[{role:"system",content:aiSystem(q)+"\n\n"+aiContext()}].concat(AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; })) };
+    body = { model:c.model, messages:[{role:"system",content:aiSystem(q)+"\n\n"+aiContext(60,AI_CTX_MAX,aiFocusFor(q))}].concat(AI_CHAT.msgs.slice(-12).map(function(m){ return {role:m.role,content:m.text}; })) };
   }
   return fetch(endpoint,{method:"POST",headers:headers,body:JSON.stringify(body)}).then(function(r){
     return r.text().then(function(t){
@@ -986,6 +986,7 @@ function aiSystem(q){
     "Read dates from the snapshot (TODAY, and YYYY-MM-DD with the weekday on every date); count and list from its own lists (OVERDUE, DUE WITHIN 7 DAYS, AWAITING REVIEW, BLOCKED, PEOPLE, TEAMS); a person's work is the tasks that name them under assignees, their reviews the ones that name them under reviewers. "+
     "Take assets and finished tasks per person, month and project from ASSETS BY PERSON, OUTPUT BY MONTH, PROJECT OUTPUT BY MONTH and MONTHLY OUTPUT BY PERSON x PROJECT, counted as OUTPUT RULE says; never add them up yourself from the task lists, and if a section says lines were left out, say so. "+
     "By team, week, quarter, year, label and kind of work they are in PERSON x TEAM, TEAM OUTPUT BY MONTH, TEAM PEOPLE BY MONTH, WEEKLY OUTPUT, YEAR AND QUARTERS, LABEL OUTPUT BY MONTH and KIND OUTPUT BY MONTH; GLOSSARY maps the words people use, and for a person in a team say which reading you give. "+
+    "When the snapshot has a FOCUS section, answer from FOCUS first when it covers the question. "+
     "Trends, speed and quality are in ANALYTICS, TIME IN STATUS and PIPELINE; risk in RISK; Home's figures in HOME DASHBOARD; load in PEOPLE, TEAMS and OVER CAPACITY; the week's events in ACTIVITY. "+
     "Lead with the direct answer, then support it. When you list tasks, use short bullet lines starting with \"- \" and put the task ID in **bold**; \"**\", \"- \" and `code` are the only markdown that renders. When asked what to do or what needs attention, rank by urgency (overdue > blocked > due soon > review) and briefly say why. Keep answers under ~180 words unless asked for detail. "+languageRule+" "+(aiCfg().chat.systemExtra||"");
 }
@@ -1013,7 +1014,8 @@ function aiTaskLine(t){ var m=t.meta||{}, tm=t.team&&team(t.team), ls=typeof lab
 function aiShortLine(t){ return t.id+" \""+t.title+"\" due="+aiDay(t.due)+" stage="+stageName(t.status)+" assignees="+aiNames(assigneesOf(t)); }
 /* a section of the snapshot that cannot be worked out never stops the question: the model is told so instead */
 function aiPart(lines,name,f){ var ls; try{ ls=f(); }catch(e){ ls=[name+": could not be worked out this time ("+String((e&&e.message)||e).slice(0,120)+"); say so if asked."]; } (ls||[]).forEach(function(l){ lines.push(l); }); }
-function aiContext(taskLimit,budget){
+/* focus: what the question names (aiFocusFor, src/ai-insights.js); without one the snapshot is as it was before it */
+function aiContext(taskLimit,budget,focus){
   budget=Math.min(+budget||AI_CTX_MAX,AI_CTX_MAX);
   var open = TASKS.filter(function(t){ return !t._draft&&!isClosed(t)&&!t.hidden; }).sort(function(a,b){ return aiUrgency(a)-aiUrgency(b); });
   var over = open.filter(function(t){ return t.due<0; });
@@ -1027,6 +1029,7 @@ function aiContext(taskLimit,budget){
   lines.push("VIEWER: "+person(ME).name+" ("+person(ME).role+") — refer to this person as \"you\".");
   lines.push("STAGES: "+WS.workflow.map(function(s){ return s.name; }).join(" > "));
   lines.push("TOTALS: "+open.length+" open, "+over.length+" overdue, "+rev.length+" awaiting review, "+blocked.length+" blocked, "+week.length+" due within 7 days.");
+  var focusAt=lines.length;
   /* Home's own figures (src/ai-insights.js): what the viewer sees on Home, so "how many are due today" matches it */
   aiPart(lines,"HOME DASHBOARD",aiDashLines);
   lines.push("OVERDUE ("+over.length+"): "+(over.length?over.map(ref).join("; "):"none"));
@@ -1067,10 +1070,19 @@ function aiContext(taskLimit,budget){
     lines:done.slice(0,40).map(function(t){ var m=t.meta||{}; return "  "+t.id+" \""+t.title+"\" "+stageName(t.status)+" on "+String(t.completedAt).slice(0,10)+" by "+aiNames(assigneesOf(t))+" est="+(+t.effort||0)+"h"+(+m.actualEffort?" logged="+m.actualEffort+"h":""); })});
   var seesAn=canI.viewAnalytics(), an=null, part=function(name,f){ var ls=[]; aiPart(ls,name,f); fixed(ls); };
   part("RISK",function(){ an=aiAnalytics(); return aiRiskLines(an,open).concat(aiPipelineLines(an,seesAn)); });
-  if(seesAn) part("ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
+  /* with a focus, Analytics gives way like the output tables (after the teams' months), so the focus has its room */
+  if(seesAn&&focus){ var al=[]; aiPart(al,"ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; }); if(al.length) secs.push({name:"ANALYTICS",head:al[0],lines:al.slice(1),pri:2.5,what:"Analytics lines"}); }
+  else if(seesAn) part("ANALYTICS",function(){ return an?aiAnalyticsLines(an):[]; });
   else fixed(["ANALYTICS (throughput, completion time, revision and approval rates, time in status): not included; the Analytics screen is for leads and admins, and this viewer is neither."]);
   part("ACTIVITY IN THE LAST 7 DAYS",function(){ return [aiActivityLine()]; });
-  part("ASSETS BY PERSON",function(){ secs=secs.concat(aiOutputSections()); return []; });
+  var A0=null; if(focus) try{ A0=aiOutput(); }catch(e){ A0=null; }
+  part("ASSETS BY PERSON",function(){ secs=secs.concat(aiOutputSections(A0||undefined)); return []; });
+  /* FOCUS: every figure about what the question names, right after TOTALS, in at most 45% of the room and what the
+     sections always shown leave (2 500 kept for the open tasks); the general sections then leave those lines out */
+  if(focus){ var fl=[];
+    aiPart(fl,"FOCUS",function(){ var fixedLen=lines.join("\n").length+secs.reduce(function(n,x){ return n+(x.pri===0?x.head.length+1:0); },0);
+      var r=aiFocusLines(focus,A0||aiOutput(),Math.max(0,Math.min(budget*0.45,budget-fixedLen-2500)),seesAn); aiFocusSkip(secs,r.skip); return r.lines; });
+    lines.splice.apply(lines,[focusAt,0].concat(fl)); }
   var keep=Math.min(6000,budget*0.15);   /* the open tasks' share; each person's totals and the teams may take all but 2 000 of it */
   aiPack(secs,budget-lines.join("\n").length-keep,keep-2000).forEach(function(l){ lines.push(l); });
   /* the open tasks, most urgent first: in full up to taskLimit, then in short form — as many as the room allows */
@@ -1098,24 +1110,13 @@ function aiLocalAnswer(q){
   function urgency(t){ return (t.due<0?0:isTaskBlocked(t)?1:stageKind(t.status)==="review"?2:t.due<=7?3:4)*100+(PRANK[t.prio]||9); }
   function foot(){ return "\n\n_"+L("Local mode \u2014 connect a model in Settings \u2192 AI for open-ended answers.","Mode lokal \u2014 hubungkan model di Pengaturan \u2192 AI untuk jawaban terbuka.")+"_"; }
 
-  function whichPerson(){
-    if(/\b(me|my|myself|saya|aku)\b/.test(s)) return ME;
-    var found=null;
-    Object.keys(PEOPLE).forEach(function(pid){
-      var p=PEOPLE[pid]; if(!p||!p.name) return;
-      var full=p.name.toLowerCase(), fn=full.split(" ")[0];
-      if(full.length>=4&&s.indexOf(full)>=0) found=pid;
-      else if(fn.length>=3&&new RegExp("\\b"+fn.replace(/[^a-z0-9]/g,"")+"\\b").test(s)&&!found) found=pid;
-    });
-    return found;
-  }
-  function whichProject(){
-    var found=null,best=0;
-    PROJECTS.forEach(function(p){ var n=(p.name||"").toLowerCase(); if(n.length>=4&&s.indexOf(n)>=0&&n.length>best){ found=p; best=n.length; } });
-    return found;
-  }
-  /* "tim social media", "social media tim", "Social Media team" (aiWhichTeam, src/ai-insights.js) */
-  function whichTeam(){ return aiWhichTeam(s); }
+  /* the person, project and team a question names: the one matcher (aiNamesIn, src/ai-insights.js), the snapshot's
+     FOCUS reads the same — "my" / "saya" is the viewer, else a whole name, else a first name; the longest project name;
+     "tim social media", "social media tim", "Social Media team", never a person's own name read as a team */
+  var names=aiNamesIn(q);
+  function whichPerson(){ return names.person; }
+  function whichProject(){ return names.projects[0]||null; }
+  function whichTeam(){ return names.teams[0]||null; }
 
   /* help */
   if(/\bhelp\b|what can you|apa saja|bisa apa|kemampuan|contoh|example/.test(s))
@@ -1135,7 +1136,7 @@ function aiLocalAnswer(q){
 
   /* output (assets and finished tasks per person, month and project), then speed, quality and flow — one count with
      the snapshot's (src/ai-insights.js), so a model and this engine give the same numbers */
-  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject(),team:whichTeam()}); if(outA) return outA;
+  var outA=aiLocalOutput(q,s,{idL:idL,L:L,who:whichPerson(),pj:whichProject(),team:whichTeam(),names:names}); if(outA) return outA;
   var insA=aiLocalInsight(q,s,{idL:idL,L:L}); if(insA) return insA;
 
   /* blocked / dependencies */

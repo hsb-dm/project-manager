@@ -55,9 +55,10 @@ test("attachments ride with the question and are cleared once answered", () => {
 
 test("an attachment narrows the standing snapshot instead of adding to it", () => {
   const actions = read("src/ai-chat-actions.js");
-  assert.match(actions, /aiContext\(n\?18:60,AI_CTX_MAX-att\.length\)/, "18 tasks in full when something is attached, 60 when not — in the room the attachment left");
+  /* (Nov 2026) a third argument, the question's focus (src/ai-insights.js aiFocusFor), leaves the room as it is */
+  assert.match(actions, /aiContext\(n\?18:60,AI_CTX_MAX-att\.length(,focus)?\)/, "18 tasks in full when something is attached, 60 when not — in the room the attachment left");
   const ai = read("src/ai.js");
-  assert.match(ai, /function aiContext\(taskLimit,budget\)/);
+  assert.match(ai, /function aiContext\(taskLimit,budget(,focus)?\)/);
   assert.match(ai, /lim=Math\.max\(1,\+taskLimit\|\|60\), full=open\.slice\(0,lim\)/);
 });
 

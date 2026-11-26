@@ -92,11 +92,39 @@ test("the snapshot counts each person's assets by month and project, slim tasks 
 
     /* what the chat sends the server carries it, and the server tells the model where to look */
     await page.route("**/api/ai/chat", async route => { const body = route.request().postDataJSON(); await page.evaluate(b => { window.__ask = b; }, body); await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ text: "ok" }) }); });
-    await page.evaluate(() => { window.aiConfigured = () => true; aiChatToggle(true); aiAsk("berapa aset Rina bulan ini?"); });
+    /* a question that names no one: the general snapshot, her totals in ASSETS BY PERSON */
+    await page.evaluate(() => { window.aiConfigured = () => true; aiChatReset(); aiAsk("berapa aset bulan ini?"); });
     await expect.poll(() => page.evaluate(() => !!window.__ask && !AI_CHAT.busy)).toBe(true);
-    const body = await page.evaluate(() => window.__ask);
+    let body = await page.evaluate(() => window.__ask);
     expect(body.purpose).toBe("intelligence");
+    expect(body.context).not.toContain("\nFOCUS (");
     expect(body.context).toContain("- " + name + " (member of " + teamName + "): produced=9* delivered=7* ");
+    /* asked by her name, typed into the chat box: the snapshot sent to the server is focused on her and her team */
+    await page.evaluate(() => { window.__ask = null; });
+    const box = page.locator("#aiChatInput");
+    await box.fill("berapa banyak asset yang diproduksi " + name + " bulan ini di " + teamName.toLowerCase() + " tim?");
+    await box.press("Enter");
+    await expect.poll(() => page.evaluate(() => !!window.__ask && !AI_CHAT.busy)).toBe(true);
+    body = await page.evaluate(() => window.__ask);
+    const ctx2 = body.context, fl = ctx2.slice(ctx2.indexOf("\nFOCUS ("), ctx2.indexOf("\nHOME DASHBOARD"));
+    expect(ctx2.length).toBeLessThanOrEqual(r.max);
+    expect(fl).toContain("FOCUS (from the question: person " + name + ", team " + teamName + ", period " + r.cur + "). Every figure about them is here in full; answer from here first.");
+    expect(fl).toContain("\n- person " + name + " (member of " + teamName + "): every figure is their own");
+    expect(fl).toMatch(new RegExp("\\n  by team " + r.cur + ": [^\\n]*" + teamName + " tasks=1 assets=4 of 6[^\\n]*; all their work tasks=1 assets=4\\n"));
+    expect(fl).toContain("\n  by project " + r.cur + ": " + proj + " tasks=1 assets=4 of 10");
+    expect(fl).toContain("\n  by project " + r.m3 + ": " + proj + " tasks=1 assets=3* of 3");
+    expect(fl).toMatch(new RegExp("\\n  - T-\\d+ \"Output B " + tag + "\" project=" + proj + " teams=[^\\n]*" + teamName + "[^\\n]* on \\d{4}-\\d\\d-\\d\\d assets=4 of 6"));
+    expect(fl).toContain("\n- team " + teamName + " (1 members: " + name + ")");
+    /* the general sections leave her line out, it is in the focus; the open tasks are still last */
+    expect(ctx2.slice(ctx2.indexOf("\nASSETS BY PERSON"))).not.toContain("\n- " + name + " (member of ");
+    expect(ctx2.indexOf("\nOPEN TASKS (")).toBeGreaterThan(ctx2.indexOf("\nASSETS BY PERSON"));
+    /* a follow-up that names no one keeps her in focus, last month now */
+    await page.evaluate(() => { window.__ask = null; });
+    await box.fill("dan bulan lalu?"); await box.press("Enter");
+    await expect.poll(() => page.evaluate(() => !!window.__ask && !AI_CHAT.busy)).toBe(true);
+    body = await page.evaluate(() => window.__ask);
+    expect(body.context).toContain("\nFOCUS (from an earlier question, as the latest one names no one: person " + name + ", team " + teamName + ", period " + r.prev + ")");
+    await page.evaluate(() => aiChatReset());
   } finally {
     await page.evaluate(async o => {
       for (const id of o.tasks) await apiFetch("DELETE", "/api/tasks/" + id).catch(() => {});

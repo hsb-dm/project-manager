@@ -936,6 +936,15 @@ project atau tim ditulis "dari N". Contoh: **berapa aset Habib bulan ini di tim 
 tahun ini**. Di workspace besar, bagian yang paling jarang ditanya (label, jenis, bulan-bulan
 lama) dilewati lebih dulu, dan AI diberi tahu bagian mana yang dilewati.
 
+Kalau pertanyaanmu menyebut nama orang, tim, project, label, atau jenis pekerjaan, semua angka
+tentang nama itu dikirim lebih dulu dan lengkap (bagian **FOCUS**): per bulan, per tim, per
+project, per minggu, per kuartal, task yang selesai pada periode yang ditanya, dan task yang masih
+terbuka. Beberapa nama sekaligus dibagi rata ("bandingkan Habib dan Sari"). Pertanyaan lanjutan
+tanpa nama, seperti **dan bulan lalu?**, tetap memakai nama dari pertanyaan sebelumnya (sampai tiga
+pertanyaan ke belakang); **kalau Sari?** memindahkannya ke Sari. "Social media" saja bisa berarti
+tim maupun project dengan nama itu, jadi keduanya dikirim dengan labelnya; **tim social media**
+berarti timnya. Ukuran konteks dan biayanya tidak berubah: bagian lain mengisi sisa ruang.
+
 Selain itu ia membaca angka **Home** (task saya, tenggat hari ini, review, inbox, aset),
 beban tim dan siapa yang melebihi kapasitas, risiko (project berisiko, task yang tidak
 mungkin selesai sebelum tenggatnya, blocker teratas), pipeline, dan aktivitas 7 hari terakhir.
